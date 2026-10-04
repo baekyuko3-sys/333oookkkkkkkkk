@@ -14,6 +14,7 @@ import { WorldBookScreenView } from './screens/WorldBookScreenView';
 import { SettingsScreenView } from './screens/SettingsScreenView';
 import { ProjectStudioScreenView } from './screens/ProjectStudioScreenView';
 import { MemoryScreenView } from './screens/MemoryScreenView';
+import { AppearanceScreenView } from './screens/AppearanceScreenView';
 import { OfflineStoryScreenView } from './screens/OfflineStoryScreenView';
 import { CalendarScreenView } from './screens/CalendarScreenView';
 import { NpcScreenView } from './screens/NpcScreenView';
@@ -188,6 +189,14 @@ export function PhoneSimulator({
 
           {currentScreen === 'memory' && (
             <MemoryScreenView onNavigate={setCurrentScreen} />
+          )}
+
+          {currentScreen === 'appearance' && (
+            <AppearanceScreenView
+              currentTheme={themeMode}
+              onNavigate={setCurrentScreen}
+              onSelectTheme={onSelectTheme}
+            />
           )}
 
           {currentScreen === 'offline-story' && (
