@@ -22,6 +22,8 @@ export interface ResolvedContext {
   world: string;
   project: string;
   worldBook: string;
+  worldBookBefore: string;
+  worldBookAfter: string;
 }
 
 function normalize(value: string) {
@@ -116,8 +118,6 @@ function resolveWorldBook(worldbooks: WorldBook[], scannedText: string) {
   const selected = selectWorldBookEntries(worldbooks, scannedText)
     .filter(({ entry }) => entry.insertion !== 'depth');
 
-  if (!selected.length) return '当前没有命中的世界书条目。';
-
   const before = selected.filter(({ entry }) => entry.insertion === 'before');
   const after = selected.filter(({ entry }) => entry.insertion === 'after');
 
@@ -131,12 +131,10 @@ function resolveWorldBook(worldbooks: WorldBook[], scannedText: string) {
     entry.content,
   ].join('\n')).join('\n\n');
 
-  const sections = [
-    before.length ? render(before, 'before · 角色定义前') : '',
-    after.length ? render(after, 'after · 角色定义后') : '',
-  ].filter(Boolean);
-
-  return sections.length ? sections.join('\n\n') : '当前没有命中的世界书条目。';
+  return {
+    before: before.length ? render(before, 'before · 角色定义前') : '',
+    after: after.length ? render(after, 'after · 角色定义后') : '',
+  };
 }
 
 export function resolveCharacterContext(input: ContextEngineInput): ResolvedContext {
@@ -206,6 +204,11 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
     memory: input.memory ? buildMemoryContext(input.memory) : '当前没有已保存的长期记忆。',
     world,
     project,
-    worldBook: resolveWorldBook(input.worldbooks || [], input.userMessage),
+    worldBook: (() => {
+      const lore = resolveWorldBook(input.worldbooks || [], input.userMessage);
+      return [lore.before, lore.after].filter(Boolean).join('\n\n') || '当前没有命中的世界书条目。';
+    })(),
+    worldBookBefore: resolveWorldBook(input.worldbooks || [], input.userMessage).before,
+    worldBookAfter: resolveWorldBook(input.worldbooks || [], input.userMessage).after,
   };
 }
