@@ -1933,6 +1933,27 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
             </div>
             <div className="divide-y divide-[#f2f2f4]">
               <div className="py-2.5 flex justify-between items-center">
+                <div>
+                  <div className="text-[#333]">全局 AI</div>
+                  <div className="text-[9px] text-[#aaa] mt-0.5">LINE 默认聊天与未单独指定频道使用</div>
+                </div>
+                <span className="text-[#888]">{readAppSettings().apiKey && readAppSettings().model ? readAppSettings().model : '未配置'}</span>
+              </div>
+              <div className="py-2.5 flex justify-between items-center">
+                <div>
+                  <div className="text-[#333]">频道 API</div>
+                  <div className="text-[9px] text-[#aaa] mt-0.5">聊天与朋友圈可分别覆盖全局</div>
+                </div>
+                <span className="text-[#ae7e89]">已支持独立配置</span>
+              </div>
+              <button
+                onClick={() => onNavigateScreen?.('settings')}
+                className="w-full py-2.5 text-left flex justify-between items-center cursor-pointer hover:bg-neutral-50"
+              >
+                <span className="text-[#333]">打开系统 AI / 媒体 API 设置</span>
+                <span className="text-[#ae7e89]">前往 ›</span>
+              </button>
+              <div className="py-2.5 flex justify-between items-center">
                 <span className="text-[#333]">多语言 (Language)</span>
                 <span className="text-[#888]">简体中文 / 日文 (LINE)</span>
               </div>
