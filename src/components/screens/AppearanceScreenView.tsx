@@ -17,7 +17,7 @@ interface AppearanceScreenViewProps {
   onSelectTheme: (theme: ThemeMode) => void;
 }
 
-type Section = 'theme' | 'home' | 'widgets' | 'schemes';
+type Section = 'theme' | 'home' | 'widgets' | 'icons' | 'schemes';
 
 const themeOptions: Array<{ id: ThemeMode; title: string; note: string }> = [
   { id: 'nordic-light', title: '胶片原色', note: '米白 / 纸张 / 安静' },
@@ -56,6 +56,29 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
     setAppearance(next);
   };
 
+  const updateIcon = (key: string, value: string) => {
+    const next = saveAppearance({
+      appIcons: { ...appearance.appIcons, [key]: value },
+    });
+    setAppearance(next);
+  };
+
+  const iconItems = [
+    ['line', 'LINE'],
+    ['moments', 'IG / Moments'],
+    ['music', '音乐'],
+    ['offline-story', '线下剧情'],
+    ['character-profile', '角色档案'],
+    ['world-book', '世界书'],
+    ['appearance', '外观'],
+    ['settings', '设置'],
+    ['threads', 'Threads'],
+    ['npc', 'NPC'],
+    ['group-presets', '预设'],
+    ['spy-phone', '查手机'],
+    ['memory', 'Memory'],
+  ] as const;
+
   const chooseTheme = (theme: ThemeMode) => {
     onSelectTheme(theme);
     update('themeMode', theme);
@@ -88,6 +111,7 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
     ['theme', '主题', Palette],
     ['home', '文字', Type],
     ['widgets', '小组件', Wand2],
+    ['icons', '图标', Sparkles],
     ['schemes', '方案', Copy],
   ] as const, []);
 
@@ -178,6 +202,46 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
               </label>
             ))}
           </div>
+        )}
+
+        {section === 'icons' && (
+          <>
+            <div className="p-3 rounded-2xl bg-[#ebe6de] border border-black/5">
+              <div className="text-[9px] font-mono tracking-[1.5px] text-[#8b8782]">APP ICONS</div>
+              <div className="mt-1 text-[11px] font-semibold">自定义应用图标</div>
+              <div className="mt-1 text-[8px] leading-relaxed text-[#777069]">
+                填图片 URL 即可替换对应图标；留空恢复原来的内置线稿。默认图标和已经确认好的首页布局不会改变。
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              {iconItems.map(([key, label]) => (
+                <div key={key} className="p-2.5 rounded-2xl bg-white/65 border border-black/5 flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-xl bg-[#ebe7df] border border-black/5 overflow-hidden shrink-0 grid place-items-center">
+                    {appearance.appIcons[key] ? (
+                      <img src={appearance.appIcons[key]} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[8px] font-mono text-[#8b8782]">DEFAULT</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] font-semibold">{label}</div>
+                    <input
+                      value={appearance.appIcons[key] || ''}
+                      onChange={event => updateIcon(key, event.target.value)}
+                      placeholder="图片链接"
+                      className="mt-1 w-full p-2 rounded-xl bg-white/80 text-[8px] outline-none"
+                    />
+                  </div>
+                  <button
+                    onClick={() => updateIcon(key, '')}
+                    className="px-2 py-1.5 rounded-lg bg-[#ebe7df] text-[8px] text-[#777069]"
+                  >
+                    重置
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
         )}
 
         {section === 'schemes' && (
