@@ -2435,6 +2435,25 @@ export function LineConversationView({
             </div>
           );
         })}
+        {isTyping && !isRecording && (
+          <div className="flex items-center gap-2 px-1 py-0.5 animate-in fade-in slide-in-from-bottom-1">
+            <div className="w-6 h-6 rounded-full bg-[#f1f1f2] border border-[#ededee] flex items-center justify-center overflow-hidden shrink-0">
+              {importedCharacter?.avatar ? (
+                <img src={importedCharacter.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="text-[9px] text-[#999]">{(characterProfile.nickname || contactName || '?').slice(0, 1)}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 text-[10px] text-[#aaa]">
+              <span className="font-medium tracking-wide">texting</span>
+              <span className="flex items-end gap-0.5">
+                <span className="w-1 h-1 rounded-full bg-[#b9a1a6] animate-bounce" />
+                <span className="w-1 h-1 rounded-full bg-[#b9a1a6] animate-bounce [animation-delay:120ms]" />
+                <span className="w-1 h-1 rounded-full bg-[#b9a1a6] animate-bounce [animation-delay:240ms]" />
+              </span>
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
