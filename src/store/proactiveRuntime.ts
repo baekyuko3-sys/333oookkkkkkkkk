@@ -177,7 +177,8 @@ function chooseBehavior(
   const messages = readLocal<any[]>(`line:conversation:${id}`, []);
   const last = messages[messages.length - 1];
   if (last?.sender === 'me') {
-    const age = now.getTime() - (typeof last.createdAt === 'string' ? new Date(last.createdAt).getTime() : now.getTime());
+    // 旧消息可能没有 createdAt；此时由 30 分钟行为冷却控制，避免因为历史数据时间未知而永远不触发。
+    const age = typeof last.createdAt === 'string' ? now.getTime() - new Date(last.createdAt).getTime() : 2 * 60_000;
     if (age >= 2 * 60_000) {
       return {
         key: 'chat:' + String(last.id),
@@ -317,7 +318,7 @@ export async function runProactiveCatchup() {
       const groupMessages = readLocal<any[]>(`line:conversation:${group.id}`, []);
       const last = groupMessages[groupMessages.length - 1];
       if (!last || last.sender === 'other') continue;
-      const lastTime = typeof last.createdAt === 'string' ? new Date(last.createdAt).getTime() : now.getTime();
+      const lastTime = typeof last.createdAt === 'string' ? new Date(last.createdAt).getTime() : now.getTime() - 2 * 60_000;
       if (now.getTime() - lastTime < 2 * 60_000 || now.getTime() - lastTime > 20 * 60_000) continue;
 
       const actor = memberCharacters[0];
