@@ -34,38 +34,41 @@ export function PhoneSimulator({
   };
 
   return (
-    <div className="relative mx-auto flex flex-col items-center">
-      {/* Phone chassis — the original phone UI is intentionally kept intact. */}
-      <div 
+    <div className="phone-shell-wrap-local">
+      {/* Physical device shell. The UI inside stays the existing UI unchanged. */}
+      <div
         data-theme={isDark ? 'dark' : 'light'}
-        className={`relative w-[360px] sm:w-[390px] h-[780px] sm:h-[844px] overflow-hidden rounded-[43px] border-[7px] border-[var(--frame,#1e1d1b)] shadow-[0_30px_100px_rgba(20,18,15,.28)] flex flex-col select-none ${
-          isDark ? 'dark-theme-mode' : ''
-        }`}
-        style={{ background: 'var(--screen, #ffffff)', color: 'var(--ink, #242323)' }}
+        className={`phone-case-local ${isDark ? 'dark-theme-mode' : ''}`}
       >
-        
-        {/* Statusbar (original phone UI) */}
-        <div className="absolute z-20 top-0 left-0 right-0 h-[42px] flex items-center justify-between px-6 text-[12px] font-[650] tracking-[0.2px] text-[var(--ink)]">
-          <span>9:41</span>
-          
-          <div 
-            onClick={() => setCurrentScreen(currentScreen === 'music' ? 'home' : 'music')}
-            className="absolute top-2 left-1/2 -translate-x-1/2 w-[104px] h-[29px] rounded-[18px] bg-[#181817] shadow-[0_3px_12px_rgba(0,0,0,.18)] flex items-center justify-center cursor-pointer hover:scale-105 transition-transform"
-            title="点击灵动岛"
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mr-1" />
-            <span className="text-[9px] font-sans text-white/90">Sane333</span>
-          </div>
+        <span className="phone-button-local phone-button-silent" aria-hidden="true" />
+        <span className="phone-button-local phone-button-volume-up" aria-hidden="true" />
+        <span className="phone-button-local phone-button-volume-down" aria-hidden="true" />
+        <span className="phone-button-local phone-button-power" aria-hidden="true" />
 
-          <div className="flex items-center gap-[7px]">
-            <span className="text-[11px]">⌁</span>
-            <span className="text-[11px] font-normal">Wi‑Fi</span>
-            <div className="w-[21px] h-[10px] border-[1.4px] border-current rounded-[3px] relative">
-              <div className="absolute -right-[3px] top-[2.5px] w-[2px] h-[4px] bg-current rounded-[1px]" />
-              <div className="w-[72%] h-full bg-current rounded-[1px]" />
+        <div className="phone-frame-local">
+          <div
+            className="phone-screen-local"
+            style={{ background: 'var(--screen, #ffffff)', color: 'var(--ink, #242323)' }}
+          >
+            {/* Realistic status bar / Dynamic Island */}
+            <div className="phone-status-local text-[var(--ink)]">
+              <span className="phone-time-local">9:41</span>
+
+              <button
+                type="button"
+                onClick={() => setCurrentScreen(currentScreen === 'music' ? 'home' : 'music')}
+                className="phone-island-local"
+                aria-label="灵动岛"
+              />
+
+              <div className="phone-status-right-local">
+                <span className="phone-signal-local" aria-hidden="true">▂▅▇</span>
+                <span className="phone-wifi-local" aria-hidden="true">⌁</span>
+                <span className="phone-battery-local" aria-hidden="true">
+                  <span />
+                </span>
+              </div>
             </div>
-          </div>
-        </div>
 
         {/* Screen Content Viewport */}
         <div className="flex-1 relative overflow-hidden">
@@ -139,20 +142,22 @@ export function PhoneSimulator({
           )}
         </div>
 
-        {/* Home Indicator */}
-        <div 
-          onClick={() => setCurrentScreen('home')}
-          className="absolute z-20 bottom-[7px] left-1/2 -translate-x-1/2 w-[118px] h-[4px] rounded-[5px] bg-[#242321] cursor-pointer hover:w-[130px] transition-all"
-          title="点击返回主屏幕"
-        />
+            {/* Home Indicator */}
+            <div
+              onClick={() => setCurrentScreen('home')}
+              className="phone-home-indicator-local"
+              title="点击返回主屏幕"
+            />
 
-        {/* Home customization — kept as part of the original phone UI */}
-        <HomeCustomizeSheet
-          isOpen={isSheetOpen}
-          onClose={() => setIsSheetOpen(false)}
-          currentTheme={themeMode}
-          onSelectTheme={onSelectTheme}
-        />
+            {/* Existing customization UI remains inside the phone. */}
+            <HomeCustomizeSheet
+              isOpen={isSheetOpen}
+              onClose={() => setIsSheetOpen(false)}
+              currentTheme={themeMode}
+              onSelectTheme={onSelectTheme}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
