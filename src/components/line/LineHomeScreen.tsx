@@ -9,13 +9,7 @@ interface LineHomeScreenProps {
 export function LineHomeScreen({ onSelectChat, onGoToListTab }: LineHomeScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
-  const allContacts = [
-    { name: 'Lily', subtitle: '好呀！明天见~', time: '20:48', avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=200&q=80' },
-    { name: '小鱼', subtitle: '今天也要加油呀~', time: '21:06', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80' },
-    { name: 'Momo', subtitle: '我回家啦', time: '20:17', avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=200&q=80' },
-    { name: '工作群', subtitle: '项目资料我发你了', time: '18:42', avatar: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=200&q=80' },
-    { name: '英国生活分享群', subtitle: '有人在伦敦吗？想问个问题~', time: '16:20', avatar: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=200&q=80' },
-  ];
+  const allContacts: { name: string; subtitle: string; time: string; avatar: string }[] = [];
 
   const searchResults = searchQuery.trim()
     ? allContacts.filter(
@@ -158,7 +152,7 @@ export function LineHomeScreen({ onSelectChat, onGoToListTab }: LineHomeScreenPr
                 </div>
                 <div>
                   <div className="font-semibold text-xs text-[#282421]">进入好友列表</div>
-                  <div className="text-[10px] text-[#8E877F]">共 9 位联系人与群聊 · 2 条未读</div>
+                  <div className="text-[10px] text-[#8E877F]">暂无联系人 · 添加后会显示在这里</div>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-[#8E877F]" />
