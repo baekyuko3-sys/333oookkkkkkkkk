@@ -295,7 +295,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
                   <use href="#book"/>
                 </svg>
               </div>
-              <span className="font-medium">线下剧情</span>
+              <span className="font-medium">角色中心</span>
             </button>
           </section>
 
@@ -303,33 +303,76 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
       )}
 
       {/* ========================================================================= */}
-      {/* PAGE 2: 深度扩展页 (Threads + 查手机) 
-          与第一页风格统一，极简克制，充实而充满叙事张力！
+      {/* PAGE 2: 扩展功能页 */}
       {/* ========================================================================= */}
       {currentPage === 2 && (
         <div className="animate-in fade-in duration-300">
           <div className="absolute z-10 inset-x-[26px] top-[148px]">
             <div className="font-serif text-[42px] leading-[0.95] font-normal tracking-[-1.5px] text-[var(--ink)]">
-              空白
+              应用
             </div>
             <div className="text-[10px] text-[#8b8782] tracking-[2px] mt-2.5 font-mono">
-              PRIVATE DEVICE · PAGE 02
+              PRIVATE APPS · PAGE 02
             </div>
-            <div className="mt-4 font-serif-sc text-[12.5px] leading-[1.75] text-[var(--sub,#68625b)] max-w-[220px]">
-              “这里还没有任何角色、对话或私人记录。<br />
-              从零开始，等你亲手填入。”
+            <div className="mt-4 font-serif-sc text-[12.5px] leading-[1.75] text-[var(--sub,#68625b)] max-w-[230px]">
+              “功能都在这里。<br />内容留给你自己建立。”
             </div>
           </div>
 
-          <div className="absolute z-10 top-[306px] left-[20px] right-[20px]">
-            <div className="min-h-[190px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[18px] shadow-[0_6px_22px_rgba(40,35,30,.045)] flex flex-col items-center justify-center text-center">
-              <div className="w-12 h-12 rounded-2xl border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--icon,rgba(248,245,239,.72))] grid place-items-center text-[var(--sub,#68625b)] mb-3">
-                ○
+          <div className="absolute z-10 top-[306px] left-[20px] right-[20px] grid grid-cols-2 gap-[11px]">
+            <button
+              onClick={() => onNavigate('threads')}
+              className="text-left border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[20px] p-[14px] shadow-[0_6px_22px_rgba(40,35,30,.045)] active:scale-[.99] transition-all"
+            >
+              <div className="w-10 h-10 rounded-[14px] bg-[#1a1a1a] text-white grid place-items-center">
+                <svg className="w-5 h-5 fill-current"><use href="#threads"/></svg>
               </div>
-              <div className="text-[11px] font-mono tracking-[1.4px] text-[#8b8782]">NO PRESET DATA</div>
-              <p className="mt-2 font-serif-sc text-[12px] leading-relaxed text-[var(--sub,#68625b)]">
-                暂无角色 · 暂无聊天 · 暂无动态
-              </p>
+              <div className="mt-3 text-[11px] font-semibold">Threads</div>
+              <div className="mt-1 text-[9px] text-[#8b8782]">动态、发帖与互动</div>
+              <div className="mt-3 text-[8px] font-mono tracking-[1px] text-[#9a938a]">EMPTY · READY</div>
+            </button>
+
+            <button
+              onClick={() => onNavigate('spy-phone')}
+              className="text-left border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[20px] p-[14px] shadow-[0_6px_22px_rgba(40,35,30,.045)] active:scale-[.99] transition-all"
+            >
+              <div className="w-10 h-10 rounded-[14px] bg-[#9b625b] text-white grid place-items-center">
+                <svg className="w-5 h-5 stroke-current fill-none stroke-[1.5]"><use href="#spy"/></svg>
+              </div>
+              <div className="mt-3 text-[11px] font-semibold">查手机</div>
+              <div className="mt-1 text-[9px] text-[#8b8782]">角色资料建立后可使用</div>
+              <div className="mt-3 text-[8px] font-mono tracking-[1px] text-[#9a938a]">NO CHARACTER YET</div>
+            </button>
+
+            <button
+              onClick={() => onNavigate('gallery')}
+              className="text-left border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[20px] p-[14px] shadow-[0_6px_22px_rgba(40,35,30,.045)] active:scale-[.99] transition-all"
+            >
+              <div className="w-10 h-10 rounded-[14px] bg-[var(--icon,rgba(248,245,239,.72))] border border-[var(--edge,rgba(255,255,255,.6))] grid place-items-center">
+                <span className="text-[16px]">□</span>
+              </div>
+              <div className="mt-3 text-[11px] font-semibold">相册</div>
+              <div className="mt-1 text-[9px] text-[#8b8782]">照片与截图</div>
+              <div className="mt-3 text-[8px] font-mono tracking-[1px] text-[#9a938a]">0 ITEMS</div>
+            </button>
+
+            <button
+              onClick={() => onNavigate('calendar')}
+              className="text-left border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[20px] p-[14px] shadow-[0_6px_22px_rgba(40,35,30,.045)] active:scale-[.99] transition-all"
+            >
+              <div className="w-10 h-10 rounded-[14px] bg-[var(--icon,rgba(248,245,239,.72))] border border-[var(--edge,rgba(255,255,255,.6))] grid place-items-center">
+                <span className="font-mono text-[10px]">CAL</span>
+              </div>
+              <div className="mt-3 text-[11px] font-semibold">日历</div>
+              <div className="mt-1 text-[9px] text-[#8b8782]">事件、时间与剧情节点</div>
+              <div className="mt-3 text-[8px] font-mono tracking-[1px] text-[#9a938a]">0 EVENTS</div>
+            </button>
+          </div>
+
+          <div className="absolute z-10 left-[26px] right-[26px] top-[566px] rounded-[20px] border border-dashed border-[#d7cec3] bg-white/35 p-3.5">
+            <div className="text-[9px] font-mono tracking-[1.5px] text-[#8b8782]">MANAGE</div>
+            <div className="mt-1 text-[10px] text-[#6f6a63]">
+              角色、世界书、设置都有独立的管理页面；初始状态全部为空。
             </div>
           </div>
         </div>
@@ -363,16 +406,16 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
         style={{ background: 'var(--glass, rgba(248,246,242,.72))' }}
       >
         <button
-          onClick={onOpenSheet}
+          onClick={() => onNavigate('character-profile')}
           className="flex flex-col items-center gap-1.5 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] hover:text-[var(--ink)] active:scale-95 transition-all group"
-          title="个人设置"
+          title="角色管理"
         >
           <div className="w-[46px] h-[46px] rounded-[15px] bg-[var(--icon,rgba(248,245,239,.72))] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_4px_12px_rgba(52,43,34,.05)] grid place-items-center group-hover:scale-105 group-hover:bg-white transition-all">
             <svg className="w-[22px] h-[22px] stroke-current fill-none stroke-[1.5] stroke-linecap-round stroke-linejoin-round">
               <use href="#card"/>
             </svg>
           </div>
-          <span className="font-medium">个人</span>
+          <span className="font-medium">角色</span>
         </button>
 
         <button
@@ -402,9 +445,9 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
         </button>
 
         <button 
-          onClick={onOpenSheet}
+          onClick={() => onNavigate('settings')}
           className="flex flex-col items-center gap-1.5 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] hover:text-[var(--ink)] active:scale-95 transition-all group"
-          title="系统设置与自定义"
+          title="系统设置"
         >
           <div className="w-[46px] h-[46px] rounded-[15px] bg-[var(--icon,rgba(248,245,239,.72))] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_4px_12px_rgba(52,43,34,.05)] grid place-items-center group-hover:scale-105 group-hover:bg-white transition-all">
             <svg className="w-[22px] h-[22px] stroke-current fill-none stroke-[1.5] stroke-linecap-round stroke-linejoin-round">
