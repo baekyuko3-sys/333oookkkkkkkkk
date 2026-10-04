@@ -385,6 +385,56 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
                         </select>
                       </label>
                     )}
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <label className="bg-white/55 rounded-xl p-2 text-[9px]">
+                        Role · Depth
+                        <select
+                          value={selectedEntry.role || 'system'}
+                          onChange={e => patchEntry({ role: e.target.value as WorldBookEntry['role'] })}
+                          className="w-full mt-1 bg-transparent outline-none text-[9px]"
+                        >
+                          <option value="system">SYSTEM</option>
+                          <option value="user">USER</option>
+                          <option value="assistant">ASSISTANT</option>
+                        </select>
+                      </label>
+                      <label className="bg-white/55 rounded-xl p-2 text-[9px]">
+                        Group
+                        <input
+                          value={selectedEntry.group || ''}
+                          onChange={e => patchEntry({ group: e.target.value })}
+                          className="w-full mt-1 bg-transparent outline-none text-[9px]"
+                          placeholder="例如：school"
+                        />
+                      </label>
+                      <label className="bg-white/55 rounded-xl p-2 text-[9px]">
+                        Group Weight
+                        <input
+                          type="number"
+                          min="0"
+                          value={selectedEntry.groupWeight ?? 100}
+                          onChange={e => patchEntry({ groupWeight: Math.max(0, Number(e.target.value) || 0) })}
+                          className="w-full mt-1 bg-transparent outline-none font-mono text-[9px]"
+                        />
+                      </label>
+                      <label className="bg-white/55 rounded-xl p-2 text-[9px]">
+                        Outlet
+                        <input
+                          value={selectedEntry.outletName || ''}
+                          onChange={e => patchEntry({ outletName: e.target.value })}
+                          className="w-full mt-1 bg-transparent outline-none text-[9px]"
+                          placeholder="可选"
+                        />
+                      </label>
+                    </div>
+                    <label className="flex items-center justify-between text-[9px] py-1">
+                      <span>Prevent Recursion · 阻止继续递归</span>
+                      <input type="checkbox" checked={Boolean(selectedEntry.preventRecursion)} onChange={e => patchEntry({ preventRecursion: e.target.checked })} />
+                    </label>
+                    <label className="flex items-center justify-between text-[9px] py-1">
+                      <span>Exclude Recursion · 不被递归触发</span>
+                      <input type="checkbox" checked={Boolean(selectedEntry.excludeRecursion)} onChange={e => patchEntry({ excludeRecursion: e.target.checked })} />
+                    </label>
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
