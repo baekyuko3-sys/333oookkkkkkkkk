@@ -90,6 +90,8 @@ export interface WorldBook {
   id: string;
   name: string;
   description: string;
+  category?: string;
+  tags?: string[];
   entries: WorldBookEntry[];
   enabled: boolean;
   updatedAt: string;
