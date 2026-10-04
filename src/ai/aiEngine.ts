@@ -291,6 +291,52 @@ function buildConversationMessages(input: AiReplyInput) {
   if (!last || last.role !== 'user' || last.content !== input.userMessage) {
     recent.push({ role: 'user', content: input.userMessage, imageData: undefined });
   }
+
+  const scanDepth = Math.max(1, Math.min(50, Math.max(
+    12,
+    ...(input.worldbooks || []).flatMap(book => book.entries.map(entry => Number(entry.scanDepth || 0)))
+  )));
+  const scannedText = recent
+    .map(message => message.content)
+    .filter(Boolean)
+    .join('\n');
+  const depthEntries = selectWorldBookEntries(input.worldbooks || [], scannedText)
+    .filter(({ entry }) => entry.insertion === 'depth');
+
+  if (depthEntries.length) {
+    const byDepth = new Map<number, typeof depthEntries>();
+    for (const item of depthEntries) {
+      const depth = Math.max(0, Number(item.entry.depth || 0));
+      const group = byDepth.get(depth) || [];
+      group.push(item);
+      byDepth.set(depth, group);
+    }
+
+    const withDepth: typeof recent = [];
+    for (let index = 0; index < recent.length; index += 1) {
+      const depth = recent.length - index;
+      const entries = byDepth.get(depth) || [];
+      for (const { entry } of entries) {
+        withDepth.push({
+          role: entry.role || 'system',
+          content: '[WORLD BOOK · depth=' + depth + ']\\n' + entry.content,
+          imageData: undefined,
+        });
+      }
+      withDepth.push(recent[index]);
+    }
+
+    for (const { entry } of byDepth.get(0) || []) {
+      withDepth.push({
+        role: entry.role || 'system',
+        content: '[WORLD BOOK · depth=0]\\n' + entry.content,
+        imageData: undefined,
+      });
+    }
+
+    return withDepth;
+  }
+
   return recent;
 }
 
