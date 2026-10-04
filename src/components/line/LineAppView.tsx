@@ -5,6 +5,8 @@ import { ScreenType } from '../../types';
 import { LineConversationView } from './LineConversationView';
 import { createLineGroup } from '../../store/lineGroups';
 import { markCharacterRead } from '../../store/worldRuntime';
+import { listOpenAiCompatibleModels, testAiConnection, type AiSettings } from '../../ai/aiEngine';
+import { readAppSettings, saveAppSettings, type ChannelAiSettings } from '../../store/appSettings';
 import {
   Pin, BellOff, Bookmark, Heart, MessageCircle, Share2, Plus, Search,
   Check, Trash2, X, Sliders, ChevronRight, UserCheck, Shield, Volume2,
@@ -58,6 +60,55 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [friendSearch, setFriendSearch] = useState('');
 
   // Toast
+  const updateChannelSettings = (channel: 'chat' | 'moments', patch: Partial<ChannelAiSettings>) => {
+    setChannelSettings(prev => {
+      const next = { ...prev, [channel]: { ...prev[channel], ...patch } };
+      saveAppSettings(channel === 'chat' ? { chatApiOverride: next.chat } : { momentsApiOverride: next.moments });
+      return next;
+    });
+  };
+
+  const channelAsAiSettings = (channel: 'chat' | 'moments'): AiSettings => {
+    const base = readAppSettings();
+    const s = channelSettings[channel];
+    return {
+      provider: s.provider,
+      apiBaseUrl: s.apiBaseUrl,
+      apiKey: s.apiKey,
+      model: s.model,
+      streaming: s.streaming,
+      contextLength: s.contextLength,
+      maxOutputTokens: s.maxOutputTokens,
+      autoSave: base.autoSave,
+      temperature: s.temperature,
+    };
+  };
+
+  const fetchChannelModels = async (channel: 'chat' | 'moments') => {
+    const s = channelSettings[channel];
+    if (!s.apiBaseUrl.trim() || !s.apiKey.trim()) { showToast('请先填写 API 地址和 API Key'); return; }
+    setChannelBusy(channel + '-models' as any);
+    try {
+      const models = await listOpenAiCompatibleModels(channelAsAiSettings(channel));
+      setChannelModels(prev => ({ ...prev, [channel]: models }));
+      showToast(models.length ? '模型列表已更新' : '接口没有返回模型列表');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : '拉取模型失败');
+    } finally { setChannelBusy(null); }
+  };
+
+  const testChannel = async (channel: 'chat' | 'moments') => {
+    const s = channelSettings[channel];
+    if (!s.apiBaseUrl.trim() || !s.apiKey.trim() || !s.model.trim()) { showToast('请先填写 API、Key 和模型'); return; }
+    setChannelBusy(channel + '-test' as any);
+    try {
+      await testAiConnection(channelAsAiSettings(channel));
+      showToast('AI 连接测试成功 ✓');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : '连接测试失败');
+    } finally { setChannelBusy(null); }
+  };
+
   const [toastMsg, setToastMsg] = useState('');
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -95,6 +146,12 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [showGlobalChatSettingsModal, setShowGlobalChatSettingsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showGeneralSettingsModal, setShowGeneralSettingsModal] = useState(false);
+  const [channelSettings, setChannelSettings] = useState(() => {
+    const settings = readAppSettings();
+    return { chat: settings.chatApiOverride, moments: settings.momentsApiOverride };
+  });
+  const [channelModels, setChannelModels] = useState<{ chat: string[]; moments: string[] }>({ chat: [], moments: [] });
+  const [channelBusy, setChannelBusy] = useState<'chat-models' | 'chat-test' | 'moments-models' | 'moments-test' | null>(null);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
 
   // Notification toggles
@@ -1745,35 +1802,37 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="p-3 bg-[#faf8f9] rounded-[12px] border border-[#f0e4e7] space-y-1">
-                <div className="font-semibold text-[#ae7e89]">字体大小</div>
-                <div className="flex items-center justify-between text-[#555] pt-1">
-                  <span>标准 (默认)</span>
-                  <span className="text-[#ae7e89]">✓</span>
-                </div>
-              </div>
-
-              <div
-                onClick={() => {
-                  setChatItems((prev) => prev.map((c) => ({ ...c, unread: 0 })));
-                  showToast('已全部标记为已读');
-                }}
-                className="p-3 bg-[#f8f8fa] rounded-[12px] flex items-center justify-between cursor-pointer hover:bg-[#f0f0f2]"
-              >
-                <span className="text-[#333]">一键全部标为已读</span>
-                <span className="text-[#aaa]">›</span>
-              </div>
-
-              <div
-                onClick={() => {
-                  setChatItems((prev) => prev.map((c) => ({ ...c, draft: '' })));
-                  showToast('已清空所有会话草稿');
-                }}
-                className="p-3 bg-[#f8f8fa] rounded-[12px] flex items-center justify-between cursor-pointer hover:bg-[#f0f0f2]"
-              >
-                <span className="text-[#333]">清空所有草稿记录</span>
-                <span className="text-[#aaa]">›</span>
-              </div>
+              {(['chat', 'moments'] as const).map((channel) => {
+                const s = channelSettings[channel];
+                const label = channel === 'chat' ? 'LINE 聊天 API' : '朋友圈 Moments API';
+                const models = channelModels[channel];
+                return (
+                  <div key={channel} className="p-3 bg-[#faf8f9] rounded-[12px] border border-[#f0e4e7] space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-[#ae7e89]">{label}</div>
+                        <div className="text-[9px] text-[#999] mt-0.5">{s.enabled ? '当前聊天频道使用独立 API' : '默认跟随全局 AI API'}</div>
+                      </div>
+                      <button onClick={() => updateChannelSettings(channel, { enabled: !s.enabled })} className={`px-2.5 py-1 rounded-full text-[9px] ${s.enabled ? 'bg-[#d4aab5] text-white' : 'bg-[#eee] text-[#777]'}`}>{s.enabled ? '独立 API' : '跟随全局'}</button>
+                    </div>
+                    {s.enabled && <div className="space-y-2">
+                      <input value={s.apiBaseUrl} onChange={e => updateChannelSettings(channel, { apiBaseUrl: e.target.value })} placeholder="API Base URL" className="w-full p-2 bg-white border border-[#e8e8e9] rounded-[9px] text-[10px] outline-none" />
+                      <input value={s.apiKey} onChange={e => updateChannelSettings(channel, { apiKey: e.target.value })} placeholder="API Key" type="password" className="w-full p-2 bg-white border border-[#e8e8e9] rounded-[9px] text-[10px] outline-none" />
+                      <div className="flex gap-2">
+                        <select value={s.model} onChange={e => updateChannelSettings(channel, { model: e.target.value })} className="flex-1 p-2 bg-white border border-[#e8e8e9] rounded-[9px] text-[10px] outline-none">
+                          <option value="">选择模型</option>
+                          {models.map(model => <option key={model} value={model}>{model}</option>)}
+                          {s.model && !models.includes(s.model) && <option value={s.model}>{s.model}</option>}
+                        </select>
+                        <button onClick={() => fetchChannelModels(channel)} className="px-2.5 rounded-[9px] bg-[#f0e6e8] text-[#8c5f6b] text-[9px]">{channelBusy === channel + '-models' ? '拉取中…' : '拉取模型'}</button>
+                      </div>
+                      <button onClick={() => testChannel(channel)} className="w-full py-2 rounded-[9px] bg-[#292724] text-white text-[10px]">{channelBusy === channel + '-test' ? '测试中…' : '测试连接'}</button>
+                    </div>}
+                  </div>
+                );
+              })}
+              <div onClick={() => { setChatItems(prev => prev.map(c => ({ ...c, unread: 0 }))); showToast('已全部标记为已读'); }} className="p-3 bg-[#f8f8fa] rounded-[12px] flex items-center justify-between cursor-pointer hover:bg-[#f0f0f2]"><span className="text-[#333]">一键全部标为已读</span><span className="text-[#aaa]">›</span></div>
+              <div onClick={() => { setChatItems(prev => prev.map(c => ({ ...c, draft: '' }))); showToast('已清空所有草稿记录'); }} className="p-3 bg-[#f8f8fa] rounded-[12px] flex items-center justify-between cursor-pointer hover:bg-[#f0f0f2]"><span className="text-[#333]">清空所有草稿记录</span><span className="text-[#aaa]">›</span></div>
             </div>
           </div>
         </div>
