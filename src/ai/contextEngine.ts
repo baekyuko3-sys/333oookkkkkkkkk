@@ -164,8 +164,8 @@ export function selectWorldBookEntries(worldbooks: WorldBook[], inputText: strin
     );
 }
 
-function resolveWorldBook(worldbooks: WorldBook[], scannedText: string) {
-  const selected = selectWorldBookEntries(worldbooks, scannedText, input.worldBookScanForEntry)
+function resolveWorldBook(worldbooks: WorldBook[], scannedText: string, scanTextForEntry?: (entry: WorldBook['entries'][number]) => string) {
+  const selected = selectWorldBookEntries(worldbooks, scannedText, scanTextForEntry)
     .filter(({ entry }) => entry.insertion !== 'depth');
 
   const before = selected.filter(({ entry }) => entry.insertion === 'before');
@@ -247,7 +247,7 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
       ].join('\n')
     : '使用默认项目规则。';
 
-  const lore = resolveWorldBook(input.worldbooks || [], input.userMessage);
+  const lore = resolveWorldBook(input.worldbooks || [], input.userMessage, input.worldBookScanForEntry);
 
   return {
     character,
