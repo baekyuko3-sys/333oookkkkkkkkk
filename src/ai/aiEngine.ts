@@ -218,7 +218,7 @@ function buildConversationMessages(input: AiReplyInput) {
       for (const { entry } of entries) {
         withDepth.push({
           role: entry.role || 'system',
-          content: '[WORLD BOOK · depth=' + depth + ']\\n' + entry.content,
+          content: '[WORLD BOOK · depth=' + depth + ']\n' + entry.content,
           imageData: undefined,
         });
       }
@@ -228,7 +228,7 @@ function buildConversationMessages(input: AiReplyInput) {
     for (const { entry } of byDepth.get(0) || []) {
       withDepth.push({
         role: entry.role || 'system',
-        content: '[WORLD BOOK · depth=0]\\n' + entry.content,
+        content: '[WORLD BOOK · depth=0]\n' + entry.content,
         imageData: undefined,
       });
     }
