@@ -105,18 +105,68 @@ function normalizeForMatch(value: string): string {
   return value.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
+function worldBookKeyMatches(keyword: string, haystack: string, entry: WorldBook['entries'][number]): boolean {
+  const raw = keyword.trim();
+  if (!raw) return false;
+
+  const caseSensitive = Boolean(entry.caseSensitive);
+  const flags = caseSensitive ? '' : 'i';
+
+  if (raw.startsWith('/') && raw.lastIndexOf('/') > 0) {
+    const lastSlash = raw.lastIndexOf('/');
+    try {
+      const pattern = raw.slice(1, lastSlash);
+      const regexFlags = raw.slice(lastSlash + 1) || flags;
+      return new RegExp(pattern, regexFlags).test(haystack);
+    } catch {
+      // Invalid regex keys fall back to normal text matching.
+    }
+  }
+
+  const key = normalizeForMatch(raw);
+  if (!key) return false;
+  if (entry.matchWholeWords) {
+    const escaped = key.replace(/[.*+?^()|[\]\\]/g, '\\$&');
+    return new RegExp('(?:^|\\\\b)' + escaped + '(?:$|\\\\b)', caseSensitive ? '' : 'i').test(haystack);
+  }
+  return caseSensitive ? haystack.includes(key) : normalizeForMatch(haystack).includes(key);
+}
+
 export function selectWorldBookEntries(worldbooks: WorldBook[], inputText: string) {
-  const haystack = normalizeForMatch(inputText);
   const candidates = worldbooks.flatMap(book => {
     if (!book.enabled) return [];
+
     return book.entries
       .filter(entry => entry.enabled)
       .map(entry => {
-        const matchedKeywords = entry.keywords.filter(keyword => {
-          const normalized = normalizeForMatch(keyword);
-          return normalized.length > 0 && haystack.includes(normalized);
-        });
+        if (entry.constant) {
+          return { book, entry, matchedKeywords: ['[constant]'] };
+        }
+
+        const matchedKeywords = entry.keywords.filter(keyword =>
+          worldBookKeyMatches(keyword, inputText, entry)
+        );
         if (!matchedKeywords.length) return null;
+
+        const secondary = entry.secondaryKeywords || [];
+        if (entry.selective && secondary.length) {
+          const matchedSecondary = secondary.filter(keyword =>
+            worldBookKeyMatches(keyword, inputText, entry)
+          );
+          const logic = entry.selectiveLogic ?? 0;
+          const passes =
+            logic === 1 ? matchedSecondary.length < secondary.length :
+            logic === 2 ? matchedSecondary.length === 0 :
+            logic === 3 ? matchedSecondary.length === secondary.length :
+            matchedSecondary.length > 0;
+          if (!passes) return null;
+        }
+
+        if (entry.useProbability || entry.probability !== undefined) {
+          const probability = Math.max(0, Math.min(100, Number(entry.probability ?? 100)));
+          if (probability <= 0 || Math.random() * 100 >= probability) return null;
+        }
+
         return { book, entry, matchedKeywords };
       })
       .filter(Boolean) as Array<{
@@ -127,8 +177,9 @@ export function selectWorldBookEntries(worldbooks: WorldBook[], inputText: strin
   });
 
   return candidates.sort((a, b) =>
-    b.entry.priority - a.entry.priority ||
-    b.entry.weight - a.entry.weight ||
+    Number(Boolean(b.entry.constant)) - Number(Boolean(a.entry.constant)) ||
+    (b.entry.priority ?? 0) - (a.entry.priority ?? 0) ||
+    (b.entry.weight ?? 0) - (a.entry.weight ?? 0) ||
     b.matchedKeywords.length - a.matchedKeywords.length
   );
 }
@@ -159,6 +210,16 @@ function buildWorldBookContext(worldbooks: WorldBook[], inputText: string): stri
 export function buildCharacterSystemPrompt(input: AiReplyInput): string {
   const cotTarget = input.cotTarget || (input.isGroup ? 'group' : 'line');
   const cotPreset = getCotForTarget(cotTarget);
+  const scanDepth = Math.max(1, Math.min(50, Math.max(
+    12,
+    ...(input.worldbooks || []).flatMap(book => book.entries.map(entry => Number(entry.scanDepth || 0)))
+  )));
+  const scannedMessages = input.messages
+    .filter(message => !message.isRecalled && !message.isRecalledByOther && message.type !== 'system-nudge')
+    .slice(-scanDepth)
+    .map(message => message.text || message.transcript || '')
+    .filter(Boolean)
+    .join('\n') + '\n' + input.userMessage;
 
   const context = resolveCharacterContext({
     character: input.character,
@@ -167,7 +228,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     memory: input.memory,
     project: input.project,
     worldbooks: input.worldbooks,
-    userMessage: input.userMessage,
+    userMessage: scannedMessages,
   });
 
   return [
@@ -418,7 +479,14 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
   requireApiKey(input.settings);
 
   const worldbooks = input.worldbooks || [];
-  const matchedWorldbookEntries = selectWorldBookEntries(worldbooks, input.userMessage).length;
+  const scanDepth = Math.max(1, Math.min(50, Math.max(12, ...worldbooks.flatMap(book => book.entries.map(entry => Number(entry.scanDepth || 0)))));
+  const scannedText = input.messages
+    .filter(message => !message.isRecalled && !message.isRecalledByOther && message.type !== 'system-nudge')
+    .slice(-scanDepth)
+    .map(message => message.text || message.transcript || '')
+    .filter(Boolean)
+    .join('\n') + '\n' + input.userMessage;
+  const matchedWorldbookEntries = selectWorldBookEntries(worldbooks, scannedText).length;
 
   const text =
     input.settings.provider === 'gemini'
