@@ -1,5 +1,29 @@
 export type ChatProvider = 'gemini' | 'openai-compatible' | 'custom';
 
+export interface ChannelAiSettings {
+  enabled: boolean;
+  provider: ChatProvider;
+  apiBaseUrl: string;
+  apiKey: string;
+  model: string;
+  streaming: boolean;
+  contextLength: number;
+  maxOutputTokens: number;
+  temperature: number;
+}
+
+export const DEFAULT_CHANNEL_AI_SETTINGS: ChannelAiSettings = {
+  enabled: false,
+  provider: 'openai-compatible',
+  apiBaseUrl: '',
+  apiKey: '',
+  model: '',
+  streaming: true,
+  contextLength: 24,
+  maxOutputTokens: 1200,
+  temperature: 0.85,
+};
+
 export interface AppSettings {
   provider: ChatProvider;
   apiBaseUrl: string;
@@ -20,6 +44,8 @@ export interface AppSettings {
   memoryRelationshipModel: string;
   memoryTemperature: number;
   proactiveModel: string;
+  chatApiOverride: ChannelAiSettings;
+  momentsApiOverride: ChannelAiSettings;
   proactiveTemperature: number;
   memoryContextMessages: number;
 
@@ -81,6 +107,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   memoryRelationshipModel: '',
   memoryTemperature: 0.2,
   proactiveModel: '',
+  chatApiOverride: { ...DEFAULT_CHANNEL_AI_SETTINGS },
+  momentsApiOverride: { ...DEFAULT_CHANNEL_AI_SETTINGS },
   proactiveTemperature: 0.85,
   memoryContextMessages: 40,
 
