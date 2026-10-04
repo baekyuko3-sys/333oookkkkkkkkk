@@ -67,6 +67,8 @@ function appendProactiveMessage(character: ImportedCharacter, text: string) {
     text,
     time: '刚刚',
     isRead: false,
+    status: 'sent',
+    source: 'proactive-runtime',
   };
   const merged = [...messages, ...legacyMessages].slice(-200);
   saveLocal(key, [...merged, message]);
@@ -210,11 +212,22 @@ export async function runProactiveCatchup() {
   running = true;
   try {
     for (const character of characters) {
-      const rawSchedule = window.localStorage.getItem(`line:schedule:${character.name}`);
-      if (!rawSchedule) continue;
-
+      const scheduleKeys = Array.from(new Set([
+        `line:schedule:${character.id}`,
+        `line:schedule:${character.name}`,
+      ].filter(Boolean)));
       let schedule: ScheduleItem[] = [];
-      try { schedule = JSON.parse(rawSchedule); } catch { continue; }
+      for (const scheduleKey of scheduleKeys) {
+        const rawSchedule = window.localStorage.getItem(scheduleKey);
+        if (!rawSchedule) continue;
+        try {
+          const parsed = JSON.parse(rawSchedule);
+          if (Array.isArray(parsed)) schedule = [...schedule, ...parsed];
+        } catch {
+          // Ignore malformed schedule storage and continue with the other key.
+        }
+      }
+      if (!schedule.length) continue;
       const due = schedule
         .map(item => ({ item, minute: parseClock(item.time) }))
         .filter((entry): entry is { item: ScheduleItem; minute: number } => entry.minute !== null && entry.minute <= currentMinutes)

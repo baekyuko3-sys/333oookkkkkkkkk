@@ -415,6 +415,38 @@ export function LineConversationView({
 
   // Toast
   const [toastMsg, setToastMsg] = useState('');
+
+  // LINE 消息 Runtime：所有消息修改都从这里经过，确保单聊 / 群聊 / 主动消息共用同一持久化通道。
+  const updateMessageRuntime = (messageId: number, updater: (message: any) => any) => {
+    setMessages(prev => prev.map(message => message.id === messageId ? updater(message) : message));
+  };
+
+  const appendMessageRuntime = (message: any) => {
+    setMessages(prev => [...prev, {
+      id: message.id ?? Date.now(),
+      time: message.time ?? '刚刚',
+      ...message,
+    }]);
+  };
+
+  const deleteMessageRuntime = (messageId: number) => {
+    setMessages(prev => prev.filter(message => message.id !== messageId));
+  };
+
+  const favoriteMessageRuntime = (message: any) => {
+    const newFavorite = {
+      id: `${conversationStorageId}:${message.id}`,
+      messageId: message.id,
+      conversationId: conversationStorageId,
+      contactName,
+      sender: message.sender,
+      senderName: message.senderName,
+      text: message.text || message.desc || message.transcript || '多媒体内容',
+      time: message.time,
+      savedAt: new Date().toISOString(),
+    };
+    setFavorites(prev => prev.some(item => item.messageId === message.id) ? prev : [newFavorite, ...prev]);
+  };
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -592,15 +624,14 @@ export function LineConversationView({
 
   useEffect(() => {
     const onProactive = (event: Event) => {
-      const customEvent = event as CustomEvent<{ characterName?: string }>;
+      const customEvent = event as CustomEvent<{ characterName?: string; message?: any }>;
       if (customEvent.detail?.characterName !== contactName) return;
+      const incoming = customEvent.detail?.message;
+      if (!incoming) return;
 
-      try {
-        const raw = window.localStorage.getItem(`line:conversation:${conversationStorageId}`);
-        if (raw) setMessages(JSON.parse(raw));
-      } catch {
-        // Keep the current conversation state.
-      }
+      setMessages(prev => prev.some(message => message.id === incoming.id)
+        ? prev
+        : [...prev, { ...incoming, status: 'sent', isRead: false }]);
     };
 
     window.addEventListener('sane333:proactive-message', onProactive);
@@ -983,7 +1014,7 @@ export function LineConversationView({
   // 批量操作处理 (Batch Actions)
   const handleBatchDelete = () => {
     if (selectedMsgIds.length === 0) return;
-    setMessages((prev) => prev.filter((m) => !selectedMsgIds.includes(m.id)));
+    setMessages((prev) => prev.filter((message) => !selectedMsgIds.includes(message.id)));
     showToast(`已删除 ${selectedMsgIds.length} 条消息`);
     setIsMultiSelectMode(false);
     setSelectedMsgIds([]);
@@ -992,15 +1023,7 @@ export function LineConversationView({
   const handleBatchFavorite = () => {
     if (selectedMsgIds.length === 0) return;
     const toFav = messages.filter((m) => selectedMsgIds.includes(m.id));
-    const newFavs = toFav.map((m) => ({
-      id: Date.now() + Math.random(),
-      contactName,
-      sender: m.sender,
-      text: m.text || m.desc || '多媒体内容',
-      time: m.time,
-      savedAt: '刚刚'
-    }));
-    setFavorites((prev) => [...newFavs, ...prev]);
+    toFav.forEach(message => favoriteMessageRuntime(message));
     showToast(`已收藏 ${selectedMsgIds.length} 条内容至收藏箱 ☆`);
     setIsMultiSelectMode(false);
     setSelectedMsgIds([]);
@@ -1070,32 +1093,28 @@ export function LineConversationView({
 
   // 消息撤回 (我方撤回)
   const handleRecallMessage = (msgId: number) => {
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === msgId
-          ? { ...m, isRecalled: true, recalledOriginalText: m.text }
-          : m
-      )
-    );
+    updateMessageRuntime(msgId, message => ({
+      ...message,
+      isRecalled: true,
+      recalledOriginalText: message.text,
+      recalledAt: new Date().toISOString(),
+      status: 'recalled',
+    }));
     setContextMenuMsg(null);
     showToast('已撤回一条消息');
   };
 
   // 角色撤回消息 (对方撤回 / 剧情害羞撤回)
   const handleOtherRecallMessage = (msgId: number, isRoleplayEvent = false) => {
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === msgId
-          ? {
-              ...m,
-              isRecalledByOther: true,
-              recalledByOtherReason: isRoleplayEvent
-                ? '（刚才手滑发出了内心私语，仓促撤回了……）'
-                : '（对方撤回了一条消息）',
-            }
-          : m
-      )
-    );
+    updateMessageRuntime(msgId, message => ({
+      ...message,
+      isRecalledByOther: true,
+      recalledByOtherReason: isRoleplayEvent
+        ? '（刚才手滑发出了内心私语，仓促撤回了……）'
+        : '（对方撤回了一条消息）',
+      recalledAt: new Date().toISOString(),
+      status: 'recalled',
+    }));
     setContextMenuMsg(null);
     showToast(`${contextMenuMsg?.senderName || characterProfile.nickname} 撤回了一条消息`);
 
@@ -1306,17 +1325,17 @@ export function LineConversationView({
 
   // 表情回应 (Reaction)
   const handleAddReaction = (msgId: number, emoji: string) => {
-    setMessages((prev) =>
-      prev.map((m) => {
-        if (m.id !== msgId) return m;
-        const currentReactions = m.reactions || [];
-        const exists = currentReactions.includes(emoji);
-        const updated = exists
-          ? currentReactions.filter((r: string) => r !== emoji)
-          : [...currentReactions, emoji];
-        return { ...m, reactions: updated };
-      })
-    );
+    updateMessageRuntime(msgId, message => {
+      const currentReactions = Array.isArray(message.reactions) ? message.reactions : [];
+      const exists = currentReactions.includes(emoji);
+      return {
+        ...message,
+        reactions: exists
+          ? currentReactions.filter((reaction: string) => reaction !== emoji)
+          : [...currentReactions, emoji],
+        reactionUpdatedAt: new Date().toISOString(),
+      };
+    });
     setContextMenuMsg(null);
   };
 
@@ -1569,9 +1588,12 @@ export function LineConversationView({
 
   // 保存消息原地编辑
   const handleSaveMessageEdit = (id: number) => {
-    setMessages((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, text: editingMessageText } : m))
-    );
+    updateMessageRuntime(id, message => ({
+      ...message,
+      text: editingMessageText.trim(),
+      edited: true,
+      editedAt: new Date().toISOString(),
+    }));
     setEditingMessageId(null);
     setEditingMessageText('');
     showToast('消息已原地修改');
@@ -4448,15 +4470,7 @@ export function LineConversationView({
               {/* 收藏 */}
               <div
                 onClick={() => {
-                  const newFav = {
-                    id: Date.now(),
-                    contactName,
-                    sender: contextMenuMsg.sender,
-                    text: contextMenuMsg.text || contextMenuMsg.desc || '多媒体内容',
-                    time: contextMenuMsg.time,
-                    savedAt: '刚刚'
-                  };
-                  setFavorites((prev) => [newFav, ...prev]);
+                  favoriteMessageRuntime(contextMenuMsg);
                   setContextMenuMsg(null);
                   showToast('已收藏此条消息至收藏箱 ☆');
                 }}
@@ -4501,7 +4515,7 @@ export function LineConversationView({
               {/* 删除 */}
               <div
                 onClick={() => {
-                  setMessages(messages.filter((m) => m.id !== contextMenuMsg.id));
+                  deleteMessageRuntime(contextMenuMsg.id);
                   setContextMenuMsg(null);
                   showToast('消息已删除');
                 }}
