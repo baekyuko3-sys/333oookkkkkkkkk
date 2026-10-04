@@ -10,6 +10,7 @@ import { readAppSettings } from './appSettings';
 import { generateCreativeText, readStoredAiSettings } from '../ai/aiEngine';
 import { emitWorldEvent, setCharacterRuntime, syncWorldCharacters } from './worldRuntime';
 import { appendLineRuntimeMessage, lineNowTime } from './lineMessageRuntime';
+import { buildLineHumanBehaviorPrompt, getLineRealitySettings, getCurrentLineTimeContext } from './lineReality';
 
 interface ScheduleItem {
   id: string;
@@ -131,6 +132,8 @@ async function generateProactiveMessage(
     '绝对不能替用户说话、替用户行动、替用户决定感受。',
     '不要解释触发原因，不要输出系统提示、标签、选择菜单。',
     '如果是群聊，消息必须像真的发在群里，可以自然 @ 用户。',
+    buildLineHumanBehaviorPrompt(),
+    '【当前 LINE 时间上下文】', getCurrentLineTimeContext().formatted,
     '',
     '【角色】', character.name, character.description || '', character.personality || '', character.scenario || '', character.systemPrompt || '',
     '【关系热度】', relationshipHeat(character), '；关系描述：' + profile.relationship + '；称呼：' + profile.callMe,
@@ -172,7 +175,8 @@ function chooseBehavior(
 ): BehaviorCandidate | null {
   const id = character.id || character.name;
   const lastBehavior = state.lastBehaviorAt?.[id] || 0;
-  if (now.getTime() - lastBehavior < 30 * 60_000) return null;
+  const cooldownMs = getLineRealitySettings().proactiveCooldownMinutes * 60_000;
+  if (now.getTime() - lastBehavior < cooldownMs) return null;
 
   const messages = readLocal<any[]>(`line:conversation:${id}`, []);
   const last = messages[messages.length - 1];
@@ -193,7 +197,7 @@ function chooseBehavior(
     .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())[0];
   if (completed) {
     const completedAt = new Date(completed.updatedAt || completed.createdAt).getTime();
-    if (now.getTime() - completedAt < 30 * 60_000) {
+    if (now.getTime() - completedAt < getLineRealitySettings().proactiveCooldownMinutes * 60_000) {
       return {
         key: 'offline:' + completed.id,
         reason: 'offline-completed',
@@ -244,7 +248,7 @@ function appendBehaviorMessage(character: ImportedCharacter, text: string, group
     lastInteractionAt: new Date().toISOString(),
   }, character.name);
   window.dispatchEvent(new CustomEvent('sane333:proactive-message', {
-    detail: { characterName: character.name, message },
+    detail: { characterName: character.name, conversationId, message },
   }));
   return message;
 }
