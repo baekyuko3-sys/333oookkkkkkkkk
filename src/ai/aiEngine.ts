@@ -123,13 +123,21 @@ function worldBookKeyMatches(keyword: string, haystack: string, entry: WorldBook
     }
   }
 
-  const key = normalizeForMatch(raw);
+  const key = raw.trim();
+  if (!key) return false;
+  const source = caseSensitive ? haystack : haystack.toLowerCase();
+  const normalizedKey = caseSensitive ? key : key.toLowerCase();
+  if (entry.matchWholeWords) {
+    const escaped = normalizedKey.replace(/[.*+?^()|[\]\\]/g, '\\  const key = normalizeForMatch(raw);
   if (!key) return false;
   if (entry.matchWholeWords) {
     const escaped = key.replace(/[.*+?^()|[\]\\]/g, '\\$&');
     return new RegExp('(?:^|\\\\b)' + escaped + '(?:$|\\\\b)', caseSensitive ? '' : 'i').test(haystack);
   }
-  return caseSensitive ? haystack.includes(key) : normalizeForMatch(haystack).includes(key);
+  return caseSensitive ? haystack.includes(key) : normalizeForMatch(haystack).includes(key);');
+    return new RegExp('(?:^|\\b)' + escaped + '(?:$|\\b)', caseSensitive ? '' : 'i').test(source);
+  }
+  return source.includes(normalizedKey);
 }
 
 export function selectWorldBookEntries(worldbooks: WorldBook[], inputText: string) {
