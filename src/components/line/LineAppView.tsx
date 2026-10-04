@@ -402,10 +402,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           <div className="h-[78px] px-5 pt-4 pb-2.5 flex items-start justify-between bg-white">
             <div>
               <div className="text-[25px] font-bold tracking-[-0.8px] text-[#202124] leading-tight">
-                聊天
+                CHAT
               </div>
               <div className="mt-1 text-[10px] text-[#b2b2b4] tracking-[0.7px]">
-                对话 · 今天也慢慢生活。
+                トーク · 今日はゆっくり。
               </div>
             </div>
 
@@ -539,10 +539,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           <div className="h-[78px] px-5 pt-4 pb-2.5 flex items-start justify-between bg-white">
             <div>
               <div className="text-[25px] font-bold tracking-[-0.8px] text-[#202124] leading-tight">
-                好友
+                FRIENDS
               </div>
               <div className="mt-1 text-[10px] text-[#b2b2b4] tracking-[0.7px]">
-                好友列表 · 珍视的人们 ({friendsList.length})
+                友だち · 大切な人たち
               </div>
             </div>
 
@@ -625,10 +625,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           <div className="h-[78px] px-5 pt-4 pb-2.5 flex items-start justify-between bg-white">
             <div>
               <div className="text-[25px] font-bold tracking-[-0.8px] text-[#202124] leading-tight">
-                朋友圈
+                VROOM
               </div>
               <div className="mt-1 text-[10px] text-[#b2b2b4] tracking-[0.7px]">
-                动态 · 记录一些小事
+                记录一些小事
               </div>
             </div>
 
@@ -764,10 +764,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           {/* Header */}
           <div className="h-[78px] px-5 pt-4 pb-2.5 bg-white">
             <div className="text-[25px] font-bold tracking-[-0.8px] text-[#202124] leading-tight">
-              我的
+              ME
             </div>
             <div className="mt-1 text-[10px] text-[#b2b2b4] tracking-[0.7px]">
-              个人中心 · 当前身份
+              
             </div>
           </div>
 
