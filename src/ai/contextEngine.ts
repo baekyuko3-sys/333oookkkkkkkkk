@@ -31,15 +31,16 @@ function normalize(value: string) {
 function keywordMatches(text: string, keyword: string, entry: WorldBook['entries'][number]) {
   const rawKeyword = keyword.trim();
   if (!rawKeyword) return false;
-  const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
-  if (entry.caseSensitive) {
-    if (entry.matchWholeWords) return new RegExp('(^|\\W)' + escapeRegex(rawKeyword) + '($|\\W)').test(text);
-    return text.includes(rawKeyword);
-  }
-  const haystack = normalize(text);
-  const key = normalize(rawKeyword);
-  if (entry.matchWholeWords) return new RegExp('(^|\\W)' + escapeRegex(key) + '($|\\W)').test(haystack);
-  return haystack.includes(key);
+  const haystack = entry.caseSensitive ? text : normalize(text);
+  const key = entry.caseSensitive ? rawKeyword : normalize(rawKeyword);
+  const index = haystack.indexOf(key);
+  if (index < 0) return false;
+  if (!entry.matchWholeWords) return true;
+  const before = index === 0 ? '' : haystack[index - 1];
+  const afterIndex = index + key.length;
+  const after = afterIndex >= haystack.length ? '' : haystack[afterIndex];
+  const isWord = (char: string) => /[A-Za-z0-9_]/.test(char);
+  return !isWord(before) && !isWord(after);
 }
 
 function resolveWorldBook(worldbooks: WorldBook[], userMessage: string) {
