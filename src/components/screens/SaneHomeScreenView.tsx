@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ScreenType } from '../../types';
 import { getWorldUnreadCount } from '../../store/worldRuntime';
+import { readAppearance, type AppearanceScheme } from '../../store/appearance';
 
 interface SaneHomeScreenViewProps {
   onNavigate: (screen: ScreenType) => void;
@@ -15,7 +16,8 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   const [isPhotoFlippedP2, setIsPhotoFlippedP2] = useState(false);
   const [cityIndex, setCityIndex] = useState(0);
   const [currentTime, setCurrentTime] = useState('21:06');
-  const [currentGreeting, setCurrentGreeting] = useState('GOOD EVENING · PRIVATE DEVICE');
+  const [appearance, setAppearance] = useState<AppearanceScheme>(() => readAppearance());
+  const [currentGreeting, setCurrentGreeting] = useState(() => readAppearance().greeting);
   const [currentDateNumber, setCurrentDateNumber] = useState('02');
   const [currentMonthString, setCurrentMonthString] = useState('OCTOBER · FRIDAY · 2026');
   const [archiveCap, setArchiveCap] = useState('PRIVATE ARCHIVE');
@@ -52,8 +54,24 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
     };
   }, []);
 
+  useEffect(() => {
+    const syncAppearance = () => {
+      const next = readAppearance();
+      setAppearance(next);
+      setCurrentGreeting(next.greeting);
+    };
+    window.addEventListener('sane333:appearance-changed', syncAppearance);
+    return () => window.removeEventListener('sane333:appearance-changed', syncAppearance);
+  }, []);
+
   const cities = [
-    { city: 'YOUR CITY', temp: '--', sky: 'NO WEATHER DATA', icon: '○', note: 'EMPTY WIDGET' },
+    {
+      city: appearance.widget.weatherCity,
+      temp: appearance.widget.weatherTemp,
+      sky: appearance.widget.weatherCondition,
+      icon: '○',
+      note: appearance.widget.weatherHighLow,
+    },
   ];
   const currentCity = cities[cityIndex];
 
@@ -247,10 +265,10 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
                 className="flex-1 min-w-0 cursor-pointer"
               >
                 <b className="text-[13px] font-semibold text-[var(--ink)] truncate block">
-                  暂无正在播放
+                  {appearance.widget.musicTitle}
                 </b>
                 <p className="m-0 mt-1 text-[#8b8782] text-[10px] truncate font-mono">
-                  MUSIC APP
+                  {appearance.widget.musicArtist}
                 </p>
               </div>
 
