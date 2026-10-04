@@ -152,7 +152,13 @@ export function LineConversationView({
       editedAt: message.editedAt,
       recalledAt: message.recalledAt,
       deletedAt: message.deletedAt,
-      metadata: message.metadata,
+      metadata: {
+        ...(message.metadata || {}),
+        mediaType: message.mediaType,
+        mediaRef: message.mediaRef,
+        transcript: message.transcript,
+        fileName: message.fileName,
+      },
     }));
     // Mirror the whole visible conversation so older messages remain searchable,
     // recoverable after reload, and available to the AI context layer.
