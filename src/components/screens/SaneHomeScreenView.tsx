@@ -241,6 +241,9 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
                   <div className="text-[9px] text-[#8b8782] tracking-[1px] mt-1 font-mono">
                     {currentCity.sky}
                   </div>
+                  <div className="text-[8px] text-[#9b8f84] tracking-[.5px] mt-1 font-mono">
+                    {currentCity.note}
+                  </div>
                 </div>
                 <div className="text-[28px] text-[#8b7560] leading-none">
                   {currentCity.icon}
@@ -256,9 +259,17 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               <div className="text-[10px] text-[#8b8782] tracking-[1.6px] font-mono">
                 NOTE
               </div>
-              <div className="mt-3 font-serif text-[16px] leading-[1.35] text-[var(--ink)]">
-                此刻<br />正在发生
+              <div className="mt-3 font-serif text-[14px] leading-[1.35] text-[var(--ink)] line-clamp-2">
+                {appearance.widget.quoteContent || '此刻正在发生'}
               </div>
+              <div className="mt-1 text-[8px] text-[#8b8782] font-mono truncate">
+                {appearance.widget.quoteAuthor || 'PRIVATE NOTE'}
+              </div>
+              {appearance.widget.anniversaryDays > 0 && (
+                <div className="absolute bottom-3 left-[15px] right-[15px] text-[7px] text-[#9b625b] font-mono truncate">
+                  {appearance.widget.anniversaryText} · DAY {appearance.widget.anniversaryDays}
+                </div>
+              )}
             </button>
 
             {/* Music Player Bar (Full width) */}
