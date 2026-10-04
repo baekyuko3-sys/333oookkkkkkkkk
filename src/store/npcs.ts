@@ -35,11 +35,13 @@ export function upsertNpc(npc: SaneNpc): void {
     ? all.map(item => item.id === npc.id ? npc : item)
     : [npc, ...all];
   window.localStorage.setItem(KEY, JSON.stringify(next));
+  window.dispatchEvent(new CustomEvent('phone-npcs-updated'));
 }
 
 export function deleteNpc(id: string): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(KEY, JSON.stringify(getNpcs().filter(item => item.id !== id)));
+  window.dispatchEvent(new CustomEvent('phone-npcs-updated'));
 }
 
 export function updateNpc(id: string, patch: Partial<SaneNpc>): void {
