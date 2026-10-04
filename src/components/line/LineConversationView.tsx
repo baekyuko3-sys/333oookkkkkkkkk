@@ -687,6 +687,7 @@ export function LineConversationView({
       try {
       if (groupAiMembers.length === 0) {
         showToast('这个群还没有导入可接入 AI 的角色卡');
+        setMessages(prev => prev.filter(message => message.id !== msgId));
         return;
       }
       const mentioned = groupAiMembers.filter(({ member }) => userText.includes('@' + member.name) || userText.includes('@' + (member.nickname || '')));
@@ -1273,24 +1274,50 @@ export function LineConversationView({
     showToast('已暂缓本次邀约');
   };
 
-  // AI 动态推演角色与用户关系、称呼
-  const handleAiUpdateRelationship = () => {
-    showToast('AI 正在分析聊天记录、好感度与世界书……');
-    setTimeout(() => {
-      const currentFavorNum = Number(statusData.favor) || 90;
-      let newRel = '心意相通 · 晚间常伴的特别存在';
-      let newCall = '我的小摄影师';
-      if (currentFavorNum >= 95) {
-        newRel = '已确认心意 · 双向偏爱的恋人未满';
-        newCall = '我的宝藏女孩';
-      }
-      setCharacterProfile((prev) => ({
+  // AI 动态推演角色与用户关系、称呼：真正读取当前聊天、记忆与世界书。
+  const handleAiUpdateRelationship = async () => {
+    if (!importedCharacter) {
+      showToast('当前聊天没有绑定角色');
+      return;
+    }
+    showToast('AI 正在分析聊天记录、长期记忆与世界书……');
+    try {
+      const settings = conversationAiSettings();
+      const raw = await generateCreativeText({
+        settings,
+        systemPrompt: [
+          '你是一个私人虚拟手机中的关系档案分析器。',
+          '只分析当前角色与用户已经发生的互动，不要编造没有发生的事件。',
+          '根据最近聊天、角色设定、长期记忆、世界书和当前关系档案，判断关系状态与角色自然称呼。',
+          'relationship 要短而有画面感；callMe 要像这个角色真实会使用的称呼。',
+          '不要因为一次聊天就极端跳跃，保持关系连续性。',
+          '严格输出 JSON：{"relationship":"...","callMe":"..."}',
+        ].join('\\n'),
+        userPrompt: [
+          '【角色】' + importedCharacter.name,
+          '【角色设定】' + [importedCharacter.description, importedCharacter.personality, importedCharacter.scenario].filter(Boolean).join('\\n'),
+          '【当前关系】' + [characterProfile.relationship, characterProfile.callMe].filter(Boolean).join(' / '),
+          '【好感度】' + String(statusData.favor || '未知'),
+          '【长期记忆】' + (characterMemory.summary || '暂无'),
+          ...characterMemory.items.slice(0, 12).map(item => '- ' + item.content),
+          '【世界书】' + (worldbooks.flatMap(book => book.enabled ? book.entries.filter(entry => entry.enabled).map(entry => entry.name + ': ' + entry.content) : []).join('\\n') || '暂无'),
+          '【最近聊天】' + messages.slice(-20).map(message => (message.sender === 'me' ? '用户' : (message.senderName || importedCharacter.name)) + ': ' + (message.text || message.transcript || '')).join('\\n'),
+        ].join('\\n'),
+        temperature: Math.min(0.8, Number(presetTemp) || 0.7),
+      });
+      const parsed = JSON.parse(raw.trim().replace(/^\`\`\`json\\s*/i, '').replace(/\`\`\`$/i, ''));
+      const relationship = String(parsed.relationship || '').trim();
+      const callMe = String(parsed.callMe || '').trim();
+      if (!relationship && !callMe) throw new Error('AI 没有返回有效关系档案');
+      setCharacterProfile(prev => ({
         ...prev,
-        relationship: newRel,
-        callMe: newCall,
+        ...(relationship ? { relationship } : {}),
+        ...(callMe ? { callMe } : {}),
       }));
-      showToast(`已推演更新关系：${newRel}，专属称呼：${newCall} ✨`);
-    }, 1200);
+      showToast('关系档案已根据当前真实互动更新 ✦');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '关系档案更新失败');
+    }
   };
 
   // AI 推演群聊人际关系网
