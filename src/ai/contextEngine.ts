@@ -12,6 +12,7 @@ export interface ContextEngineInput {
   project?: ProjectManifest | null;
   worldbooks?: WorldBook[];
   userMessage: string;
+  worldBookScanForEntry?: (entry: WorldBook['entries'][number]) => string;
 }
 
 export interface ResolvedContext {
@@ -67,22 +68,23 @@ function worldBookKeyMatches(keyword: string, haystack: string, entry: WorldBook
   return source.includes(key);
 }
 
-export function selectWorldBookEntries(worldbooks: WorldBook[], inputText: string) {
+export function selectWorldBookEntries(worldbooks: WorldBook[], inputText: string, scanTextForEntry?: (entry: WorldBook['entries'][number]) => string) {
   const candidates = worldbooks.flatMap(book => {
     if (!book.enabled) return [];
 
     return book.entries
       .filter(entry => entry.enabled && !entry.outletName)
       .map(entry => {
+        const matchText = scanTextForEntry ? scanTextForEntry(entry) : inputText;
         const matchedKeywords = entry.constant
           ? ['[constant]']
-          : entry.keywords.filter(keyword => worldBookKeyMatches(keyword, inputText, entry));
+          : entry.keywords.filter(keyword => worldBookKeyMatches(keyword, matchText, entry));
 
         if (!entry.constant && !matchedKeywords.length) return null;
 
         const secondary = entry.secondaryKeywords || [];
         if (entry.selective && secondary.length) {
-          const matchedSecondary = secondary.filter(keyword => worldBookKeyMatches(keyword, inputText, entry));
+          const matchedSecondary = secondary.filter(keyword => worldBookKeyMatches(keyword, matchText, entry));
           const logic = entry.selectiveLogic ?? 0;
           const passes =
             logic === 1 ? matchedSecondary.length < secondary.length :
@@ -94,7 +96,7 @@ export function selectWorldBookEntries(worldbooks: WorldBook[], inputText: strin
 
         if (entry.useProbability || entry.probability !== undefined) {
           const probability = Math.max(0, Math.min(100, Number(entry.probability ?? 100)));
-          if (probability <= 0 || stableRoll(entry.id + '|' + inputText) >= probability) return null;
+          if (probability <= 0 || stableRoll(entry.id + '|' + matchText) >= probability) return null;
         }
 
         return { book, entry, matchedKeywords };
@@ -163,7 +165,7 @@ export function selectWorldBookEntries(worldbooks: WorldBook[], inputText: strin
 }
 
 function resolveWorldBook(worldbooks: WorldBook[], scannedText: string) {
-  const selected = selectWorldBookEntries(worldbooks, scannedText)
+  const selected = selectWorldBookEntries(worldbooks, scannedText, input.worldBookScanForEntry)
     .filter(({ entry }) => entry.insertion !== 'depth');
 
   const before = selected.filter(({ entry }) => entry.insertion === 'before');
