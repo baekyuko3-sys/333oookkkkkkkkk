@@ -5,7 +5,7 @@ import { ScreenType } from '../../types';
 import { LineConversationView } from './LineConversationView';
 import { createLineGroup } from '../../store/lineGroups';
 import { markCharacterRead } from '../../store/worldRuntime';
-import { listOpenAiCompatibleModels, testAiConnection, type AiSettings } from '../../ai/aiEngine';
+import { generateCreativeText, listOpenAiCompatibleModels, resolveChannelAiSettings, testAiConnection, type AiSettings } from '../../ai/aiEngine';
 import { readAppSettings, saveAppSettings, type ChannelAiSettings } from '../../store/appSettings';
 import {
   Pin, BellOff, Bookmark, Heart, MessageCircle, Share2, Plus, Search,
@@ -82,6 +82,49 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
       autoSave: base.autoSave,
       temperature: s.temperature,
     };
+  };
+
+  const generateMomentsPost = async () => {
+    const source = importedCharacters[Math.floor(Math.random() * importedCharacters.length)];
+    if (!source) { showToast('先导入至少一个角色卡，朋友圈 AI 才有角色可以发动态'); return; }
+    setIsRefreshingMoments(true);
+    try {
+      const settings = channelSettings.moments.enabled ? channelAsAiSettings('moments') : resolveChannelAiSettings('moments');
+      const text = await generateCreativeText({
+        settings,
+        systemPrompt: [
+          '你正在一个私人虚拟手机的朋友圈中扮演角色。',
+          '只写一条自然的朋友圈动态，不要解释自己是 AI。',
+          '不要替用户行动，也不要编造不存在的聊天经历。',
+          '可以根据角色卡、当前状态与日常生活写一点真实的小事，长度适中。',
+          '',
+          '【角色卡】',
+          source.description,
+          source.personality,
+          source.scenario,
+        ].join('\n'),
+        userPrompt: '请为“' + source.name + '”写一条今天的朋友圈动态。',
+        temperature: settings.temperature,
+      });
+      if (text.trim()) {
+        setMomentsPosts(prev => [{
+          id: 'moment-ai-' + Date.now().toString(36),
+          name: source.name,
+          text: text.trim(),
+          time: '刚刚',
+          tag: '#AI动态',
+          liked: false,
+          likes: 0,
+          commentsList: [],
+          characterId: source.id,
+        }, ...prev]);
+        showToast(source.name + ' 发布了一条朋友圈');
+      }
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : '朋友圈 AI 请求失败');
+    } finally {
+      setIsRefreshingMoments(false);
+    }
   };
 
   const fetchChannelModels = async (channel: 'chat' | 'moments') => {
@@ -590,11 +633,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
-                  setIsRefreshingMoments(true);
-                  setTimeout(() => {
-                    setIsRefreshingMoments(false);
-                    showToast('动态已刷新 ✨');
-                  }, 400);
+                  void generateMomentsPost();
                 }}
                 className="w-[35px] h-[35px] border border-[#e7e7e8] rounded-full flex items-center justify-center text-sm text-[#555] hover:bg-[#f7f7f7] cursor-pointer"
                 title="刷新"
