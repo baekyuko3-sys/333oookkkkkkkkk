@@ -20,7 +20,7 @@ import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
 import { getStatusBarPresets, type StatusBarPreset } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset } from '../../store/cotPresets';
 import { PresetResourceManager } from './PresetResourceManager';
-import { appendLineMessage, getLineConversationMessages, markLineConversationRead, searchLineMessages, type LineRuntimeMessage } from '../../store/lineRuntime';
+import { getLineConversationMessages, markLineConversationRead, saveLineConversationMessages, searchLineMessages, type LineRuntimeMessage } from '../../store/lineRuntime';
 import {
   Video, Settings, Plus, Mic, Send, Smile,
   Image as ImageIcon, Film, FileText, Calendar, Sliders, RefreshCw, X,
@@ -105,19 +105,26 @@ export function LineConversationView({
 
   useEffect(() => {
     if (!messages.length) return;
-    for (const message of messages.slice(-1)) {
-      appendLineMessage(conversationStorageId, {
-        id: message.id,
-        sender: message.sender,
-        text: message.text || message.content,
-        kind: message.type,
-        createdAt: message.createdAt || message.timestamp,
-        status: message.status || (message.sender === 'me' ? 'sent' : 'delivered'),
-        replyToId: message.replyToId,
-        reactions: message.reactions,
-        metadata: message.metadata,
-      });
-    }
+    const runtimeMessages: LineRuntimeMessage[] = messages.map((message) => ({
+      id: message.id,
+      sender: message.sender,
+      text: message.text || message.content,
+      kind: message.type,
+      createdAt: message.createdAt || message.timestamp,
+      status: message.status || (message.sender === 'me' ? 'sent' : 'delivered'),
+      replyToId: message.replyToId,
+      reactions: Array.isArray(message.reactions)
+        ? Object.fromEntries(message.reactions.map((emoji: string) => [emoji, 1]))
+        : message.reactions,
+      editedAt: message.editedAt,
+      recalledAt: message.recalledAt,
+      deletedAt: message.deletedAt,
+      metadata: message.metadata,
+    }));
+    // Mirror the whole visible conversation so older messages remain searchable,
+    // recoverable after reload, and available to the AI context layer.
+    saveLineConversationMessages(conversationStorageId, runtimeMessages);
+    markLineConversationRead(conversationStorageId, messages.at(-1)?.id);
   }, [messages, conversationStorageId]);
 
 
