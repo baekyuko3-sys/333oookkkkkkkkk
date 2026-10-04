@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ScreenType } from '../../types';
+import { loadPhoneSettings } from '../../store/settings';
 
 interface SaneHomeScreenViewProps {
   onNavigate: (screen: ScreenType) => void;
@@ -18,6 +19,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   const [currentDateNumber, setCurrentDateNumber] = useState('02');
   const [currentMonthString, setCurrentMonthString] = useState('OCTOBER · FRIDAY · 2026');
   const [archiveCap, setArchiveCap] = useState('ARCHIVE 02/10');
+  const [displayName, setDisplayName] = useState('ME');
 
   useEffect(() => {
     const updateTime = () => {
@@ -39,12 +41,17 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
 
     updateTime();
     const timer = setInterval(updateTime, 10000);
-    return () => clearInterval(timer);
+    const loadIdentity = () => setDisplayName(loadPhoneSettings().userName || 'ME');
+    loadIdentity();
+    window.addEventListener('phone-settings-updated', loadIdentity);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('phone-settings-updated', loadIdentity);
+    };
   }, []);
 
   const cities = [
-    { city: 'LOS ANGELES', temp: '22°', sky: 'CLEAR SKY', icon: '☼', note: 'FILM NOTE 08' },
-    { city: 'LONDON', temp: '18°', sky: 'RAINY NIGHT', icon: '☽', note: 'FILM NOTE 09' },
+    { city: 'YOUR CITY', temp: '--', sky: 'ADD WEATHER', icon: '○', note: 'NO PRESET DATA' },
   ];
   const currentCity = cities[cityIndex];
 
@@ -95,7 +102,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               {currentPage === 1 ? currentGreeting : 'PRIVATE ARCHIVE'}
             </div>
             <div className="text-[17px] font-[650] tracking-[0.2px] text-[var(--ink)]">
-              Sane333
+              {displayName}
             </div>
           </div>
         </div>
@@ -124,7 +131,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               {currentMonthString}
             </div>
             <div className="mt-5 font-serif-sc text-[13px] leading-[1.8] text-[var(--sub,#68625b)] max-w-[205px]">
-              “把今天留给自己。<br />剩下的事情，明天再说。”
+              “这里不预置任何私人内容。<br />你可以从今天开始填写。”
             </div>
           </div>
 
@@ -138,8 +145,8 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               <div className="h-[82px] p-1.5 bg-[#fbf9f5] border border-neutral-200/80 rounded flex flex-col justify-between text-left">
                 <span className="text-[6px] font-mono text-[#8b8782]">MEMO</span>
                 <p className="font-handwriting text-[8.5px] leading-tight text-[#8b7560]">
-                  2026.10.02<br />
-                  傍晚风微凉，咖啡刚好。
+                  DATE / NOTE<br />
+                  点击打开你的私人笔记。
                 </p>
                 <span className="font-handwriting text-[7px] text-[#9b625b] text-right">
                   private note.
@@ -157,7 +164,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-black/40" />
                 <span className="absolute left-[6px] top-[6px] text-white/85 text-[7px] tracking-[0.9px] font-mono">
-                  LOS ANGELES
+                  PRIVATE FRAME
                 </span>
                 <b className="absolute right-[6px] bottom-[5px] text-white font-serif text-[11px] font-normal">
                   {currentTime}
@@ -229,7 +236,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
                 className="flex-1 min-w-0 cursor-pointer"
               >
                 <b className="text-[13px] font-semibold text-[var(--ink)] truncate block">
-                  Nothing's Gonna Hurt You Baby
+                  暂无播放
                 </b>
                 <p className="m-0 mt-1 text-[#8b8782] text-[10px] truncate font-mono">
                   Cigarettes After Sex
