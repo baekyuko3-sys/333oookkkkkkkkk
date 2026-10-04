@@ -522,6 +522,81 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                           className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none"
                         />
                       </label>
+                      <div className="mt-4 pt-4 border-t border-[rgba(40,36,31,.1)] space-y-2.5">
+                        <div>
+                          <div className="text-[8px] tracking-[1.5px] font-mono text-[#8b8782]">CHARACTER LANGUAGE · 语言指纹</div>
+                          <div className="mt-1 text-[9px] text-[#8b8782] leading-relaxed">不是“人设标签”，而是这个角色长期形成的真实聊天习惯。</div>
+                        </div>
+                        {(() => {
+                          const profile = selected.languageProfile || {
+                            language: 'zh-CN', bilingualMode: 'off', bilingualLayout: 'below-bubble',
+                            bilingualTranslationDirection: 'original-first', punctuationStyle: 'natural',
+                            sentenceLength: 'natural', lineBreakStyle: 'natural', colloquialLevel: 'natural',
+                            fillerWords: [], emojiStyle: 'light', capitalizationStyle: 'standard',
+                            numberStyle: 'standard', preferredSpaces: false, examples: []
+                          };
+                          const updateLanguage = (patch: Partial<typeof profile>) =>
+                            patchSelected({ languageProfile: { ...profile, ...patch } } as Partial<ImportedCharacter>);
+                          return <>
+                            <div className="grid grid-cols-2 gap-2">
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">LANGUAGE</span>
+                                <select value={profile.language} onChange={e => updateLanguage({ language: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
+                                  <option value="zh-CN">普通话 / 中文</option><option value="en">English</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="fr">Français</option><option value="es">Español</option><option value="de">Deutsch</option><option value="other">其他</option>
+                                </select>
+                              </label>
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">BILINGUAL</span>
+                                <select value={profile.bilingualMode} onChange={e => updateLanguage({ bilingualMode: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
+                                  <option value="off">关闭</option><option value="auto">非普通话自动双语</option>
+                                </select>
+                              </label>
+                            </div>
+                            {profile.bilingualMode === 'auto' && <div className="grid grid-cols-2 gap-2">
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">TRANSLATION</span>
+                                <select value={profile.bilingualLayout} onChange={e => updateLanguage({ bilingualLayout: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
+                                  <option value="below-bubble">气泡下方 · 推荐</option><option value="inside-bubble">气泡内部</option>
+                                </select>
+                              </label>
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">ORDER</span>
+                                <select value={profile.bilingualTranslationDirection} onChange={e => updateLanguage({ bilingualTranslationDirection: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
+                                  <option value="original-first">原文 → 中文</option><option value="translation-first">中文 → 原文</option>
+                                </select>
+                              </label>
+                            </div>}
+                            <div className="grid grid-cols-2 gap-2">
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">PUNCTUATION</span>
+                                <select value={profile.punctuationStyle} onChange={e => updateLanguage({ punctuationStyle: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
+                                  <option value="natural">自然变化</option><option value="spaces">偏空格</option><option value="tight">紧凑少标点</option><option value="mixed">混合</option>
+                                </select>
+                              </label>
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">SENTENCE</span>
+                                <select value={profile.sentenceLength} onChange={e => updateLanguage({ sentenceLength: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
+                                  <option value="short">短句</option><option value="natural">自然</option><option value="long">偏长</option><option value="mixed">长短混合</option>
+                                </select>
+                              </label>
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">LINE BREAKS</span>
+                                <select value={profile.lineBreakStyle} onChange={e => updateLanguage({ lineBreakStyle: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
+                                  <option value="natural">自然</option><option value="every-sentence">一句一行</option><option value="compact">紧凑</option><option value="mixed">混合</option>
+                                </select>
+                              </label>
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">COLLOQUIAL</span>
+                                <select value={profile.colloquialLevel} onChange={e => updateLanguage({ colloquialLevel: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
+                                  <option value="formal">正式</option><option value="natural">自然口语</option><option value="casual">随意</option><option value="very-casual">很口语</option>
+                                </select>
+                              </label>
+                            </div>
+                            <input value={profile.fillerWords.join(', ')} onChange={e => updateLanguage({ fillerWords: e.target.value.split(',').map(v => v.trim()).filter(Boolean) })} placeholder="常用语气词：嗯, 啊, 哈哈, 哦" className="w-full bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none" />
+                            <div className="grid grid-cols-2 gap-2">
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">EMOJI</span>
+                                <select value={profile.emojiStyle} onChange={e => updateLanguage({ emojiStyle: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none"><option value="none">不用</option><option value="light">少量</option><option value="frequent">频繁</option><option value="mixed">自然混用</option></select>
+                              </label>
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">SPACING</span>
+                                <select value={profile.preferredSpaces ? 'yes' : 'no'} onChange={e => updateLanguage({ preferredSpaces: e.target.value === 'yes' })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none"><option value="no">按自然习惯</option><option value="yes">偏好空格</option></select>
+                              </label>
+                            </div>
+                            <input value={(profile.examples || []).join(' / ')} onChange={e => updateLanguage({ examples: e.target.value.split(' / ').map(v => v.trim()).filter(Boolean) })} placeholder="语言示例：你吃了 我也是 / im here lol" className="w-full bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none" />
+                          </>;
+                        })()}
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-3 text-xs leading-relaxed text-[#443f3a] font-serif-sc">
