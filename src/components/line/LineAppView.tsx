@@ -877,7 +877,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           }`}
         >
           <div className="text-[19px] leading-none">◯</div>
-          <div className="text-[9px]">聊天</div>
+          <div className="text-[9px]">CHAT</div>
         </div>
 
         {/* Tab 2: 好友 */}
@@ -888,7 +888,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           }`}
         >
           <div className="text-[19px] leading-none">♧</div>
-          <div className="text-[9px]">好友</div>
+          <div className="text-[9px]">FRIENDS</div>
         </div>
 
         {/* Tab 3: 朋友圈 */}
@@ -899,7 +899,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           }`}
         >
           <div className="text-[19px] leading-none">⌁</div>
-          <div className="text-[9px]">朋友圈</div>
+          <div className="text-[9px]">VROOM</div>
         </div>
 
         {/* Tab 4: 我的 */}
@@ -910,7 +910,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           }`}
         >
           <div className="text-[19px] leading-none">○</div>
-          <div className="text-[9px]">我的</div>
+          <div className="text-[9px]">ME</div>
         </div>
       </div>
 
