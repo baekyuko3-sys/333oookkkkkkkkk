@@ -14,7 +14,7 @@ import { getInitialChatMessages } from '../../data/characterChatSeeds';
 import { upsertOfflineEvent, updateOfflineEvent } from '../../store/offlineEvents';
 import { getLineGroupByName } from '../../store/lineGroups';
 import { getGroupPreset, getGroupPresets } from '../../store/groupPresets';
-import { getLineGroups } from '../../store/lineGroups';
+import { getLineGroups, updateLineGroupMember, addLineGroupMemory } from '../../store/lineGroups';
 import { createTogetherMusicSession, type TogetherMusicSession } from '../../store/togetherMusic';
 import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
 import { getStatusBarPresets, type StatusBarPreset } from '../../store/statusBarPresets';
@@ -703,7 +703,15 @@ export function LineConversationView({
           messages: workingMessages,
           userMessage: userText,
           isGroup: true,
-          authorNote: [authorsNote, '群聊预设：' + activeGroupPreset.name, activeGroupPreset.systemPrompt, groupNoticeText ? '群公告：' + groupNoticeText : ''].filter(Boolean).join('\n'),
+          authorNote: [
+            authorsNote,
+            '群聊预设：' + activeGroupPreset.name,
+            activeGroupPreset.systemPrompt,
+            groupNoticeText ? '群公告：' + groupNoticeText : '',
+            activeGroup?.relationships?.length ? '【成员关系】\\n' + activeGroup.relationships.map(item => item.from + ' → ' + item.to + '：' + item.relation).join('\\n') : '',
+            activeGroup?.events?.length ? '【群事件记忆】\\n' + activeGroup.events.slice(-12).map(item => item.text).join('\\n') : '',
+            '【成员状态】\\n' + (activeGroup?.members || []).map(member => member.name + '：' + [member.online === false ? '离线' : '在线', member.mood || '', member.relationship || ''].filter(Boolean).join(' / ')).join('\\n'),
+          ].filter(Boolean).join('\\n'),
           stylePreset: activeCotPreset?.title || selectedPreset,
           temperature: Number(presetTemp) || 0.85,
           onDelta: delta => {
@@ -713,6 +721,14 @@ export function LineConversationView({
         });
         setMessages(prev => prev.map(m => m.id === replyMsgId ? { ...m, text: result.text, senderName: character.name, aiModel: result.model, matchedWorldbookEntries: result.matchedWorldbookEntries } : m));
         workingMessages = [...workingMessages, { id: replyMsgId, sender: 'other', senderName: character.name, text: result.text }];
+        const member = responders[index].member;
+        updateLineGroupMember(activeGroup?.id || '', member.id, {
+          online: true,
+          lastSeenAt: new Date().toISOString(),
+          mood: '刚刚参与群聊',
+          memory: [...(member.memory || []), result.text.slice(0, 160)].slice(-20),
+        });
+        addLineGroupMemory(activeGroup?.id || '', character.name + ' 在群聊中说：' + result.text.slice(0, 180));
         window.dispatchEvent(new CustomEvent('sane333:play-sound', { detail: { kind: 'message' } }));
       }
         return;
