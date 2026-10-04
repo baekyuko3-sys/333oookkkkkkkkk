@@ -8,6 +8,8 @@ const starterBook: WorldBook = {
   id: 'worldbook-template',
   name: '新世界书',
   description: '',
+  category: '未分类',
+  tags: [],
   enabled: true,
   updatedAt: new Date().toISOString(),
   entries: [],
@@ -88,6 +90,8 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
       id,
       name: '新世界书',
       description: '',
+      category: '未分类',
+      tags: [],
       entries: [],
       updatedAt: new Date().toISOString(),
     };
@@ -183,6 +187,42 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
           </button>
         </div>
 
+        <div className="px-4 pb-2 grid grid-cols-2 gap-2">
+          <label className="p-2 rounded-xl bg-white/55 border border-[rgba(40,36,31,.1)] text-[8px] font-mono text-[#8b8782]">
+            RESOURCE NAME
+            <input
+              value={book?.name || ''}
+              onChange={e => patchBook({ name: e.target.value })}
+              className="w-full mt-1 bg-transparent text-[10px] font-serif font-semibold text-[#242323] outline-none"
+              placeholder="世界书名称"
+            />
+          </label>
+          <label className="p-2 rounded-xl bg-white/55 border border-[rgba(40,36,31,.1)] text-[8px] font-mono text-[#8b8782]">
+            CATEGORY
+            <input
+              value={book?.category || ''}
+              onChange={e => patchBook({ category: e.target.value })}
+              className="w-full mt-1 bg-transparent text-[10px] text-[#444] outline-none"
+              placeholder="人物 / 世界 / 剧情"
+            />
+          </label>
+          <label className="col-span-2 p-2 rounded-xl bg-white/55 border border-[rgba(40,36,31,.1)] text-[8px] font-mono text-[#8b8782]">
+            DESCRIPTION · TAGS
+            <input
+              value={book ? (book.description || '') + (book.tags?.length ? ' · ' + book.tags.join(', ') : '') : ''}
+              onChange={e => {
+                const [description, ...tags] = e.target.value.split('·');
+                patchBook({
+                  description: description.trim(),
+                  tags: tags.join('·').split(',').map(v => v.trim()).filter(Boolean),
+                });
+              }}
+              className="w-full mt-1 bg-transparent text-[9px] text-[#444] outline-none"
+              placeholder="描述 · tag1, tag2"
+            />
+          </label>
+        </div>
+
         <div className="min-h-0 px-4 pb-4 grid grid-rows-[auto_1fr] gap-2">
           <div className="flex gap-2 items-center">
             <input
@@ -207,7 +247,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
             >
               Tavern
             </button>
-            <input ref={importRef} type="file" accept=".json" className="hidden" onChange={e => importBook(e.target.files?.[0])} />
+            <input ref={importRef} type="file" accept=".json,.yaml,.yml" className="hidden" onChange={e => importBook(e.target.files?.[0])} />
           </div>
 
           <div className="min-h-0 grid grid-cols-[112px_1fr] gap-2">
