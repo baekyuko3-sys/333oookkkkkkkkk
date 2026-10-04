@@ -101,11 +101,4 @@ export const CHAT_HISTORY_ETHAN = [];
 
 export const MOMENTS_FEED = [];
 
-export const GALLERY_PHOTOS = [
-  { url: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=300&q=80', tag: '伦敦' },
-  { url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=300&q=80', tag: '猫咪' },
-  { url: 'https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=300&q=80', tag: '咖啡厅' },
-  { url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=300&q=80', tag: '海边' },
-  { url: 'https://images.unsplash.com/photo-1520986606214-8b456906c813?auto=format&fit=crop&w=300&q=80', tag: '书店' },
-  { url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=300&q=80', tag: '日落' },
-];
+export const GALLERY_PHOTOS: { url: string; tag: string }[] = [];
