@@ -45,6 +45,7 @@ export interface LineNotification {
 
 const META_KEY = 'line:runtime:conversations';
 const NOTIFICATION_KEY = 'line:runtime:notifications';
+const CONVERSATION_PREFIX = 'line:conversation:';
 const MAX_NOTIFICATIONS = 200;
 
 function readJson<T>(key: string, fallback: T): T {
@@ -63,7 +64,7 @@ function writeJson(key: string, value: unknown) {
 }
 
 function conversationKey(id: string) {
-  return `line:conversation:${id}`;
+  return CONVERSATION_PREFIX + id;
 }
 
 export function getLineConversationMessages(id: string): LineRuntimeMessage[] {
@@ -91,8 +92,9 @@ export function appendLineMessage(id: string, message: LineRuntimeMessage): Line
   if (current.some(item => String(item.id) === String(nextMessage.id))) return current;
   const next = [...current, nextMessage];
   saveLineConversationMessages(id, next);
+  const previousUnread = getLineConversationMeta(id)?.unread || 0;
   touchLineConversation(id, {
-    unread: nextMessage.sender === 'other' ? getLineConversationMeta(id)?.unread ?? 0 + 1 : 0,
+    unread: nextMessage.sender === 'other' ? previousUnread + 1 : 0,
   });
   return next;
 }
@@ -207,18 +209,30 @@ export interface LineBackup {
 }
 
 export function exportLineBackup(): LineBackup {
+  const conversations: Record<string, LineRuntimeMessage[]> = {};
+  if (typeof window !== 'undefined') {
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const key = window.localStorage.key(i);
+      if (key?.startsWith(CONVERSATION_PREFIX)) {
+        conversations[key.slice(CONVERSATION_PREFIX.length)] = readJson<LineRuntimeMessage[]>(key, []);
+      }
+    }
+  }
   return {
     version: 1,
     exportedAt: new Date().toISOString(),
-    conversations: readJson<Record<string, LineRuntimeMessage[]>>('line:runtime:conversations', {}),
+    conversations,
     metadata: readJson<Record<string, LineConversationMeta>>(META_KEY, {}),
     notifications: getLineNotifications(),
   };
 }
 
 export function importLineBackup(backup: LineBackup) {
+  if (typeof window === 'undefined') return;
   if (!backup || backup.version !== 1) throw new Error('LINE_BACKUP_VERSION_UNSUPPORTED');
-  writeJson('line:runtime:conversations', backup.conversations || {});
+  for (const [id, messages] of Object.entries(backup.conversations || {})) {
+    saveLineConversationMessages(id, messages);
+  }
   writeJson(META_KEY, backup.metadata || {});
   writeJson(NOTIFICATION_KEY, backup.notifications || []);
   window.dispatchEvent(new CustomEvent('sane333:line-runtime-changed'));
