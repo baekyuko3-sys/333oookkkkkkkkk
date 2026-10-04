@@ -20,7 +20,7 @@ import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
 import { getStatusBarPresets, type StatusBarPreset } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset } from '../../store/cotPresets';
 import { PresetResourceManager } from './PresetResourceManager';
-import { editLineMessage, toggleLineReaction, setLineMessageFavorite, recordLineCall, markLineMessageFailed } from '../../store/lineRuntime';
+import { editLineMessage, toggleLineReaction, setLineMessageFavorite, recordLineCall, markLineMessageFailed, clearLineConversation, recallLineMessage, updateLineMessage } from '../../store/lineRuntime';
 import { getLineConversationMessages, markLineConversationRead, saveLineConversationMessages, searchLineMessages, type LineRuntimeMessage } from '../../store/lineRuntime';
 import {
   Video, Settings, Plus, Mic, Send, Smile,
@@ -1060,15 +1060,9 @@ export function LineConversationView({
 
   // 清空聊天记录 (Clear Chat)
   const handleClearChat = () => {
-    setMessages([
-      {
-        id: Date.now(),
-        sender: 'system',
-        type: 'system-nudge',
-        text: '聊天记录已清空',
-        time: '刚刚'
-      }
-    ]);
+    clearLineConversation(conversationStorageId);
+    setMessages([]);
+    setLoadedMessageCount(LINE_PAGE_SIZE);
     setShowClearConfirm(false);
     setShowSettings(false);
     showToast('已清空所有聊天记录');
@@ -1091,6 +1085,12 @@ export function LineConversationView({
 
   // 角色撤回消息 (对方撤回 / 剧情害羞撤回)
   const handleOtherRecallMessage = (msgId: number, isRoleplayEvent = false) => {
+    updateLineMessage(conversationStorageId, msgId, {
+      text: '对方撤回了一条消息',
+      status: 'recalled',
+      recalledAt: new Date().toISOString(),
+      metadata: { recalledByOther: true, roleplayEvent: isRoleplayEvent },
+    });
     setMessages((prev) =>
       prev.map((m) =>
         m.id === msgId
