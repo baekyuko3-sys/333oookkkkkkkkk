@@ -13,6 +13,7 @@ import { getCharacterMemory } from '../../store/characterMemory';
 import { getCharacterProfile } from '../../data/characterProfiles';
 import { generateCreativeText, readStoredAiSettings } from '../../ai/aiEngine';
 import { setCurrentScene, setCharacterRuntime } from '../../store/worldRuntime';
+import { appendOfflineEventToLine } from '../../store/lineMessageRuntime';
 
 const statusLabel: Record<OfflineEvent['status'], string> = {
   draft: '草稿',
@@ -84,6 +85,7 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
 
   const acceptInvite = (event: OfflineEvent) => {
     updateOfflineEvent(event.id, { status: 'accepted', updatedAt: nowIso() });
+    appendOfflineEventToLine(event, '已接受你的线下邀约。之后就按约定见面吧。', 'accepted');
     sync();
     notify('已接受邀约，可以开始这条线下剧情');
   };
@@ -159,6 +161,7 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
       });
       if (updated) {
         setEvents(getOfflineEvents());
+        appendOfflineEventToLine(updated, '线下剧情已经开始：' + updated.location + ' · ' + updated.time, 'in-progress');
         setCurrentScene(event.id);
         setCharacterRuntime(event.characterId, {
           location: event.location,
@@ -230,7 +233,8 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
 
   const completeScene = () => {
     if (!selected) return;
-    updateOfflineEvent(selected.id, { status: 'completed', updatedAt: nowIso() });
+    const completed = updateOfflineEvent(selected.id, { status: 'completed', updatedAt: nowIso() });
+    if (completed) appendOfflineEventToLine(completed, '这次见面已经结束。线下剧情已存档。', 'completed');
     setCurrentScene(null);
     setCharacterRuntime(selected.characterId, { activity: '刚结束一次见面' }, selected.characterName);
     sync();
