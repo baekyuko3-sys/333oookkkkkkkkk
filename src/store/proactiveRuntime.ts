@@ -6,6 +6,8 @@ import { getProjectManifest } from './projectManifest';
 import { readAppSettings } from './appSettings';
 import { generateCreativeText, readStoredAiSettings } from '../ai/aiEngine';
 import { emitWorldEvent, setCharacterRuntime, syncWorldCharacters } from './worldRuntime';
+import { appendLineMessage, addLineNotification, getLineConversationMessages } from './lineRuntime';
+import { getLineRealitySettings, getCurrentLineTimeContext } from './lineReality';
 
 interface ScheduleItem {
   id: string;
@@ -15,6 +17,7 @@ interface ScheduleItem {
 
 interface ProactiveState {
   delivered: Record<string, string>;
+  lastSentAt?: Record<string, string>;
 }
 
 function readLocal<T>(key: string, fallback: T): T {
@@ -61,7 +64,7 @@ function appendProactiveMessage(character: ImportedCharacter, text: string) {
   const messages = readLocal<any[]>(key, []);
   const legacyMessages = key !== legacyKey ? readLocal<any[]>(legacyKey, []) : [];
   const message = {
-    id: Date.now(),
+    id: `proactive-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     sender: 'other',
     type: 'proactive',
     text,
@@ -70,6 +73,23 @@ function appendProactiveMessage(character: ImportedCharacter, text: string) {
   };
   const merged = [...messages, ...legacyMessages].slice(-200);
   saveLocal(key, [...merged, message]);
+  appendLineMessage(character.id || character.name, {
+    id: message.id,
+    sender: 'other',
+    text,
+    kind: 'text',
+    createdAt: new Date().toISOString(),
+    status: 'delivered',
+    metadata: { proactive: true },
+  });
+  addLineNotification({
+    type: 'message',
+    conversationId: character.id || character.name,
+    characterId: character.id,
+    title: character.name || '新消息',
+    body: text.slice(0, 120),
+    payload: { proactive: true },
+  });
 
   const chatItems = readLocal<any[]>('line:chat-items', []);
   const existing = chatItems.find(item => item.characterId === character.id || item.name === character.name);
@@ -133,10 +153,7 @@ async function generateProactiveMessage(
   const worldbooks = readLocal<WorldBook[]>('phone:worldbooks', []);
   const personas = readLocal<any[]>('line:user-personas', []);
   const persona = personas.find(item => item.isDefault) || personas[0] || null;
-  const recentMessages = [
-    ...readLocal<any[]>(`line:conversation:${character.id || character.name}`, []),
-    ...(character.id ? readLocal<any[]>(`line:conversation:${character.name}`, []) : []),
-  ].slice(-12);
+  const recentMessages = getLineConversationMessages(character.id || character.name).slice(-12);
 
   const systemPrompt = [
     '你是 Sane333 的主动消息引擎。',
@@ -202,9 +219,15 @@ export async function runProactiveCatchup() {
   syncWorldCharacters(characters);
 
   const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const today = dayKey(now);
-  const state = readLocal<ProactiveState>('phone:proactive-state', { delivered: {} });
+  const reality = getLineRealitySettings();
+  const timeContext = getCurrentLineTimeContext();
+  const zonedParts = new Intl.DateTimeFormat('en-US', { timeZone: reality.timezone, hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(now);
+  const currentMinutes = Number(zonedParts.find(part => part.type === 'hour')?.value || 0) * 60 + Number(zonedParts.find(part => part.type === 'minute')?.value || 0);
+  const zonedDate = new Intl.DateTimeFormat('en-CA', { timeZone: reality.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  const today = zonedDate;
+  const cooldownMs = reality.proactiveCooldownMinutes * 60 * 1000;
+  const state = readLocal<ProactiveState>('phone:proactive-state', { delivered: {}, lastSentAt: {} });
+  state.lastSentAt ||= {};
   let dirty = false;
 
   running = true;
@@ -225,12 +248,15 @@ export async function runProactiveCatchup() {
       const candidate = due[0];
       const deliveryKey = today + ':' + character.id + ':' + candidate.item.id;
       if (state.delivered[character.id] === deliveryKey) continue;
+      const lastSent = state.lastSentAt?.[character.id] ? Date.parse(state.lastSentAt[character.id]!) : 0;
+      if (lastSent && now.getTime() - lastSent < cooldownMs) continue;
 
       const message = await generateProactiveMessage(character, candidate.item);
       if (!message.trim()) continue;
 
       appendProactiveMessage(character, message.trim());
       state.delivered[character.id] = deliveryKey;
+      state.lastSentAt![character.id] = now.toISOString();
       dirty = true;
 
       if (settings.notificationEnabled && 'Notification' in window && Notification.permission === 'granted') {
