@@ -1,5 +1,8 @@
 import type { ImportedCharacter } from '../data/characterImport';
 import type { OfflineEvent, ProjectManifest, WorldBook } from '../types';
+import { getOfflineEvents } from './offlineEvents';
+import { getLineGroups } from './lineGroups';
+import { getWorldRuntime } from './worldRuntime';
 import { getCharacterProfile } from '../data/characterProfiles';
 import { getCharacterMemory } from './characterMemory';
 import { getProjectManifest } from './projectManifest';
@@ -16,6 +19,22 @@ interface ScheduleItem {
 
 interface ProactiveState {
   delivered: Record<string, string>;
+  lastBehaviorAt?: Record<string, number>;
+}
+
+interface BehaviorCandidate {
+  key: string;
+  reason: 'schedule' | 'recent-chat' | 'offline-completed' | 'group';
+  context: string;
+  groupId?: string;
+}
+
+function relationshipHeat(character: ImportedCharacter): string {
+  const profile = getCharacterProfile(character.name);
+  const raw = String(profile.relationship || '').toLowerCase();
+  if (/恋人|爱人|暧昧|喜欢|亲密|伴侣|恋爱|lover|partner|romantic/.test(raw)) return 'high';
+  if (/朋友|好友|知己|熟人|friend|close/.test(raw)) return 'medium';
+  return 'low';
 }
 
 function readLocal<T>(key: string, fallback: T): T {
@@ -85,7 +104,7 @@ function appendProactiveMessage(character: ImportedCharacter, text: string) {
 
 async function generateProactiveMessage(
   character: ImportedCharacter,
-  schedule: ScheduleItem,
+  candidate: BehaviorCandidate,
 ): Promise<string> {
   const settings = readStoredAiSettings();
   const appSettings = readAppSettings();
@@ -101,62 +120,134 @@ async function generateProactiveMessage(
   const worldbooks = readLocal<WorldBook[]>('phone:worldbooks', []);
   const personas = readLocal<any[]>('line:user-personas', []);
   const persona = personas.find(item => item.isDefault) || personas[0] || null;
-  const recentMessages = [
-    ...readLocal<any[]>(`line:conversation:${character.id || character.name}`, []),
-    ...(character.id ? readLocal<any[]>(`line:conversation:${character.name}`, []) : []),
-  ].slice(-12);
+  const conversationId = character.id || character.name;
+  const recentMessages = readLocal<any[]>(`line:conversation:${conversationId}`, []).slice(-16);
+  const world = getWorldRuntime();
+  const runtime = world.characters[character.id];
 
   const systemPrompt = [
-    '你是 Sane333 的主动消息引擎。',
-    '你正在代表一个真实存在于私人虚拟手机里的角色，在合适的日程节点主动给用户发一条消息。',
-    '这不是系统通知，也不是说明书。只写角色真正会发给用户的聊天内容。',
-    '不要替用户说话、不要猜测用户动作，不要写选择菜单。',
-    '消息自然、具体、有生活感；不要为了“主动消息”强行煽情。',
+    '你是 Sane333 的 Character Behavior Runtime。',
+    '你不是一个定时器。你要判断一个真实角色“为什么此刻会想联系用户”，然后用角色本人发一条自然的 LINE 消息。',
+    '绝对不能替用户说话、替用户行动、替用户决定感受。',
+    '不要解释触发原因，不要输出系统提示、标签、选择菜单。',
+    '如果是群聊，消息必须像真的发在群里，可以自然 @ 用户。',
     '',
-    '【角色】',
-    character.name,
-    character.description || '',
-    character.personality || '',
-    character.scenario || '',
-    character.systemPrompt || '',
-    '',
-    '【关系】',
-    profile.relationship + '；称呼：' + profile.callMe,
-    '',
-    '【用户人设】',
-    persona ? JSON.stringify(persona) : '未设置',
-    '',
-    '【长期记忆】',
-    memory.summary || '暂无摘要',
+    '【角色】', character.name, character.description || '', character.personality || '', character.scenario || '', character.systemPrompt || '',
+    '【关系热度】', relationshipHeat(character), '；关系描述：' + profile.relationship + '；称呼：' + profile.callMe,
+    '【角色当前状态】', runtime ? runtime.location + ' / ' + runtime.activity + ' / ' + runtime.mood : '未知',
+    '【用户人设】', persona ? JSON.stringify(persona) : '未设置',
+    '【长期记忆】', memory.summary || '暂无摘要',
     ...memory.items.slice(0, 10).map(item => '- ' + item.content),
-    '',
-    '【项目】',
-    project.name + ' / ' + project.genre,
-    project.tone,
-    project.globalPrompt || '',
-    '',
+    '【项目】', project.name + ' / ' + project.genre, project.tone, project.globalPrompt || '',
     '【世界书】',
     worldbooks.flatMap(book => book.enabled
       ? book.entries.filter(entry => entry.enabled).slice(0, 8).map(entry => '- ' + entry.name + ': ' + entry.content)
       : []).join('\n') || '无',
-    '',
     '【最近聊天】',
-    recentMessages.map(message => (message.sender === 'other' ? character.name : '用户') + ': ' + (message.text || message.transcript || '[媒体]')).join('\n'),
+    recentMessages.map(message => (message.sender === 'other' ? (message.senderName || character.name) : '用户') + ': ' + (message.text || message.transcript || '[媒体]')).join('\n') || '暂无',
   ].join('\n');
 
+  const target = candidate.groupId ? '群聊' : '私聊';
   return generateCreativeText({
-    settings,
+    settings: proactiveSettings,
     systemPrompt,
     userPrompt: [
-      '现在触发角色主动消息。',
-      '日程时间：' + schedule.time,
-      '日程事件：' + schedule.title,
-      '请结合角色当前生活状态和最近聊天，发出一条自然的主动消息。',
-      '控制在适合手机聊天的长度，不要解释你为什么主动联系。',
+      '现在触发一次角色行为。',
+      '目标：' + target,
+      '行为理由：' + candidate.reason,
+      '行为上下文：' + candidate.context,
+      '请根据这个理由、最近聊天、关系热度、角色状态和长期记忆，决定角色此刻最自然的说法。',
+      '如果是群聊，可以自然 @ 用户，但不要机械重复 @。',
+      '适合手机聊天：1～4句即可。',
     ].join('\n'),
     temperature: proactiveSettings.temperature ?? 0.85,
   });
 }
+
+function chooseBehavior(
+  character: ImportedCharacter,
+  now: Date,
+  schedule: ScheduleItem[],
+  state: ProactiveState,
+): BehaviorCandidate | null {
+  const id = character.id || character.name;
+  const lastBehavior = state.lastBehaviorAt?.[id] || 0;
+  if (now.getTime() - lastBehavior < 30 * 60_000) return null;
+
+  const messages = readLocal<any[]>(`line:conversation:${id}`, []);
+  const last = messages[messages.length - 1];
+  if (last?.sender === 'me') {
+    const age = now.getTime() - (typeof last.createdAt === 'string' ? new Date(last.createdAt).getTime() : now.getTime());
+    if (age >= 2 * 60_000) {
+      return {
+        key: 'chat:' + String(last.id),
+        reason: 'recent-chat',
+        context: '用户上一条消息已经过去一段时间，角色可以自然接住这段对话，但不要替用户补完答案。',
+      };
+    }
+  }
+
+  const completed = getOfflineEvents()
+    .filter(event => event.characterId === character.id && event.status === 'completed')
+    .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())[0];
+  if (completed) {
+    const completedAt = new Date(completed.updatedAt || completed.createdAt).getTime();
+    if (now.getTime() - completedAt < 30 * 60_000) {
+      return {
+        key: 'offline:' + completed.id,
+        reason: 'offline-completed',
+        context: '刚刚结束线下剧情「' + completed.title + '」，地点：' + completed.location + '。角色可以带着见面后的情绪继续联系用户。',
+      };
+    }
+  }
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const due = schedule
+    .map(item => ({ item, minute: parseClock(item.time) }))
+    .filter((entry): entry is { item: ScheduleItem; minute: number } => entry.minute !== null && entry.minute <= currentMinutes)
+    .sort((a, b) => b.minute - a.minute);
+  if (due.length) {
+    const item = due[0].item;
+    return {
+      key: 'schedule:' + item.id + ':' + dayKey(now),
+      reason: 'schedule',
+      context: '角色今天的日程节点「' + item.title + '」到了，时间：' + item.time + '。不要像系统提醒一样说话，要像角色自然想起这件事。',
+    };
+  }
+  return null;
+}
+
+function appendBehaviorMessage(character: ImportedCharacter, text: string, groupId?: string) {
+  const conversationId = groupId || character.id || character.name;
+  const message = appendLineRuntimeMessage(conversationId, {
+    id: Date.now(),
+    sender: 'other',
+    senderName: character.name,
+    type: groupId ? 'group-proactive' : 'proactive',
+    text,
+    time: lineNowTime(),
+    isRead: false,
+    status: 'sent',
+    source: 'character-behavior-runtime',
+    groupId: groupId || undefined,
+  });
+  if (!message) return null;
+  emitWorldEvent('character.message', {
+    characterId: character.id,
+    characterName: character.name,
+    data: { preview: text.replace(/\s+/g, ' ').slice(0, 120), source: 'character-behavior', groupId },
+  });
+  setCharacterRuntime(character.id, {
+    activity: groupId ? '刚在群里说了句话' : '刚刚主动联系了你',
+    mood: '想起了你',
+    lastInteractionAt: new Date().toISOString(),
+  }, character.name);
+  window.dispatchEvent(new CustomEvent('sane333:proactive-message', {
+    detail: { characterName: character.name, message },
+  }));
+  return message;
+}
+
 
 let running = false;
 
@@ -170,9 +261,9 @@ export async function runProactiveCatchup() {
   syncWorldCharacters(characters);
 
   const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
   const today = dayKey(now);
-  const state = readLocal<ProactiveState>('phone:proactive-state', { delivered: {} });
+  const state = readLocal<ProactiveState>('phone:proactive-state', { delivered: {}, lastBehaviorAt: {} });
+  state.lastBehaviorAt = state.lastBehaviorAt || {};
   let dirty = false;
 
   running = true;
@@ -189,27 +280,23 @@ export async function runProactiveCatchup() {
         try {
           const parsed = JSON.parse(rawSchedule);
           if (Array.isArray(parsed)) schedule = [...schedule, ...parsed];
-        } catch {
-          // Ignore malformed schedule storage and continue with the other key.
-        }
+        } catch {}
       }
-      if (!schedule.length) continue;
-      const due = schedule
-        .map(item => ({ item, minute: parseClock(item.time) }))
-        .filter((entry): entry is { item: ScheduleItem; minute: number } => entry.minute !== null && entry.minute <= currentMinutes)
-        .sort((a, b) => b.minute - a.minute);
 
-      if (!due.length) continue;
+      const candidate = chooseBehavior(character, now, schedule, state);
+      if (!candidate) continue;
 
-      const candidate = due[0];
-      const deliveryKey = today + ':' + character.id + ':' + candidate.item.id;
+      const deliveryKey = today + ':' + character.id + ':' + candidate.key;
       if (state.delivered[character.id] === deliveryKey) continue;
 
-      const message = await generateProactiveMessage(character, candidate.item);
+      const message = await generateProactiveMessage(character, candidate);
       if (!message.trim()) continue;
 
-      appendProactiveMessage(character, message.trim());
+      const sent = appendBehaviorMessage(character, message.trim());
+      if (!sent) continue;
+
       state.delivered[character.id] = deliveryKey;
+      state.lastBehaviorAt[character.id] = now.getTime();
       dirty = true;
 
       if (settings.notificationEnabled && 'Notification' in window && Notification.permission === 'granted') {
@@ -219,8 +306,39 @@ export async function runProactiveCatchup() {
         });
       }
     }
+
+    // 群聊主动插话：只在群里最近有人说话且角色属于该群时触发，避免无意义刷屏。
+    for (const group of getLineGroups()) {
+      const memberCharacters = group.members
+        .map(member => characters.find(character => character.id === member.characterId || character.name === member.name))
+        .filter(Boolean) as ImportedCharacter[];
+      if (!memberCharacters.length) continue;
+
+      const groupMessages = readLocal<any[]>(`line:conversation:${group.id}`, []);
+      const last = groupMessages[groupMessages.length - 1];
+      if (!last || last.sender === 'other') continue;
+      const lastTime = typeof last.createdAt === 'string' ? new Date(last.createdAt).getTime() : now.getTime();
+      if (now.getTime() - lastTime < 2 * 60_000 || now.getTime() - lastTime > 20 * 60_000) continue;
+
+      const actor = memberCharacters[0];
+      const key = 'group:' + group.id + ':' + String(last.id);
+      if (state.delivered[group.id] === today + ':' + key) continue;
+
+      const candidate: BehaviorCandidate = {
+        key,
+        reason: 'group',
+        groupId: group.id,
+        context: '群成员刚刚发言，角色可以自然接话。群名：' + group.name + '。最近一句：' + (last.text || ''),
+      };
+      const message = await generateProactiveMessage(actor, candidate);
+      if (!message.trim()) continue;
+      const sent = appendBehaviorMessage(actor, message.trim(), group.id);
+      if (!sent) continue;
+      state.delivered[group.id] = today + ':' + key;
+      dirty = true;
+    }
   } catch {
-    // Proactive messages must never break the phone runtime.
+    // Character behavior must never break the phone runtime.
   } finally {
     running = false;
     if (dirty) saveLocal('phone:proactive-state', state);
