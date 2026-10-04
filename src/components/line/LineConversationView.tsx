@@ -701,6 +701,7 @@ export function LineConversationView({
         text: '',
         time: '刚刚',
         type: 'ai-reply',
+        status: 'sending',
         showThinking: false,
       },
     ]);
@@ -744,6 +745,7 @@ export function LineConversationView({
                 text: result.text,
                 time: '刚刚',
                 type: 'ai-reply',
+                status: 'delivered',
                 aiModel: result.model,
                 matchedWorldbookEntries: result.matchedWorldbookEntries,
               }
@@ -1486,6 +1488,12 @@ export function LineConversationView({
               try { await generateSpeech(result.text, latestSettings); } catch {}
             }
           } catch (error) {
+      setMessages((prev) => prev.map((m) =>
+        m.id === replyMsgId
+          ? { ...m, status: 'failed', error: error instanceof Error ? error.message : 'AI 请求失败' }
+          : m
+      ));
+
             setMessages(prev => prev.filter(message => message.id !== replyMsgId));
             const message = error instanceof Error ? error.message : '图片理解失败';
             showToast(message.length > 72 ? message.slice(0, 72) + '…' : message);
