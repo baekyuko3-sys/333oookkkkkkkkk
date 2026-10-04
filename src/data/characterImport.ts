@@ -71,6 +71,7 @@ function normalizeCharacter(raw: any, sourceFormat: ImportedCharacter['sourceFor
     characterVersion:
       cleanString(data.character_version) || cleanString(data.characterVersion),
     extensions: data.extensions && typeof data.extensions === 'object' ? data.extensions : undefined,
+    languageProfile: data.languageProfile && typeof data.languageProfile === 'object' ? data.languageProfile : undefined,
     embeddedWorldBook: data.character_book && typeof data.character_book === 'object'
       ? (() => { try { return importWorldBooks(JSON.stringify(data.character_book))[0]; } catch { return undefined; } })()
       : undefined,
