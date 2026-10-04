@@ -34,7 +34,15 @@ function collectLocalData(includeSecrets = true) {
   if (!includeSecrets && data['phone:settings'] && typeof data['phone:settings'] === 'object') {
     const safe = { ...(data['phone:settings'] as Record<string, unknown>) };
     for (const key of ['apiKey', 'voiceApiKey', 'sttApiKey', 'imageApiKey']) safe[key] = '';
+    for (const key of ['chatApiOverride', 'momentsApiOverride']) {
+      if (safe[key] && typeof safe[key] === 'object') {
+        safe[key] = { ...(safe[key] as Record<string, unknown>), apiKey: '' };
+      }
+    }
     data['phone:settings'] = safe;
+    if (Array.isArray(data['phone:character-ai-profiles'])) {
+      data['phone:character-ai-profiles'] = (data['phone:character-ai-profiles'] as Array<Record<string, unknown>>).map(profile => ({ ...profile, apiKey: '' }));
+    }
   }
 
   return data;
