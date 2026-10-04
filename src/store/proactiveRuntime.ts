@@ -6,6 +6,7 @@ import { getProjectManifest } from './projectManifest';
 import { readAppSettings } from './appSettings';
 import { generateCreativeText, readStoredAiSettings } from '../ai/aiEngine';
 import { emitWorldEvent, setCharacterRuntime, syncWorldCharacters } from './worldRuntime';
+import { appendLineRuntimeMessage, lineNowTime } from './lineMessageRuntime';
 
 interface ScheduleItem {
   id: string;
@@ -53,58 +54,23 @@ function dayKey(date: Date) {
 }
 
 function appendProactiveMessage(character: ImportedCharacter, text: string) {
-  // LINE conversations are keyed by character id when available. Keeping
-  // proactive messages on the same key prevents "notification arrives but
-  // chat opens empty" when the contact was created from an imported card.
-  const key = `line:conversation:${character.id || character.name}`;
-  const legacyKey = `line:conversation:${character.name}`;
-  const messages = readLocal<any[]>(key, []);
-  const legacyMessages = key !== legacyKey ? readLocal<any[]>(legacyKey, []) : [];
-  const message = {
+  const message = appendLineRuntimeMessage(character.id || character.name, {
     id: Date.now(),
     sender: 'other',
+    senderName: character.name,
     type: 'proactive',
     text,
-    time: '刚刚',
+    time: lineNowTime(),
     isRead: false,
     status: 'sent',
     source: 'proactive-runtime',
-  };
-  const merged = [...messages, ...legacyMessages].slice(-200);
-  saveLocal(key, [...merged, message]);
+  });
+  if (!message) return;
 
-  const chatItems = readLocal<any[]>('line:chat-items', []);
-  const existing = chatItems.find(item => item.characterId === character.id || item.name === character.name);
-  const updated = existing
-    ? chatItems.map(item =>
-        item.characterId === character.id || item.name === character.name
-          ? {
-              ...item,
-              characterId: character.id,
-              preview: text.replace(/\s+/g, ' ').slice(0, 80),
-              time: '刚刚',
-              unread: Number(item.unread || 0) + 1,
-            }
-          : item
-      )
-    : [{
-        id: character.id,
-        characterId: character.id,
-        name: character.name,
-        variantLabel: character.variantLabel || character.characterVersion || '默认版本',
-        time: '刚刚',
-        preview: text.replace(/\s+/g, ' ').slice(0, 80),
-        unread: 1,
-        isPinned: false,
-        isMuted: false,
-        draft: '',
-        isGroup: false,
-      }, ...chatItems];
-  saveLocal('line:chat-items', updated);
   emitWorldEvent('character.message', {
     characterId: character.id,
     characterName: character.name,
-    data: { preview: text.replace(/\\s+/g, ' ').slice(0, 120), source: 'proactive' },
+    data: { preview: text.replace(/\s+/g, ' ').slice(0, 120), source: 'proactive' },
   });
   setCharacterRuntime(character.id, {
     activity: '刚刚主动联系了你',
