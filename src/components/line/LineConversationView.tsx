@@ -1585,14 +1585,54 @@ export function LineConversationView({
   };
 
   // 重新生成 (Reroll)
-  const handleDoReroll = () => {
-    if (!rerollPrompt.trim()) {
+  const handleDoReroll = async () => {
+    const instruction = rerollPrompt.trim();
+    if (!instruction) {
       showToast('告诉 AI 这一轮怎么改');
       return;
     }
+    const targetIndex = [...messages].map((m, index) => ({ m, index })).reverse().find(item => item.m.sender === 'other' && item.m.type !== 'system-nudge')?.index;
+    if (targetIndex === undefined || !importedCharacter) {
+      showToast('还没有可以重新生成的角色消息');
+      return;
+    }
+    const target = messages[targetIndex];
+    const previousUser = [...messages.slice(0, targetIndex)].reverse().find(m => m.sender === 'me' && m.text)?.text || inputText;
     setShowReroll(false);
     setRerollPrompt('');
-    showToast('正在重新生成这一条……');
+    setIsTyping(true);
+    setMessages(prev => prev.map((m, i) => i === targetIndex ? { ...m, text: '', status: 'sending', error: undefined } : m));
+    try {
+      let streamed = '';
+      const result = await generateCharacterReply({
+        settings: conversationAiSettings(),
+        character: importedCharacter,
+        characterProfile,
+        persona: activePersona,
+        worldbooks,
+        memory: characterMemory,
+        project: projectManifest,
+        messages: messages.slice(0, targetIndex),
+        userMessage: previousUser || '继续当前对话',
+        isGroup,
+        authorNote: [authorsNote, '重新生成要求：' + instruction].filter(Boolean).join('\\n'),
+        stylePreset: activeCotPreset?.title || selectedPreset,
+        temperature: Number(presetTemp) || 0.85,
+        onDelta: delta => {
+          streamed += delta;
+          setMessages(prev => prev.map((m, i) => i === targetIndex ? { ...m, text: streamed, status: 'sending' } : m));
+        },
+      });
+      setMessages(prev => prev.map((m, i) => i === targetIndex ? { ...m, text: result.text, status: 'delivered', editedAt: new Date().toISOString(), aiModel: result.model } : m));
+      showToast('这一条已经重新生成');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '重新生成失败';
+      setMessages(prev => prev.map((m, i) => i === targetIndex ? { ...m, status: 'failed', error: message } : m));
+      markLineMessageFailed(conversationStorageId, target.id, message);
+      showToast(message.length > 60 ? message.slice(0, 60) + '…' : message);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   // 状态栏 HTML
