@@ -37,6 +37,7 @@ export interface AiReplyInput {
     type?: string;
     imageData?: string;
     senderName?: string;
+    metadata?: Record<string, unknown>;
     isRecalled?: boolean;
     isRecalledByOther?: boolean;
   }>;
@@ -233,6 +234,18 @@ function findRelevantHistory(input: AiReplyInput, recentIds: Set<string>): AiRep
     .map(item => item.message);
 }
 
+function mediaContextLabel(message: AiReplyInput['messages'][number]): string {
+  const metadata = message.metadata || {};
+  const mediaType = String(metadata.mediaType || message.type || '');
+  const fileName = String(metadata.fileName || '');
+  const transcript = String(metadata.transcript || message.transcript || '');
+  if (mediaType === 'image') return '[图片消息：这是一张之前发送过的图片，当前轮次可参考其记录]' + (fileName ? ' 文件：' + fileName : '');
+  if (mediaType === 'voice' || message.type === 'voice') return '[语音消息]' + (transcript ? ' 转写：' + transcript : '');
+  if (mediaType === 'video') return '[视频消息]' + (fileName ? ' 文件：' + fileName : '');
+  if (mediaType === 'file') return '[文件消息]' + (fileName ? ' 文件：' + fileName : '');
+  return '[多媒体消息]';
+}
+
 function buildConversationMessages(input: AiReplyInput) {
   // contextLength is the user's actual context budget: first cap turns, then cap
   // the approximate payload size so a huge message/media transcript cannot silently
@@ -247,13 +260,8 @@ function buildConversationMessages(input: AiReplyInput) {
   const recent = recentSource.map(message => ({
     role: message.sender === 'other' ? 'assistant' : 'user',
     content: input.isGroup && message.senderName
-      ? '[' + message.senderName + '] ' + (message.text || message.transcript || '[多媒体消息]')
-      : message.text || message.transcript || (
-        message.type === 'image' ? '[图片消息：AI 可见当前图片内容]' :
-        message.type === 'voice' ? '[语音消息：' + (message.transcript || '未转写') + ']' :
-        message.type === 'video' ? '[视频消息]' :
-        message.type === 'file' ? '[文件消息]' : '[多媒体消息]'
-      ),
+      ? '[' + message.senderName + '] ' + (message.text || message.transcript || mediaContextLabel(message))
+      : message.text || message.transcript || mediaContextLabel(message),
     imageData: message.imageData,
   }));
 
