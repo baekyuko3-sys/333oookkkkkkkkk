@@ -83,21 +83,19 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
       {/* Top Header Identity (Persists across pages) */}
       <div className="absolute z-10 top-[70px] left-[25px] right-[25px] flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div 
-            onClick={() => onNavigate('character-profile')}
-            className="w-[45px] h-[45px] rounded-full cursor-pointer relative overflow-hidden shadow-[0_5px_18px_rgba(56,46,36,.18)] shrink-0"
-            style={{ background: 'linear-gradient(145deg,#b6a38d,#695e55)' }}
-            title="查看角色中心"
+          <div
+            className="w-[45px] h-[45px] rounded-full relative overflow-hidden shadow-[0_5px_18px_rgba(56,46,36,.18)] shrink-0"
+            style={{ background: 'linear-gradient(145deg,#d8d3ca,#8b8379)' }}
+            title="个人主页"
           >
-            <div className="absolute w-[18px] h-[22px] rounded-full bg-[#e1d2c0] left-[13px] top-[8px]" />
-            <div className="absolute w-[35px] h-[22px] rounded-[50%_50%_42%_42%] bg-[#51473f] left-[5px] top-[1px]" />
+            <div className="absolute inset-0 grid place-items-center text-[10px] font-mono tracking-[1px] text-white/90">ME</div>
           </div>
           <div>
             <div className="text-[11px] text-[#8b8782] tracking-[0.5px] mb-0.5 font-mono">
-              {currentPage === 1 ? currentGreeting : 'VAULT ARCHIVES · PAGE 02'}
+              {currentPage === 1 ? currentGreeting : 'PRIVATE ARCHIVE'}
             </div>
             <div className="text-[17px] font-[650] tracking-[0.2px] text-[var(--ink)]">
-              {currentPage === 1 ? 'Sane333' : 'Inner Vault'}
+              Sane333
             </div>
           </div>
         </div>
@@ -144,7 +142,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
                   傍晚风微凉，咖啡刚好。
                 </p>
                 <span className="font-handwriting text-[7px] text-[#9b625b] text-right">
-                  with Ethan.
+                  private note.
                 </span>
               </div>
             ) : (
@@ -259,9 +257,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
                 <svg className="w-6 h-6 stroke-current fill-none stroke-[1.5] stroke-linecap-round stroke-linejoin-round">
                   <use href="#chat"/>
                 </svg>
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#9b625b] text-white text-[9px] font-bold flex items-center justify-center">
-                  2
-                </span>
+                
               </div>
               <span className="font-medium">LINE</span>
             </button>
@@ -312,148 +308,30 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
       {/* ========================================================================= */}
       {currentPage === 2 && (
         <div className="animate-in fade-in duration-300">
-          
-          {/* Page 2 Literary Mood Section */}
-          <div className="absolute z-10 top-[148px] left-[26px]">
+          <div className="absolute z-10 inset-x-[26px] top-[148px]">
             <div className="font-serif text-[42px] leading-[0.95] font-normal tracking-[-1.5px] text-[var(--ink)]">
-              深夜
+              空白
             </div>
             <div className="text-[10px] text-[#8b8782] tracking-[2px] mt-2.5 font-mono">
-              SECRET LOG · ETHAN'S VAULT
+              PRIVATE DEVICE · PAGE 02
             </div>
-            <div className="mt-4 font-serif-sc text-[12.5px] leading-[1.75] text-[var(--sub,#68625b)] max-w-[205px]">
-              “那些不曾发给任何人的草稿，<br />和只对你开放的抽屉。”
-            </div>
-          </div>
-
-          {/* Page 2 Polaroid: London Night Rain */}
-          <div 
-            onClick={() => setIsPhotoFlippedP2(!isPhotoFlippedP2)}
-            className="absolute z-10 right-[17px] top-[181px] w-[84px] h-[106px] -rotate-[3deg] p-[5px_5px_15px] bg-[var(--paper,#eee9df)] shadow-[0_7px_18px_rgba(45,37,30,.09)] opacity-90 cursor-pointer hover:rotate-0 hover:scale-105 transition-all group"
-            title="点击翻转伦敦雨夜拍立得"
-          >
-            {isPhotoFlippedP2 ? (
-              <div className="h-[82px] p-1.5 bg-[#fbf9f5] border border-neutral-200/80 rounded flex flex-col justify-between text-left">
-                <span className="text-[6px] font-mono text-[#8b8782]">DRAFT</span>
-                <p className="font-handwriting text-[8px] leading-tight text-[#8b7560]">
-                  23:45 伦敦雨。<br />
-                  想立刻飞回你身边。
-                </p>
-                <span className="font-handwriting text-[7px] text-[#9b625b] text-right">
-                  private.
-                </span>
-              </div>
-            ) : (
-              <div 
-                className="h-[82px] relative overflow-hidden filter contrast-[0.92] saturate-[0.68]"
-                style={{
-                  background: `
-                    radial-gradient(circle at 70% 28%, rgba(200,185,160,.6), transparent 25%),
-                    linear-gradient(135deg, #3d3732, #6e645a 50%, #2f2a26)
-                  `
-                }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-black/40" />
-                <span className="absolute left-[6px] top-[6px] text-white/85 text-[7px] tracking-[0.9px] font-mono">
-                  LONDON RAIN
-                </span>
-                <b className="absolute right-[6px] bottom-[5px] text-white font-serif text-[11px] font-normal">
-                  23:45
-                </b>
-              </div>
-            )}
-            <div className="absolute left-[5px] bottom-[3px] text-[7px] tracking-[0.8px] text-[#6f685f] whitespace-nowrap font-mono">
-              {isPhotoFlippedP2 ? 'CLICK FLIP' : 'DRAFT 23:45'}
+            <div className="mt-4 font-serif-sc text-[12.5px] leading-[1.75] text-[var(--sub,#68625b)] max-w-[220px]">
+              “这里还没有任何角色、对话或私人记录。<br />
+              从零开始，等你亲手填入。”
             </div>
           </div>
 
-          {/* Page 2 Middle Feature Preview Cards */}
-          <div className="absolute z-10 top-[306px] left-[20px] right-[20px] space-y-[11px]">
-            
-            {/* Widget 1: Threads Live Draft Preview */}
-            <div 
-              onClick={() => onNavigate('threads')}
-              className="border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[14px_16px] shadow-[0_6px_22px_rgba(40,35,30,.045)] cursor-pointer active:scale-98 transition-all hover:bg-white/90 group"
-            >
-              <div className="flex items-center justify-between text-[9px] font-mono text-[#8b8782] mb-1.5">
-                <span className="flex items-center gap-1.5 text-[#1a1a1a] font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#1a1a1a]" />
-                  THREADS · ETHAN
-                </span>
-                <span>14分钟前发布</span>
+          <div className="absolute z-10 top-[306px] left-[20px] right-[20px]">
+            <div className="min-h-[190px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[18px] shadow-[0_6px_22px_rgba(40,35,30,.045)] flex flex-col items-center justify-center text-center">
+              <div className="w-12 h-12 rounded-2xl border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--icon,rgba(248,245,239,.72))] grid place-items-center text-[var(--sub,#68625b)] mb-3">
+                ○
               </div>
-              <p className="font-serif-sc text-[12px] leading-relaxed text-[var(--ink)] line-clamp-2">
-                “窗外雨停了。突然想起很久以前某个人说过的傻话。说要带我看日落，结果自己在车里睡得东倒西歪…”
+              <div className="text-[11px] font-mono tracking-[1.4px] text-[#8b8782]">NO PRESET DATA</div>
+              <p className="mt-2 font-serif-sc text-[12px] leading-relaxed text-[var(--sub,#68625b)]">
+                暂无角色 · 暂无聊天 · 暂无动态
               </p>
-              <div className="mt-2 pt-1.5 border-t border-[rgba(0,0,0,0.05)] flex items-center justify-between text-[9px] font-mono text-[#8b7560]">
-                <span>点击进入 Threads 查阅互动</span>
-                <span className="group-hover:translate-x-1 transition-transform">→</span>
-              </div>
             </div>
-
-            {/* Widget 2: Spy Phone Monitor Status Card */}
-            <div 
-              onClick={() => onNavigate('spy-phone')}
-              className="border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[14px_16px] shadow-[0_6px_22px_rgba(40,35,30,.045)] cursor-pointer active:scale-98 transition-all hover:bg-white/90 group"
-            >
-              <div className="flex items-center justify-between text-[9px] font-mono text-[#8b8782] mb-1.5">
-                <span className="flex items-center gap-1.5 text-[#9b625b] font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#9b625b] animate-ping" />
-                  查手机 · 窥探监控已就绪
-                </span>
-                <span>林工在线</span>
-              </div>
-              <div className="text-[11.5px] font-sans text-[#333] space-y-0.5">
-                <p className="truncate text-[var(--ink)]">
-                  <b>林工</b>：你小子今晚不是说要去接某人吗？这么拼命发补丁？
-                </p>
-                <p className="truncate text-[#8b7560] font-medium">
-                  <b>Ethan</b>：所以才让你少废话。
-                </p>
-              </div>
-              <div className="mt-2 pt-1.5 border-t border-[rgba(0,0,0,0.05)] flex items-center justify-between text-[9px] font-mono text-[#9b625b]">
-                <span>翻看 Ethan 聊天群与私密相册</span>
-                <span className="group-hover:translate-x-1 transition-transform">→</span>
-              </div>
-            </div>
-
           </div>
-
-          {/* Page 2 Apps: The Requested 2 Apps (Threads + 查手机) */}
-          <section className="absolute z-10 left-[26px] right-[20px] top-[565px] flex gap-[24px]">
-            
-            {/* App 1: Threads */}
-            <button 
-              onClick={() => onNavigate('threads')}
-              className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
-            >
-              <div className="w-[64px] h-[64px] rounded-[21px] bg-[#1a1a1a] text-white border-transparent shadow-[0_6px_18px_rgba(52,43,34,.07)] grid place-items-center group-hover:scale-105 transition-transform relative">
-                <svg className="w-6 h-6 fill-current">
-                  <use href="#threads"/>
-                </svg>
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#9b625b] text-white text-[9px] font-bold flex items-center justify-center">
-                  3
-                </span>
-              </div>
-              <span className="font-semibold tracking-tight text-[var(--ink)]">Threads</span>
-            </button>
-
-            {/* App 2: 查手机 */}
-            <button 
-              onClick={() => onNavigate('spy-phone')}
-              className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
-            >
-              <div className="w-[64px] h-[64px] rounded-[21px] bg-[#9b625b] text-white border-transparent shadow-[0_6px_18px_rgba(52,43,34,.07)] grid place-items-center group-hover:scale-105 transition-transform relative">
-                <svg className="w-6 h-6 stroke-current fill-none stroke-[1.5]">
-                  <use href="#spy"/>
-                </svg>
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-white" />
-              </div>
-              <span className="font-semibold tracking-tight text-[var(--ink)]">查手机</span>
-            </button>
-
-          </section>
-
         </div>
       )}
 
@@ -484,21 +362,23 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
         className="absolute z-20 left-[16px] right-[16px] bottom-[28px] h-[92px] rounded-[30px] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_14px_38px_rgba(48,40,32,.08)] grid grid-cols-4 items-center px-2 backdrop-blur-2xl"
         style={{ background: 'var(--glass, rgba(248,246,242,.72))' }}
       >
-        <button 
-          onClick={() => onNavigate('character-profile')}
+        <button
+          onClick={onOpenSheet}
           className="flex flex-col items-center gap-1.5 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] hover:text-[var(--ink)] active:scale-95 transition-all group"
+          title="个人设置"
         >
           <div className="w-[46px] h-[46px] rounded-[15px] bg-[var(--icon,rgba(248,245,239,.72))] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_4px_12px_rgba(52,43,34,.05)] grid place-items-center group-hover:scale-105 group-hover:bg-white transition-all">
             <svg className="w-[22px] h-[22px] stroke-current fill-none stroke-[1.5] stroke-linecap-round stroke-linejoin-round">
               <use href="#card"/>
             </svg>
           </div>
-          <span className="font-medium">角色档案</span>
+          <span className="font-medium">个人</span>
         </button>
 
-        <button 
-          onClick={() => onNavigate('character-profile')}
+        <button
+          onClick={() => onNavigate('world-book')}
           className="flex flex-col items-center gap-1.5 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] hover:text-[var(--ink)] active:scale-95 transition-all group"
+          title="世界书"
         >
           <div className="w-[46px] h-[46px] rounded-[15px] bg-[var(--icon,rgba(248,245,239,.72))] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_4px_12px_rgba(52,43,34,.05)] grid place-items-center group-hover:scale-105 group-hover:bg-white transition-all">
             <svg className="w-[22px] h-[22px] stroke-current fill-none stroke-[1.5] stroke-linecap-round stroke-linejoin-round">
