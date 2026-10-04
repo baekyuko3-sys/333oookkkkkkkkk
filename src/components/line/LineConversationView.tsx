@@ -1778,7 +1778,7 @@ export function LineConversationView({
               </button>
 
               <button
-                onClick={() => setShowAudioCall(true)}
+                onClick={() => { setAudioCallDuration(0); setShowAudioCall(true); recordLineCall(conversationStorageId, { direction: 'outgoing', kind: 'audio', status: 'connected' }); }}
                 className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#303033]"
                 title="语音通话"
               >
@@ -4392,7 +4392,7 @@ export function LineConversationView({
             </button>
 
             <button
-              onClick={() => setShowAudioCall(false)}
+              onClick={() => { setShowAudioCall(false); recordLineCall(conversationStorageId, { direction: 'outgoing', kind: 'audio', status: 'ended', duration: audioCallDuration }); }}
               className="w-16 h-16 rounded-full bg-[#d56f7d] hover:bg-[#c95867] flex items-center justify-center shadow-lg active:scale-95 cursor-pointer"
               title="挂断"
             >
