@@ -47,6 +47,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
   const [selectedBookId, setSelectedBookId] = useState(books[0]?.id || '');
   const [selectedEntryId, setSelectedEntryId] = useState(books[0]?.entries[0]?.id || '');
   const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [notice, setNotice] = useState('');
 
   const book = books.find(item => item.id === selectedBookId) || books[0] || null;
@@ -55,12 +56,14 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
   const filteredEntries = useMemo(() => {
     if (!book) return [];
     const q = search.trim().toLowerCase();
-    if (!q) return book.entries;
     return book.entries.filter(entry =>
-      entry.name.toLowerCase().includes(q) ||
-      entry.keywords.some(keyword => keyword.toLowerCase().includes(q))
+      (!q ||
+        entry.name.toLowerCase().includes(q) ||
+        entry.keywords.some(keyword => keyword.toLowerCase().includes(q)) ||
+        entry.content.toLowerCase().includes(q)) &&
+      (categoryFilter === 'all' || (book.category || '未分类') === categoryFilter)
     );
-  }, [book, search]);
+  }, [book, search, categoryFilter]);
 
   const showNotice = (message: string) => {
     setNotice(message);
@@ -225,6 +228,16 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
 
         <div className="min-h-0 px-4 pb-4 grid grid-rows-[auto_1fr] gap-2">
           <div className="flex gap-2 items-center">
+            <select
+              value={categoryFilter}
+              onChange={e => setCategoryFilter(e.target.value)}
+              className="w-[86px] bg-white/60 border border-[rgba(40,36,31,.12)] rounded-xl px-2 py-2 text-[9px] outline-none text-[#444]"
+            >
+              <option value="all">全部资源</option>
+              {[...new Set(books.map(item => item.category || '未分类'))].map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
