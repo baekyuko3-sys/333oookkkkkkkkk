@@ -763,7 +763,7 @@ export function LineConversationView({
             setMessages(prev => prev.map(m => m.id === replyMsgId ? { ...m, text: streamedText, senderName: character.name } : m));
           },
         });
-        setMessages(prev => prev.map(m => m.id === replyMsgId ? { ...m, text: result.text, senderName: character.name, aiModel: result.model, matchedWorldbookEntries: result.matchedWorldbookEntries } : m));
+        setMessages(prev => prev.map(m => m.id === replyMsgId ? { ...m, text: result.text, senderName: character.name, time: lineNowTime(), status: 'sent', isRead: true, aiModel: result.model, matchedWorldbookEntries: result.matchedWorldbookEntries } : m));
         workingMessages = [...workingMessages, { id: replyMsgId, sender: 'other', senderName: character.name, text: result.text }];
         window.dispatchEvent(new CustomEvent('sane333:play-sound', { detail: { kind: 'message' } }));
       }
@@ -784,7 +784,7 @@ export function LineConversationView({
         id: replyMsgId,
         sender: 'other',
         text: '',
-        time: '刚刚',
+        time: lineNowTime(),
         type: 'ai-reply',
         status: 'receiving',
         isRead: true,
