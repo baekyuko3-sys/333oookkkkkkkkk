@@ -403,10 +403,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           <div className="h-[78px] px-5 pt-4 pb-2.5 flex items-start justify-between bg-white">
             <div>
               <div className="text-[25px] font-bold tracking-[-0.8px] text-[#202124] leading-tight">
-                聊天
+                CHAT
               </div>
               <div className="mt-1 text-[10px] text-[#b2b2b4] tracking-[0.7px]">
-                会話 · 今日もゆっくり。
+                会話 · 今日もゆっくり暮らす。
               </div>
             </div>
 
@@ -540,10 +540,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           <div className="h-[78px] px-5 pt-4 pb-2.5 flex items-start justify-between bg-white">
             <div>
               <div className="text-[25px] font-bold tracking-[-0.8px] text-[#202124] leading-tight">
-                好友
+                FRIENDS
               </div>
               <div className="mt-1 text-[10px] text-[#b2b2b4] tracking-[0.7px]">
-                好友列表 · 珍视的人们 ({friendsList.length})
+                大切な人たち · ({friendsList.length})
               </div>
             </div>
 
@@ -878,7 +878,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           }`}
         >
           <div className="text-[19px] leading-none">◯</div>
-          <div className="text-[9px]" >{tx('聊天', 'チャット')}</div>
+          <div className="text-[9px]" >CHAT</div>
         </div>
 
         {/* Tab 2: 好友 */}
@@ -889,7 +889,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           }`}
         >
           <div className="text-[19px] leading-none">♧</div>
-          <div className="text-[9px]" >{tx('好友', '友だち')}</div>
+          <div className="text-[9px]" >FRIENDS</div>
         </div>
 
         {/* Tab 3: 朋友圈 */}
