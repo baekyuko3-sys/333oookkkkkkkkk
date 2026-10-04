@@ -72,6 +72,8 @@ function normalizeBook(raw: any, index: number): WorldBook {
     id: String(raw?.id ?? raw?.name ?? id('worldbook', index)),
     name: String(source?.name ?? raw?.name ?? '导入世界书'),
     description: String(source?.description ?? raw?.description ?? ''),
+    category: String(source?.category ?? raw?.category ?? ''),
+    tags: asStringArray(source?.tags ?? raw?.tags),
     enabled: raw?.enabled !== false && raw?.disable !== true,
     updatedAt: new Date().toISOString(),
     entries: entries.map((entry, entryIndex) => normalizeEntry(entry, entryIndex)),
@@ -142,6 +144,8 @@ export function exportSillyTavernWorldBook(book: WorldBook): string {
 
   return JSON.stringify({
     name: book.name,
+    category: book.category || '',
+    tags: book.tags || [],
     entries,
   }, null, 2);
 }
