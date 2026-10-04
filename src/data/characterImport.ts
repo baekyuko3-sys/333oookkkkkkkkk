@@ -19,6 +19,7 @@ export interface ImportedCharacter {
   creator: string;
   characterVersion: string;
   extensions?: Record<string, unknown>;
+  languageProfile?: import('../types').CharacterLanguageProfile;
   embeddedWorldBook?: WorldBook;
   groupId?: string | null;
   sourceFormat: 'json' | 'yaml' | 'png' | 'manual';
