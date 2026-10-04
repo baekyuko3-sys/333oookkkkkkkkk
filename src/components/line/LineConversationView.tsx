@@ -4483,6 +4483,36 @@ export function LineConversationView({
                 </div>
               )}
 
+              {/* 编辑：只允许编辑自己发送的文字消息 */}
+              {contextMenuMsg.sender === 'me' && contextMenuMsg.text && (
+                <div
+                  onClick={() => {
+                    setEditingMessageId(contextMenuMsg.id);
+                    setEditingMessageText(contextMenuMsg.text || '');
+                    setContextMenuMsg(null);
+                  }}
+                  className="py-3 flex items-center gap-3 cursor-pointer hover:bg-neutral-50 px-2"
+                >
+                  <Edit3 className="w-4 h-4 text-[#666]" />
+                  <span className="text-[#333]">编辑消息</span>
+                </div>
+              )}
+
+              {/* 失败消息重试 */}
+              {contextMenuMsg.status === 'failed' && (
+                <div
+                  onClick={() => {
+                    setRerollPrompt('请基于上一轮上下文重新发送，保持角色设定与语气。');
+                    setShowReroll(true);
+                    setContextMenuMsg(null);
+                  }}
+                  className="py-3 flex items-center gap-3 cursor-pointer hover:bg-neutral-50 px-2 text-[#ae7e89]"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span className="text-[#333]">失败重试</span>
+                </div>
+              )}
+
               {/* 转发 */}
               <div
                 onClick={() => {
@@ -4591,6 +4621,17 @@ export function LineConversationView({
                 <div
                   key={i}
                   onClick={() => {
+                    const forwardedText = forwardMsg.text || '[多媒体消息]';
+                    const forwardedId = `forward-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                    import('../../store/lineRuntime').then(({ appendLineMessage }) => appendLineMessage(f, {
+                      id: forwardedId,
+                      sender: 'me',
+                      text: forwardedText,
+                      kind: 'text',
+                      createdAt: new Date().toISOString(),
+                      status: 'sent',
+                      metadata: { forwarded: true, fromConversationId: conversationStorageId, sourceMessageId: forwardMsg.id },
+                    }));
                     setForwardMsg(null);
                     showToast(`已将消息转发给 ${f}`);
                   }}
