@@ -46,10 +46,9 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
   const visibleCharacters = selectedGroupId === 'all'
     ? characters
     : characters.filter(character => (character.groupId || 'ungrouped') === selectedGroupId);
-  const selected = characters.find(character => character.id === selectedId)
-    || visibleCharacters[0]
-    || characters[0]
-    || null;
+  const selected = selectedId
+    ? characters.find(character => character.id === selectedId) || null
+    : null;
   const runtimeState = selected ? getWorldRuntime().characters[selected.id] : null;
 
   useEffect(() => {
@@ -334,31 +333,52 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
               </div>
             </div>
 
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+            <div className="grid grid-cols-2 gap-2.5">
               {visibleCharacters.map(character => (
                 <button
                   key={character.id}
                   onClick={() => { setSelectedId(character.id); setIsEditing(false); }}
-                  className={`shrink-0 px-3 py-1.5 rounded-full border text-[10px] font-medium transition-all ${
+                  className={`text-left overflow-hidden rounded-2xl border transition-all active:scale-[.98] ${
                     selected?.id === character.id
-                      ? 'bg-[#292724] text-white border-[#292724]'
-                      : 'bg-white/55 text-[#655f59] border-[rgba(40,36,31,.14)]'
+                      ? 'bg-[#292724] text-white border-[#292724] shadow-[0_10px_26px_rgba(40,35,30,.16)]'
+                      : 'bg-white/65 text-[#242323] border-[rgba(40,36,31,.1)] shadow-[0_6px_18px_rgba(40,35,30,.05)]'
                   }`}
                 >
-                  <span>{character.name}</span>
-                  <span className="text-[8px] opacity-65">· {character.variantLabel || character.characterVersion || '默认版本'}</span>
+                  <div className="aspect-[4/3] bg-[#ded7cc] overflow-hidden">
+                    {character.avatar ? (
+                      <img src={character.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="w-full h-full grid place-items-center">
+                        <UserRound className="w-8 h-8 text-[#8b8782]" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-2.5">
+                    <div className="font-serif font-bold text-[13px] truncate">{character.name || '未命名角色'}</div>
+                    <div className={selected?.id === character.id ? 'mt-1 text-[8px] text-white/55 font-mono truncate' : 'mt-1 text-[8px] text-[#8b8782] font-mono truncate'}>
+                      {character.variantLabel || character.characterVersion || 'DEFAULT VERSION'}
+                    </div>
+                    <div className={selected?.id === character.id ? 'mt-2 text-[7px] tracking-[1.2px] text-white/45 font-mono' : 'mt-2 text-[7px] tracking-[1.2px] text-[#9b625b] font-mono'}>
+                      {selected?.id === character.id ? 'OPEN · PROFILE' : 'TAP TO OPEN'}
+                    </div>
+                  </div>
                 </button>
               ))}
               <button
                 onClick={() => fileRef.current?.click()}
-                className="shrink-0 px-3 py-1.5 rounded-full border border-dashed border-[#8b7560]/50 text-[10px] text-[#8b7560]"
+                className="min-h-[170px] rounded-2xl border border-dashed border-[#8b7560]/45 bg-white/35 text-[#8b7560] grid place-items-center text-[9px]"
               >
-                ＋ 导入
+                <span><Plus className="w-4 h-4 mx-auto mb-1" />导入角色卡</span>
               </button>
             </div>
 
             {selected && (
               <>
+                <div className="flex items-center justify-between px-1">
+                  <div className="text-[8px] font-mono tracking-[1.6px] text-[#8b8782]">YEARBOOK PROFILE · SELECTED</div>
+                  <button onClick={() => { setSelectedId(null); setIsEditing(false); }} className="px-2 py-1 rounded-full bg-white/60 text-[8px] text-[#8b7560]">收起</button>
+                </div>
+
                 <div className="relative p-3 pb-5 rounded-2xl bg-[#eee9df] border border-[rgba(40,36,31,.14)] shadow-[0_8px_25px_rgba(45,37,30,.12)] rotate-[0.7deg]">
                   <div className="absolute right-4 top-4 border-2 border-[#9b625b]/60 text-[#9b625b] text-[8px] font-mono tracking-widest px-2 py-0.5 rounded -rotate-[10deg]">
                     IMPORTED
