@@ -870,19 +870,19 @@ export function LineConversationView({
         setStatusData((prev) => ({ ...prev, favor: String(Number(prev.favor) + 1) }));
       }
     } catch (error) {
-      setMessages((prev) => {
-        const partial = prev.find(m => m.id === replyMsgId)?.text;
-        return partial
-          ? prev.map(m => m.id === replyMsgId ? { ...m, text: partial } : m)
-          : prev.filter(m => m.id !== replyMsgId);
-      });
+      const message = error instanceof Error ? error.message : 'AI 请求失败';
+      setMessages((prev) => prev.map(m =>
+        m.id === replyMsgId
+          ? { ...m, status: 'failed', error: message, text: m.text || '发送失败，可重试' }
+          : m
+      ));
+      markLineMessageFailed(conversationStorageId, replyMsgId, message);
 
       if (error instanceof Error && error.message === 'AI_NOT_CONFIGURED') {
         showToast('还没有配置 AI：打开「设置」填写 API Key');
       } else if (error instanceof Error && error.message === 'AI_BASE_URL_MISSING') {
         showToast('OpenAI Compatible 需要填写 API Base URL');
       } else {
-        const message = error instanceof Error ? error.message : 'AI 请求失败';
         showToast(message.length > 72 ? message.slice(0, 72) + '…' : message);
       }
     } finally {
