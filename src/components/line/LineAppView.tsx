@@ -262,9 +262,11 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
       }
     };
     window.addEventListener('sane333:proactive-message', refreshFromRuntime);
+    window.addEventListener('sane333:line-runtime-message', refreshFromRuntime);
     window.addEventListener('sane333:music-invite-created', handleMusicInvite);
     return () => {
       window.removeEventListener('sane333:proactive-message', refreshFromRuntime);
+      window.removeEventListener('sane333:line-runtime-message', refreshFromRuntime);
       window.removeEventListener('sane333:music-invite-created', handleMusicInvite);
     };
   }, []);
