@@ -35,8 +35,7 @@ export function PhoneSimulator({
 
   return (
     <div className="relative mx-auto flex flex-col items-center">
-      
-      {/* Authentic Physical Phone Chassis (Exact CSS from user template) */}
+      {/* Phone chassis — the original phone UI is intentionally kept intact. */}
       <div 
         data-theme={isDark ? 'dark' : 'light'}
         className={`relative w-[360px] sm:w-[390px] h-[780px] sm:h-[844px] overflow-hidden rounded-[43px] border-[7px] border-[var(--frame,#1e1d1b)] shadow-[0_30px_100px_rgba(20,18,15,.28)] flex flex-col select-none ${
@@ -45,11 +44,10 @@ export function PhoneSimulator({
         style={{ background: 'var(--screen, #ffffff)', color: 'var(--ink, #242323)' }}
       >
         
-        {/* Statusbar (Exact from user template) */}
+        {/* Statusbar (original phone UI) */}
         <div className="absolute z-20 top-0 left-0 right-0 h-[42px] flex items-center justify-between px-6 text-[12px] font-[650] tracking-[0.2px] text-[var(--ink)]">
           <span>9:41</span>
           
-          {/* Dynamic Island pill */}
           <div 
             onClick={() => setCurrentScreen(currentScreen === 'music' ? 'home' : 'music')}
             className="absolute top-2 left-1/2 -translate-x-1/2 w-[104px] h-[29px] rounded-[18px] bg-[#181817] shadow-[0_3px_12px_rgba(0,0,0,.18)] flex items-center justify-center cursor-pointer hover:scale-105 transition-transform"
@@ -62,7 +60,6 @@ export function PhoneSimulator({
           <div className="flex items-center gap-[7px]">
             <span className="text-[11px]">⌁</span>
             <span className="text-[11px] font-normal">Wi‑Fi</span>
-            {/* Battery icon with inner fill */}
             <div className="w-[21px] h-[10px] border-[1.4px] border-current rounded-[3px] relative">
               <div className="absolute -right-[3px] top-[2.5px] w-[2px] h-[4px] bg-current rounded-[1px]" />
               <div className="w-[72%] h-full bg-current rounded-[1px]" />
@@ -142,82 +139,21 @@ export function PhoneSimulator({
           )}
         </div>
 
-        {/* Home Indicator Bar (Exact from user template) */}
+        {/* Home Indicator */}
         <div 
           onClick={() => setCurrentScreen('home')}
           className="absolute z-20 bottom-[7px] left-1/2 -translate-x-1/2 w-[118px] h-[4px] rounded-[5px] bg-[#242321] cursor-pointer hover:w-[130px] transition-all"
           title="点击返回主屏幕"
         />
 
-        {/* Customization Sheet Modal */}
+        {/* Home customization — kept as part of the original phone UI */}
         <HomeCustomizeSheet
           isOpen={isSheetOpen}
           onClose={() => setIsSheetOpen(false)}
           currentTheme={themeMode}
           onSelectTheme={onSelectTheme}
         />
-
       </div>
-
-      {/* Screen quick controls */}
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5 p-1 bg-neutral-900 border border-neutral-800 rounded-2xl text-[11px] text-neutral-300">
-        <button
-          onClick={() => setCurrentScreen('home')}
-          className={`px-3 py-1 rounded-xl transition-all ${
-            currentScreen === 'home' ? 'bg-[#8b7560] text-white font-medium shadow-xs' : 'hover:text-white'
-          }`}
-        >
-          📱 纯白主屏幕 (Sane333)
-        </button>
-        <button
-          onClick={() => setCurrentScreen('chat')}
-          className={`px-3 py-1 rounded-xl transition-all ${
-            currentScreen === 'chat' ? 'bg-[#8b7560] text-white font-medium shadow-xs' : 'hover:text-white'
-          }`}
-        >
-          💬 LINE 对话
-        </button>
-        <button
-          onClick={() => setCurrentScreen('music')}
-          className={`px-3 py-1 rounded-xl transition-all ${
-            currentScreen === 'music' ? 'bg-[#8b7560] text-white font-medium shadow-xs' : 'hover:text-white'
-          }`}
-        >
-          ♪ Music 音乐
-        </button>
-        <button
-          onClick={() => setCurrentScreen('moments')}
-          className={`px-3 py-1 rounded-xl transition-all ${
-            currentScreen === 'moments' ? 'bg-[#8b7560] text-white font-medium shadow-xs' : 'hover:text-white'
-          }`}
-        >
-          ◉ Instagram
-        </button>
-        <button
-          onClick={() => setCurrentScreen('threads')}
-          className={`px-3 py-1 rounded-xl transition-all ${
-            currentScreen === 'threads' ? 'bg-[#8b7560] text-white font-medium shadow-xs' : 'hover:text-white'
-          }`}
-        >
-          @ Threads
-        </button>
-        <button
-          onClick={() => setCurrentScreen('spy-phone')}
-          className={`px-3 py-1 rounded-xl transition-all ${
-            currentScreen === 'spy-phone' ? 'bg-[#8b7560] text-white font-medium shadow-xs' : 'hover:text-white'
-          }`}
-        >
-          🕵️ 查手机
-        </button>
-        <button
-          onClick={() => setIsSheetOpen(true)}
-          className="px-3 py-1 rounded-xl bg-neutral-800 hover:text-white text-amber-300 flex items-center gap-1"
-        >
-          <span>⌘</span>
-          <span>主页设置</span>
-        </button>
-      </div>
-
     </div>
   );
 }
