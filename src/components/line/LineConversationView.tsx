@@ -625,8 +625,8 @@ export function LineConversationView({
 
   useEffect(() => {
     const onProactive = (event: Event) => {
-      const customEvent = event as CustomEvent<{ characterName?: string; message?: any }>;
-      if (customEvent.detail?.characterName !== contactName) return;
+      const customEvent = event as CustomEvent<{ characterName?: string; conversationId?: string; message?: any }>;
+      if (customEvent.detail?.conversationId !== conversationStorageId && customEvent.detail?.characterName !== contactName) return;
       const incoming = customEvent.detail?.message;
       if (!incoming) return;
 
