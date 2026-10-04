@@ -8,6 +8,7 @@ export interface AppearanceScheme {
   greeting: string;
   subtitle: string;
   wallpaper: string;
+  appIcons: Record<string, string>;
   widget: WidgetConfig;
   updatedAt: string;
 }
@@ -23,6 +24,7 @@ export const DEFAULT_APPEARANCE: AppearanceScheme = {
   greeting: 'GOOD EVENING · PRIVATE DEVICE',
   subtitle: '这是你的私人设备。\n内容由你自己建立。',
   wallpaper: '',
+  appIcons: {},
   widget: {
     weatherCity: 'YOUR CITY',
     weatherTemp: '21°',
@@ -58,6 +60,7 @@ function normalizeAppearance(value: Partial<AppearanceScheme>): AppearanceScheme
     greeting: String(value.greeting ?? DEFAULT_APPEARANCE.greeting),
     subtitle: String(value.subtitle ?? DEFAULT_APPEARANCE.subtitle),
     wallpaper: String(value.wallpaper ?? ''),
+    appIcons: value.appIcons && typeof value.appIcons === 'object' ? Object.fromEntries(Object.entries(value.appIcons).map(([key, icon]) => [String(key), String(icon || '')])) : {},
     updatedAt: String(value.updatedAt || new Date().toISOString()),
   };
 }
