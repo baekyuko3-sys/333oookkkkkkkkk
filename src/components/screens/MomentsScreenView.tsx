@@ -7,33 +7,7 @@ interface MomentsScreenViewProps {
 }
 
 export function MomentsScreenView({ onNavigate }: MomentsScreenViewProps) {
-  const posts = [
-    {
-      id: 'p1',
-      author: '程凛',
-      rollTag: 'ROLL 024 · 32A',
-      time: '2小时前 · 伦敦',
-      content: '“伦敦的雨总是来得突然，但也很适合发呆。”',
-      images: [
-        'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=500&q=80'
-      ],
-      likes: 236,
-      note: 'Rainy afternoon snapshot.',
-    },
-    {
-      id: 'p2',
-      author: '林予',
-      rollTag: 'ROLL 024 · 33A',
-      time: '4小时前 · 街角烘焙坊',
-      content: '“工作结束，去吃好吃的！刚出炉的羊角面包香气一直飘到街角。”',
-      images: [
-        'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=300&q=80',
-        'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=300&q=80'
-      ],
-      likes: 189,
-      note: 'warm croissant & coffee.',
-    }
-  ];
+  const posts: { id: string; author: string; rollTag: string; time: string; content: string; images: string[]; likes: number; note: string }[] = [];
 
   return (
     <div 
