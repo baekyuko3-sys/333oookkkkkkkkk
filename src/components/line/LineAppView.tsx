@@ -86,153 +86,16 @@ export function LineAppView({ onNavigateHome }: LineAppViewProps) {
   ]);
 
   // Chat Data with Pin, Mute, Draft, and Group capabilities
-  const [chatItems, setChatItems] = useState([
-    {
-      id: '1',
-      name: '顾言',
-      time: '22:41',
-      preview: '早点休息，有我在。',
-      unread: 1,
-      isPinned: true,
-      isMuted: false,
-      draft: '',
-      isGroup: false,
-    },
-    {
-      id: '2',
-      name: '小夏',
-      time: '21:08',
-      preview: '今天也辛苦啦，早点休息。',
-      unread: 0,
-      isPinned: true,
-      isMuted: false,
-      draft: '',
-      isGroup: false,
-    },
-    {
-      id: '3',
-      name: 'Haruka',
-      time: '19:32',
-      preview: '明天的安排你觉得怎么样？',
-      unread: 2,
-      isPinned: false,
-      isMuted: false,
-      draft: '',
-      isGroup: false,
-    },
-    {
-      id: '4',
-      name: '林安',
-      time: '昨天',
-      preview: '我看到你刚刚发的东西了。',
-      unread: 0,
-      isPinned: false,
-      isMuted: false,
-      draft: '',
-      isGroup: false,
-    },
-    {
-      id: '5',
-      name: '佐藤葵',
-      time: '昨天',
-      preview: '下次再慢慢聊吧。',
-      unread: 0,
-      isPinned: false,
-      isMuted: true,
-      draft: '',
-      isGroup: false,
-    },
-    {
-      id: '6',
-      name: 'Emma',
-      time: '昨天',
-      preview: '明天见，别忘了带伞。',
-      unread: 0,
-      isPinned: false,
-      isMuted: false,
-      draft: '',
-      isGroup: false,
-    },
-    {
-      id: '7',
-      name: '我们的小角落',
-      time: '周三',
-      preview: 'Aki：周末一起吃饭吗？',
-      unread: 4,
-      isPinned: false,
-      isMuted: false,
-      draft: '',
-      isGroup: true,
-    },
-  ]);
+  const [chatItems, setChatItems] = useState<any[]>([]);
 
   // Global Favorites storage
-  const [globalFavorites, setGlobalFavorites] = useState([
-    {
-      id: 1,
-      contactName: '顾言',
-      text: '那就先休息一会儿。\n不急着做别的。',
-      time: '20:33',
-    },
-    {
-      id: 2,
-      contactName: '小夏',
-      text: '今天的风很舒服，好像什么都不用急着做。',
-      time: '18:42',
-    },
-  ]);
+  const [globalFavorites, setGlobalFavorites] = useState<any[]>([]);
 
   // Friends Data
-  const [friendsList, setFriendsList] = useState([
-    { name: '顾言', note: '心意相通 · 晚间常伴', online: true, pinyin: 'G' },
-    { name: '小夏', note: '今天也在慢慢生活', online: true, pinyin: 'X' },
-    { name: 'Haruka', note: '东京 · 18:24', online: true, pinyin: 'H' },
-    { name: 'Aki', note: '回头见。', online: false, pinyin: 'A' },
-    { name: 'Emma', note: '伦敦 · 雨天', online: false, pinyin: 'E' },
-    { name: '佐藤葵', note: '下次再聊。', online: false, pinyin: 'Z' },
-    { name: '林安', note: '不急着回复。', online: false, pinyin: 'L' },
-  ]);
+  const [friendsList, setFriendsList] = useState<any[]>([]);
 
   // Moments Posts with real like and comments list
-  const [momentsPosts, setMomentsPosts] = useState([
-    {
-      id: 'p1',
-      name: '小夏',
-      time: '今天 18:42',
-      text: '今天的风很舒服。\n好像什么都不用急着做。',
-      tag: '#日常',
-      likes: 12,
-      liked: false,
-      commentsList: [
-        { user: 'Haruka', text: '风里已经有初秋的味道了~', time: '18:50' },
-        { user: '林安', text: '很适合散步。', time: '19:10' },
-      ],
-    },
-    {
-      id: 'p2',
-      name: 'Haruka',
-      time: '今天 15:09',
-      text: '今天去了久违的咖啡店。\n安静的午后时光。',
-      tag: '#午后',
-      likes: 8,
-      liked: false,
-      commentsList: [
-        { user: '小夏', text: '我也想去那家！', time: '15:20' },
-      ],
-    },
-    {
-      id: 'p3',
-      name: 'Emma',
-      time: '昨天',
-      text: '有些日子就是用来慢慢度过的。',
-      tag: '#慢生活',
-      likes: 21,
-      liked: true,
-      commentsList: [
-        { user: 'Coral', text: '赞同，今天也要慢慢走。', time: '昨天 21:00' },
-      ],
-    },
-  ]);
+  const [momentsPosts, setMomentsPosts] = useState<any[]>([]);
 
   // Filtered & Sorted Chats (Pinned items always float to the top)
   const filteredChats = chatItems.filter((c) =>
