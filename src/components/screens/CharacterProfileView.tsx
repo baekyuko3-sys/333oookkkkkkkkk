@@ -5,6 +5,7 @@ import { usePersistentState } from '../../store/usePersistentState';
 import {
   ImportedCharacter,
   exportCharacterJson,
+  exportCharacterCardV2,
   parseCharacterFile,
 } from '../../data/characterImport';
 import type { CharacterMemory } from '../../store/characterMemory';
@@ -184,6 +185,8 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
       tags: [],
       creator: '',
       characterVersion: '',
+      extensions: {},
+      embeddedWorldBook: undefined,
       groupId: selectedGroupId === 'all' ? null : selectedGroupId,
       sourceFormat: 'manual',
       importedAt: now,
@@ -537,6 +540,13 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                   >
                     <Download className="w-3.5 h-3.5" />
                     导出 JSON
+                  </button>
+                  <button
+                    onClick={() => downloadText(`${selected.name}.card.json`, exportCharacterCardV2(selected))}
+                    className="py-2.5 rounded-xl bg-white border border-[rgba(40,36,31,.15)] text-[#5f5952] text-xs font-serif flex items-center justify-center gap-1.5"
+                  >
+                    <FileDown className="w-3.5 h-3.5" />
+                    导出 Tavern V2
                   </button>
                   <button
                     onClick={handleDelete}
