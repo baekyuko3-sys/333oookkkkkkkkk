@@ -8,17 +8,9 @@ interface LineContactsViewProps {
 export function LineContactsView({ onSelectChat }: LineContactsViewProps) {
   const [search, setSearch] = useState('');
 
-  const starred = [
-    { name: 'Ethan', status: '把今天留给自己。剩下的事情，明天再说。', location: '英国 · 伦敦', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80' },
-    { name: '程凛', status: '崇明私邸施工阶段提前完成。', location: '中国 · 上海', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80' },
-    { name: '林予', status: '刚出炉的焦糖海盐可颂！', location: '法国 · 巴黎', avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=200&q=80' },
-  ];
+  const starred: { name: string; status: string; location: string; avatar: string }[] = [];
 
-  const workContacts = [
-    { name: '林工 (技术总监)', status: '线上发版本中，无事勿扰', location: '杭州研发中心', initial: '林' },
-    { name: '执行助理 · 艾米', status: '下周外景审批已盖章', location: '伦敦外景办', initial: '艾' },
-    { name: 'Gavin (特邀策展人)', status: '东京当代艺术馆下周开展', location: '日本 · 东京', avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=200&q=80' },
-  ];
+  const workContacts: { name: string; status: string; location: string; initial?: string; avatar?: string }[] = [];
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
