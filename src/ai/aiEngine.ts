@@ -198,7 +198,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     input.authorNote ? '【作者注释】\n' + input.authorNote : '【作者注释】无。',
     cotPreset ? '【内部生成预设】\n' + cotPreset.template + '\n只用于内部生成规划；绝对不要把思维过程、<think> 或 <thought> 标签输出给用户。' : '【内部生成预设】无。',
     '',
-    '【输出约束】
+    '【输出约束】',
     '禁止输出 <think>、思维链、隐藏推理或内部分析。',
     '不要描述用户尚未明确做出的动作。',
     '不要把聊天回复写成旁白长文；保持手机消息的阅读节奏。',
