@@ -1,8 +1,15 @@
 export type ChatPunctuationStyle = 'natural' | 'spaces' | 'tight' | 'mixed';
+export type CharacterLanguage = 'zh-CN' | 'en' | 'ja' | 'ko' | 'fr' | 'es' | 'de' | 'other';
+export type BilingualLayout = 'inside-bubble' | 'below-bubble';
+export type BilingualMode = 'off' | 'auto';
 
 export interface LineRealitySettings {
   timezone: string;
   punctuationStyle: ChatPunctuationStyle;
+  language: CharacterLanguage;
+  bilingualMode: BilingualMode;
+  bilingualLayout: BilingualLayout;
+  bilingualTranslationDirection: 'original-first' | 'translation-first';
   avoidRepeatedNudges: boolean;
   naturalTyping: boolean;
   proactiveCooldownMinutes: number;
@@ -23,6 +30,10 @@ export function getLineRealitySettings(): LineRealitySettings {
     return {
       timezone: 'Asia/Shanghai',
       punctuationStyle: 'natural',
+      language: 'zh-CN',
+      bilingualMode: 'off',
+      bilingualLayout: 'below-bubble',
+      bilingualTranslationDirection: 'original-first',
       avoidRepeatedNudges: true,
       naturalTyping: true,
       proactiveCooldownMinutes: 90,
@@ -34,6 +45,10 @@ export function getLineRealitySettings(): LineRealitySettings {
     return {
       timezone: typeof parsed.timezone === 'string' && parsed.timezone ? parsed.timezone : defaultTimezone(),
       punctuationStyle: parsed.punctuationStyle || 'natural',
+      language: parsed.language || 'zh-CN',
+      bilingualMode: parsed.bilingualMode || 'off',
+      bilingualLayout: parsed.bilingualLayout || 'below-bubble',
+      bilingualTranslationDirection: parsed.bilingualTranslationDirection || 'original-first',
       avoidRepeatedNudges: parsed.avoidRepeatedNudges !== false,
       naturalTyping: parsed.naturalTyping !== false,
       proactiveCooldownMinutes: Math.max(15, Number(parsed.proactiveCooldownMinutes) || 90),
@@ -42,6 +57,10 @@ export function getLineRealitySettings(): LineRealitySettings {
     return {
       timezone: defaultTimezone(),
       punctuationStyle: 'natural',
+      language: 'zh-CN',
+      bilingualMode: 'off',
+      bilingualLayout: 'below-bubble',
+      bilingualTranslationDirection: 'original-first',
       avoidRepeatedNudges: true,
       naturalTyping: true,
       proactiveCooldownMinutes: 90,
@@ -88,6 +107,25 @@ export function buildLineHumanBehaviorPrompt() {
     tight: '角色偏少空格、短句和紧凑输入，像手机上快速聊天。',
     mixed: '角色会自然混用标点、空格、换行和短句，保持个人习惯。',
   }[settings.punctuationStyle];
+  const language = {
+    'zh-CN': '角色主要使用普通话/简体中文；不要无理由切换语言。',
+    en: '角色主要使用英语。',
+    ja: '角色主要使用日语。',
+    ko: '角色主要使用韩语。',
+    fr: '角色主要使用法语。',
+    es: '角色主要使用西班牙语。',
+    de: '角色主要使用德语。',
+    other: '角色使用设定的其他语言。',
+  }[settings.language];
+  const bilingual = settings.bilingualMode === 'auto'
+    ? '开启双语：只要角色主要语言不是普通话，就同时提供原文与中文翻译。双语是同一条消息的自然呈现，不要把翻译写成解释。'
+    : '不开启双语。';
+  const layout = settings.bilingualLayout === 'inside-bubble'
+    ? '双语翻译放在同一个聊天气泡内部，原文与译文保持清晰层级。'
+    : '双语翻译显示在原聊天气泡下方，作为同一条消息的辅助译文；不要生成第二个独立聊天气泡。';
+  const direction = settings.bilingualTranslationDirection === 'translation-first'
+    ? '双语顺序：中文翻译在前，原文在后。'
+    : '双语顺序：原文在前，中文翻译在后。';
 
   return [
     '【LINE 实时感 / 活人感】',
@@ -99,6 +137,11 @@ export function buildLineHumanBehaviorPrompt() {
     '不要为了证明角色“活着”而高频主动发消息。主动消息应该有事件、日程、情绪或自然动机。',
     '角色打字必须有个人习惯。观察角色卡、历史消息和上下文后决定句长、标点、空格、换行、表情和口语程度。',
     punctuation,
+    '【角色语言】' + language,
+    bilingual,
+    layout,
+    direction,
+    '不要把双语内容重复生成成两条独立消息；它仍然是一次角色发言。',
     '例如，如果角色平时会说“你吃了吗? 我还没有”，就保持这种节奏；如果会说“你吃了 我也是”，也不要擅自改成书面句式。',
     '不要把每条消息都写成完整工整的句子，也不要每次都用相同的结尾标点。',
     '允许很短的真人式回复，例如“嗯”“好”“我也是”“刚到”“等我一下”，但必须符合上下文。',
