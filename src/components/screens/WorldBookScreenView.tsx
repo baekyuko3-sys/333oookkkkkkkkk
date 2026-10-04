@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { ArrowLeft, BookOpen, Download, FilePlus2, Plus, Save, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { ScreenType, WorldBook, WorldBookEntry } from '../../types';
 import { usePersistentState } from '../../store/usePersistentState';
+import { exportNativeWorldBook, exportSillyTavernWorldBook, importWorldBooks } from '../../store/worldbookFormats';
 
 const starterBook: WorldBook = {
   id: 'worldbook-template',
@@ -124,19 +125,16 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
   const importBook = async (file?: File) => {
     if (!file) return;
     try {
-      const raw = JSON.parse(await file.text()) as WorldBook | WorldBook[];
-      const incoming = Array.isArray(raw) ? raw : [raw];
-      const normalized = incoming.map(item => ({
-        ...item,
-        id: item.id || `worldbook-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        updatedAt: new Date().toISOString(),
-      }));
-      setBooks(prev => [...normalized, ...prev.filter(existing => !normalized.some(item => item.id === existing.id))]);
+      const normalized = importWorldBooks(await file.text());
+      setBooks(prev => [
+        ...normalized,
+        ...prev.filter(existing => !normalized.some(item => item.id === existing.id)),
+      ]);
       setSelectedBookId(normalized[0]?.id || '');
       setSelectedEntryId(normalized[0]?.entries?.[0]?.id || '');
-      showNotice(`已导入 ${normalized.length} 本世界书`);
-    } catch {
-      showNotice('世界书 JSON 解析失败');
+      showNotice(`已识别并导入 ${normalized.length} 本世界书`);
+    } catch (error) {
+      showNotice(error instanceof Error ? error.message : '世界书导入失败');
     } finally {
       if (importRef.current) importRef.current.value = '';
     }
@@ -197,10 +195,17 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
               导入
             </button>
             <button
-              onClick={() => book && downloadJson(`${book.name}.json`, book)}
+              onClick={() => book && downloadJson(`${book.name}.json`, JSON.parse(exportNativeWorldBook(book)))}
               className="px-3 py-2 rounded-xl bg-[#ebe7df] border border-[rgba(40,36,31,.12)] text-[10px] text-[#5d5751]"
             >
               <Download className="w-3 h-3 inline mr-1" />导出
+            </button>
+            <button
+              onClick={() => book && downloadJson(`${book.name}-tavern.json`, JSON.parse(exportSillyTavernWorldBook(book)))}
+              className="px-3 py-2 rounded-xl bg-[#292724] text-white text-[10px]"
+              title="导出为 SillyTavern World Info 格式"
+            >
+              Tavern
             </button>
             <input ref={importRef} type="file" accept=".json" className="hidden" onChange={e => importBook(e.target.files?.[0])} />
           </div>
