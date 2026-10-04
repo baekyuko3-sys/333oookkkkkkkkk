@@ -39,3 +39,51 @@ export function linePreview(message: any): string {
     '新消息'
   ).replace(/\s+/g, ' ').slice(0, 80);
 }
+
+export function appendLineRuntimeMessage(conversationId: string, message: any) {
+  if (typeof window === 'undefined' || !conversationId) return null;
+  const key = 'line:conversation:' + conversationId;
+  try {
+    const raw = window.localStorage.getItem(key);
+    const current = raw ? JSON.parse(raw) : [];
+    const list = Array.isArray(current) ? current : [];
+    const normalized = normalizeLineMessage({
+      ...message,
+      id: message?.id ?? Date.now(),
+      time: message?.time || lineNowTime(),
+    }, message?.sender === 'me' ? 'me' : 'other');
+    if (list.some(item => String(item?.id) === String(normalized.id))) return normalized;
+    window.localStorage.setItem(key, JSON.stringify([...list, normalized].slice(-300)));
+    const rawChats = window.localStorage.getItem('line:chat-items');
+    const chats = rawChats ? JSON.parse(rawChats) : [];
+    if (Array.isArray(chats)) {
+      const next = chats.map(item =>
+        item.id === conversationId || item.characterId === conversationId
+          ? { ...item, time: normalized.time, preview: linePreview(normalized), unread: nextLineUnread(item.unread, normalized, false) }
+          : item
+      );
+      window.localStorage.setItem('line:chat-items', JSON.stringify(next));
+    }
+    window.dispatchEvent(new CustomEvent('sane333:line-runtime-message', { detail: { conversationId, message: normalized } }));
+    return normalized;
+  } catch {
+    return null;
+  }
+}
+
+export function appendOfflineEventToLine(event: any, text: string, status: string) {
+  const conversationId = event?.characterId || event?.characterName;
+  if (!conversationId) return null;
+  return appendLineRuntimeMessage(conversationId, {
+    id: 'offline-event-' + event.id + '-' + status,
+    sender: 'other',
+    senderName: event.characterName,
+    type: 'offline-event',
+    offlineEventId: event.id,
+    offlineEventStatus: status,
+    text,
+    time: lineNowTime(),
+    status: 'sent',
+    isRead: false,
+  });
+}
