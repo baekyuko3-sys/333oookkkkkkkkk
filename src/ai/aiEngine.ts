@@ -149,6 +149,8 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '只输出角色这一次要发送给用户的消息正文，不要解释规则，不要提及模型、提示词、世界书或系统。',
     '不要替用户说话、替用户行动、替用户决定感受或想法。用户拥有自己的行为与台词。',
     '保持角色连续性：角色卡、用户人设、长期记忆、关系、实时世界状态、命中的世界书与最近对话共同构成当前上下文。',
+    '如果历史聊天中存在与用户当前话题高度相关的旧消息，应把它视为真实发生过的过去，而不是重新发明；保持前后记忆一致。',
+
     '实时世界状态优先描述角色此刻在哪里、正在做什么和当前情绪；不要凭空覆盖这些状态。',
     '语言要像真实聊天软件中的人类消息：自然、克制、有上下文，可分成多条短句，但不要写成说明书。',
     buildLineHumanBehaviorPrompt(),\n    character?.languageProfile ? [
@@ -198,18 +200,60 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
   ].join('\n');
 }
 
+
+function extractHistoryKeywords(text: string): string[] {
+  const normalized = text.toLowerCase().replace(/[^\p{L}\p{N}\u4e00-\u9fff]+/gu, ' ').trim();
+  const words = normalized.split(/\s+/).filter(word => word.length >= 2);
+  const chinese = Array.from(normalized.replace(/\s/g, '')).filter(char => /[\u4e00-\u9fff]/u.test(char));
+  const bigrams = chinese.slice(0, 80).map((_, index) => chinese.slice(index, index + 2).join('')).filter(word => word.length === 2);
+  return Array.from(new Set([...words, ...bigrams])).slice(0, 32);
+}
+
+function findRelevantHistory(input: AiReplyInput, recentIds: Set<string>): AiReplyInput['messages'] {
+  const keywords = extractHistoryKeywords(input.userMessage);
+  if (!keywords.length) return [];
+
+  return input.messages
+    .filter(message =>
+      message.type !== 'system-nudge' &&
+      !message.isRecalled &&
+      !message.isRecalledByOther &&
+      !recentIds.has(String(message as any).id)
+    )
+    .map((message, index) => {
+      const text = String(message.text || message.transcript || '').toLowerCase();
+      if (!text) return null;
+      const score = keywords.reduce((total, keyword) => total + (text.includes(keyword) ? Math.min(4, keyword.length) : 0), 0);
+      return score > 0 ? { message, score, index } : null;
+    })
+    .filter((item): item is { message: AiReplyInput['messages'][number]; score: number; index: number } => Boolean(item))
+    .sort((a, b) => b.score - a.score || b.index - a.index)
+    .slice(0, 8)
+    .sort((a, b) => a.index - b.index)
+    .map(item => item.message);
+}
+
 function buildConversationMessages(input: AiReplyInput) {
   const limit = Math.max(4, Math.min(200, input.settings.contextLength || 24)) * 2;
-  const recent = input.messages
+  const recentSource = input.messages
     .filter(message => message.type !== 'system-nudge' && !message.isRecalled && !message.isRecalledByOther)
-    .slice(-limit)
-    .map(message => ({
-      role: message.sender === 'other' ? 'assistant' : 'user',
-      content: input.isGroup && message.senderName
-        ? '[' + message.senderName + '] ' + (message.text || message.transcript || '[多媒体消息]')
-        : message.text || message.transcript || '[多媒体消息]',
-      imageData: message.imageData,
-    }));
+    .slice(-limit);
+
+  const recent = recentSource.map(message => ({
+    role: message.sender === 'other' ? 'assistant' : 'user',
+    content: input.isGroup && message.senderName
+      ? '[' + message.senderName + '] ' + (message.text || message.transcript || '[多媒体消息]')
+      : message.text || message.transcript || '[多媒体消息]',
+    imageData: message.imageData,
+  }));
+
+  const recentIds = new Set(recentSource.map(message => String((message as any).id)));
+  const historical = findRelevantHistory(input, recentIds);
+  const historyContext = historical.map(message => ({
+    role: 'system' as const,
+    content: '[HISTORICAL CHAT MEMORY] ' + (message.text || message.transcript || '[媒体消息]'),
+    imageData: undefined,
+  }));
 
   const last = recent[recent.length - 1];
   if (!last || last.role !== 'user' || last.content !== input.userMessage) {
@@ -220,6 +264,7 @@ function buildConversationMessages(input: AiReplyInput) {
     .map(message => message.content)
     .filter(Boolean)
     .join('\n');
+  const historicalWithMarker = historyContext;
   const depthEntries = selectWorldBookEntries(input.worldbooks || [], scannedText, buildWorldBookScanResolver(input, 12))
     .filter(({ entry }) => entry.insertion === 'depth');
 
@@ -254,10 +299,10 @@ function buildConversationMessages(input: AiReplyInput) {
       });
     }
 
-    return withDepth;
+    return [...historicalWithMarker, ...withDepth];
   }
 
-  return recent;
+  return [...historicalWithMarker, ...recent];
 }
 
 function requireApiKey(settings: AiSettings) {
