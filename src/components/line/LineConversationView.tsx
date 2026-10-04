@@ -2582,7 +2582,7 @@ export function LineConversationView({
                     }
                   }}
                   rows={1}
-                  placeholder={tx('输入消息…', 'メッセージを入力…')}
+                  placeholder="メッセージを入力…"
                   className="w-full resize-none bg-transparent outline-none text-[13px] text-[#333] placeholder-[#aaa] py-1 font-sans"
                 />
               </div>
