@@ -462,6 +462,45 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                           className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none"
                         />
                       </label>
+
+                      <div className="col-span-2 mt-1 pt-3 border-t border-[rgba(40,36,31,.1)] space-y-2">
+                        <div>
+                          <div className="text-[8px] tracking-[1.5px] font-mono text-[#8b8782]">CHARACTER LANGUAGE · 语言指纹</div>
+                          <div className="mt-1 text-[8px] text-[#8b8782]">控制角色长期的聊天语言、标点和句子习惯。</div>
+                        </div>
+                        {(() => {
+                          const language = selected.languageProfile || {
+                            language: 'zh-CN' as const, bilingualMode: 'off' as const, bilingualLayout: 'below-bubble' as const,
+                            bilingualTranslationDirection: 'original-first' as const, punctuationStyle: 'natural' as const,
+                            sentenceLength: 'natural' as const, lineBreakStyle: 'natural' as const, colloquialLevel: 'natural' as const,
+                            fillerWords: [], emojiStyle: 'light' as const, capitalizationStyle: 'standard' as const,
+                            numberStyle: 'standard' as const, preferredSpaces: false, examples: [],
+                          };
+                          const updateLanguage = (patch: Partial<typeof language>) => patchSelected({ languageProfile: { ...language, ...patch } });
+                          return <div className="grid grid-cols-2 gap-2">
+                            <label className="text-[8px]">语言
+                              <select value={language.language} onChange={e => updateLanguage({ language: e.target.value as typeof language.language })} className="w-full mt-1 bg-white/65 rounded-xl px-2.5 py-2 outline-none text-[9px]">
+                                <option value="zh-CN">中文</option><option value="en">English</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="fr">Français</option><option value="es">Español</option><option value="de">Deutsch</option><option value="other">其他</option>
+                              </select>
+                            </label>
+                            <label className="text-[8px]">双语
+                              <select value={language.bilingualMode} onChange={e => updateLanguage({ bilingualMode: e.target.value as typeof language.bilingualMode })} className="w-full mt-1 bg-white/65 rounded-xl px-2.5 py-2 outline-none text-[9px]">
+                                <option value="off">关闭</option><option value="auto">非中文自动双语</option>
+                              </select>
+                            </label>
+                            <label className="text-[8px]">标点习惯
+                              <select value={language.punctuationStyle} onChange={e => updateLanguage({ punctuationStyle: e.target.value as typeof language.punctuationStyle })} className="w-full mt-1 bg-white/65 rounded-xl px-2.5 py-2 outline-none text-[9px]">
+                                <option value="natural">自然</option><option value="spaces">偏空格</option><option value="tight">紧凑</option><option value="mixed">混合</option>
+                              </select>
+                            </label>
+                            <label className="text-[8px]">句长
+                              <select value={language.sentenceLength} onChange={e => updateLanguage({ sentenceLength: e.target.value as typeof language.sentenceLength })} className="w-full mt-1 bg-white/65 rounded-xl px-2.5 py-2 outline-none text-[9px]">
+                                <option value="short">短句</option><option value="natural">自然</option><option value="long">偏长</option><option value="mixed">混合</option>
+                              </select>
+                            </label>
+                          </div>;
+                        })()}
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-3 text-xs leading-relaxed text-[#443f3a] font-serif-sc">
