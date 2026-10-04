@@ -7,6 +7,7 @@ import { readAppSettings } from '../store/appSettings';
 import { getCharacterAiProfile, mergeCharacterAiSettings } from '../store/characterAiProfiles';
 import { resolveCharacterContext, selectWorldBookEntries } from './contextEngine';
 import { getCotForTarget } from '../store/cotPresets';
+import { buildLineHumanBehaviorPrompt } from '../store/lineReality';
 
 export type AiSettings = Pick<AppSettings, 'provider' | 'apiBaseUrl' | 'apiKey' | 'model' | 'streaming' | 'contextLength' | 'maxOutputTokens' | 'autoSave' | 'temperature'>;
 
@@ -150,6 +151,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '保持角色连续性：角色卡、用户人设、长期记忆、关系、实时世界状态、命中的世界书与最近对话共同构成当前上下文。',
     '实时世界状态优先描述角色此刻在哪里、正在做什么和当前情绪；不要凭空覆盖这些状态。',
     '语言要像真实聊天软件中的人类消息：自然、克制、有上下文，可分成多条短句，但不要写成说明书。',
+    buildLineHumanBehaviorPrompt(),
     '除非角色卡明确要求，否则不要每轮都过度煽情或重复昵称。',
     input.isGroup ? '这是群聊：回复可以体现群聊语境，但不要替其他成员完成完整对话。' : '这是私聊：只扮演当前角色。',
     context.worldBookBefore ? '【世界书 · 角色定义前】\n' + context.worldBookBefore : '',
