@@ -28,7 +28,36 @@ function normalize(value: string) {
   return value.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
-function resolveWorldBook(worldbooks: WorldBook[], userMessage: string) {
+function stableRoll(seed: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash ^= seed.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) % 100;
+}
+
+function worldBookKeyMatches(keyword: string, haystack: string, entry: WorldBook['entries'][number]): boolean {
+  const raw = keyword.trim();
+  if (!raw) return false;
+
+  const caseSensitive = Boolean(entry.caseSensitive);
+  if (raw.startsWith('/') && raw.lastIndexOf('/') > 0) {
+    const lastSlash = raw.lastIndexOf('/');
+    try {
+      const pattern = raw.slice(1, lastSlash);
+      const flags = raw.slice(lastSlash + 1) || (caseSensitive ? '' : 'i');
+      return new RegExp(pattern, flags).test(haystack);
+    } catch {
+      // Invalid regex keys fall back to literal matching.
+    }
+  }
+
+  const source = caseSensitive ? haystack : haystack.toLowerCase();
+  const key = caseSensitive ? raw : raw.toLowerCase();
+
+  if (entry.matchWholeWords) {
+    const escaped = key.replace(/[.*+?^()|[\\]\\\\]/g, '\\function resolveWorldBook(worldbooks: WorldBook[], userMessage: string) {
   const haystack = normalize(userMessage);
   const selected = worldbooks.flatMap(book => !book.enabled ? [] : book.entries
     .filter(entry => entry.enabled && entry.insertion !== 'depth')
@@ -58,6 +87,87 @@ function resolveWorldBook(worldbooks: WorldBook[], userMessage: string) {
     '内容：',
     entry.content,
   ].join('\n')).join('\n\n');
+}
+
+');
+    return new RegExp('(?:^|\\\\b)' + escaped + '(?:$|\\\\b)', caseSensitive ? '' : 'i').test(source);
+  }
+
+  return source.includes(key);
+}
+
+export function selectWorldBookEntries(worldbooks: WorldBook[], inputText: string) {
+  const candidates = worldbooks.flatMap(book => {
+    if (!book.enabled) return [];
+
+    return book.entries
+      .filter(entry => entry.enabled)
+      .map(entry => {
+        const matchedKeywords = entry.constant
+          ? ['[constant]']
+          : entry.keywords.filter(keyword => worldBookKeyMatches(keyword, inputText, entry));
+
+        if (!entry.constant && !matchedKeywords.length) return null;
+
+        const secondary = entry.secondaryKeywords || [];
+        if (entry.selective && secondary.length) {
+          const matchedSecondary = secondary.filter(keyword => worldBookKeyMatches(keyword, inputText, entry));
+          const logic = entry.selectiveLogic ?? 0;
+          const passes =
+            logic === 1 ? matchedSecondary.length < secondary.length :
+            logic === 2 ? matchedSecondary.length === 0 :
+            logic === 3 ? matchedSecondary.length === secondary.length :
+            matchedSecondary.length > 0;
+          if (!passes) return null;
+        }
+
+        if (entry.useProbability || entry.probability !== undefined) {
+          const probability = Math.max(0, Math.min(100, Number(entry.probability ?? 100)));
+          if (probability <= 0 || stableRoll(entry.id + '|' + inputText) >= probability) return null;
+        }
+
+        return { book, entry, matchedKeywords };
+      })
+      .filter(Boolean) as Array<{
+        book: WorldBook;
+        entry: WorldBook['entries'][number];
+        matchedKeywords: string[];
+      }>;
+  });
+
+  return candidates.sort((a, b) =>
+    Number(Boolean(b.entry.constant)) - Number(Boolean(a.entry.constant)) ||
+    (b.entry.order ?? b.entry.priority ?? 0) - (a.entry.order ?? a.entry.priority ?? 0) ||
+    (b.entry.weight ?? 0) - (a.entry.weight ?? 0) ||
+    b.matchedKeywords.length - a.matchedKeywords.length
+  );
+}
+
+function resolveWorldBook(worldbooks: WorldBook[], scannedText: string) {
+  const selected = selectWorldBookEntries(worldbooks, scannedText)
+    .filter(({ entry }) => entry.insertion !== 'depth');
+
+  if (!selected.length) return '当前没有命中的世界书条目。';
+
+  const before = selected.filter(({ entry }) => entry.insertion === 'before');
+  const after = selected.filter(({ entry }) => entry.insertion === 'after');
+
+  const render = (items: typeof selected, position: string) => items.map(({ book, entry, matchedKeywords }) => [
+    '[WORLD BOOK · ' + position + ']',
+    '书名：' + book.name,
+    '条目：' + entry.name,
+    '命中关键词：' + matchedKeywords.join('、'),
+    '常驻：' + (entry.constant ? '是' : '否') + '；优先级：' + (entry.order ?? entry.priority ?? 0) + '；权重：' + (entry.weight ?? 0),
+    '内容：',
+    entry.content,
+  ].join('\\n')).join('\\n\\n');
+
+  const sections = [
+    before.length ? render(before, 'before · 角色定义前') : '',
+    after.length ? render(after, 'after · 角色定义后') : '',
+  ].filter(Boolean);
+
+  return sections.length ? sections.join('\\n\\n') : '当前没有命中的世界书条目。';
 }
 
 export function resolveCharacterContext(input: ContextEngineInput): ResolvedContext {
