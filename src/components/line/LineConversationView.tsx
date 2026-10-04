@@ -93,6 +93,38 @@ export function LineConversationView({
     hasImportedCharacter ? [] : getInitialChatMessages(contactName),
   );
 
+  // LINE keeps the complete conversation in storage, but only renders the newest
+  // page at first. Older messages load naturally as you scroll upward.
+  const LINE_PAGE_SIZE = 60;
+  const [loadedMessageCount, setLoadedMessageCount] = useState(LINE_PAGE_SIZE);
+  const messagesViewportRef = useRef<HTMLDivElement>(null);
+  const visibleMessages = messages.slice(-loadedMessageCount);
+
+  useEffect(() => {
+    setLoadedMessageCount(Math.min(LINE_PAGE_SIZE, Math.max(0, messages.length)));
+  }, [conversationStorageId]);
+
+  const loadOlderMessages = () => {
+    if (loadedMessageCount >= messages.length) return;
+    const viewport = messagesViewportRef.current;
+    const previousHeight = viewport?.scrollHeight ?? 0;
+    setLoadedMessageCount((count) => Math.min(messages.length, count + LINE_PAGE_SIZE));
+    requestAnimationFrame(() => {
+      if (!viewport) return;
+      viewport.scrollTop += viewport.scrollHeight - previousHeight;
+    });
+  };
+
+  const jumpToLineMessage = (messageId: number | string) => {
+    const index = messages.findIndex((message) => String(message.id) === String(messageId));
+    if (index < 0) return;
+    setLoadedMessageCount((count) => Math.max(count, messages.length - index + 8));
+    window.setTimeout(() => {
+      const node = document.querySelector('[data-line-message-id="' + String(messageId).replaceAll('"', '&quot;') + '"]');
+      node?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
+  };
+
   // LINE runtime persistence: keep the existing visual/message UI untouched while
   // giving the conversation a durable runtime layer for search, read state and events.
   useEffect(() => {
@@ -1773,7 +1805,8 @@ export function LineConversationView({
 
       {/* In-chat Search Input Bar */}
       {showInChatSearch && (
-        <div className="h-10 px-3 bg-[#f8f8fa] border-b border-[#ededee] flex items-center gap-2 animate-in slide-in-from-top duration-200">
+        <div className="px-3 py-1.5 bg-[#f8f8fa] border-b border-[#ededee] animate-in slide-in-from-top duration-200">
+          <div className="h-8 flex items-center gap-2">
           <Search className="w-3.5 h-3.5 text-[#aaa] shrink-0" />
           <input
             type="text"
@@ -1793,21 +1826,58 @@ export function LineConversationView({
           >
             取消
           </button>
+          </div>
+          {inChatSearchQuery.trim() && (
+            <div className="max-h-40 overflow-y-auto border-t border-[#ededee] mt-1 pt-1">
+              {lineRuntimeSearchResults.length === 0 ? (
+                <div className="py-2 text-[10px] text-[#aaa] text-center">没有找到相关聊天记录</div>
+              ) : (
+                lineRuntimeSearchResults.slice(-8).reverse().map((result) => (
+                  <button
+                    key={result.id}
+                    onClick={() => jumpToLineMessage(result.id)}
+                    className="w-full text-left px-2 py-1.5 rounded-md hover:bg-white transition-colors"
+                  >
+                    <div className="text-[9px] text-[#aaa] mb-0.5">
+                      {result.sender === 'me' ? '我' : contactName} · {result.createdAt ? new Date(result.createdAt).toLocaleString() : ''}
+                    </div>
+                    <div className="text-[10.5px] text-[#444] truncate">{result.text || '[媒体消息]'}</div>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </div>
       )}
 
       {/* 2. MESSAGES STREAM */}
-      <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-4 no-scrollbar">
+      <div
+        ref={messagesViewportRef}
+        onScroll={(event) => {
+          if (event.currentTarget.scrollTop <= 48 && loadedMessageCount < messages.length) {
+            loadOlderMessages();
+          }
+        }}
+        className="flex-1 overflow-y-auto px-3.5 py-4 space-y-4 no-scrollbar"
+      >
+        {loadedMessageCount < messages.length && (
+          <button
+            onClick={loadOlderMessages}
+            className="mx-auto block text-[9.5px] text-[#aaa] hover:text-[#ae7e89] py-1.5 px-3 rounded-full hover:bg-[#faf1f3] transition-colors"
+          >
+            加载更早的消息 · 还有 {messages.length - loadedMessageCount} 条
+          </button>
+        )}
         <div className="text-center text-[10px] text-[#b3b3b7] my-1">
           今天
         </div>
 
-        {messages.map((msg) => {
+        {visibleMessages.map((msg) => {
           if (msg.type === 'music-together') {
             const session = msg.musicSession as TogetherMusicSession | undefined;
             if (!session) return null;
             return (
-              <div key={msg.id} className={'flex ' + (msg.sender === 'me' ? 'justify-end' : 'justify-start') + ' mb-2'}>
+              <div key={msg.id} data-line-message-id={msg.id} className={'flex ' + (msg.sender === 'me' ? 'justify-end' : 'justify-start') + ' mb-2'}>
                 <div className="max-w-[82%] rounded-[15px] border border-[#e8ddd3] bg-[#fbf7f1] p-3">
                   <div className="flex items-center gap-2">
                     <div className="w-9 h-9 rounded-full bg-[#292724] text-white grid place-items-center"><Music2 className="w-4 h-4" /></div>
@@ -1822,7 +1892,7 @@ export function LineConversationView({
 
           if (msg.type === 'system-nudge') {
             return (
-              <div key={msg.id} className="flex justify-center my-1.5 animate-in fade-in">
+              <div key={msg.id} data-line-message-id={msg.id} className="flex justify-center my-1.5 animate-in fade-in">
                 <span className="text-[10px] text-[#999b9f] bg-[#f5f5f6] border border-[#ececee] px-3 py-1 rounded-full shadow-2xs">
                   {msg.text}
                 </span>
@@ -1837,6 +1907,7 @@ export function LineConversationView({
           return (
             <div
               key={msg.id}
+              data-line-message-id={msg.id}
               className={`flex items-end gap-2 group ${isMe ? 'justify-end' : 'justify-start'}`}
             >
               {/* Multi-select checkbox */}
