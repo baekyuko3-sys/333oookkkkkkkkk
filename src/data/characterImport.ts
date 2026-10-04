@@ -1,4 +1,5 @@
 import YAML from 'yaml';
+import type { CharacterLanguageProfile } from '../types';
 export interface ImportedCharacter {
   id: string;
   name: string;
@@ -17,6 +18,7 @@ export interface ImportedCharacter {
   creator: string;
   characterVersion: string;
   groupId?: string | null;
+  languageProfile?: CharacterLanguageProfile;
   sourceFormat: 'json' | 'yaml' | 'png' | 'manual';
   importedAt: string;
 }
@@ -66,6 +68,7 @@ function normalizeCharacter(raw: any, sourceFormat: ImportedCharacter['sourceFor
     characterVersion:
       cleanString(data.character_version) || cleanString(data.characterVersion),
     groupId: cleanString(data.groupId) || cleanString(data.group_id) || null,
+    languageProfile: data.languageProfile && typeof data.languageProfile === 'object' ? data.languageProfile as CharacterLanguageProfile : undefined,
     sourceFormat,
     importedAt: now,
   };
