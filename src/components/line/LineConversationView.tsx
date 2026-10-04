@@ -570,6 +570,7 @@ export function LineConversationView({
   const handleSend = async () => {
     const userText = inputText.trim();
     if (!userText || isTyping) return;
+    if (characterProfile.isBlockedByCharacter) { showToast('你已被对方拉黑，暂时无法发送消息'); return; }
 
     const msgId = Date.now();
     const newMsg: any = {
@@ -3514,6 +3515,35 @@ export function LineConversationView({
                         }`}
                       />
                     </div>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-[#f2f2f3] pt-2.5">
+                    <div>
+                      <div className="font-medium text-[#333]">角色行为权限</div>
+                      <div className="text-[10px] text-[#aaa]">允许角色在关系恶化或剧情条件满足时拉黑你</div>
+                    </div>
+                    <div
+                      onClick={() => setCharacterProfile({ ...characterProfile, canBlockUser: !characterProfile.canBlockUser })}
+                      className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors ${characterProfile.canBlockUser ? 'bg-[#d4a3ad]' : 'bg-[#ddd]'}`}
+                    >
+                      <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${characterProfile.canBlockUser ? 'left-4.5' : 'left-0.5'}`} />
+                    </div>
+                  </div>
+                  <div className="border-t border-[#f2f2f3] pt-2.5 flex items-center justify-between">
+                    <div>
+                      <div className="font-medium text-[#333]">当前拉黑状态</div>
+                      <div className="text-[10px] text-[#aaa]">{characterProfile.isBlockedByCharacter ? '你目前无法向 TA 发送消息' : '正常联系中'}</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const next = !characterProfile.isBlockedByCharacter;
+                        setCharacterProfile({ ...characterProfile, isBlockedByCharacter: next });
+                        showToast(next ? '已模拟角色拉黑你' : '已解除拉黑');
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-[10px] ${characterProfile.isBlockedByCharacter ? 'bg-[#292724] text-white' : 'bg-[#f3f3f4] text-[#555]'}`}
+                    >
+                      {characterProfile.isBlockedByCharacter ? '解除拉黑' : '拉黑我'}
+                    </button>
                   </div>
 
                   <div className="border-t border-[#f2f2f3] pt-2.5 space-y-1.5">
