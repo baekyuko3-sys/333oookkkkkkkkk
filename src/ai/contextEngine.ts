@@ -27,10 +27,6 @@ export interface ResolvedContext {
   worldBookAfter: string;
 }
 
-function normalize(value: string) {
-  return value.toLowerCase().replace(/\s+/g, ' ').trim();
-}
-
 function stableRoll(seed: string): number {
   let hash = 2166136261;
   for (let index = 0; index < seed.length; index += 1) {
