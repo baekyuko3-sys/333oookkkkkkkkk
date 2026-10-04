@@ -7,9 +7,22 @@ import { cleanupOldDemoData } from './store/blankPhoneMigration';
 if (typeof window !== 'undefined') {
   cleanupOldDemoData();
   startBackgroundRuntime();
-  if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+
+  // The project does not currently ship a service worker. Remove any
+  // service worker left behind by an older deployment so stale cached
+  // assets cannot take over a fresh Netlify build.
+  if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+      void navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const registration of registrations) {
+          void registration.unregister();
+        }
+      });
+      if ('caches' in window) {
+        void caches.keys().then((keys) => {
+          for (const key of keys) void caches.delete(key);
+        });
+      }
     });
   }
 }
