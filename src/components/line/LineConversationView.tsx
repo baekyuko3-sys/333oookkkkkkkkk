@@ -20,6 +20,7 @@ import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
 import { getStatusBarPresets, type StatusBarPreset } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset } from '../../store/cotPresets';
 import { PresetResourceManager } from './PresetResourceManager';
+import { appendLineMessage, getLineConversationMessages, markLineConversationRead, searchLineMessages, type LineRuntimeMessage } from '../../store/lineRuntime';
 import {
   Video, Settings, Plus, Mic, Send, Smile,
   Image as ImageIcon, Film, FileText, Calendar, Sliders, RefreshCw, X,
@@ -92,6 +93,34 @@ export function LineConversationView({
     hasImportedCharacter ? [] : getInitialChatMessages(contactName),
   );
 
+  // LINE runtime persistence: keep the existing visual/message UI untouched while
+  // giving the conversation a durable runtime layer for search, read state and events.
+  useEffect(() => {
+    const stored = getLineConversationMessages(conversationStorageId);
+    if (stored.length && messages.length === 0) {
+      setMessages(stored);
+    }
+    markLineConversationRead(conversationStorageId, messages.at(-1)?.id);
+  }, [conversationStorageId]);
+
+  useEffect(() => {
+    if (!messages.length) return;
+    for (const message of messages.slice(-1)) {
+      appendLineMessage(conversationStorageId, {
+        id: message.id,
+        sender: message.sender,
+        text: message.text || message.content,
+        kind: message.type,
+        createdAt: message.createdAt || message.timestamp,
+        status: message.status || (message.sender === 'me' ? 'sent' : 'delivered'),
+        replyToId: message.replyToId,
+        reactions: message.reactions,
+        metadata: message.metadata,
+      });
+    }
+  }, [messages, conversationStorageId]);
+
+
   // Sheets & Overlays
   const [showPlusSheet, setShowPlusSheet] = useState(false);
   const [subSheetType, setSubSheetType] = useState<'image' | 'video' | 'file' | null>(null);
@@ -158,7 +187,11 @@ export function LineConversationView({
 
   // 聊天记录内搜索
   const [showInChatSearch, setShowInChatSearch] = useState(false);
+  const [lineRuntimeSearchResults, setLineRuntimeSearchResults] = useState<LineRuntimeMessage[]>([]);
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
+  useEffect(() => {
+    setLineRuntimeSearchResults(inChatSearchQuery.trim() ? searchLineMessages(conversationStorageId, inChatSearchQuery) : []);
+  }, [inChatSearchQuery, conversationStorageId, messages]);
 
   // 转发弹窗
   const [forwardMsg, setForwardMsg] = useState<any | null>(null);
