@@ -541,7 +541,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
           <span className="font-medium">世界书</span>
         </button>
 
-        <button onClick={onToggleTheme || onOpenSheet} className="flex flex-col items-center gap-1.5 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] hover:text-[var(--ink)] active:scale-95 transition-all group" title="切换外观主题">
+        <button onClick={() => onNavigate('appearance')} className="flex flex-col items-center gap-1.5 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] hover:text-[var(--ink)] active:scale-95 transition-all group" title="切换外观主题">
           <div className="w-[46px] h-[46px] rounded-[15px] bg-[var(--icon,rgba(248,245,239,.72))] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_4px_12px_rgba(52,43,34,.05)] grid place-items-center group-hover:scale-105 group-hover:bg-white transition-all text-[#8b7560]">
             <svg className="w-[22px] h-[22px] stroke-current fill-none stroke-[1.5]"><use href="#look"/></svg>
           </div>
