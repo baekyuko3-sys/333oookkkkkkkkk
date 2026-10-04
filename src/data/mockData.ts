@@ -1,75 +1,6 @@
 import { ThemeMode, CharacterInfo, WidgetConfig } from '../types';
 
-export const CHARACTERS: CharacterInfo[] = [
-  {
-    id: 'ethan',
-    name: 'Ethan',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-    heroImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
-    status: '在线 · 伦敦',
-    age: 28,
-    height: '185cm',
-    constellation: '处女座',
-    location: '英国 · 伦敦',
-    bio: '「在看海的日落了，真好看。」下沉式生活美学，静谧而深邃。',
-    quote: '「希望人世间晚，只便为了让你航行，你也可以就是自己以侍。」',
-    unreadCount: 2,
-    recentMoments: [
-      'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=300&q=80',
-      'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=300&q=80',
-      'https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=300&q=80'
-    ]
-  },
-  {
-    id: 'chenglin',
-    name: '程凛',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
-    heroImage: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=600&q=80',
-    status: '刚刚空闲',
-    age: 27,
-    height: '187cm',
-    constellation: '天蝎座',
-    location: '上海 / 伦敦',
-    bio: '极简公文、崇明私邸日程。冷静克制下的偏爱。',
-    quote: '「伦敦的雨总是来得突然，但也很适合发呆。」',
-    unreadCount: 1,
-    recentMoments: [
-      'https://images.unsplash.com/photo-1520986606214-8b456906c813?auto=format&fit=crop&w=300&q=80'
-    ]
-  },
-  {
-    id: 'linyu',
-    name: '林予',
-    avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=200&q=80',
-    heroImage: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
-    status: '在家休息',
-    age: 25,
-    height: '181cm',
-    constellation: '巨蟹座',
-    location: '北京 / 巴黎',
-    bio: '温和细腻的艺术家，喜欢烘焙与猫咪。',
-    quote: '「我到家了，刚吃完饭。工作结束，去吃好吃的！」',
-    unreadCount: 0,
-    recentMoments: [
-      'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=300&q=80'
-    ]
-  },
-  {
-    id: 'gavin',
-    name: 'Gavin',
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=200&q=80',
-    heroImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
-    status: '离线',
-    age: 29,
-    height: '184cm',
-    constellation: '金牛座',
-    location: '东京 / 纽约',
-    bio: '建筑设计师，策展人。',
-    quote: '「下次一起去看展吧。下周的拍摄日程我发你了。」',
-    unreadCount: 0,
-    recentMoments: []
-  }
-];
+export const CHARACTERS: CharacterInfo[] = [];
 
 export const THEME_CONFIGS: Record<ThemeMode, {
   name: string;
@@ -105,11 +36,11 @@ export const THEME_CONFIGS: Record<ThemeMode, {
       weatherCondition: '多云 Cloudy',
       weatherHighLow: 'H:22° L:14°',
       quoteContent: '「希望人世间晚，只便为了让你航行，你也可以就是自己以侍。」',
-      quoteAuthor: '— Ethan',
+      quoteAuthor: '— Personal Note',
       musicTitle: 'If I Could Be Him',
-      musicArtist: 'Ethan · Midnight Album',
+      musicArtist: 'Personal Library',
       anniversaryDays: 328,
-      anniversaryText: '与 Ethan 共同生活的第 328 天',
+      anniversaryText: '私人设备 · 默认状态',
     }
   },
   'nordic-light': {
@@ -133,9 +64,9 @@ export const THEME_CONFIGS: Record<ThemeMode, {
       quoteContent: '9月20日 黄金色外 timing take, 每一寸光都刚好停留在你眼底。',
       quoteAuthor: '— 备忘录手记',
       musicTitle: 'Midnight in London',
-      musicArtist: 'Ethan · 正在轻声哼唱',
+      musicArtist: '个人音乐库',
       anniversaryDays: 120,
-      anniversaryText: '今天是你和 Ethan 认识的纪念日',
+      anniversaryText: '私人设备 · 尚无纪念记录',
     }
   },
   'ocean-breeze': {
@@ -161,83 +92,14 @@ export const THEME_CONFIGS: Record<ThemeMode, {
       musicTitle: 'Imaginary Love',
       musicArtist: 'kaneko ayano',
       anniversaryDays: 30,
-      anniversaryText: '今天是你和 Ethan 认识 30 天',
+      anniversaryText: '私人设备 · 尚无纪念记录',
     }
   }
 };
 
-export const CHAT_HISTORY_ETHAN = [
-  {
-    id: 'msg-1',
-    sender: 'character',
-    time: '21:42',
-    text: '在看你发的照片了，真好看。',
-    isVoice: false,
-  },
-  {
-    id: 'msg-2',
-    sender: 'user',
-    time: '21:43',
-    text: '你看喜欢就好。',
-    isVoice: false,
-  },
-  {
-    id: 'msg-img',
-    sender: 'user',
-    time: '21:43',
-    imageUrl: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=400&q=80',
-  },
-  {
-    id: 'msg-3',
-    sender: 'character',
-    time: '21:44',
-    text: '下次带你去。',
-  },
-  {
-    id: 'msg-voice',
-    sender: 'character',
-    time: '21:45',
-    isVoice: true,
-    voiceDuration: '0:12',
-    voiceTranscript: '“刚走到楼下，风有点凉。晚上睡觉记得关好窗户，明天见。”',
-    cotThinking: '（听到她发来的语音，指尖在大衣口袋里轻轻握了握。原以为只是普通的出差，但看着伦敦夜雨里她发来的风景，突然就想立刻飞回她身边。）'
-  },
-  {
-    id: 'msg-4',
-    sender: 'character',
-    time: '21:46',
-    text: '晚安，明天见。',
-  }
-];
+export const CHAT_HISTORY_ETHAN = [];
 
-export const MOMENTS_FEED = [
-  {
-    id: 'feed-1',
-    author: '程凛',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
-    time: '2小时前',
-    content: '伦敦的雨总是来得突然，但也很适合发呆。',
-    images: [
-      'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=500&q=80'
-    ],
-    likes: 236,
-    comments: 42,
-  },
-  {
-    id: 'feed-2',
-    author: '林予',
-    avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=200&q=80',
-    time: '4小时前',
-    content: '工作结束，去吃好吃的！烘焙坊新出炉的羊角面包香气一直飘到街角。',
-    images: [
-      'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=300&q=80',
-      'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=300&q=80',
-      'https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=300&q=80'
-    ],
-    likes: 189,
-    comments: 28,
-  }
-];
+export const MOMENTS_FEED = [];
 
 export const GALLERY_PHOTOS = [
   { url: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=300&q=80', tag: '伦敦' },
