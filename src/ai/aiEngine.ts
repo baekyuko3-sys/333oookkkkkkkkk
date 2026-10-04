@@ -522,19 +522,55 @@ export async function listOpenAiCompatibleModels(
   settings: AiSettings,
 ): Promise<string[]> {
   if (!settings.apiKey.trim()) throw new Error('AI_NOT_CONFIGURED');
-  const base = settings.apiBaseUrl.trim().replace(/\/+$/, '');
+
+  let base = settings.apiBaseUrl.trim().replace(/\/+$/, '');
   if (!base) throw new Error('AI_BASE_URL_MISSING');
-  const endpoint = /\/models$/i.test(base) ? base : base + '/models';
-  const response = await fetch(endpoint, {
-    method: 'GET',
-    headers: { Authorization: 'Bearer ' + settings.apiKey.trim() },
-  });
-  if (!response.ok) throw new Error('AI_MODELS_' + response.status + ': ' + await readError(response));
+
+  // Accept all common OpenAI-compatible forms:
+  // https://host/v1
+  // https://host/v1/
+  // https://host/v1/models
+  // https://host/v1/chat/completions
+  base = base
+    .replace(/\/chat\/completions$/i, '')
+    .replace(/\/responses$/i, '')
+    .replace(/\/models$/i, '')
+    .replace(/\/+$/, '');
+
+  const endpoint = base + '/models';
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        Authorization: 'Bearer ' + settings.apiKey.trim(),
+      },
+    });
+  } catch (error) {
+    throw new Error(
+      'AI_MODELS_NETWORK: ' +
+      (error instanceof Error ? error.message : '无法连接模型接口'),
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error('AI_MODELS_' + response.status + ': ' + await readError(response));
+  }
+
   const data = await response.json();
-  const models = Array.isArray(data?.data) ? data.data : Array.isArray(data?.models) ? data.models : [];
-  return models
-    .map((item: any) => typeof item === 'string' ? item : item?.id)
-    .filter((id: unknown): id is string => typeof id === 'string' && id.trim().length > 0);
+  const rawModels =
+    Array.isArray(data?.data) ? data.data :
+    Array.isArray(data?.models) ? data.models :
+    Array.isArray(data) ? data :
+    [];
+
+  const models = rawModels
+    .map((item: any) => typeof item === 'string' ? item : item?.id || item?.name)
+    .filter((id: unknown): id is string => typeof id === 'string' && id.trim().length > 0)
+    .map(id => id.trim());
+
+  return Array.from(new Set(models));
 }
 
 
