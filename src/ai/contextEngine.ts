@@ -42,6 +42,7 @@ function worldBookKeyMatches(keyword: string, haystack: string, entry: WorldBook
   if (!raw) return false;
 
   const caseSensitive = Boolean(entry.caseSensitive);
+
   if (raw.startsWith('/') && raw.lastIndexOf('/') > 0) {
     const lastSlash = raw.lastIndexOf('/');
     try {
@@ -57,40 +58,8 @@ function worldBookKeyMatches(keyword: string, haystack: string, entry: WorldBook
   const key = caseSensitive ? raw : raw.toLowerCase();
 
   if (entry.matchWholeWords) {
-    const escaped = key.replace(/[.*+?^()|[\\]\\\\]/g, '\\function resolveWorldBook(worldbooks: WorldBook[], userMessage: string) {
-  const haystack = normalize(userMessage);
-  const selected = worldbooks.flatMap(book => !book.enabled ? [] : book.entries
-    .filter(entry => entry.enabled && entry.insertion !== 'depth')
-    .map(entry => {
-      const matched = entry.keywords.filter(keyword => {
-        const key = normalize(keyword);
-        return key && haystack.includes(key);
-      });
-      return matched.length ? { book, entry, matched } : null;
-    })
-    .filter(Boolean) as Array<{ book: WorldBook; entry: WorldBook['entries'][number]; matched: string[] }>);
-
-  selected.sort((a, b) =>
-    b.entry.priority - a.entry.priority ||
-    b.entry.weight - a.entry.weight ||
-    b.matched.length - a.matched.length
-  );
-
-  if (!selected.length) return '当前没有命中的世界书条目。';
-
-  return selected.slice(0, 18).map(({ book, entry, matched }) => [
-    '[WORLD BOOK]',
-    '书名：' + book.name,
-    '条目：' + entry.name,
-    '命中关键词：' + matched.join('、'),
-    '优先级：' + entry.priority + '；权重：' + entry.weight + '；插入：' + entry.insertion + (entry.insertion === 'depth' ? '；depth=' + entry.depth : ''),
-    '内容：',
-    entry.content,
-  ].join('\n')).join('\n\n');
-}
-
-');
-    return new RegExp('(?:^|\\\\b)' + escaped + '(?:$|\\\\b)', caseSensitive ? '' : 'i').test(source);
+    const escaped = key.replace(/[.*+?^()|[\]\\]/g, '\\$&');
+    return new RegExp('(?:^|\\b)' + escaped + '(?:$|\\b)', caseSensitive ? '' : 'i').test(source);
   }
 
   return source.includes(key);
@@ -160,14 +129,14 @@ function resolveWorldBook(worldbooks: WorldBook[], scannedText: string) {
     '常驻：' + (entry.constant ? '是' : '否') + '；优先级：' + (entry.order ?? entry.priority ?? 0) + '；权重：' + (entry.weight ?? 0),
     '内容：',
     entry.content,
-  ].join('\\n')).join('\\n\\n');
+  ].join('\n')).join('\n\n');
 
   const sections = [
     before.length ? render(before, 'before · 角色定义前') : '',
     after.length ? render(after, 'after · 角色定义后') : '',
   ].filter(Boolean);
 
-  return sections.length ? sections.join('\\n\\n') : '当前没有命中的世界书条目。';
+  return sections.length ? sections.join('\n\n') : '当前没有命中的世界书条目。';
 }
 
 export function resolveCharacterContext(input: ContextEngineInput): ResolvedContext {
@@ -226,7 +195,7 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
         '类型：' + input.project.genre,
         '语言：' + input.project.language,
         '整体风格：' + input.project.tone,
-        input.project.globalPrompt ? '项目级 AI 指令：\\n' + input.project.globalPrompt : '项目级 AI 指令：无。',
+        input.project.globalPrompt ? '项目级 AI 指令：\n' + input.project.globalPrompt : '项目级 AI 指令：无。',
       ].join('\n')
     : '使用默认项目规则。';
 
