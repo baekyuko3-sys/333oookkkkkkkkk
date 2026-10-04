@@ -159,6 +159,7 @@ export function LineConversationView({
   // 聊天记录内搜索
   const [showInChatSearch, setShowInChatSearch] = useState(false);
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
+  const [inChatSearchIndex, setInChatSearchIndex] = useState(0);
 
   // 转发弹窗
   const [forwardMsg, setForwardMsg] = useState<any | null>(null);
@@ -258,6 +259,52 @@ export function LineConversationView({
     ...lineFriends.map(friend => friend.name).filter(Boolean),
     ...getLineGroups().filter(group => group.id !== activeGroup?.id).map(group => group.name).filter(Boolean),
   ]));
+
+  const resolveForwardConversationId = (recipientName: string): string | null => {
+    const group = getLineGroups().find(group => group.name === recipientName);
+    if (group?.id) return group.id;
+    const friend = lineFriends.find(item => item.name === recipientName);
+    return friend?.characterId || friend?.name || recipientName || null;
+  };
+
+  const appendForwardToConversation = (recipientName: string, payload: any) => {
+    const targetConversationId = resolveForwardConversationId(recipientName);
+    if (!targetConversationId) {
+      showToast('找不到目标会话，转发失败');
+      return false;
+    }
+    const storageKey = `line:conversation:${targetConversationId}`;
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      const targetMessages = raw ? JSON.parse(raw) : [];
+      const nextMessages = Array.isArray(targetMessages) ? targetMessages : [];
+      window.localStorage.setItem(storageKey, JSON.stringify([
+        ...nextMessages,
+        {
+          ...payload,
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          sender: 'me',
+          senderName: currentUserNameFallback() || activePersona?.name || '我',
+          time: '刚刚',
+          status: 'sent',
+          isRead: false,
+        },
+      ]));
+      return true;
+    } catch {
+      showToast('目标会话保存失败，转发未完成');
+      return false;
+    }
+  };
+
+  const getForwardableText = (msg: any): string => {
+    if (!msg) return '';
+    if (msg.text) return String(msg.text);
+    if (msg.descTitle || msg.desc) return `[${msg.descTitle || msg.title || '多媒体'}] ${msg.desc || ''}`.trim();
+    if (msg.fileName) return `[文件] ${msg.fileName}`;
+    if (msg.transcript) return `[语音] ${msg.transcript}`;
+    return '[多媒体消息]';
+  };
   const characterMemory = getCharacterMemory(importedCharacter?.id || contactName, contactName);
   const projectManifest = getProjectManifest();
 
@@ -348,12 +395,30 @@ export function LineConversationView({
   // Toast
   const [toastMsg, setToastMsg] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
   const recordingStreamRef = useRef<MediaStream | null>(null);
   const recordingDiscardRef = useRef(false);
   const avatarClickTimerRef = useRef<number | null>(null);
+
+  const searchMatchesForEffect = (query: string) => messages.filter((message) =>
+    getForwardableText(message).toLowerCase().includes(query.trim().toLowerCase())
+  );
+
+  useEffect(() => {
+    if (!showInChatSearch || !inChatSearchQuery.trim()) return;
+    const matches = searchMatchesForEffect(inChatSearchQuery);
+    if (matches.length === 0) return;
+    const normalizedIndex = inChatSearchIndex % matches.length;
+    if (normalizedIndex !== inChatSearchIndex) setInChatSearchIndex(normalizedIndex);
+    const targetId = matches[normalizedIndex]?.id;
+    if (targetId === undefined) return;
+    window.requestAnimationFrame(() => {
+      messageRefs.current[targetId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [showInChatSearch, inChatSearchQuery, inChatSearchIndex, messages]);
 
   const handleMessageAvatarClick = () => {
     if (avatarClickTimerRef.current) window.clearTimeout(avatarClickTimerRef.current);
@@ -579,6 +644,7 @@ export function LineConversationView({
       senderName: currentUserNameFallback() || activePersona?.name || '我',
       text: userText,
       time: '刚刚',
+      status: 'sending',
       isRead: false,
     };
 
@@ -594,11 +660,12 @@ export function LineConversationView({
     setInputText('');
     setIsTyping(true);
 
-    // 保留 LINE 的已读节奏，但回复本身改为真正的模型请求。
     window.setTimeout(() => {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === msgId ? { ...m, isRead: true } : m))
-      );
+      setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, status: 'sent' } : m)));
+    }, 180);
+
+    window.setTimeout(() => {
+      setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, status: 'read', isRead: true } : m)));
     }, 1200);
 
     if (isGroup) {
@@ -661,6 +728,7 @@ export function LineConversationView({
         text: '',
         time: '刚刚',
         type: 'ai-reply',
+        status: 'receiving',
         showThinking: false,
       },
     ]);
@@ -704,6 +772,7 @@ export function LineConversationView({
                 text: result.text,
                 time: '刚刚',
                 type: 'ai-reply',
+                status: 'sent',
                 aiModel: result.model,
                 matchedWorldbookEntries: result.matchedWorldbookEntries,
               }
@@ -782,8 +851,8 @@ export function LineConversationView({
       setMessages((prev) => {
         const partial = prev.find(m => m.id === replyMsgId)?.text;
         return partial
-          ? prev.map(m => m.id === replyMsgId ? { ...m, text: partial } : m)
-          : prev.filter(m => m.id !== replyMsgId);
+          ? prev.map(m => m.id === replyMsgId ? { ...m, text: partial, status: 'sent' } : m)
+          : prev.map(m => m.id === replyMsgId ? { ...m, text: '消息生成失败', status: 'failed' } : m);
       });
 
       if (error instanceof Error && error.message === 'AI_NOT_CONFIGURED') {
@@ -918,10 +987,18 @@ export function LineConversationView({
   };
 
   const handleBatchForward = () => {
-    if (selectedMsgIds.length === 0) return;
+    const selectedMessages = messages.filter(message => selectedMsgIds.includes(message.id));
+    if (selectedMessages.length === 0) return;
     setForwardMsg({
-      text: `[合并转发 ${selectedMsgIds.length} 条聊天记录]`,
-      id: Date.now()
+      id: Date.now(),
+      text: `[合并转发 ${selectedMessages.length} 条聊天记录]`,
+      forwardedMessages: selectedMessages.map(message => ({
+        id: message.id,
+        sender: message.sender,
+        senderName: message.senderName || (message.sender === 'me' ? '我' : characterProfile.nickname),
+        text: getForwardableText(message),
+        time: message.time || '刚刚',
+      })),
     });
     setIsMultiSelectMode(false);
     setSelectedMsgIds([]);
@@ -958,15 +1035,14 @@ export function LineConversationView({
 
   // 清空聊天记录 (Clear Chat)
   const handleClearChat = () => {
-    setMessages([
-      {
-        id: Date.now(),
-        sender: 'system',
-        type: 'system-nudge',
-        text: '聊天记录已清空',
-        time: '刚刚'
-      }
-    ]);
+    try {
+      window.localStorage.removeItem(`line:conversation:${conversationStorageId}`);
+    } catch {}
+    setMessages([]);
+    setSelectedMsgIds([]);
+    setIsMultiSelectMode(false);
+    setContextMenuMsg(null);
+    setReplyingToMsg(null);
     setShowClearConfirm(false);
     setShowSettings(false);
     showToast('已清空所有聊天记录');
@@ -1730,12 +1806,29 @@ export function LineConversationView({
           <input
             type="text"
             value={inChatSearchQuery}
-            onChange={(e) => setInChatSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setInChatSearchQuery(e.target.value);
+              setInChatSearchIndex(0);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && inChatSearchQuery.trim()) {
+                e.preventDefault();
+                setInChatSearchIndex(prev => prev + 1);
+              }
+            }}
             placeholder="搜索当前聊天记录关键字..."
             className="w-full text-xs bg-transparent outline-none text-[#333]"
           />
           {inChatSearchQuery && (
-            <button onClick={() => setInChatSearchQuery('')} className="text-xs text-[#aaa]">
+            <span className="text-[9px] text-[#aaa] shrink-0">
+              {(() => {
+                const count = messages.filter(message => getForwardableText(message).toLowerCase().includes(inChatSearchQuery.trim().toLowerCase())).length;
+                return count ? `${(inChatSearchIndex % count) + 1}/${count}` : '0';
+              })()}
+            </span>
+          )}
+          {inChatSearchQuery && (
+            <button onClick={() => { setInChatSearchQuery(''); setInChatSearchIndex(0); }} className="text-xs text-[#aaa]">
               ×
             </button>
           )}
@@ -1788,8 +1881,13 @@ export function LineConversationView({
 
           return (
             <div
+              ref={(node) => { messageRefs.current[msg.id] = node; }}
               key={msg.id}
-              className={`flex items-end gap-2 group ${isMe ? 'justify-end' : 'justify-start'}`}
+              className={`flex items-end gap-2 group ${isMe ? 'justify-end' : 'justify-start'} ${
+                inChatSearchQuery.trim() && getForwardableText(msg).toLowerCase().includes(inChatSearchQuery.trim().toLowerCase())
+                  ? 'ring-1 ring-[#d4aab5] rounded-[16px]'
+                  : ''
+              }`}
             >
               {/* Multi-select checkbox */}
               {isMultiSelectMode && (
@@ -2226,8 +2324,14 @@ export function LineConversationView({
               {/* Time & LINE Iconic "已读" status for me */}
               {isMe && !msg.isRecalled && (
                 <div className="flex flex-col items-end text-[9px] text-[#b8b8bb] pb-0.5 leading-none shrink-0">
-                  {msg.isRead && (
+                  {(msg.status === 'read' || msg.isRead) && (
                     <span className="text-[8.5px] text-[#ae7e89] font-medium mb-0.5">已读</span>
+                  )}
+                  {msg.status === 'sending' && (
+                    <span className="text-[8.5px] text-[#aaa] font-medium mb-0.5">发送中</span>
+                  )}
+                  {msg.status === 'failed' && (
+                    <span className="text-[8.5px] text-[#c46b76] font-medium mb-0.5">失败</span>
                   )}
                   <span>{msg.time}</span>
                 </div>
@@ -4303,7 +4407,16 @@ export function LineConversationView({
               {/* 转发 */}
               <div
                 onClick={() => {
-                  setForwardMsg(contextMenuMsg);
+                  setForwardMsg({
+        ...contextMenuMsg,
+        forwardedMessages: [{
+          id: contextMenuMsg?.id,
+          sender: contextMenuMsg?.sender,
+          senderName: contextMenuMsg?.senderName || (contextMenuMsg?.sender === 'me' ? '我' : characterProfile.nickname),
+          text: getForwardableText(contextMenuMsg),
+          time: contextMenuMsg?.time || '刚刚',
+        }],
+      });
                   setContextMenuMsg(null);
                 }}
                 className="py-3 flex items-center gap-3 cursor-pointer hover:bg-neutral-50 px-2"
@@ -4407,8 +4520,27 @@ export function LineConversationView({
                 <div
                   key={i}
                   onClick={() => {
-                    setForwardMsg(null);
-                    showToast(`已将消息转发给 ${f}`);
+                    const forwardedMessages = forwardMsg?.forwardedMessages || [{
+                      id: forwardMsg?.id || Date.now(),
+                      sender: forwardMsg?.sender || 'me',
+                      senderName: forwardMsg?.senderName || (forwardMsg?.sender === 'me' ? '我' : characterProfile.nickname),
+                      text: getForwardableText(forwardMsg),
+                      time: forwardMsg?.time || '刚刚',
+                    }];
+                    const isBatch = forwardedMessages.length > 1;
+                    const payload = {
+                      type: 'forwarded',
+                      text: isBatch
+                        ? `[合并转发 ${forwardedMessages.length} 条聊天记录]\\n\\n${forwardedMessages.map((item: any) => `${item.senderName}：${item.text}`).join('\\n')}`
+                        : forwardedMessages[0].text,
+                      forwardedMessages,
+                      forwardedFromConversationId: conversationStorageId,
+                      forwardedFromContact: contactName,
+                    };
+                    if (appendForwardToConversation(f, payload)) {
+                      setForwardMsg(null);
+                      showToast(`已将消息转发给 ${f}`);
+                    }
                   }}
                   className="py-2.5 flex items-center justify-between cursor-pointer hover:bg-neutral-50 px-2"
                 >
