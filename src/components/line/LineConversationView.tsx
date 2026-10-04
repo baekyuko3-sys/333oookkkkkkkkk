@@ -14,7 +14,7 @@ import { getInitialChatMessages } from '../../data/characterChatSeeds';
 import { upsertOfflineEvent, updateOfflineEvent } from '../../store/offlineEvents';
 import { getLineGroupByName } from '../../store/lineGroups';
 import { getGroupPreset, getGroupPresets } from '../../store/groupPresets';
-import { getLineGroups, updateLineGroupMember, addLineGroupMemory } from '../../store/lineGroups';
+import { getLineGroups, updateLineGroupMember, addLineGroupMemory, setLineGroupRelationships } from '../../store/lineGroups';
 import { createTogetherMusicSession, type TogetherMusicSession } from '../../store/togetherMusic';
 import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
 import { getStatusBarPresets, type StatusBarPreset } from '../../store/statusBarPresets';
@@ -1304,6 +1304,7 @@ export function LineConversationView({
         relation: '待继续推演',
       }));
       setGroupRelationships(inferred);
+      if (activeGroup?.id) setLineGroupRelationships(activeGroup.id, inferred);
       showToast('已基于当前群成员建立关系网络框架');
     }, 600);
   };
