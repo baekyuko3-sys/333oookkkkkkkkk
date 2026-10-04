@@ -36,8 +36,9 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
       const weekDay = d.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
       setCurrentMonthString(`${monthName} · ${weekDay} · ${d.getFullYear()}`);
 
+      const customGreeting = readAppearance().greeting.trim();
       const greet = h < 12 ? 'GOOD MORNING' : h < 18 ? 'GOOD AFTERNOON' : 'GOOD EVENING';
-      setCurrentGreeting(`${greet} · PRIVATE DEVICE`);
+      setCurrentGreeting(customGreeting || `${greet} · PRIVATE DEVICE`);
       setArchiveCap(`ARCHIVE ${p(d.getDate())}/${p(d.getMonth() + 1)}`);
     };
 
@@ -75,8 +76,20 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   ];
   const currentCity = cities[cityIndex];
 
+  const renderAppIcon = (key: string, symbol: string, className = 'w-6 h-6') => {
+    const custom = appearance.appIcons[key];
+    if (custom) {
+      return <img src={custom} alt="" className={className + ' object-cover rounded-[18px]'} />;
+    }
+    return (
+      <svg className={className + ' stroke-current fill-none stroke-[1.5] stroke-linecap-round stroke-linejoin-round'}>
+        <use href={'#' + symbol} />
+      </svg>
+    );
+  };
+
   return (
-    <div className="relative w-full h-full overflow-hidden select-none" style={{ background: 'var(--screen, #fff)', color: 'var(--ink, #242323)' }}>
+    <div className="relative w-full h-full overflow-hidden select-none" style={{ background: 'var(--screen, #fff)', color: 'var(--ink, #242323)', backgroundImage: appearance.wallpaper ? `url(${appearance.wallpaper})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
       
       {/* SVG Icon Definitions */}
       <svg width="0" height="0" className="absolute pointer-events-none" aria-hidden="true">
@@ -98,7 +111,9 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
       <div 
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: `
+          background: appearance.wallpaper
+          ? 'linear-gradient(180deg, rgba(255,255,255,.64) 0%, rgba(255,255,255,.78) 100%)'
+          : `
             radial-gradient(circle at 75% 15%, rgba(245, 242, 236, 0.5) 0%, transparent 35%),
             linear-gradient(180deg, var(--screen, #ffffff) 0%, var(--screen, #ffffff) 100%)
           `
@@ -124,7 +139,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               {currentPage === 1 ? currentGreeting : 'VAULT ARCHIVES · PAGE 02'}
             </div>
             <div className="text-[17px] font-[650] tracking-[0.2px] text-[var(--ink)]">
-              {currentPage === 1 ? 'Private Phone' : 'Inner Vault'}
+              {currentPage === 1 ? appearance.appTitle : 'Inner Vault'}
             </div>
           </div>
         </div>
@@ -153,7 +168,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               {currentMonthString}
             </div>
             <div className="mt-5 font-serif-sc text-[13px] leading-[1.8] text-[var(--sub,#68625b)] max-w-[205px]">
-              “这是你的私人设备。<br />内容由你自己建立。”
+              {appearance.subtitle.split('\\n').map((line, index) => <span key={index} className="block">{line}</span>}
             </div>
           </div>
 
@@ -290,9 +305,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
             >
               <div className="w-[64px] h-[64px] rounded-[21px] bg-[#36332f] text-[#eee] border-transparent shadow-[0_6px_18px_rgba(52,43,34,.055)] grid place-items-center group-hover:scale-105 transition-transform relative">
-                <svg className="w-6 h-6 stroke-current fill-none stroke-[1.5] stroke-linecap-round stroke-linejoin-round">
-                  <use href="#chat"/>
-                </svg>
+                {renderAppIcon('line', 'chat')}
                 <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#9b625b] text-white text-[9px] font-bold flex items-center justify-center">
                   {worldUnread > 99 ? '99+' : worldUnread}
                 </span>
@@ -305,9 +318,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
             >
               <div className="w-[64px] h-[64px] rounded-[21px] bg-[#9b8068] text-white border-transparent shadow-[0_6px_18px_rgba(52,43,34,.055)] grid place-items-center group-hover:scale-105 transition-transform">
-                <svg className="w-6 h-6 stroke-current fill-none stroke-[1.5] stroke-linecap-round stroke-linejoin-round">
-                  <use href="#ig"/>
-                </svg>
+                {renderAppIcon('moments', 'ig')}
               </div>
               <span className="font-medium">IG</span>
             </button>
@@ -317,9 +328,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
             >
               <div className="w-[64px] h-[64px] rounded-[21px] bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))] backdrop-blur-xl shadow-[0_6px_18px_rgba(52,43,34,.055)] grid place-items-center group-hover:scale-105 transition-transform">
-                <svg className="w-6 h-6 stroke-current fill-none stroke-[1.5] stroke-linecap-round stroke-linejoin-round">
-                  <use href="#music"/>
-                </svg>
+                {renderAppIcon('music', 'music')}
               </div>
               <span className="font-medium">音乐</span>
             </button>
@@ -329,9 +338,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
             >
               <div className="w-[64px] h-[64px] rounded-[21px] bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))] backdrop-blur-xl shadow-[0_6px_18px_rgba(52,43,34,.055)] grid place-items-center group-hover:scale-105 transition-transform">
-                <svg className="w-6 h-6 stroke-current fill-none stroke-[1.5] stroke-linecap-round stroke-linejoin-round">
-                  <use href="#book"/>
-                </svg>
+                {renderAppIcon('offline-story', 'book')}
               </div>
               <span className="font-medium">线下剧情</span>
             </button>
@@ -462,9 +469,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
             >
               <div className="w-[54px] h-[54px] rounded-[21px] bg-[#1a1a1a] text-white border-transparent shadow-[0_6px_18px_rgba(52,43,34,.07)] grid place-items-center group-hover:scale-105 transition-transform relative">
-                <svg className="w-6 h-6 fill-current">
-                  <use href="#threads"/>
-                </svg>
+                {renderAppIcon('threads', 'threads')}
                 <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#9b625b] text-white text-[9px] font-bold flex items-center justify-center">
                   3
                 </span>
@@ -478,7 +483,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
             >
               <div className="w-[54px] h-[54px] rounded-[21px] bg-[#ebe2dc] text-[#5f554f] border border-[rgba(40,36,31,.08)] shadow-[0_6px_18px_rgba(52,43,34,.07)] grid place-items-center group-hover:scale-105 transition-transform relative">
-                <span className="text-[19px] font-serif">人</span>
+                {appearance.appIcons.npc ? renderAppIcon('npc', 'card') : <span className="text-[19px] font-serif">人</span>}
                 <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#caa9ad] border border-white" />
               </div>
               <span className="font-semibold tracking-tight text-[var(--ink)]">NPC</span>
@@ -490,7 +495,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
             >
               <div className="w-[54px] h-[54px] rounded-[21px] bg-[#f0ebe5] text-[#63584f] border border-[rgba(40,36,31,.08)] shadow-[0_6px_18px_rgba(52,43,34,.07)] grid place-items-center group-hover:scale-105 transition-transform relative">
-                <span className="text-[18px] font-serif">预</span>
+                {appearance.appIcons['group-presets'] ? renderAppIcon('group-presets', 'card') : <span className="text-[18px] font-serif">预</span>}
               </div>
               <span className="font-semibold tracking-tight text-[var(--ink)]">预设</span>
             </button>
@@ -501,9 +506,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
             >
               <div className="w-[54px] h-[54px] rounded-[21px] bg-[#9b625b] text-white border-transparent shadow-[0_6px_18px_rgba(52,43,34,.07)] grid place-items-center group-hover:scale-105 transition-transform relative">
-                <svg className="w-6 h-6 stroke-current fill-none stroke-[1.5]">
-                  <use href="#spy"/>
-                </svg>
+                {renderAppIcon('spy-phone', 'spy')}
                 <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-white" />
               </div>
               <span className="font-semibold tracking-tight text-[var(--ink)]">查手机</span>
@@ -511,7 +514,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
 
 
             <button onClick={() => onNavigate('memory')} className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group">
-              <div className="w-[54px] h-[54px] rounded-[18px] bg-[#292724] text-white grid place-items-center group-hover:scale-105 transition-transform"><span className="font-serif text-[20px]">M</span></div>
+              <div className="w-[54px] h-[54px] rounded-[18px] bg-[#292724] text-white grid place-items-center group-hover:scale-105 transition-transform">{appearance.appIcons.memory ? renderAppIcon('memory', 'card') : <span className="font-serif text-[20px]">M</span>}</div>
               <span className="font-semibold tracking-tight text-[var(--ink)]">Memory</span>
             </button>
           </section>
@@ -547,28 +550,28 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
       >
         <button onClick={() => onNavigate('character-profile')} className="flex flex-col items-center gap-1.5 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] hover:text-[var(--ink)] active:scale-95 transition-all group">
           <div className="w-[46px] h-[46px] rounded-[15px] bg-[var(--icon,rgba(248,245,239,.72))] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_4px_12px_rgba(52,43,34,.05)] grid place-items-center group-hover:scale-105 group-hover:bg-white transition-all">
-            <svg className="w-[22px] h-[22px] stroke-current fill-none stroke-[1.5]"><use href="#card"/></svg>
+            {renderAppIcon('character-profile', 'card', 'w-[22px] h-[22px]')}
           </div>
           <span className="font-medium">角色档案</span>
         </button>
 
         <button onClick={() => onNavigate('world-book')} className="flex flex-col items-center gap-1.5 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] hover:text-[var(--ink)] active:scale-95 transition-all group">
           <div className="w-[46px] h-[46px] rounded-[15px] bg-[var(--icon,rgba(248,245,239,.72))] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_4px_12px_rgba(52,43,34,.05)] grid place-items-center group-hover:scale-105 group-hover:bg-white transition-all">
-            <svg className="w-[22px] h-[22px] stroke-current fill-none stroke-[1.5]"><use href="#book"/></svg>
+            {renderAppIcon('world-book', 'book', 'w-[22px] h-[22px]')}
           </div>
           <span className="font-medium">世界书</span>
         </button>
 
         <button onClick={() => onNavigate('appearance')} className="flex flex-col items-center gap-1.5 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] hover:text-[var(--ink)] active:scale-95 transition-all group" title="打开外观设置">
           <div className="w-[46px] h-[46px] rounded-[15px] bg-[var(--icon,rgba(248,245,239,.72))] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_4px_12px_rgba(52,43,34,.05)] grid place-items-center group-hover:scale-105 group-hover:bg-white transition-all text-[#8b7560]">
-            <svg className="w-[22px] h-[22px] stroke-current fill-none stroke-[1.5]"><use href="#look"/></svg>
+            {renderAppIcon('appearance', 'look', 'w-[22px] h-[22px]')}
           </div>
           <span className="font-medium">外观</span>
         </button>
 
         <button onClick={() => onNavigate('settings')} className="flex flex-col items-center gap-1.5 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] hover:text-[var(--ink)] active:scale-95 transition-all group" title="系统设置与自定义">
           <div className="w-[46px] h-[46px] rounded-[15px] bg-[var(--icon,rgba(248,245,239,.72))] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_4px_12px_rgba(52,43,34,.05)] grid place-items-center group-hover:scale-105 group-hover:bg-white transition-all">
-            <svg className="w-[22px] h-[22px] stroke-current fill-none stroke-[1.5]"><use href="#gear"/></svg>
+            {renderAppIcon('settings', 'gear', 'w-[22px] h-[22px]')}
           </div>
           <span className="font-medium">设置</span>
         </button>
