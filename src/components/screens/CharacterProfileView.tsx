@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Brain, Download, Edit3, FileDown, FilePlus2, Folder, Plus, ShieldCheck, Trash2, UserRound, X } from 'lucide-react';
 import { ScreenType } from '../../types';
 import { usePersistentState } from '../../store/usePersistentState';
@@ -50,6 +50,22 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
     ? characters.find(character => character.id === selectedId) || null
     : null;
   const runtimeState = selected ? getWorldRuntime().characters[selected.id] : null;
+
+  const characterSections = useMemo(() => {
+    if (selectedGroupId !== 'all') {
+      const group = groups.find(item => item.id === selectedGroupId);
+      return [{ id: selectedGroupId, name: group?.name || '未分组', characters: visibleCharacters }];
+    }
+
+    const sections: Array<{ id: string; name: string; characters: ImportedCharacter[] }> = [];
+    groups.forEach(group => {
+      const items = characters.filter(character => character.groupId === group.id);
+      if (items.length) sections.push({ id: group.id, name: group.name, characters: items });
+    });
+    const ungrouped = characters.filter(character => !character.groupId || !groups.some(group => group.id === character.groupId));
+    if (ungrouped.length) sections.push({ id: 'ungrouped', name: 'UNSORTED · 未分组', characters: ungrouped });
+    return sections;
+  }, [characters, groups, selectedGroupId, visibleCharacters]);
 
   useEffect(() => {
     const refresh = () => setRuntimeTick(value => value + 1);
@@ -333,40 +349,53 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              {visibleCharacters.map(character => (
-                <button
-                  key={character.id}
-                  onClick={() => { setSelectedId(character.id); setIsEditing(false); }}
-                  className={`text-left overflow-hidden rounded-2xl border transition-all active:scale-[.98] ${
-                    selected?.id === character.id
-                      ? 'bg-[#292724] text-white border-[#292724] shadow-[0_10px_26px_rgba(40,35,30,.16)]'
-                      : 'bg-white/65 text-[#242323] border-[rgba(40,36,31,.1)] shadow-[0_6px_18px_rgba(40,35,30,.05)]'
-                  }`}
-                >
-                  <div className="aspect-[4/3] bg-[#ded7cc] overflow-hidden">
-                    {character.avatar ? (
-                      <img src={character.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    ) : (
-                      <div className="w-full h-full grid place-items-center">
-                        <UserRound className="w-8 h-8 text-[#8b8782]" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-2.5">
-                    <div className="font-serif font-bold text-[13px] truncate">{character.name || '未命名角色'}</div>
-                    <div className={selected?.id === character.id ? 'mt-1 text-[8px] text-white/55 font-mono truncate' : 'mt-1 text-[8px] text-[#8b8782] font-mono truncate'}>
-                      {character.variantLabel || character.characterVersion || 'DEFAULT VERSION'}
+            <div className="space-y-4">
+              {characterSections.map(section => (
+                <section key={section.id}>
+                  <div className="flex items-end justify-between px-1 mb-2">
+                    <div>
+                      <div className="text-[8px] font-mono tracking-[2px] text-[#8b8782]">YEARBOOK SECTION</div>
+                      <h3 className="mt-0.5 text-[13px] font-serif font-bold text-[#242323]">{section.name}</h3>
                     </div>
-                    <div className={selected?.id === character.id ? 'mt-2 text-[7px] tracking-[1.2px] text-white/45 font-mono' : 'mt-2 text-[7px] tracking-[1.2px] text-[#9b625b] font-mono'}>
-                      {selected?.id === character.id ? 'OPEN · PROFILE' : 'TAP TO OPEN'}
-                    </div>
+                    <span className="text-[8px] font-mono text-[#9b625b]">{section.characters.length} CARDS</span>
                   </div>
-                </button>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {section.characters.map(character => (
+                      <button
+                        key={character.id}
+                        onClick={() => { setSelectedId(character.id); setIsEditing(false); }}
+                        className={"text-left overflow-hidden rounded-2xl border transition-all active:scale-[.98] " + (
+                          selected?.id === character.id
+                            ? 'bg-[#292724] text-white border-[#292724] shadow-[0_10px_26px_rgba(40,35,30,.16)]'
+                            : 'bg-white/65 text-[#242323] border-[rgba(40,36,31,.1)] shadow-[0_6px_18px_rgba(40,35,30,.05)]'
+                        )}
+                      >
+                        <div className="aspect-[4/3] bg-[#ded7cc] overflow-hidden">
+                          {character.avatar ? (
+                            <img src={character.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          ) : (
+                            <div className="w-full h-full grid place-items-center">
+                              <UserRound className="w-8 h-8 text-[#8b8782]" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-2.5">
+                          <div className="font-serif font-bold text-[13px] truncate">{character.name || '未命名角色'}</div>
+                          <div className={selected?.id === character.id ? 'mt-1 text-[8px] text-white/55 font-mono truncate' : 'mt-1 text-[8px] text-[#8b8782] font-mono truncate'}>
+                            {character.variantLabel || character.characterVersion || 'DEFAULT VERSION'}
+                          </div>
+                          <div className={selected?.id === character.id ? 'mt-2 text-[7px] tracking-[1.2px] text-white/45 font-mono' : 'mt-2 text-[7px] tracking-[1.2px] text-[#9b625b] font-mono'}>
+                            {selected?.id === character.id ? 'OPEN · PROFILE' : 'TAP TO OPEN'}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </section>
               ))}
               <button
                 onClick={() => fileRef.current?.click()}
-                className="min-h-[170px] rounded-2xl border border-dashed border-[#8b7560]/45 bg-white/35 text-[#8b7560] grid place-items-center text-[9px]"
+                className="w-full min-h-[120px] rounded-2xl border border-dashed border-[#8b7560]/45 bg-white/35 text-[#8b7560] grid place-items-center text-[9px]"
               >
                 <span><Plus className="w-4 h-4 mx-auto mb-1" />导入角色卡</span>
               </button>
