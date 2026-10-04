@@ -168,7 +168,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               {currentMonthString}
             </div>
             <div className="mt-5 font-serif-sc text-[13px] leading-[1.8] text-[var(--sub,#68625b)] max-w-[205px]">
-              {appearance.subtitle.split('\\n').map((line, index) => <span key={index} className="block">{line}</span>}
+              {appearance.subtitle.split('\n').map((line, index) => <span key={index} className="block">{line}</span>}
             </div>
           </div>
 
