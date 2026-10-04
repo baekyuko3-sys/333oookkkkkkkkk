@@ -2409,6 +2409,13 @@ export function LineConversationView({
             </div>
           );
         })}
+
+        {/* AI 正在生成时，固定显示在消息流最底部，而不是顶栏 */}
+        {isTyping && (
+          <div className="flex items-center justify-start px-1 py-1 animate-in fade-in">
+            <span className="text-[10px] text-[#aaa] tracking-[0.5px]">texting....</span>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
