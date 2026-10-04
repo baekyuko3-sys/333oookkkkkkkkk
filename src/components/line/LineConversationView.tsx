@@ -1231,7 +1231,10 @@ export function LineConversationView({
     showToast('已确认赴约！好感度 +5 💖');
 
     const invite = messages.find(message => message.id === msgId);
-    if (invite) appendOfflineEventToLine({ ...invite, characterId: importedCharacter?.id || contactName, characterName: characterProfile.nickname }, '已接受邀约，线下剧情可以开始了。', 'accepted');
+    if (invite) {
+      const eventMessage = appendOfflineEventToLine({ ...invite, characterId: importedCharacter?.id || contactName, characterName: characterProfile.nickname }, '已接受邀约，线下剧情可以开始了。', 'accepted');
+      if (eventMessage) setMessages(prev => [...prev, eventMessage]);
+    }
     const settings = conversationAiSettings();
     if (!settings.apiKey.trim()) return;
 
@@ -1296,7 +1299,10 @@ export function LineConversationView({
     );
     updateOfflineEvent(`offline-${msgId}`, { status: 'declined' });
     const invite = messages.find(message => message.id === msgId);
-    if (invite) appendOfflineEventToLine({ ...invite, characterId: importedCharacter?.id || contactName, characterName: characterProfile.nickname }, '这次邀约先暂缓了，之后可以再约。', 'declined');
+    if (invite) {
+      const eventMessage = appendOfflineEventToLine({ ...invite, characterId: importedCharacter?.id || contactName, characterName: characterProfile.nickname }, '这次邀约先暂缓了，之后可以再约。', 'declined');
+      if (eventMessage) setMessages(prev => [...prev, eventMessage]);
+    }
     showToast('已暂缓本次邀约');
   };
 
