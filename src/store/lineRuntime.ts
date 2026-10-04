@@ -2,7 +2,7 @@ import type { OfflineEvent } from '../types';
 
 export type LineMessageKind =
   | 'text' | 'image' | 'video' | 'file' | 'voice' | 'sticker'
-  | 'system' | 'offline-invite' | 'music-invite';
+  | 'system' | 'offline-invite' | 'music-invite' | 'call' | 'call-record';
 
 export interface LineRuntimeMessage {
   id: number | string;
@@ -16,6 +16,9 @@ export interface LineRuntimeMessage {
   recalledAt?: string;
   deletedAt?: string;
   reactions?: Record<string, number>;
+  favorite?: boolean;
+  edited?: boolean;
+  error?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -120,6 +123,52 @@ export function deleteLineMessage(id: string, messageId: number | string) {
     text: '',
     status: 'deleted',
     deletedAt: new Date().toISOString(),
+  });
+}
+
+export function editLineMessage(id: string, messageId: number | string, text: string) {
+  return updateLineMessage(id, messageId, {
+    text: text.trim(),
+    edited: true,
+    editedAt: new Date().toISOString(),
+    status: 'sent',
+  });
+}
+
+export function toggleLineReaction(id: string, messageId: number | string, emoji: string) {
+  const current = getLineConversationMessages(id);
+  const target = current.find(message => String(message.id) === String(messageId));
+  if (!target) return current;
+  const reactions = { ...(target.reactions || {}) };
+  if (reactions[emoji]) delete reactions[emoji];
+  else reactions[emoji] = 1;
+  return updateLineMessage(id, messageId, { reactions });
+}
+
+export function setLineMessageFavorite(id: string, messageId: number | string, favorite: boolean) {
+  return updateLineMessage(id, messageId, { favorite });
+}
+
+export function markLineMessageFailed(id: string, messageId: number | string, error: string) {
+  return updateLineMessage(id, messageId, { status: 'failed', error });
+}
+
+export function markLineMessageDelivered(id: string, messageId: number | string) {
+  return updateLineMessage(id, messageId, { status: 'delivered', error: undefined });
+}
+
+export function recordLineCall(
+  id: string,
+  input: { direction: 'incoming' | 'outgoing'; kind: 'audio' | 'video'; status: 'ringing' | 'connected' | 'ended' | 'missed'; duration?: number },
+) {
+  return appendLineMessage(id, {
+    id: `call-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    sender: input.direction === 'outgoing' ? 'me' : 'other',
+    kind: 'call-record',
+    text: input.status === 'missed' ? '未接来电' : `${input.kind === 'video' ? '视频' : '语音'}通话 · ${input.status === 'ended' ? Math.floor(input.duration || 0) + ' 秒' : input.status}`,
+    createdAt: new Date().toISOString(),
+    status: 'delivered',
+    metadata: { call: input },
   });
 }
 
