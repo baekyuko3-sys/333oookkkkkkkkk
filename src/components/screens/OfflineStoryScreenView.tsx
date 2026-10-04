@@ -13,6 +13,7 @@ import { getCharacterMemory } from '../../store/characterMemory';
 import { getCharacterProfile } from '../../data/characterProfiles';
 import { generateCreativeText, readStoredAiSettings } from '../../ai/aiEngine';
 import { setCurrentScene, setCharacterRuntime } from '../../store/worldRuntime';
+import { recordOfflineEventInLine } from '../../store/lineRuntime';
 
 const statusLabel: Record<OfflineEvent['status'], string> = {
   draft: '草稿',
@@ -83,7 +84,8 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
   };
 
   const acceptInvite = (event: OfflineEvent) => {
-    updateOfflineEvent(event.id, { status: 'accepted', updatedAt: nowIso() });
+    const updated = updateOfflineEvent(event.id, { status: 'accepted', updatedAt: nowIso() });
+    if (updated) recordOfflineEventInLine(updated);
     sync();
     notify('已接受邀约，可以开始这条线下剧情');
   };
@@ -158,6 +160,7 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
         updatedAt: nowIso(),
       });
       if (updated) {
+        recordOfflineEventInLine(updated);
         setEvents(getOfflineEvents());
         setCurrentScene(event.id);
         setCharacterRuntime(event.characterId, {
@@ -230,7 +233,8 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
 
   const completeScene = () => {
     if (!selected) return;
-    updateOfflineEvent(selected.id, { status: 'completed', updatedAt: nowIso() });
+    const completed = updateOfflineEvent(selected.id, { status: 'completed', updatedAt: nowIso() });
+    if (completed) recordOfflineEventInLine(completed);
     setCurrentScene(null);
     setCharacterRuntime(selected.characterId, { activity: '刚结束一次见面' }, selected.characterName);
     sync();
@@ -320,6 +324,11 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
             <button onClick={completeScene} disabled={selected.status === 'completed'} className="mt-2 w-full py-2 rounded-xl bg-[#ebe7df] border border-black/5 text-[9px] text-[#5d5751] disabled:opacity-40">
               <Check className="w-3 h-3 inline mr-1" />结束本幕并存档
             </button>
+            {selected.status === 'completed' && (
+              <button onClick={() => onNavigate('chat')} className="mt-2 w-full py-2 rounded-xl bg-white/70 border border-black/5 text-[9px] text-[#8b7560]">
+                回到 LINE · 留下这次见面的记录
+              </button>
+            )}
           </div>
         </div>
       )}
