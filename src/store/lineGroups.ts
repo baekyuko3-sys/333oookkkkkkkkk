@@ -7,6 +7,11 @@ export interface LineGroupMember {
   role: 'owner' | 'admin' | 'member';
   nickname?: string;
   muted?: boolean;
+  online?: boolean;
+  mood?: string;
+  lastSeenAt?: string;
+  relationship?: string;
+  memory?: string[];
 }
 
 export interface LineGroup {
@@ -19,6 +24,8 @@ export interface LineGroup {
   description?: string;
   createdAt: string;
   updatedAt: string;
+  relationships?: Array<{ from: string; to: string; relation: string }>;
+  events?: Array<{ id: string; text: string; createdAt: string }>;
 }
 
 const STORAGE_KEY = 'line:groups';
@@ -42,6 +49,35 @@ export function upsertLineGroup(group: LineGroup): void {
   } catch {
     // Storage failure must not break LINE.
   }
+}
+
+export function updateLineGroupMember(groupId: string, memberId: string, patch: Partial<LineGroupMember>): LineGroup | null {
+  const group = getLineGroups().find(item => item.id === groupId);
+  if (!group) return null;
+  const next = {
+    ...group,
+    members: group.members.map(member => member.id === memberId ? { ...member, ...patch } : member),
+    updatedAt: new Date().toISOString(),
+  };
+  upsertLineGroup(next);
+  return next;
+}
+
+export function addLineGroupMemory(groupId: string, text: string): LineGroup | null {
+  const group = getLineGroups().find(item => item.id === groupId);
+  if (!group || !text.trim()) return group || null;
+  const events = [...(group.events || []), { id: 'group-event-' + Date.now(), text: text.trim(), createdAt: new Date().toISOString() }].slice(-100);
+  const next = { ...group, events, updatedAt: new Date().toISOString() };
+  upsertLineGroup(next);
+  return next;
+}
+
+export function setLineGroupRelationships(groupId: string, relationships: Array<{ from: string; to: string; relation: string }>): LineGroup | null {
+  const group = getLineGroups().find(item => item.id === groupId);
+  if (!group) return null;
+  const next = { ...group, relationships, updatedAt: new Date().toISOString() };
+  upsertLineGroup(next);
+  return next;
 }
 
 export function createLineGroup(input: {
@@ -68,6 +104,8 @@ export function createLineGroup(input: {
     })),
     announcement: input.announcement || '',
     description: '',
+    relationships: [],
+    events: [],
     createdAt: now,
     updatedAt: now,
   };
