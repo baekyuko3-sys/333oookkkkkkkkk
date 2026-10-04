@@ -234,16 +234,26 @@ function findRelevantHistory(input: AiReplyInput, recentIds: Set<string>): AiRep
 }
 
 function buildConversationMessages(input: AiReplyInput) {
-  const limit = Math.max(4, Math.min(200, input.settings.contextLength || 24)) * 2;
-  const recentSource = input.messages
-    .filter(message => message.type !== 'system-nudge' && !message.isRecalled && !message.isRecalledByOther)
-    .slice(-limit);
+  // contextLength is the user's actual context budget: first cap turns, then cap
+  // the approximate payload size so a huge message/media transcript cannot silently
+  // consume the entire provider window.
+  const turnBudget = Math.max(4, Math.min(200, Number(input.settings.contextLength) || 24));
+  const limit = turnBudget * 2;
+  const maxApproxChars = Math.max(8000, Math.min(160000, turnBudget * 5000));
+  const eligible = input.messages
+    .filter(message => message.type !== 'system-nudge' && !message.isRecalled && !message.isRecalledByOther);
+  const recentSource = eligible.slice(-limit);
 
   const recent = recentSource.map(message => ({
     role: message.sender === 'other' ? 'assistant' : 'user',
     content: input.isGroup && message.senderName
       ? '[' + message.senderName + '] ' + (message.text || message.transcript || '[多媒体消息]')
-      : message.text || message.transcript || '[多媒体消息]',
+      : message.text || message.transcript || (
+        message.type === 'image' ? '[图片消息：AI 可见当前图片内容]' :
+        message.type === 'voice' ? '[语音消息：' + (message.transcript || '未转写') + ']' :
+        message.type === 'video' ? '[视频消息]' :
+        message.type === 'file' ? '[文件消息]' : '[多媒体消息]'
+      ),
     imageData: message.imageData,
   }));
 
@@ -302,7 +312,17 @@ function buildConversationMessages(input: AiReplyInput) {
     return [...historicalWithMarker, ...withDepth];
   }
 
-  return [...historicalWithMarker, ...recent];
+  const combined = [...historicalWithMarker, ...recent];
+  let chars = 0;
+  const budgeted: typeof combined = [];
+  for (let index = combined.length - 1; index >= 0; index -= 1) {
+    const item = combined[index];
+    const cost = String(item.content || '').length;
+    if (budgeted.length > 0 && chars + cost > maxApproxChars) break;
+    budgeted.unshift(item);
+    chars += cost;
+  }
+  return budgeted;
 }
 
 function requireApiKey(settings: AiSettings) {
