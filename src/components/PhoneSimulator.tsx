@@ -9,6 +9,9 @@ import { GalleryScreenView } from './screens/GalleryScreenView';
 import { MusicScreenView } from './screens/MusicScreenView';
 import { NotesScreenView } from './screens/NotesScreenView';
 import { ThreadsScreenView } from './screens/ThreadsScreenView';
+import { WorldBookScreenView } from './screens/WorldBookScreenView';
+import { SettingsScreenView } from './screens/SettingsScreenView';
+import { CalendarScreenView } from './screens/CalendarScreenView';
 import { SpyPhoneScreenView } from './screens/SpyPhoneScreenView';
 import { LineAppView } from './line/LineAppView';
 import { HomeCustomizeSheet } from './modals/HomeCustomizeSheet';
@@ -132,6 +135,22 @@ export function PhoneSimulator({
               themeMode={themeMode}
               onNavigate={setCurrentScreen}
             />
+          )}
+
+          {currentScreen === 'world-book' && (
+            <WorldBookScreenView onNavigate={setCurrentScreen} />
+          )}
+
+          {currentScreen === 'settings' && (
+            <SettingsScreenView
+              onNavigate={setCurrentScreen}
+              themeMode={themeMode}
+              onSelectTheme={onSelectTheme}
+            />
+          )}
+
+          {currentScreen === 'calendar' && (
+            <CalendarScreenView onNavigate={setCurrentScreen} />
           )}
 
           {currentScreen === 'lock' && (
