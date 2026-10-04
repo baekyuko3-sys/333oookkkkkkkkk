@@ -19,7 +19,8 @@ export type ScreenType =
   | 'settings'
   | 'offline-story'
   | 'project-studio'
-  | 'memory';
+  | 'memory'
+  | 'appearance';
 
 export interface CharacterGroup {
   id: string;
@@ -45,6 +46,28 @@ export interface CharacterInfo {
   unreadCount?: number;
 }
 
+
+export type CharacterLanguage = 'zh-CN' | 'en' | 'ja' | 'ko' | 'fr' | 'es' | 'de' | 'other';
+export type BilingualMode = 'off' | 'auto';
+export type BilingualLayout = 'inside-bubble' | 'below-bubble';
+export type CharacterPunctuationStyle = 'natural' | 'spaces' | 'tight' | 'mixed';
+export interface CharacterLanguageProfile {
+  language: CharacterLanguage;
+  bilingualMode: BilingualMode;
+  bilingualLayout: BilingualLayout;
+  bilingualTranslationDirection: 'original-first' | 'translation-first';
+  punctuationStyle: CharacterPunctuationStyle;
+  sentenceLength: 'short' | 'natural' | 'long' | 'mixed';
+  lineBreakStyle: 'natural' | 'every-sentence' | 'compact' | 'mixed';
+  colloquialLevel: 'formal' | 'natural' | 'casual' | 'very-casual';
+  fillerWords: string[];
+  emojiStyle: 'none' | 'light' | 'frequent' | 'mixed';
+  capitalizationStyle: 'standard' | 'lowercase' | 'mixed';
+  numberStyle: 'standard' | 'digits' | 'words' | 'mixed';
+  preferredSpaces: boolean;
+  examples?: string[];
+}
+
 export interface CharacterProfile {
   nickname: string;
   birthday: string;
@@ -67,12 +90,30 @@ export interface WorldBookEntry {
   weight: number;
   insertion: 'before' | 'after' | 'depth';
   depth: number;
+  secondaryKeywords?: string[];
+  selective?: boolean;
+  selectiveLogic?: 0 | 1 | 2 | 3;
+  constant?: boolean;
+  useProbability?: boolean;
+  probability?: number;
+  scanDepth?: number;
+  caseSensitive?: boolean;
+  matchWholeWords?: boolean;
+  order?: number;
+  role?: 'system' | 'user' | 'assistant';
+  outletName?: string;
+  group?: string;
+  groupWeight?: number;
+  preventRecursion?: boolean;
+  excludeRecursion?: boolean;
 }
 
 export interface WorldBook {
   id: string;
   name: string;
   description: string;
+  category?: string;
+  tags?: string[];
   entries: WorldBookEntry[];
   enabled: boolean;
   updatedAt: string;
