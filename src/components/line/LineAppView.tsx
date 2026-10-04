@@ -626,10 +626,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           <div className="h-[78px] px-5 pt-4 pb-2.5 flex items-start justify-between bg-white">
             <div>
               <div className="text-[25px] font-bold tracking-[-0.8px] text-[#202124] leading-tight">
-                朋友圈
+                VROOM
               </div>
               <div className="mt-1 text-[10px] text-[#b2b2b4] tracking-[0.7px]">
-                动态 · 记录一些小事
+                记录一些小事
               </div>
             </div>
 
@@ -900,7 +900,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           }`}
         >
           <div className="text-[19px] leading-none">⌁</div>
-          <div className="text-[9px]" >{tx('朋友圈', 'モーメンツ')}</div>
+          <div className="text-[9px]" >VROOM</div>
         </div>
 
         {/* Tab 4: 我的 */}
@@ -911,7 +911,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           }`}
         >
           <div className="text-[19px] leading-none">○</div>
-          <div className="text-[9px]" >{tx('我的', 'マイページ')}</div>
+          <div className="text-[9px]" >ME</div>
         </div>
       </div>
 
