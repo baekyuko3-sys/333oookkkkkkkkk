@@ -72,7 +72,7 @@ export function selectWorldBookEntries(worldbooks: WorldBook[], inputText: strin
     if (!book.enabled) return [];
 
     return book.entries
-      .filter(entry => entry.enabled)
+      .filter(entry => entry.enabled && !entry.outletName)
       .map(entry => {
         const matchedKeywords = entry.constant
           ? ['[constant]']
@@ -106,12 +106,60 @@ export function selectWorldBookEntries(worldbooks: WorldBook[], inputText: strin
       }>;
   });
 
-  return candidates.sort((a, b) =>
-    Number(Boolean(b.entry.constant)) - Number(Boolean(a.entry.constant)) ||
-    (b.entry.order ?? b.entry.priority ?? 0) - (a.entry.order ?? a.entry.priority ?? 0) ||
-    (b.entry.weight ?? 0) - (a.entry.weight ?? 0) ||
-    b.matchedKeywords.length - a.matchedKeywords.length
-  );
+  const blocked = new Set<string>();
+  const groups = new Map<string, typeof candidates>();
+  candidates.forEach(candidate => {
+    const labels = String(candidate.entry.group || '')
+      .split(',')
+      .map(value => value.trim())
+      .filter(Boolean);
+    labels.forEach(label => {
+      const group = groups.get(label) || [];
+      group.push(candidate);
+      groups.set(label, group);
+    });
+  });
+
+  groups.forEach((groupCandidates, groupName) => {
+    const available = groupCandidates.filter(candidate => !blocked.has(candidate.entry.id));
+    if (available.length <= 1) return;
+
+    const totalWeight = available.reduce((sum, candidate) => sum + Math.max(0, Number(candidate.entry.groupWeight ?? candidate.entry.weight ?? 100)), 0);
+    if (totalWeight <= 0) {
+      available.slice(1).forEach(candidate => blocked.add(candidate.entry.id));
+      return;
+    }
+
+    let cursor = (stableRoll(groupName + '|' + inputText) / 100) * totalWeight;
+    let winner = available[0];
+    for (const candidate of available) {
+      cursor -= Math.max(0, Number(candidate.entry.groupWeight ?? candidate.entry.weight ?? 100));
+      if (cursor <= 0) {
+        winner = candidate;
+        break;
+      }
+    }
+
+    const winnerGroups = String(winner.entry.group || '')
+      .split(',')
+      .map(value => value.trim())
+      .filter(Boolean);
+
+    groupCandidates.forEach(candidate => {
+      if (candidate.entry.id !== winner.entry.id && winnerGroups.some(label => String(candidate.entry.group || '').split(',').map(value => value.trim()).includes(label))) {
+        blocked.add(candidate.entry.id);
+      }
+    });
+  });
+
+  return candidates
+    .filter(candidate => !blocked.has(candidate.entry.id))
+    .sort((a, b) =>
+      Number(Boolean(b.entry.constant)) - Number(Boolean(a.entry.constant)) ||
+      (b.entry.order ?? b.entry.priority ?? 0) - (a.entry.order ?? a.entry.priority ?? 0) ||
+      (b.entry.weight ?? 0) - (a.entry.weight ?? 0) ||
+      b.matchedKeywords.length - a.matchedKeywords.length
+    );
 }
 
 function resolveWorldBook(worldbooks: WorldBook[], scannedText: string) {
