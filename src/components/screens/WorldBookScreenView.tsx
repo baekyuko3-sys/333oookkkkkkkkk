@@ -279,6 +279,74 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
                       <input type="number" value={selectedEntry.depth} onChange={e => patchEntry({ depth: Number(e.target.value) || 0 })} className="w-full mt-1 bg-transparent outline-none font-mono text-xs" />
                     </label>
                   </div>
+                  <div className="p-2.5 rounded-xl bg-white/50 border border-black/5 space-y-2">
+                    <div className="text-[8px] font-mono tracking-[1.2px] text-[#8b8782]">ADVANCED TRIGGERS</div>
+                    <label className="text-[9px] block">
+                      Secondary Keys
+                      <input
+                        value={(selectedEntry.secondaryKeywords || []).join(', ')}
+                        onChange={e => patchEntry({ secondaryKeywords: e.target.value.split(',').map(v => v.trim()).filter(Boolean) })}
+                        className="w-full mt-1 bg-white/70 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 text-[9px] outline-none"
+                        placeholder="可选：额外条件关键词"
+                      />
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <label className="bg-white/55 rounded-xl p-2 text-[9px]">
+                        Probability %
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={selectedEntry.probability ?? 100}
+                          onChange={e => patchEntry({ probability: Math.max(0, Math.min(100, Number(e.target.value) || 0)), useProbability: true })}
+                          className="w-full mt-1 bg-transparent outline-none font-mono text-xs"
+                        />
+                      </label>
+                      <label className="bg-white/55 rounded-xl p-2 text-[9px]">
+                        Scan Depth
+                        <input
+                          type="number"
+                          min="0"
+                          max="50"
+                          value={selectedEntry.scanDepth ?? 0}
+                          onChange={e => patchEntry({ scanDepth: Math.max(0, Math.min(50, Number(e.target.value) || 0)) })}
+                          className="w-full mt-1 bg-transparent outline-none font-mono text-xs"
+                        />
+                      </label>
+                    </div>
+                    <label className="flex items-center justify-between text-[9px] py-1">
+                      <span>Constant · 常驻</span>
+                      <input type="checkbox" checked={Boolean(selectedEntry.constant)} onChange={e => patchEntry({ constant: e.target.checked })} />
+                    </label>
+                    <label className="flex items-center justify-between text-[9px] py-1">
+                      <span>Selective · 使用 Secondary Keys</span>
+                      <input type="checkbox" checked={Boolean(selectedEntry.selective)} onChange={e => patchEntry({ selective: e.target.checked })} />
+                    </label>
+                    <label className="flex items-center justify-between text-[9px] py-1">
+                      <span>Case Sensitive · 区分大小写</span>
+                      <input type="checkbox" checked={Boolean(selectedEntry.caseSensitive)} onChange={e => patchEntry({ caseSensitive: e.target.checked })} />
+                    </label>
+                    <label className="flex items-center justify-between text-[9px] py-1">
+                      <span>Whole Words · 完整单词</span>
+                      <input type="checkbox" checked={Boolean(selectedEntry.matchWholeWords)} onChange={e => patchEntry({ matchWholeWords: e.target.checked })} />
+                    </label>
+                    {selectedEntry.selective && (
+                      <label className="text-[9px] block">
+                        Selective Logic
+                        <select
+                          value={selectedEntry.selectiveLogic ?? 0}
+                          onChange={e => patchEntry({ selectiveLogic: Number(e.target.value) as 0 | 1 | 2 | 3 })}
+                          className="w-full mt-1 bg-white/70 rounded-xl px-2.5 py-2 text-[9px] outline-none"
+                        >
+                          <option value="0">AND ANY</option>
+                          <option value="1">NOT ALL</option>
+                          <option value="2">NOT ANY</option>
+                          <option value="3">AND ALL</option>
+                        </select>
+                      </label>
+                    )}
+                  </div>
+
                   <div className="flex items-center justify-between pt-1">
                     <button
                       onClick={() => patchEntry({ enabled: !selectedEntry.enabled })}
