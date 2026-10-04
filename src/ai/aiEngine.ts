@@ -292,10 +292,6 @@ function buildConversationMessages(input: AiReplyInput) {
     recent.push({ role: 'user', content: input.userMessage, imageData: undefined });
   }
 
-  const scanDepth = Math.max(1, Math.min(50, Math.max(
-    12,
-    ...(input.worldbooks || []).flatMap(book => book.entries.map(entry => Number(entry.scanDepth || 0)))
-  )));
   const scannedText = recent
     .map(message => message.content)
     .filter(Boolean)
