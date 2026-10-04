@@ -526,11 +526,6 @@ export async function listOpenAiCompatibleModels(
   let base = settings.apiBaseUrl.trim().replace(/\/+$/, '');
   if (!base) throw new Error('AI_BASE_URL_MISSING');
 
-  // Accept all common OpenAI-compatible forms:
-  // https://host/v1
-  // https://host/v1/
-  // https://host/v1/models
-  // https://host/v1/chat/completions
   base = base
     .replace(/\/chat\/completions$/i, '')
     .replace(/\/responses$/i, '')
@@ -538,7 +533,9 @@ export async function listOpenAiCompatibleModels(
     .replace(/\/+$/, '');
 
   const endpoint = base + '/models';
-  let response: Response;
+  let response: Response | null = null;
+  let directError: unknown = null;
+
   try {
     response = await fetch(endpoint, {
       method: 'GET',
@@ -548,10 +545,31 @@ export async function listOpenAiCompatibleModels(
       },
     });
   } catch (error) {
-    throw new Error(
-      'AI_MODELS_NETWORK: ' +
-      (error instanceof Error ? error.message : '无法连接模型接口'),
-    );
+    directError = error;
+  }
+
+  // Browser CORS fallback: Netlify calls the provider server-side.
+  if (!response) {
+    try {
+      response = await fetch('/api/ai-models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'models',
+          baseUrl: base,
+          apiKey: settings.apiKey.trim(),
+        }),
+      });
+    } catch (proxyError) {
+      throw new Error(
+        'AI_MODELS_NETWORK: ' +
+        (proxyError instanceof Error
+          ? proxyError.message
+          : directError instanceof Error
+            ? directError.message
+            : '无法连接模型接口'),
+      );
+    }
   }
 
   if (!response.ok) {
