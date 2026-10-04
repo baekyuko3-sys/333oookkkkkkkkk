@@ -5,7 +5,7 @@ import { buildMemoryContext } from '../store/characterMemory';
 import type { AppSettings, ChannelAiSettings } from '../store/appSettings';
 import { readAppSettings } from '../store/appSettings';
 import { getCharacterAiProfile, mergeCharacterAiSettings } from '../store/characterAiProfiles';
-import { resolveCharacterContext } from './contextEngine';
+import { resolveCharacterContext, selectWorldBookEntries } from './contextEngine';
 import { getCotForTarget } from '../store/cotPresets';
 
 export type AiSettings = Pick<AppSettings, 'provider' | 'apiBaseUrl' | 'apiKey' | 'model' | 'streaming' | 'contextLength' | 'maxOutputTokens' | 'autoSave' | 'temperature'>;
@@ -99,120 +99,6 @@ export function readStoredAiSettings(characterId?: string, characterName?: strin
 
   if (!characterId && !characterName) return base;
   return mergeCharacterAiSettings(base, getCharacterAiProfile(characterId || characterName || '', characterName));
-}
-
-function normalizeForMatch(value: string): string {
-  return value.toLowerCase().replace(/\s+/g, ' ').trim();
-}
-
-function worldBookKeyMatches(keyword: string, haystack: string, entry: WorldBook['entries'][number]): boolean {
-  const raw = keyword.trim();
-  if (!raw) return false;
-
-  const caseSensitive = Boolean(entry.caseSensitive);
-  const flags = caseSensitive ? '' : 'i';
-
-  if (raw.startsWith('/') && raw.lastIndexOf('/') > 0) {
-    const lastSlash = raw.lastIndexOf('/');
-    try {
-      const pattern = raw.slice(1, lastSlash);
-      const regexFlags = raw.slice(lastSlash + 1) || flags;
-      return new RegExp(pattern, regexFlags).test(haystack);
-    } catch {
-      // Invalid regex keys fall back to normal text matching.
-    }
-  }
-
-  const key = raw.trim();
-  if (!key) return false;
-  const source = caseSensitive ? haystack : haystack.toLowerCase();
-  const normalizedKey = caseSensitive ? key : key.toLowerCase();
-  if (entry.matchWholeWords) {
-    const escaped = normalizedKey.replace(/[.*+?^()|[\]\\]/g, '\\  const key = normalizeForMatch(raw);
-  if (!key) return false;
-  if (entry.matchWholeWords) {
-    const escaped = key.replace(/[.*+?^()|[\]\\]/g, '\\$&');
-    return new RegExp('(?:^|\\\\b)' + escaped + '(?:$|\\\\b)', caseSensitive ? '' : 'i').test(haystack);
-  }
-  return caseSensitive ? haystack.includes(key) : normalizeForMatch(haystack).includes(key);');
-    return new RegExp('(?:^|\\b)' + escaped + '(?:$|\\b)', caseSensitive ? '' : 'i').test(source);
-  }
-  return source.includes(normalizedKey);
-}
-
-export function selectWorldBookEntries(worldbooks: WorldBook[], inputText: string) {
-  const candidates = worldbooks.flatMap(book => {
-    if (!book.enabled) return [];
-
-    return book.entries
-      .filter(entry => entry.enabled)
-      .map(entry => {
-        if (entry.constant) {
-          return { book, entry, matchedKeywords: ['[constant]'] };
-        }
-
-        const matchedKeywords = entry.keywords.filter(keyword =>
-          worldBookKeyMatches(keyword, inputText, entry)
-        );
-        if (!matchedKeywords.length) return null;
-
-        const secondary = entry.secondaryKeywords || [];
-        if (entry.selective && secondary.length) {
-          const matchedSecondary = secondary.filter(keyword =>
-            worldBookKeyMatches(keyword, inputText, entry)
-          );
-          const logic = entry.selectiveLogic ?? 0;
-          const passes =
-            logic === 1 ? matchedSecondary.length < secondary.length :
-            logic === 2 ? matchedSecondary.length === 0 :
-            logic === 3 ? matchedSecondary.length === secondary.length :
-            matchedSecondary.length > 0;
-          if (!passes) return null;
-        }
-
-        if (entry.useProbability || entry.probability !== undefined) {
-          const probability = Math.max(0, Math.min(100, Number(entry.probability ?? 100)));
-          if (probability <= 0 || Math.random() * 100 >= probability) return null;
-        }
-
-        return { book, entry, matchedKeywords };
-      })
-      .filter(Boolean) as Array<{
-        book: WorldBook;
-        entry: WorldBook['entries'][number];
-        matchedKeywords: string[];
-      }>;
-  });
-
-  return candidates.sort((a, b) =>
-    Number(Boolean(b.entry.constant)) - Number(Boolean(a.entry.constant)) ||
-    (b.entry.priority ?? 0) - (a.entry.priority ?? 0) ||
-    (b.entry.weight ?? 0) - (a.entry.weight ?? 0) ||
-    b.matchedKeywords.length - a.matchedKeywords.length
-  );
-}
-
-function buildWorldBookContext(worldbooks: WorldBook[], inputText: string): string {
-  const selected = selectWorldBookEntries(worldbooks, inputText);
-  if (!selected.length) return '当前没有命中的世界书条目。';
-
-  const sections = selected.slice(0, 18).map(({ book, entry, matchedKeywords }) => {
-    const placement =
-      entry.insertion === 'depth'
-        ? 'depth=' + entry.depth
-        : entry.insertion;
-    return [
-      '[WORLD BOOK]',
-      '书名：' + book.name,
-      '条目：' + entry.name,
-      '命中关键词：' + matchedKeywords.join('、'),
-      '优先级：' + entry.priority + '；权重：' + entry.weight + '；插入：' + placement,
-      '内容：',
-      entry.content,
-    ].join('\n');
-  });
-
-  return sections.join('\n\n');
 }
 
 export function buildCharacterSystemPrompt(input: AiReplyInput): string {
