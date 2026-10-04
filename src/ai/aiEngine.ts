@@ -148,8 +148,6 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '【项目设定】\n' + context.project,
     context.worldBookAfter ? '【世界书 · 角色定义后】\n' + context.worldBookAfter : '',
     '',
-    '【命中的世界书 · 汇总】\n' + context.worldBook,
-    '',
     input.stylePreset ? '【聊天风格预设】\n' + input.stylePreset : '【聊天风格预设】自然、沉浸、像真实聊天。',
     input.authorNote ? '【作者注释】\n' + input.authorNote : '【作者注释】无。',
     cotPreset ? '【内部生成预设】\n' + cotPreset.template + '\n只用于内部生成规划；绝对不要把思维过程、<think> 或 <thought> 标签输出给用户。' : '【内部生成预设】无。',
