@@ -214,7 +214,7 @@ export function exportCharacterJson(character: ImportedCharacter): string {
       creator: character.creator,
       character_version: character.characterVersion,
       groupId: character.groupId || null,
-      extensions: character.extensions || {},
+      extensions: { ...(character.extensions || {}), ...(character.languageProfile ? { languageProfile: character.languageProfile } : {}) },
       ...(character.embeddedWorldBook ? { character_book: character.embeddedWorldBook } : {}),
     },
     null,
@@ -240,7 +240,7 @@ export function exportCharacterCardV2(character: ImportedCharacter): string {
       tags: character.tags,
       creator: character.creator,
       character_version: character.characterVersion,
-      extensions: character.extensions || {},
+      extensions: { ...(character.extensions || {}), ...(character.languageProfile ? { languageProfile: character.languageProfile } : {}) },
       ...(character.embeddedWorldBook ? { character_book: character.embeddedWorldBook } : {}),
     },
   }, null, 2);
