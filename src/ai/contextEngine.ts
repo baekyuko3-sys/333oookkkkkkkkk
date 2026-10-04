@@ -31,7 +31,7 @@ function normalize(value: string) {
 function resolveWorldBook(worldbooks: WorldBook[], userMessage: string) {
   const haystack = normalize(userMessage);
   const selected = worldbooks.flatMap(book => !book.enabled ? [] : book.entries
-    .filter(entry => entry.enabled)
+    .filter(entry => entry.enabled && entry.insertion !== 'depth')
     .map(entry => {
       const matched = entry.keywords.filter(keyword => {
         const key = normalize(keyword);
