@@ -101,6 +101,23 @@ export function readStoredAiSettings(characterId?: string, characterName?: strin
   return mergeCharacterAiSettings(base, getCharacterAiProfile(characterId || characterName || '', characterName));
 }
 
+function buildWorldBookScanResolver(input: AiReplyInput, defaultDepth: number) {
+  const messages = input.messages
+    .filter(message => !message.isRecalled && !message.isRecalledByOther && message.type !== 'system-nudge');
+
+  return (entry: WorldBook['entries'][number]) => {
+    const depth = entry.scanDepth !== undefined
+      ? Math.max(0, Math.min(50, Number(entry.scanDepth) || 0))
+      : defaultDepth;
+    if (depth <= 0) return '';
+    return messages
+      .slice(-depth)
+      .map(message => message.text || message.transcript || '')
+      .filter(Boolean)
+      .join('\n') + '\n' + input.userMessage;
+  };
+}
+
 export function buildCharacterSystemPrompt(input: AiReplyInput): string {
   const cotTarget = input.cotTarget || (input.isGroup ? 'group' : 'line');
   const cotPreset = getCotForTarget(cotTarget);
@@ -123,6 +140,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     project: input.project,
     worldbooks: input.worldbooks,
     userMessage: scannedMessages,
+    worldBookScanForEntry: buildWorldBookScanResolver(input, scanDepth),
   });
 
   return [
@@ -181,7 +199,7 @@ function buildConversationMessages(input: AiReplyInput) {
     .map(message => message.content)
     .filter(Boolean)
     .join('\n');
-  const depthEntries = selectWorldBookEntries(input.worldbooks || [], scannedText)
+  const depthEntries = selectWorldBookEntries(input.worldbooks || [], scannedText, buildWorldBookScanResolver(input, Math.max(1, Math.min(50, input.settings.contextLength || 12))))
     .filter(({ entry }) => entry.insertion === 'depth');
 
   if (depthEntries.length) {
@@ -421,7 +439,7 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     .map(message => message.text || message.transcript || '')
     .filter(Boolean)
     .join('\n') + '\n' + input.userMessage;
-  const matchedWorldbookEntries = selectWorldBookEntries(worldbooks, scannedText).length;
+  const matchedWorldbookEntries = selectWorldBookEntries(worldbooks, scannedText, buildWorldBookScanResolver(input, scanDepth)).length;
 
   const text =
     input.settings.provider === 'gemini'
