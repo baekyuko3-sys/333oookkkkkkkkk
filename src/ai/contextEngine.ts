@@ -25,7 +25,7 @@ export interface ResolvedContext {
 }
 
 function normalize(value: string) {
-  return value.toLowerCase().replace(/\\s+/g, ' ').trim();
+  return value.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
 function resolveWorldBook(worldbooks: WorldBook[], userMessage: string) {
@@ -57,7 +57,7 @@ function resolveWorldBook(worldbooks: WorldBook[], userMessage: string) {
     '优先级：' + entry.priority + '；权重：' + entry.weight + '；插入：' + entry.insertion + (entry.insertion === 'depth' ? '；depth=' + entry.depth : ''),
     '内容：',
     entry.content,
-  ].join('\\n')).join('\\n\\n');
+  ].join('\n')).join('\n\n');
 }
 
 export function resolveCharacterContext(input: ContextEngineInput): ResolvedContext {
@@ -71,13 +71,13 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
         '创作者注释：' + (input.character.creatorNotes || '未填写'),
         '角色系统提示：' + (input.character.systemPrompt || '未填写'),
         '历史指令：' + (input.character.postHistoryInstructions || '未填写'),
-      ].join('\\n')
+      ].join('\n')
     : [
         '姓名：' + (p.callMe || '角色'),
         '关系：' + (p.relationship || '未设置'),
         '称呼：' + (p.callMe || '未设置'),
         '简介：' + (p.bio || '未填写'),
-      ].join('\\n');
+      ].join('\n');
 
   const persona = input.persona
     ? [
@@ -86,7 +86,7 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
         '性别：' + (input.persona.gender || '未设置'),
         '特质：' + (input.persona.traits || '未填写'),
         '背景：' + (input.persona.background || '未填写'),
-      ].join('\\n')
+      ].join('\n')
     : '未设置。';
 
   const runtime = getWorldRuntime();
@@ -101,14 +101,14 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
         '下一行动：' + (live.nextActionTitle || '无') + (live.nextActionAt ? '（' + live.nextActionAt + '）' : ''),
         '最近互动：' + (live.lastInteractionAt || '暂无'),
         '当前场景：' + (runtime.currentScene || '无'),
-      ].join('\\n')
+      ].join('\n')
     : '当前没有可用的角色实时世界状态。';
 
   const relationship = [
     '关系：' + (p.relationship || '未设置'),
     'TA希望被称为：' + (p.callMe || '未设置'),
     live ? '当前未读：' + live.unread : '',
-  ].filter(Boolean).join('\\n');
+  ].filter(Boolean).join('\n');
 
   const project = input.project
     ? [
@@ -117,7 +117,7 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
         '语言：' + input.project.language,
         '整体风格：' + input.project.tone,
         input.project.globalPrompt ? '项目级 AI 指令：\\n' + input.project.globalPrompt : '项目级 AI 指令：无。',
-      ].join('\\n')
+      ].join('\n')
     : '使用默认项目规则。';
 
   return {
