@@ -19,6 +19,8 @@ function getImportedProfile(name: string, characterId?: string): CharacterProfil
       birthday: '未设置',
       relationship: '刚导入 · 等待建立关系',
       canAutoChangeRelation: true,
+      canBlockUser: true,
+      isBlockedByCharacter: false,
       callMe: character.name || name || '角色',
       selectedLorebook: '',
       bio: character.description || '已从角色卡导入。',
@@ -34,6 +36,8 @@ export function getCharacterProfile(name: string, characterId?: string): Charact
     birthday: '未设置',
     relationship: '刚认识',
     canAutoChangeRelation: true,
+    canBlockUser: true,
+    isBlockedByCharacter: false,
     callMe: name || '你',
     selectedLorebook: '',
   };
