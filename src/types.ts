@@ -13,7 +13,8 @@ export type ScreenType =
   | 'calendar'
   | 'world-book'
   | 'threads'
-  | 'spy-phone';
+  | 'spy-phone'
+  | 'settings';
 
 export interface CharacterInfo {
   id: string;
