@@ -19,7 +19,8 @@ export type ScreenType =
   | 'settings'
   | 'offline-story'
   | 'project-studio'
-  | 'memory';
+  | 'memory'
+  | 'appearance';
 
 export interface CharacterGroup {
   id: string;
