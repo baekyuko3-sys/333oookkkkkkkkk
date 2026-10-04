@@ -82,7 +82,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
       return <img src={custom} alt="" className={className + ' object-cover rounded-[18px]'} />;
     }
     return (
-      <svg className={className + ' stroke-current fill-none stroke-[1.5] stroke-linecap-round stroke-linejoin-round'}>
+      <svg className={className}>
         <use href={'#' + symbol} />
       </svg>
     );
