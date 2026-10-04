@@ -50,6 +50,8 @@ export interface CharacterProfile {
   birthday: string;
   relationship: string;
   canAutoChangeRelation: boolean;
+  canBlockUser: boolean;
+  isBlockedByCharacter?: boolean;
   callMe: string;
   selectedLorebook: string;
   bio?: string;
