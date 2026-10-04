@@ -20,6 +20,7 @@ import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
 import { getStatusBarPresets, type StatusBarPreset } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset } from '../../store/cotPresets';
 import { PresetResourceManager } from './PresetResourceManager';
+import { editLineMessage, toggleLineReaction, setLineMessageFavorite, recordLineCall, markLineMessageFailed } from '../../store/lineRuntime';
 import { getLineConversationMessages, markLineConversationRead, saveLineConversationMessages, searchLineMessages, type LineRuntimeMessage } from '../../store/lineRuntime';
 import {
   Video, Settings, Plus, Mic, Send, Smile,
@@ -968,7 +969,8 @@ export function LineConversationView({
   // 批量操作处理 (Batch Actions)
   const handleBatchDelete = () => {
     if (selectedMsgIds.length === 0) return;
-    setMessages((prev) => prev.filter((m) => !selectedMsgIds.includes(m.id)));
+    selectedMsgIds.forEach(id => import('../../store/lineRuntime').then(({ deleteLineMessage }) => deleteLineMessage(conversationStorageId, id)));
+    setMessages((prev) => prev.map((m) => selectedMsgIds.includes(m.id) ? { ...m, text: '', status: 'deleted', deletedAt: new Date().toISOString() } : m));
     showToast(`已删除 ${selectedMsgIds.length} 条消息`);
     setIsMultiSelectMode(false);
     setSelectedMsgIds([]);
@@ -1048,6 +1050,8 @@ export function LineConversationView({
 
   // 消息撤回 (我方撤回)
   const handleRecallMessage = (msgId: number) => {
+    // Persist recall in the same runtime record used by search/history/AI.
+    import('../../store/lineRuntime').then(({ recallLineMessage }) => recallLineMessage(conversationStorageId, msgId));
     setMessages((prev) =>
       prev.map((m) =>
         m.id === msgId
@@ -1284,6 +1288,7 @@ export function LineConversationView({
 
   // 表情回应 (Reaction)
   const handleAddReaction = (msgId: number, emoji: string) => {
+    toggleLineReaction(conversationStorageId, msgId, emoji);
     setMessages((prev) =>
       prev.map((m) => {
         if (m.id !== msgId) return m;
@@ -1553,8 +1558,11 @@ export function LineConversationView({
 
   // 保存消息原地编辑
   const handleSaveMessageEdit = (id: number) => {
+    const nextText = editingMessageText.trim();
+    if (!nextText) return;
+    editLineMessage(conversationStorageId, id, nextText);
     setMessages((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, text: editingMessageText } : m))
+      prev.map((m) => (m.id === id ? { ...m, text: nextText, edited: true, editedAt: new Date().toISOString() } : m))
     );
     setEditingMessageId(null);
     setEditingMessageText('');
@@ -4443,6 +4451,7 @@ export function LineConversationView({
                     savedAt: '刚刚'
                   };
                   setFavorites((prev) => [newFav, ...prev]);
+                  setLineMessageFavorite(conversationStorageId, contextMenuMsg.id, true);
                   setContextMenuMsg(null);
                   showToast('已收藏此条消息至收藏箱 ☆');
                 }}
