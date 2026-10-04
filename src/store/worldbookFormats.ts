@@ -27,6 +27,7 @@ function normalizeEntry(raw: any, index: number): WorldBookEntry {
   const depth = Number(raw?.depth ?? raw?.extensions?.depth ?? 0) || 0;
   const keys = asStringArray(raw?.keys ?? raw?.key ?? raw?.keywords);
   const secondary = asStringArray(raw?.secondary_keys ?? raw?.keysecondary ?? raw?.secondaryKeywords);
+  const scanDepthRaw = raw?.scanDepth ?? raw?.scan_depth;
 
   return {
     id: String(raw?.id ?? raw?.uid ?? id('entry', index)),
@@ -44,7 +45,7 @@ function normalizeEntry(raw: any, index: number): WorldBookEntry {
     constant: Boolean(raw?.constant),
     useProbability: Boolean(raw?.useProbability ?? raw?.probability != null),
     probability: Math.max(0, Math.min(100, Number(raw?.probability ?? 100) || 0)),
-    scanDepth: Number(raw?.scanDepth ?? raw?.scan_depth ?? 0) || 0,
+    scanDepth: scanDepthRaw == null ? undefined : Math.max(0, Math.min(50, Number(scanDepthRaw) || 0)),
     caseSensitive: raw?.caseSensitive ?? raw?.case_sensitive,
     matchWholeWords: raw?.matchWholeWords ?? raw?.match_whole_words,
     order: Number(raw?.order ?? raw?.insertion_order ?? 100) || 0,
