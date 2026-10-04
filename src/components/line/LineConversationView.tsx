@@ -2,9 +2,10 @@ import { useState, useRef, useEffect } from 'react';
 import { usePersistentState } from '../../store/usePersistentState';
 import type { ImportedCharacter } from '../../data/characterImport';
 import type { ScreenType, WorldBook } from '../../types';
-import { generateCharacterReply, generateCreativeText, readStoredAiSettings, summarizeConversationMemory } from '../../ai/aiEngine';
+import { generateCharacterReply, generateCreativeText, readStoredAiSettings, resolveChannelAiSettings, listOpenAiCompatibleModels, testAiConnection, summarizeConversationMemory, type AiSettings } from '../../ai/aiEngine';
 import { generateImage, generateSpeech, transcribeAudio } from '../../ai/mediaEngine';
 import { readAppSettings } from '../../store/appSettings';
+import type { ChannelAiSettings } from '../../store/appSettings';
 import { getMedia, putMedia } from '../../store/mediaVault';
 import { addCharacterMemoryItem, getCharacterMemory, updateCharacterMemory } from '../../store/characterMemory';
 import { getProjectManifest } from '../../store/projectManifest';
@@ -106,6 +107,40 @@ export function LineConversationView({
   
   // Settings & Overlays
   const [showSettings, setShowSettings] = useState(false);
+  const [chatApiOverride, setChatApiOverride] = usePersistentState<ChannelAiSettings>(`line:chat-api-override:${conversationStorageId}`, {
+    ...readAppSettings().chatApiOverride,
+    enabled: false,
+  });
+  const [chatApiModels, setChatApiModels] = useState<string[]>([]);
+  const [chatApiBusy, setChatApiBusy] = useState<'models' | 'test' | null>(null);
+  const conversationAiSettings = (): AiSettings => {
+    if (!chatApiOverride.enabled) return readStoredAiSettings(importedCharacter?.id, contactName);
+    const base = readStoredAiSettings(importedCharacter?.id, contactName);
+    return {
+      ...base,
+      provider: chatApiOverride.provider,
+      apiBaseUrl: chatApiOverride.apiBaseUrl,
+      apiKey: chatApiOverride.apiKey,
+      model: chatApiOverride.model,
+      streaming: chatApiOverride.streaming,
+      contextLength: chatApiOverride.contextLength,
+      maxOutputTokens: chatApiOverride.maxOutputTokens,
+      temperature: chatApiOverride.temperature,
+    };
+  };
+  const updateChatApiOverride = (patch: Partial<ChannelAiSettings>) => {
+    setChatApiOverride(prev => ({ ...prev, ...patch }));
+  };
+  const fetchChatApiModels = async () => {
+    if (!chatApiOverride.apiBaseUrl.trim() || !chatApiOverride.apiKey.trim()) { window.alert('请先填写 API 地址和 API Key'); return; }
+    setChatApiBusy('models');
+    try { setChatApiModels(await listOpenAiCompatibleModels(conversationAiSettings())); } catch (e) { window.alert(e instanceof Error ? e.message : '拉取模型失败'); } finally { setChatApiBusy(null); }
+  };
+  const testChatApi = async () => {
+    if (!chatApiOverride.apiBaseUrl.trim() || !chatApiOverride.apiKey.trim() || !chatApiOverride.model.trim()) { window.alert('请先填写 API、Key 和模型'); return; }
+    setChatApiBusy('test');
+    try { await testAiConnection(conversationAiSettings()); window.alert('AI 连接测试成功 ✓'); } catch (e) { window.alert(e instanceof Error ? e.message : '连接测试失败'); } finally { setChatApiBusy(null); }
+  };
   const [showVideoCall, setShowVideoCall] = useState(false);
   const [showReroll, setShowReroll] = useState(false);
   const [rerollPrompt, setRerollPrompt] = useState('');
@@ -584,7 +619,7 @@ export function LineConversationView({
         setMessages(prev => [...prev, { id: replyMsgId, sender: 'other', senderName: character.name, text: '', time: '刚刚', type: 'ai-reply', showThinking: false }]);
         let streamedText = '';
         const result = await generateCharacterReply({
-          settings: readStoredAiSettings(character.id, character.name),
+          settings: conversationAiSettings(),
           character,
           characterProfile: memberProfile,
           persona: activePersona,
@@ -632,7 +667,7 @@ export function LineConversationView({
     let streamedText = '';
 
     try {
-      const settings = readStoredAiSettings(importedCharacter?.id, contactName);
+      const settings = conversationAiSettings();
       const result = await generateCharacterReply({
         settings,
         character: importedCharacter,
@@ -712,7 +747,7 @@ export function LineConversationView({
         totalConversationMessages % latestSettings.autoMemoryEveryMessages === 0
       ) {
         void summarizeConversationMemory(
-          readStoredAiSettings(importedCharacter.id, contactName),
+          conversationAiSettings(),
           contactName,
           characterMemory,
           [...messages, newMsg, { sender: 'other', text: result.text }]
@@ -990,7 +1025,7 @@ export function LineConversationView({
     showToast('AI 正在根据当前角色与聊天生成邀约……');
     try {
       const inviteResult = await generateCreativeText({
-        settings: readStoredAiSettings(importedCharacter.id, importedCharacter.name),
+        settings: conversationAiSettings(),
         systemPrompt: [
           '你正在为当前角色设计一张线下见面邀约卡。',
           '只能扮演当前角色，不要替用户行动或说话。',
@@ -1070,7 +1105,7 @@ export function LineConversationView({
     showToast('已确认赴约！好感度 +5 💖');
 
     const invite = messages.find(message => message.id === msgId);
-    const settings = readStoredAiSettings(importedCharacter?.id, contactName);
+    const settings = conversationAiSettings();
     if (!settings.apiKey.trim()) return;
 
     try {
@@ -1352,7 +1387,7 @@ export function LineConversationView({
           }
 
           if (type === 'image') {
-          const settings = readStoredAiSettings(importedCharacter?.id, contactName);
+          const settings = conversationAiSettings();
           if (!settings.apiKey.trim()) return;
 
           setIsTyping(true);
@@ -2511,20 +2546,6 @@ export function LineConversationView({
                 <span>文件</span>
               </button>
 
-              {/* 一起听歌 */}
-              <button
-                onClick={() => {
-                  setShowPlusSheet(false);
-                  setShowTogetherMusic(true);
-                }}
-                className="flex flex-col items-center gap-1.5 cursor-pointer"
-              >
-                <div className="w-12 h-12 rounded-[14px] bg-[#f6f2ed] flex items-center justify-center text-[#8b7560] hover:bg-[#eee6dc]">
-                  <Music2 className="w-5 h-5" />
-                </div>
-                <span>一起听歌</span>
-              </button>
-
               {/* 线下邀约 */}
               <button
                 onClick={() => {
@@ -3146,6 +3167,27 @@ export function LineConversationView({
           </div>
 
           <div className="p-4 space-y-4 flex-1 overflow-y-auto text-xs pb-10">
+
+            <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-medium text-[#333]">当前聊天 API</div>
+                  <div className="text-[10px] text-[#999]">{chatApiOverride.enabled ? '本聊天使用独立 API' : '跟随全局 / 角色 AI API'}</div>
+                </div>
+                <button onClick={() => updateChatApiOverride({ enabled: !chatApiOverride.enabled })} className={`px-2.5 py-1 rounded-full text-[9px] ${chatApiOverride.enabled ? 'bg-[#d4aab5] text-white' : 'bg-[#eee] text-[#777]'}`}>{chatApiOverride.enabled ? '独立 API' : '跟随全局'}</button>
+              </div>
+              {chatApiOverride.enabled && <div className="space-y-2">
+                <input value={chatApiOverride.apiBaseUrl} onChange={e => updateChatApiOverride({ apiBaseUrl: e.target.value })} placeholder="API Base URL" className="w-full p-2 bg-[#fafafa] border border-[#e8e8e9] rounded-[9px] text-[10px] outline-none" />
+                <input value={chatApiOverride.apiKey} onChange={e => updateChatApiOverride({ apiKey: e.target.value })} placeholder="API Key" type="password" className="w-full p-2 bg-[#fafafa] border border-[#e8e8e9] rounded-[9px] text-[10px] outline-none" />
+                <div className="flex gap-2">
+                  <select value={chatApiOverride.model} onChange={e => updateChatApiOverride({ model: e.target.value })} className="flex-1 p-2 bg-[#fafafa] border border-[#e8e8e9] rounded-[9px] text-[10px] outline-none">
+                    <option value="">选择模型</option>{chatApiModels.map(model => <option key={model} value={model}>{model}</option>)}{chatApiOverride.model && !chatApiModels.includes(chatApiOverride.model) && <option value={chatApiOverride.model}>{chatApiOverride.model}</option>}
+                  </select>
+                  <button onClick={fetchChatApiModels} className="px-2.5 rounded-[9px] bg-[#f0e6e8] text-[#8c5f6b] text-[9px]">{chatApiBusy === 'models' ? '拉取中…' : '拉取模型'}</button>
+                </div>
+                <button onClick={testChatApi} className="w-full py-2 rounded-[9px] bg-[#292724] text-white text-[10px]">{chatApiBusy === 'test' ? '测试中…' : '测试连接'}</button>
+              </div>}
+            </div>
 
             {/* Section -1: 聊天偏好 (置顶 / 免打扰 / 背景 / 收藏 / 导出) */}
             <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3">
