@@ -20,6 +20,7 @@ import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
 import { getStatusBarPresets, type StatusBarPreset } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset } from '../../store/cotPresets';
 import { PresetResourceManager } from './PresetResourceManager';
+import { lineNowTime, markLineMessagesRead, appendOfflineEventToLine } from '../../store/lineMessageRuntime';
 import {
   Video, Settings, Plus, Mic, Send, Smile,
   Image as ImageIcon, Film, FileText, Calendar, Sliders, RefreshCw, X,
@@ -638,6 +639,12 @@ export function LineConversationView({
     return () => window.removeEventListener('sane333:proactive-message', onProactive);
   }, [contactName]);
 
+  // 会话打开期间，所有进入消息统一视为已读；状态机仍保留 recalled/failed 等终态。
+  useEffect(() => {
+    if (!messages.some(message => message.sender !== 'me' && !message.isRead)) return;
+    setMessages(prev => markLineMessagesRead(prev));
+  }, [messages, setMessages]);
+
   // Keep the parent chat list synchronized with the newest message.
   useEffect(() => {
     if (!hasMountedConversationRef.current) {
@@ -694,9 +701,9 @@ export function LineConversationView({
       sender: 'me',
       senderName: currentUserNameFallback() || activePersona?.name || '我',
       text: userText,
-      time: '刚刚',
+      time: lineNowTime(),
       status: 'sending',
-      isRead: false,
+      isRead: true,
     };
 
     if (replyingToMsg) {
@@ -735,7 +742,7 @@ export function LineConversationView({
         const memberProfile = getCharacterProfile(character.name, character.id);
         const memberMemory = getCharacterMemory(character.id, character.name);
         const replyMsgId = Date.now() + index + 1;
-        setMessages(prev => [...prev, { id: replyMsgId, sender: 'other', senderName: character.name, text: '', time: '刚刚', type: 'ai-reply', showThinking: false }]);
+        setMessages(prev => [...prev, { id: replyMsgId, sender: 'other', senderName: character.name, text: '', time: lineNowTime(), type: 'ai-reply', status: 'receiving', isRead: true, showThinking: false }]);
         let streamedText = '';
         const result = await generateCharacterReply({
           settings: conversationAiSettings(),
@@ -780,6 +787,7 @@ export function LineConversationView({
         time: '刚刚',
         type: 'ai-reply',
         status: 'receiving',
+        isRead: true,
         showThinking: false,
       },
     ]);
@@ -821,9 +829,10 @@ export function LineConversationView({
             ? {
                 ...m,
                 text: result.text,
-                time: '刚刚',
+                time: lineNowTime(),
                 type: 'ai-reply',
                 status: 'sent',
+                isRead: true,
                 aiModel: result.model,
                 matchedWorldbookEntries: result.matchedWorldbookEntries,
               }
@@ -1221,6 +1230,7 @@ export function LineConversationView({
     showToast('已确认赴约！好感度 +5 💖');
 
     const invite = messages.find(message => message.id === msgId);
+    if (invite) appendOfflineEventToLine({ ...invite, characterId: importedCharacter?.id || contactName, characterName: characterProfile.nickname }, '已接受邀约，线下剧情可以开始了。', 'accepted');
     const settings = conversationAiSettings();
     if (!settings.apiKey.trim()) return;
 
@@ -1268,7 +1278,9 @@ export function LineConversationView({
         id: Date.now() + 1,
         sender: 'other',
         text: reply,
-        time: '刚刚',
+        time: lineNowTime(),
+        status: 'sent',
+        isRead: true,
         showThinking: false,
       }]);
     } catch {
@@ -1282,6 +1294,8 @@ export function LineConversationView({
       prev.map((m) => (m.id === msgId ? { ...m, inviteStatus: 'declined' } : m))
     );
     updateOfflineEvent(`offline-${msgId}`, { status: 'declined' });
+    const invite = messages.find(message => message.id === msgId);
+    if (invite) appendOfflineEventToLine({ ...invite, characterId: importedCharacter?.id || contactName, characterName: characterProfile.nickname }, '这次邀约先暂缓了，之后可以再约。', 'declined');
     showToast('已暂缓本次邀约');
   };
 
