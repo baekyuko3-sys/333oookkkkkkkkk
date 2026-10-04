@@ -7,41 +7,7 @@ interface ThreadsScreenViewProps {
 }
 
 export function ThreadsScreenView({ onNavigate }: ThreadsScreenViewProps) {
-  const [threads, setThreads] = useState([
-    {
-      id: 't1',
-      author: 'Ethan',
-      handle: '@ethan_vault',
-      time: '14分钟前',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
-      content: '窗外雨停了。突然想起很久以前某个人说过的傻话。说要带我去看日落，结果自己在副驾驶睡得东倒西歪。',
-      likes: 142,
-      replies: 18,
-      isLiked: false,
-    },
-    {
-      id: 't2',
-      author: '程凛',
-      handle: '@chenglin_archive',
-      time: '1小时前',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
-      content: '崇明私邸的排期提前了。如果明天降温，某些人不穿大衣又要感冒。独栋独院已确认留好，随她什么时候来。',
-      likes: 98,
-      replies: 12,
-      isLiked: false,
-    },
-    {
-      id: 't3',
-      author: '林予',
-      handle: '@linyu_atelier',
-      time: '3小时前',
-      avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=200&q=80',
-      content: '新出炉的焦糖海盐可颂，给某位总是不按时吃饭的先生留了两个。希望他在跨国会议开完前记得吃。',
-      likes: 215,
-      replies: 24,
-      isLiked: false,
-    }
-  ]);
+  const [threads, setThreads] = useState<any[]>([]);
 
   const [inputPost, setInputPost] = useState('');
 
