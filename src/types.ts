@@ -46,6 +46,27 @@ export interface CharacterInfo {
   unreadCount?: number;
 }
 
+export type CharacterLanguage = 'zh-CN' | 'en' | 'ja' | 'ko' | 'fr' | 'es' | 'de' | 'other';
+export type BilingualMode = 'off' | 'auto';
+export type BilingualLayout = 'inside-bubble' | 'below-bubble';
+export type CharacterPunctuationStyle = 'natural' | 'spaces' | 'tight' | 'mixed';
+export interface CharacterLanguageProfile {
+  language: CharacterLanguage;
+  bilingualMode: BilingualMode;
+  bilingualLayout: BilingualLayout;
+  bilingualTranslationDirection: 'original-first' | 'translation-first';
+  punctuationStyle: CharacterPunctuationStyle;
+  sentenceLength: 'short' | 'natural' | 'long' | 'mixed';
+  lineBreakStyle: 'natural' | 'every-sentence' | 'compact' | 'mixed';
+  colloquialLevel: 'formal' | 'natural' | 'casual' | 'very-casual';
+  fillerWords: string[];
+  emojiStyle: 'none' | 'light' | 'frequent' | 'mixed';
+  capitalizationStyle: 'standard' | 'lowercase' | 'mixed';
+  numberStyle: 'standard' | 'digits' | 'words' | 'mixed';
+  preferredSpaces: boolean;
+  examples?: string[];
+}
+
 export interface CharacterProfile {
   nickname: string;
   birthday: string;
