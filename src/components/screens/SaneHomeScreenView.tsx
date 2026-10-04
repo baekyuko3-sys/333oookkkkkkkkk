@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ScreenType } from '../../types';
 import { getWorldUnreadCount } from '../../store/worldRuntime';
+import { readAppearance, type AppearanceScheme } from '../../store/appearance';
 
 interface SaneHomeScreenViewProps {
   onNavigate: (screen: ScreenType) => void;
@@ -15,7 +16,8 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   const [isPhotoFlippedP2, setIsPhotoFlippedP2] = useState(false);
   const [cityIndex, setCityIndex] = useState(0);
   const [currentTime, setCurrentTime] = useState('21:06');
-  const [currentGreeting, setCurrentGreeting] = useState('GOOD EVENING · PRIVATE DEVICE');
+  const [appearance, setAppearance] = useState<AppearanceScheme>(() => readAppearance());
+  const [currentGreeting, setCurrentGreeting] = useState(() => readAppearance().greeting || 'GOOD EVENING · PRIVATE DEVICE');
   const [currentDateNumber, setCurrentDateNumber] = useState('02');
   const [currentMonthString, setCurrentMonthString] = useState('OCTOBER · FRIDAY · 2026');
   const [archiveCap, setArchiveCap] = useState('PRIVATE ARCHIVE');
@@ -34,8 +36,10 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
       const weekDay = d.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
       setCurrentMonthString(`${monthName} · ${weekDay} · ${d.getFullYear()}`);
 
+      const currentAppearance = readAppearance();
+      setAppearance(currentAppearance);
       const greet = h < 12 ? 'GOOD MORNING' : h < 18 ? 'GOOD AFTERNOON' : 'GOOD EVENING';
-      setCurrentGreeting(`${greet} · PRIVATE DEVICE`);
+      setCurrentGreeting(currentAppearance.greeting || `${greet} · PRIVATE DEVICE`);
       setArchiveCap(`ARCHIVE ${p(d.getDate())}/${p(d.getMonth() + 1)}`);
     };
 
@@ -44,21 +48,28 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
     const refreshWorld = () => setWorldUnread(getWorldUnreadCount());
     refreshWorld();
     window.addEventListener('sane333:world-state-changed', refreshWorld);
+    const refreshAppearance = () => {
+      const next = readAppearance();
+      setAppearance(next);
+      setCurrentGreeting(next.greeting || 'GOOD EVENING · PRIVATE DEVICE');
+    };
+    window.addEventListener('sane333:appearance-changed', refreshAppearance);
     window.addEventListener('sane333:world-event', refreshWorld);
     return () => {
       clearInterval(timer);
       window.removeEventListener('sane333:world-state-changed', refreshWorld);
       window.removeEventListener('sane333:world-event', refreshWorld);
+      window.removeEventListener('sane333:appearance-changed', refreshAppearance);
     };
   }, []);
 
   const cities = [
-    { city: 'YOUR CITY', temp: '--', sky: 'NO WEATHER DATA', icon: '○', note: 'EMPTY WIDGET' },
+    { city: appearance.widget.weatherCity, temp: appearance.widget.weatherTemp, sky: appearance.widget.weatherCondition, icon: '○', note: appearance.widget.weatherHighLow },
   ];
   const currentCity = cities[cityIndex];
 
   return (
-    <div className="relative w-full h-full overflow-hidden select-none" style={{ background: 'var(--screen, #fff)', color: 'var(--ink, #242323)' }}>
+    <div className="relative w-full h-full overflow-hidden select-none" style={{ background: 'var(--screen, #fff)', color: 'var(--ink, #242323)', backgroundImage: appearance.wallpaper ? `url(${appearance.wallpaper})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
       
       {/* SVG Icon Definitions */}
       <svg width="0" height="0" className="absolute pointer-events-none" aria-hidden="true">
@@ -106,7 +117,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               {currentPage === 1 ? currentGreeting : 'VAULT ARCHIVES · PAGE 02'}
             </div>
             <div className="text-[17px] font-[650] tracking-[0.2px] text-[var(--ink)]">
-              {currentPage === 1 ? 'Private Phone' : 'Inner Vault'}
+              {currentPage === 1 ? appearance.appTitle : 'Inner Vault'}
             </div>
           </div>
         </div>
