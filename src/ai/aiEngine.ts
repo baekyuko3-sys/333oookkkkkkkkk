@@ -199,7 +199,7 @@ function buildConversationMessages(input: AiReplyInput) {
     .map(message => message.content)
     .filter(Boolean)
     .join('\n');
-  const depthEntries = selectWorldBookEntries(input.worldbooks || [], scannedText, buildWorldBookScanResolver(input, Math.max(1, Math.min(50, input.settings.contextLength || 12))))
+  const depthEntries = selectWorldBookEntries(input.worldbooks || [], scannedText, buildWorldBookScanResolver(input, 12))
     .filter(({ entry }) => entry.insertion === 'depth');
 
   if (depthEntries.length) {
