@@ -9,6 +9,7 @@ import {
   parseCharacterFile,
 } from '../../data/characterImport';
 import type { CharacterMemory } from '../../store/characterMemory';
+import type { WorldBook } from '../../types';
 import { getWorldRuntime } from '../../store/worldRuntime';
 import {
   addCharacterMemoryItem,
@@ -35,6 +36,7 @@ function downloadText(filename: string, content: string) {
 export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [characters, setCharacters] = usePersistentState<ImportedCharacter[]>('phone:characters', []);
+  const [, setWorldBooks] = usePersistentState<WorldBook[]>('phone:worldbooks', []);
   const [groups, setGroups] = usePersistentState<Array<{ id: string; name: string }>>('phone:character-groups', []);
   const [selectedGroupId, setSelectedGroupId] = useState('all');
   const [selectedId, setSelectedId] = usePersistentState<string | null>(
@@ -211,6 +213,12 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
         }
         return [nextCharacter, ...prev];
       });
+      if (parsed.embeddedWorldBook) {
+        setWorldBooks(prev => [
+          parsed.embeddedWorldBook!,
+          ...prev.filter(book => book.id !== parsed.embeddedWorldBook!.id),
+        ]);
+      }
       setSelectedId(parsed.id);
       setIsEditing(false);
       showNotice(`已导入「${parsed.name}」 · ${parsed.sourceFormat.toUpperCase()}`);
