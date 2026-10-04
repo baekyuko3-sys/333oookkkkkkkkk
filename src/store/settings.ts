@@ -33,6 +33,7 @@ export function loadPhoneSettings(): PhoneSettings {
 
 export function savePhoneSettings(settings: PhoneSettings): void {
   writePersistentState(KEY, settings);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('phone-settings-updated'));
 }
 
 export function resetPhoneSettings(): void {
