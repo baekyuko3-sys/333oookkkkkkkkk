@@ -197,6 +197,8 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
       ].join('\n')
     : '使用默认项目规则。';
 
+  const lore = resolveWorldBook(input.worldbooks || [], input.userMessage);
+
   return {
     character,
     persona,
@@ -204,11 +206,8 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
     memory: input.memory ? buildMemoryContext(input.memory) : '当前没有已保存的长期记忆。',
     world,
     project,
-    worldBook: (() => {
-      const lore = resolveWorldBook(input.worldbooks || [], input.userMessage);
-      return [lore.before, lore.after].filter(Boolean).join('\n\n') || '当前没有命中的世界书条目。';
-    })(),
-    worldBookBefore: resolveWorldBook(input.worldbooks || [], input.userMessage).before,
-    worldBookAfter: resolveWorldBook(input.worldbooks || [], input.userMessage).after,
+    worldBook: [lore.before, lore.after].filter(Boolean).join('\n\n') || '当前没有命中的世界书条目。',
+    worldBookBefore: lore.before,
+    worldBookAfter: lore.after,
   };
 }
