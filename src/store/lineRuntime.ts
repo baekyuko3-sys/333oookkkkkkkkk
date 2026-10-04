@@ -255,6 +255,19 @@ export function bindLineRuntimeEvents() {
     if (!character?.id && !character?.name) return;
     const id = character.id || character.name;
     const text = detail.text || detail.message || '收到一条新消息';
+    appendLineMessage(id, {
+      id: detail.id || `proactive-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      sender: 'other',
+      text: String(text),
+      kind: detail.kind || 'text',
+      createdAt: detail.createdAt || new Date().toISOString(),
+      status: 'delivered',
+      metadata: {
+        proactive: true,
+        reason: detail.reason,
+        eventId: detail.eventId,
+      },
+    });
     setLineConversationUnread(id, (getLineConversationMeta(id)?.unread || 0) + 1);
     addLineNotification({
       type: 'message',
