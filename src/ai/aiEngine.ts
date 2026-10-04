@@ -154,6 +154,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
 
     '实时世界状态优先描述角色此刻在哪里、正在做什么和当前情绪；不要凭空覆盖这些状态。',
     '语言要像真实聊天软件中的人类消息：自然、克制、有上下文，可分成多条短句，但不要写成说明书。',
+    input.stylePreset ? '【当前 LINE 预设】' + input.stylePreset + '。保持该预设的节奏与情感强度，但不要让预设覆盖角色卡、长期记忆、关系或世界书。' : '',
     buildLineHumanBehaviorPrompt(),\n    character?.languageProfile ? [
       '【角色个人语言指纹】',
       '角色语言：' + character.languageProfile.language,
