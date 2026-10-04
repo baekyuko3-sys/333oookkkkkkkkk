@@ -403,13 +403,12 @@ export function LineConversationView({
   const recordingDiscardRef = useRef(false);
   const avatarClickTimerRef = useRef<number | null>(null);
 
-  const searchMatchesForEffect = (query: string) => messages.filter((message) =>
-    getForwardableText(message).toLowerCase().includes(query.trim().toLowerCase())
-  );
-
   useEffect(() => {
     if (!showInChatSearch || !inChatSearchQuery.trim()) return;
-    const matches = searchMatchesForEffect(inChatSearchQuery);
+    const query = inChatSearchQuery.trim().toLowerCase();
+    const matches = messages.filter((message) =>
+      getForwardableText(message).toLowerCase().includes(query)
+    );
     if (matches.length === 0) return;
     const normalizedIndex = inChatSearchIndex % matches.length;
     if (normalizedIndex !== inChatSearchIndex) setInChatSearchIndex(normalizedIndex);
@@ -4531,7 +4530,7 @@ export function LineConversationView({
                     const payload = {
                       type: 'forwarded',
                       text: isBatch
-                        ? `[合并转发 ${forwardedMessages.length} 条聊天记录]\\n\\n${forwardedMessages.map((item: any) => `${item.senderName}：${item.text}`).join('\\n')}`
+                        ? `[合并转发 ${forwardedMessages.length} 条聊天记录]\n\n${forwardedMessages.map((item: any) => `${item.senderName}：${item.text}`).join('\n')}`
                         : forwardedMessages[0].text,
                       forwardedMessages,
                       forwardedFromConversationId: conversationStorageId,
