@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Check, Copy, Palette, Plus, Trash2, Type, Wand2 } from 'lucide-react';
+import { ArrowLeft, Check, Copy, Palette, Plus, Sparkles, Trash2, Type, Wand2 } from 'lucide-react';
 import type { ScreenType, ThemeMode } from '../../types';
 import {
   applyAppearanceScheme,
