@@ -2,7 +2,7 @@ import type { ImportedCharacter } from '../data/characterImport';
 import type { ProjectManifest, WorldBook } from '../types';
 import type { CharacterMemory } from '../store/characterMemory';
 import { buildMemoryContext } from '../store/characterMemory';
-import type { AppSettings } from '../store/appSettings';
+import type { AppSettings, ChannelAiSettings } from '../store/appSettings';
 import { readAppSettings } from '../store/appSettings';
 import { getCharacterAiProfile, mergeCharacterAiSettings } from '../store/characterAiProfiles';
 import { resolveCharacterContext } from './contextEngine';
@@ -51,6 +51,34 @@ export interface AiReplyResult {
   provider: AiSettings['provider'];
   model: string;
   matchedWorldbookEntries: number;
+}
+
+export function resolveChannelAiSettings(channel: 'chat' | 'moments'): AiSettings {
+  const settings = readAppSettings();
+  const override: ChannelAiSettings = channel === 'moments' ? settings.momentsApiOverride : settings.chatApiOverride;
+  const base: AiSettings = {
+    provider: settings.provider,
+    apiBaseUrl: settings.apiBaseUrl,
+    apiKey: settings.apiKey,
+    model: settings.model,
+    streaming: settings.streaming,
+    contextLength: settings.contextLength,
+    maxOutputTokens: settings.maxOutputTokens,
+    autoSave: settings.autoSave,
+    temperature: settings.temperature,
+  };
+  if (!override?.enabled) return base;
+  return {
+    ...base,
+    provider: override.provider,
+    apiBaseUrl: override.apiBaseUrl,
+    apiKey: override.apiKey,
+    model: override.model,
+    streaming: override.streaming,
+    contextLength: override.contextLength,
+    maxOutputTokens: override.maxOutputTokens,
+    temperature: override.temperature,
+  };
 }
 
 export function readStoredAiSettings(characterId?: string, characterName?: string): AiSettings {
