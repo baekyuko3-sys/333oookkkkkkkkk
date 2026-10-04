@@ -1329,20 +1329,87 @@ export function LineConversationView({
     setContextMenuMsg(null);
   };
 
-  // 酒馆“继续 (Continue)”生成
-  const handleContinueGenerating = () => {
-    showToast('AI 正在继续生成后半段……');
-    setTimeout(() => {
-      const continuationMsg = {
-        id: Date.now(),
+  // 酒馆“继续 (Continue)”生成：真正调用当前角色 AI，不再插入固定假回复。
+  const handleContinueGenerating = async () => {
+    if (!importedCharacter) {
+      showToast('还没有可继续生成的角色');
+      return;
+    }
+    if (isTyping) return;
+
+    const lastOther = [...messages].reverse().find(m => m.sender === 'other' && m.text?.trim());
+    const lastUser = [...messages].reverse().find(m => m.sender === 'me' && m.text?.trim());
+    const continuationId = Date.now() + 1;
+    const settings = conversationAiSettings();
+
+    setIsTyping(true);
+    setMessages(prev => [...prev, {
+      id: continuationId,
+      sender: 'other',
+      type: 'ai-reply',
+      text: '',
+      time: '刚刚',
+      status: 'sending',
+      showThinking: false,
+    }]);
+
+    let streamedText = '';
+    try {
+      const result = await generateCharacterReply({
+        settings,
+        character: importedCharacter,
+        characterProfile,
+        persona: activePersona,
+        worldbooks,
+        memory: characterMemory,
+        project: projectManifest,
+        messages,
+        userMessage: lastUser?.text || '继续刚才的对话',
+        isGroup,
+        authorNote: [
+          authorsNote,
+          '这是 Continue：请自然接着角色上一条未说完的内容继续。',
+          lastOther?.text ? '【上一条角色消息】\\n' + lastOther.text : '',
+          '不要重复上一条已经说过的内容，也不要突然改变话题；像真实聊天一样自然补完。',
+        ].filter(Boolean).join('\\n'),
+        stylePreset: activeCotPreset?.title || selectedPreset,
+        temperature: Number(presetTemp) || 0.85,
+        onDelta: delta => {
+          streamedText += delta;
+          setMessages(prev => prev.map(m =>
+            m.id === continuationId
+              ? { ...m, text: streamedText, status: 'sending' }
+              : m
+          ));
+        },
+      });
+
+      const finalText = result.text || streamedText;
+      setMessages(prev => prev.map(m =>
+        m.id === continuationId
+          ? { ...m, text: finalText, status: 'delivered', aiModel: result.model }
+          : m
+      ));
+      appendLineMessage(conversationStorageId, {
+        id: continuationId,
         sender: 'other',
-        thinking: '【角色潜意识】刚才的话好像还没表达完整，想再多补充一句关照。',
-        showThinking: false,
-        text: '顺便……明早想喝什么？路过那家烘焙店的时候，我顺路带给你。',
-        time: '刚刚',
-      };
-      setMessages((prev) => [...prev, continuationMsg]);
-    }, 1000);
+        text: finalText,
+        kind: 'text',
+        status: 'delivered',
+        createdAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '继续生成失败';
+      setMessages(prev => prev.map(m =>
+        m.id === continuationId
+          ? { ...m, status: 'failed', error: message, text: streamedText }
+          : m
+      ));
+      markLineMessageFailed(conversationStorageId, continuationId, message);
+      showToast(message.length > 72 ? message.slice(0, 72) + '…' : message);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   // 分支重抽滑动切换 (Swipe variant)
