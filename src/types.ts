@@ -68,6 +68,22 @@ export interface WorldBookEntry {
   weight: number;
   insertion: 'before' | 'after' | 'depth';
   depth: number;
+  secondaryKeywords?: string[];
+  selective?: boolean;
+  selectiveLogic?: 0 | 1 | 2 | 3;
+  constant?: boolean;
+  useProbability?: boolean;
+  probability?: number;
+  scanDepth?: number;
+  caseSensitive?: boolean;
+  matchWholeWords?: boolean;
+  order?: number;
+  role?: 'system' | 'user' | 'assistant';
+  outletName?: string;
+  group?: string;
+  groupWeight?: number;
+  preventRecursion?: boolean;
+  excludeRecursion?: boolean;
 }
 
 export interface WorldBook {
