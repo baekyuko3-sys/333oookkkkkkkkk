@@ -98,7 +98,7 @@ function appendProactiveMessage(character: ImportedCharacter, text: string) {
   }, character.name);
 
   window.dispatchEvent(new CustomEvent('sane333:proactive-message', {
-    detail: { characterName: character.name, message },
+    detail: { characterName: character.name, conversationId, message },
   }));
 }
 
