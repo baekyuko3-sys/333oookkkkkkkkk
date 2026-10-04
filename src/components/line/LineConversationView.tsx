@@ -274,22 +274,43 @@ export function LineConversationView({
       return false;
     }
     const storageKey = `line:conversation:${targetConversationId}`;
+    const forwardedMessage = {
+      ...payload,
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      sender: 'me',
+      senderName: currentUserNameFallback() || activePersona?.name || '我',
+      time: '刚刚',
+      status: 'sent',
+      isRead: false,
+    };
     try {
       const raw = window.localStorage.getItem(storageKey);
       const targetMessages = raw ? JSON.parse(raw) : [];
       const nextMessages = Array.isArray(targetMessages) ? targetMessages : [];
-      window.localStorage.setItem(storageKey, JSON.stringify([
-        ...nextMessages,
-        {
-          ...payload,
-          id: Date.now() + Math.floor(Math.random() * 1000),
-          sender: 'me',
-          senderName: currentUserNameFallback() || activePersona?.name || '我',
-          time: '刚刚',
-          status: 'sent',
-          isRead: false,
-        },
-      ]));
+      if (targetConversationId === conversationStorageId) {
+        setMessages(prev => [...prev, forwardedMessage]);
+      } else {
+        window.localStorage.setItem(storageKey, JSON.stringify([...nextMessages, forwardedMessage]));
+      }
+
+      try {
+        const chatItemsRaw = window.localStorage.getItem('line:chat-items');
+        const chatItems = chatItemsRaw ? JSON.parse(chatItemsRaw) : [];
+        if (Array.isArray(chatItems)) {
+          const preview = forwardedMessage.text || '[转发消息]';
+          window.localStorage.setItem(
+            'line:chat-items',
+            JSON.stringify(chatItems.map((item: any) =>
+              item.id === targetConversationId || item.name === recipientName
+                ? { ...item, preview: String(preview).replace(/\s+/g, ' ').slice(0, 80), time: '刚刚', unread: (item.unread || 0) + 1 }
+                : item
+            ))
+          );
+        }
+      } catch {
+        // 聊天列表同步失败不影响消息本身已经保存。
+      }
+
       return true;
     } catch {
       showToast('目标会话保存失败，转发未完成');
