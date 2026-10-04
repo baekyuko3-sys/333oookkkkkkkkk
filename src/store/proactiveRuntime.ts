@@ -154,6 +154,15 @@ async function generateProactiveMessage(
   const personas = readLocal<any[]>('line:user-personas', []);
   const persona = personas.find(item => item.isDefault) || personas[0] || null;
   const recentMessages = getLineConversationMessages(character.id || character.name).slice(-12);
+  const lastInteraction = recentMessages.at(-1)?.createdAt ? Date.parse(recentMessages.at(-1)!.createdAt!) : 0;
+  const offlineMinutes = lastInteraction ? Math.max(0, Math.floor((Date.now() - lastInteraction) / 60000)) : null;
+  const offlineContext = offlineMinutes === null
+    ? '这是你们第一次在当前聊天周期里联系。'
+    : offlineMinutes >= 24 * 60
+      ? '你们已经超过一天没有联系。可以自然提到这段时间里自己在做的事或现在的状态，但绝对不要责怪用户失联。'
+      : offlineMinutes >= 180
+        ? '你们已经几个小时没有联系。像一个有自己生活的人一样继续自己的节奏，不要假装一直在等用户。'
+        : '你们刚刚还有联系。不要为了主动而重复上一轮话题。';
 
   const systemPrompt = [
     '你是 Sane333 的主动消息引擎。',
@@ -190,7 +199,8 @@ async function generateProactiveMessage(
       : []).join('\n') || '无',
     '',
     '【最近聊天】',
-    recentMessages.map(message => (message.sender === 'other' ? character.name : '用户') + ': ' + (message.text || message.transcript || '[媒体]')).join('\n'),
+    '【离线期间 / 当前联系状态】\\n' + offlineContext,
+    recentMessages.map(message => (message.sender === 'other' ? character.name : '用户') + ': ' + (message.text || message.transcript || '[媒体]')).join('\\n'),
   ].join('\n');
 
   return generateCreativeText({
@@ -200,7 +210,9 @@ async function generateProactiveMessage(
       '现在触发角色主动消息。',
       '日程时间：' + schedule.time,
       '日程事件：' + schedule.title,
-      '请结合角色当前生活状态和最近聊天，发出一条自然的主动消息。',
+      '请结合角色自己的生活节奏、离线期间发生的事情、长期记忆、最近聊天与当前日程，发出一条自然的主动消息。',
+      '主动联系必须有具体动机：刚发生的事、日程、想到某件旧事、分享生活、回复之前未完的话题等；不要只是因为计时器到了就机械问候。',
+      '如果长时间没联系，不要说“你为什么不回”“怎么不理我”；角色可以自然地继续自己的生活，再分享现在发生的事。',
       '控制在适合手机聊天的长度，不要解释你为什么主动联系。',
     ].join('\n'),
     temperature: proactiveSettings.temperature ?? 0.85,
