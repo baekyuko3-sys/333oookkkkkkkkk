@@ -138,6 +138,7 @@ async function generateProactiveMessage(
     '【角色】', character.name, character.description || '', character.personality || '', character.scenario || '', character.systemPrompt || '',
     '【关系热度】', relationshipHeat(character), '；关系描述：' + profile.relationship + '；称呼：' + profile.callMe,
     '【角色当前状态】', runtime ? runtime.location + ' / ' + runtime.activity + ' / ' + runtime.mood : '未知',
+    '【角色语言指纹】', character.languageProfile ? JSON.stringify(character.languageProfile) : '未单独设置，请从角色卡与历史消息判断',
     '【用户人设】', persona ? JSON.stringify(persona) : '未设置',
     '【长期记忆】', memory.summary || '暂无摘要',
     ...memory.items.slice(0, 10).map(item => '- ' + item.content),
