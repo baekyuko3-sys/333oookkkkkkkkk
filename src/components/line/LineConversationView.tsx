@@ -87,6 +87,9 @@ export function LineConversationView({
 }: LineConversationViewProps) {
   // Input & Messages
   const [inputText, setInputText] = useState(initialDraft);
+  const [lineLocale] = usePersistentState<'zh-CN' | 'ja-JP'>('line:locale', 'zh-CN');
+  const ja = lineLocale === 'ja-JP';
+  const tx = (zh: string, jp: string) => ja ? jp : zh;
   const conversationStorageId = conversationId || characterId || contactName;
   const hasImportedCharacter = hasImportedCharacterInStorage(contactName, characterId);
   const [messages, setMessages] = usePersistentState<any[]>(
@@ -1777,13 +1780,13 @@ export function LineConversationView({
                   <div className="text-[10px] text-[#aaa] mt-0.5 flex items-center gap-1">
                     {isTyping ? (
                       <span className="text-[#ae7e89] font-medium animate-pulse flex items-center gap-1">
-                        <span>对方正在输入</span>
+                        <span>{tx('对方正在输入', '入力中')}</span>
                         <span className="inline-block animate-bounce">.</span>
                         <span className="inline-block animate-bounce delay-100">.</span>
                         <span className="inline-block animate-bounce delay-200">.</span>
                       </span>
                     ) : (
-                      <span>在线 · 点击看状态栏与主页 · 双击拍一拍</span>
+                      <span>{tx('在线 · 点击看状态栏与主页 · 双击拍一拍', 'オンライン · ステータスとプロフィール · ダブルタップでノック')}</span>
                     )}
                   </div>
                 </div>
@@ -1795,7 +1798,7 @@ export function LineConversationView({
               <button
                 onClick={() => setShowInChatSearch(!showInChatSearch)}
                 className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#555]"
-                title="搜索聊天记录"
+                title={tx('搜索聊天记录', 'チャット履歴を検索')}
               >
                 <Search className="w-4 h-4 stroke-[1.7]" />
               </button>
@@ -1803,7 +1806,7 @@ export function LineConversationView({
               <button
                 onClick={() => { setAudioCallDuration(0); setShowAudioCall(true); recordLineCall(conversationStorageId, { direction: 'outgoing', kind: 'audio', status: 'connected' }); }}
                 className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#303033]"
-                title="语音通话"
+                title={tx('语音通话', '音声通話')}
               >
                 <Phone className="w-4 h-4 stroke-[1.7]" />
               </button>
@@ -1811,7 +1814,7 @@ export function LineConversationView({
               <button
                 onClick={() => setShowTogetherMusic(true)}
                 className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#8b7560]"
-                title="一起听歌"
+                title={tx('一起听歌', '一緒に音楽を聴く')}
               >
                 <Music2 className="w-4 h-4 stroke-[1.7]" />
               </button>
@@ -1819,7 +1822,7 @@ export function LineConversationView({
               <button
                 onClick={() => setShowVideoCall(true)}
                 className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#303033]"
-                title="视频通话"
+                title={tx('视频通话', 'ビデオ通話')}
               >
                 <Video className="w-4 h-4 stroke-[1.7]" />
               </button>
@@ -1848,7 +1851,7 @@ export function LineConversationView({
               <button
                 onClick={() => setShowSettings(true)}
                 className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#303033]"
-                title="聊天设置与酒馆设定"
+                title={tx('聊天设置与酒馆设定', 'チャット設定')}
               >
                 <Settings className="w-4 h-4 stroke-[1.7]" />
               </button>
@@ -1862,7 +1865,7 @@ export function LineConversationView({
         <div className="bg-[#faf4f6] border-b border-[#f0dee3] px-3.5 py-1.5 flex items-center justify-between text-[11px] text-[#8c5f6b] animate-in slide-in-from-top">
           <div className="flex items-center gap-1.5 truncate">
             <span>📢</span>
-            <span className="font-semibold">群公告：</span>
+            <span className="font-semibold">{tx('群公告：', 'グループのお知らせ：')}</span>
             <span className="truncate">{groupNoticeText}</span>
           </div>
           <button
@@ -2560,7 +2563,7 @@ export function LineConversationView({
                     }
                   }}
                   rows={1}
-                  placeholder="输入消息…"
+                  placeholder={tx('输入消息…', 'メッセージを入力…')}
                   className="w-full resize-none bg-transparent outline-none text-[13px] text-[#333] placeholder-[#aaa] py-1 font-sans"
                 />
               </div>
