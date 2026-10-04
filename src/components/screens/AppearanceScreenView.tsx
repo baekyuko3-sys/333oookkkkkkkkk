@@ -89,7 +89,6 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
     setSchemes(getAppearanceSchemes());
     setSchemeName('');
     notify('外观方案已保存');
-    update('name', saved.name);
   };
 
   const applyScheme = (id: string) => {
