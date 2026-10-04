@@ -1320,23 +1320,50 @@ export function LineConversationView({
     }
   };
 
-  // AI 推演群聊人际关系网
-  const handleAiInferGroupRelations = () => {
+  // AI 推演群聊人际关系网：根据真实群聊内容生成，而不是套固定关系模板。
+  const handleAiInferGroupRelations = async () => {
     if (groupAiMembers.length < 2) {
       showToast('当前群聊至少需要两名角色，才能推演人物关系网络');
       return;
     }
-    showToast('正在结合当前群成员、聊天记录与世界书推演关系网络……');
-    window.setTimeout(() => {
-      const inferred = groupAiMembers.slice(0, 6).map((item, index) => ({
-        from: item.member.name,
-        to: index === 0 ? '我' : groupAiMembers[index - 1].member.name,
-        relation: '待继续推演',
-      }));
+    showToast('正在结合群成员、聊天记录与世界书推演关系网络……');
+    try {
+      const settings = conversationAiSettings();
+      const raw = await generateCreativeText({
+        settings,
+        systemPrompt: [
+          '你是私人虚拟手机的群聊关系分析器。',
+          '只根据已经发生的群聊、成员资料、群公告和事件记忆判断关系，不要凭空编造。',
+          '可以只输出真实存在且有证据的关系；不确定时写“关系尚未明确”。',
+          '严格输出 JSON 数组，每项格式：{"from":"成员","to":"成员","relation":"关系"}。',
+        ].join('\\n'),
+        userPrompt: [
+          '【成员】',
+          ...groupAiMembers.map(item => {
+            const member = item.member;
+            return member.name + '：' + [member.relationship, member.mood, member.online === false ? '离线' : '在线'].filter(Boolean).join(' / ');
+          }),
+          '【群公告】' + (groupNoticeText || '暂无'),
+          '【已有关系】' + (activeGroup?.relationships || groupRelationships || []).map(item => item.from + ' → ' + item.to + '：' + item.relation).join('\\n'),
+          '【群事件】' + (activeGroup?.events || []).slice(-12).map(item => item.text).join('\\n'),
+          '【最近聊天】' + messages.slice(-30).map(message => (message.sender === 'me' ? '我' : (message.senderName || '角色')) + ': ' + (message.text || '')).join('\\n'),
+        ].join('\\n'),
+        temperature: 0.55,
+      });
+      const parsed = JSON.parse(raw.trim().replace(/^\`\`\`json\\s*/i, '').replace(/\`\`\`$/i, ''));
+      const inferred = Array.isArray(parsed)
+        ? parsed
+            .filter(item => item && item.from && item.to && item.relation)
+            .slice(0, 12)
+            .map(item => ({ from: String(item.from), to: String(item.to), relation: String(item.relation) }))
+        : [];
+      if (!inferred.length) throw new Error('AI 没有返回有效关系网络');
       setGroupRelationships(inferred);
       if (activeGroup?.id) setLineGroupRelationships(activeGroup.id, inferred);
-      showToast('已基于当前群成员建立关系网络框架');
-    }, 600);
+      showToast('群聊关系网络已根据真实互动更新 ✦');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '群聊关系推演失败');
+    }
   };
 
   // 表情回应 (Reaction)
