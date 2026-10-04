@@ -28,21 +28,37 @@ function normalize(value: string) {
   return value.toLowerCase().replace(/\\s+/g, ' ').trim();
 }
 
+function keywordMatches(text: string, keyword: string, entry: WorldBook['entries'][number]) {
+  const rawKeyword = keyword.trim();
+  if (!rawKeyword) return false;
+  const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+  if (entry.caseSensitive) {
+    if (entry.matchWholeWords) return new RegExp('(^|\\W)' + escapeRegex(rawKeyword) + '($|\\W)').test(text);
+    return text.includes(rawKeyword);
+  }
+  const haystack = normalize(text);
+  const key = normalize(rawKeyword);
+  if (entry.matchWholeWords) return new RegExp('(^|\\W)' + escapeRegex(key) + '($|\\W)').test(haystack);
+  return haystack.includes(key);
+}
+
 function resolveWorldBook(worldbooks: WorldBook[], userMessage: string) {
-  const haystack = normalize(userMessage);
   const selected = worldbooks.flatMap(book => !book.enabled ? [] : book.entries
     .filter(entry => entry.enabled)
     .map(entry => {
-      const matched = entry.keywords.filter(keyword => {
-        const key = normalize(keyword);
-        return key && haystack.includes(key);
-      });
-      return matched.length ? { book, entry, matched } : null;
+      const primary = entry.keywords.filter(keyword => keywordMatches(userMessage, keyword, entry));
+      const secondary = (entry.secondaryKeywords || []).filter(keyword => keywordMatches(userMessage, keyword, entry));
+      const selectiveHit = entry.selective !== true || secondary.length > 0;
+      const constantHit = entry.constant === true;
+      const probabilityHit = entry.useProbability ? Math.random() * 100 <= Math.max(0, Math.min(100, entry.probability ?? 100)) : true;
+      const matched = [...primary, ...secondary];
+      if ((!primary.length && !constantHit) || !selectiveHit || !probabilityHit) return null;
+      return { book, entry, matched };
     })
     .filter(Boolean) as Array<{ book: WorldBook; entry: WorldBook['entries'][number]; matched: string[] }>);
 
   selected.sort((a, b) =>
-    b.entry.priority - a.entry.priority ||
+    (b.entry.order ?? b.entry.priority) - (a.entry.order ?? a.entry.priority) ||
     b.entry.weight - a.entry.weight ||
     b.matched.length - a.matched.length
   );
@@ -53,11 +69,12 @@ function resolveWorldBook(worldbooks: WorldBook[], userMessage: string) {
     '[WORLD BOOK]',
     '书名：' + book.name,
     '条目：' + entry.name,
-    '命中关键词：' + matched.join('、'),
-    '优先级：' + entry.priority + '；权重：' + entry.weight + '；插入：' + entry.insertion + (entry.insertion === 'depth' ? '；depth=' + entry.depth : ''),
+    '命中关键词：' + (matched.length ? matched.join('、') : 'constant'),
+    '优先级：' + (entry.order ?? entry.priority) + '；权重：' + entry.weight + '；插入：' + entry.insertion + (entry.insertion === 'depth' ? '；depth=' + entry.depth : ''),
+    entry.scanDepth != null ? '扫描深度：' + entry.scanDepth : '',
     '内容：',
     entry.content,
-  ].join('\\n')).join('\\n\\n');
+  ].filter(Boolean).join('\n')).join('\n\n');
 }
 
 export function resolveCharacterContext(input: ContextEngineInput): ResolvedContext {
@@ -71,6 +88,7 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
         '创作者注释：' + (input.character.creatorNotes || '未填写'),
         '角色系统提示：' + (input.character.systemPrompt || '未填写'),
         '历史指令：' + (input.character.postHistoryInstructions || '未填写'),
+        '语言指纹：' + (input.character.languageProfile ? JSON.stringify(input.character.languageProfile) : '未单独设置'),
       ].join('\\n')
     : [
         '姓名：' + (p.callMe || '角色'),
