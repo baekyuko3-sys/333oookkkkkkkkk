@@ -75,6 +75,8 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
   const [testing, setTesting] = useState(false);
   const [loadingModels, setLoadingModels] = useState(false);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [mediaModels, setMediaModels] = useState<{ voice: string[]; stt: string[]; image: string[] }>({ voice: [], stt: [], image: [] });
+  const [mediaModelBusy, setMediaModelBusy] = useState<'voice' | 'stt' | 'image' | null>(null);
   const [heartbeat, setHeartbeat] = useState(() => getBackgroundHeartbeat());
   const [includeSecretsInBackup, setIncludeSecretsInBackup] = useState(false);
   const [backingUp, setBackingUp] = useState(false);
@@ -179,6 +181,35 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
         ? prev.map(profile => profile.id === updated.id ? updated : profile)
         : [updated, ...prev];
     });
+  };
+
+  const fetchMediaModels = async (kind: 'voice' | 'stt' | 'image') => {
+    const config = kind === 'voice'
+      ? { base: settings.voiceBaseUrl, key: settings.voiceApiKey }
+      : kind === 'stt'
+        ? { base: settings.sttBaseUrl, key: settings.sttApiKey }
+        : { base: settings.imageBaseUrl, key: settings.imageApiKey };
+    if (!config.base.trim() || !config.key.trim()) { notify('请先填写 API Base URL 和 API Key'); return; }
+    setMediaModelBusy(kind);
+    try {
+      const models = await listOpenAiCompatibleModels({
+        provider: 'openai-compatible',
+        apiBaseUrl: config.base,
+        apiKey: config.key,
+        model: kind === 'voice' ? settings.voiceModel : kind === 'stt' ? settings.sttModel : settings.imageModel,
+        streaming: false,
+        contextLength: 4,
+        maxOutputTokens: 64,
+        autoSave: true,
+        temperature: 0.2,
+      });
+      setMediaModels(prev => ({ ...prev, [kind]: models }));
+      notify(models.length ? '模型列表已更新' : '接口没有返回模型列表');
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '拉取模型失败');
+    } finally {
+      setMediaModelBusy(null);
+    }
   };
 
   const copyChatToMedia = (kind: 'voice' | 'image') => {
@@ -576,13 +607,17 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <label className="bg-white/55 rounded-xl p-2.5 text-[9px]">TTS Model
-                    <input value={settings.voiceModel} onChange={e => update('voiceModel', e.target.value)} className="w-full mt-1 bg-transparent outline-none font-mono text-[10px]" />
+                    <select value={settings.voiceModel} onChange={e => update('voiceModel', e.target.value)} className="w-full mt-1 bg-transparent outline-none font-mono text-[10px]">
+                      <option value={settings.voiceModel}>{settings.voiceModel}</option>
+                      {mediaModels.voice.filter(model => model !== settings.voiceModel).map(model => <option key={model} value={model}>{model}</option>)}
+                    </select>
                   </label>
                   <label className="bg-white/55 rounded-xl p-2.5 text-[9px]">Voice
                     <input value={settings.voiceName} onChange={e => update('voiceName', e.target.value)} className="w-full mt-1 bg-transparent outline-none font-mono text-[10px]" />
                   </label>
                 </div>
               </>}
+              <button onClick={() => void fetchMediaModels('voice')} className="w-full py-2 rounded-xl bg-white/70 border border-black/5 text-[9px]">{mediaModelBusy === 'voice' ? '拉取中…' : '拉取 TTS 模型'}</button>
               <button onClick={() => update('autoSpeakAiReplies', !settings.autoSpeakAiReplies)} className="w-full py-2.5 rounded-xl bg-[#ebe7df] border border-[rgba(40,36,31,.1)] text-left px-3 text-[10px]">
                 AI 回复自动发声 · <b className="text-[#8b7560]">{settings.autoSpeakAiReplies ? 'ON' : 'OFF'}</b>
               </button>
@@ -610,13 +645,17 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
                   </label>
                   <div className="grid grid-cols-2 gap-2 mt-2">
                     <label className="bg-white/60 rounded-xl p-2.5 text-[8px] text-[#8b8782]">STT Model
-                      <input value={settings.sttModel} onChange={e => update('sttModel', e.target.value)} className="w-full mt-1 bg-transparent outline-none text-[9px] font-mono text-[#4a4540]" />
+                      <select value={settings.sttModel} onChange={e => update('sttModel', e.target.value)} className="w-full mt-1 bg-transparent outline-none text-[9px] font-mono text-[#4a4540]">
+                        <option value={settings.sttModel}>{settings.sttModel}</option>
+                        {mediaModels.stt.filter(model => model !== settings.sttModel).map(model => <option key={model} value={model}>{model}</option>)}
+                      </select>
                     </label>
                     <label className="bg-white/60 rounded-xl p-2.5 text-[8px] text-[#8b8782]">Language
                       <input value={settings.sttLanguage} onChange={e => update('sttLanguage', e.target.value)} className="w-full mt-1 bg-transparent outline-none text-[9px] font-mono text-[#4a4540]" />
                     </label>
                   </div>
                 </>}
+                <button onClick={() => void fetchMediaModels('stt')} className="w-full mt-2 py-2 rounded-xl bg-white/70 border border-black/5 text-[9px]">{mediaModelBusy === 'stt' ? '拉取中…' : '拉取 STT 模型 / 测试接口'}</button>
                 <button onClick={() => {
                   update('sttBaseUrl', settings.voiceBaseUrl || settings.apiBaseUrl);
                   update('sttApiKey', settings.voiceApiKey || settings.apiKey);
@@ -650,7 +689,10 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <label className="bg-white/55 rounded-xl p-2.5 text-[9px]">Image Model
-                  <input value={settings.imageModel} onChange={e => update('imageModel', e.target.value)} className="w-full mt-1 bg-transparent outline-none font-mono text-[10px]" />
+                  <select value={settings.imageModel} onChange={e => update('imageModel', e.target.value)} className="w-full mt-1 bg-transparent outline-none font-mono text-[10px]">
+                    <option value={settings.imageModel}>{settings.imageModel}</option>
+                    {mediaModels.image.filter(model => model !== settings.imageModel).map(model => <option key={model} value={model}>{model}</option>)}
+                  </select>
                 </label>
                 <label className="bg-white/55 rounded-xl p-2.5 text-[9px]">Size
                   <select value={settings.imageSize} onChange={e => update('imageSize', e.target.value)} className="w-full mt-1 bg-transparent outline-none text-[10px]">
@@ -661,6 +703,7 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
                 </label>
               </div>
             </div>
+            <button onClick={() => void fetchMediaModels('image')} className="w-full mt-2 py-2 rounded-xl bg-white/70 border border-black/5 text-[9px]">{mediaModelBusy === 'image' ? '拉取中…' : '拉取图片模型'}</button>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button onClick={() => copyChatToMedia('image')} className="py-2 rounded-xl bg-white/75 border border-[rgba(40,36,31,.1)] text-[9px] flex items-center justify-center gap-1"><RefreshCw className="w-3 h-3" />复制聊天 API</button>
               <button onClick={testImage} className="py-2 rounded-xl bg-[#292724] text-white text-[9px] flex items-center justify-center gap-1"><ImageIcon className="w-3 h-3" />测试图片接口</button>
