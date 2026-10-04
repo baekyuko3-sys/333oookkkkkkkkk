@@ -6,6 +6,7 @@ import type { AppSettings, ChannelAiSettings } from '../store/appSettings';
 import { readAppSettings } from '../store/appSettings';
 import { getCharacterAiProfile, mergeCharacterAiSettings } from '../store/characterAiProfiles';
 import { resolveCharacterContext } from './contextEngine';
+import { getCotForTarget } from '../store/cotPresets';
 
 export type AiSettings = Pick<AppSettings, 'provider' | 'apiBaseUrl' | 'apiKey' | 'model' | 'streaming' | 'contextLength' | 'maxOutputTokens' | 'autoSave' | 'temperature'>;
 
@@ -42,6 +43,7 @@ export interface AiReplyInput {
   isGroup?: boolean;
   authorNote?: string;
   stylePreset?: string;
+  cotTarget?: 'line' | 'offline' | 'group';
   temperature?: number;
   onDelta?: (delta: string) => void;
 }
@@ -155,6 +157,9 @@ function buildWorldBookContext(worldbooks: WorldBook[], inputText: string): stri
 }
 
 export function buildCharacterSystemPrompt(input: AiReplyInput): string {
+  const cotTarget = input.cotTarget || (input.isGroup ? 'group' : 'line');
+  const cotPreset = getCotForTarget(cotTarget);
+
   const context = resolveCharacterContext({
     character: input.character,
     characterProfile: input.characterProfile,
@@ -191,8 +196,9 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '',
     input.stylePreset ? '【聊天风格预设】\n' + input.stylePreset : '【聊天风格预设】自然、沉浸、像真实聊天。',
     input.authorNote ? '【作者注释】\n' + input.authorNote : '【作者注释】无。',
+    cotPreset ? '【内部生成预设】\n' + cotPreset.template + '\n只用于内部生成规划；绝对不要把思维过程、<think> 或 <thought> 标签输出给用户。' : '【内部生成预设】无。',
     '',
-    '【输出约束】',
+    '【输出约束】
     '禁止输出 <think>、思维链、隐藏推理或内部分析。',
     '不要描述用户尚未明确做出的动作。',
     '不要把聊天回复写成旁白长文；保持手机消息的阅读节奏。',
@@ -419,10 +425,15 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
       ? await callGemini(input)
       : await callOpenAiCompatible(input);
 
-  if (!text.trim()) throw new Error('AI_EMPTY_RESPONSE');
+  const cleanedText = text.trim()
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
+    .trim();
+
+  if (!cleanedText) throw new Error('AI_EMPTY_RESPONSE');
 
   return {
-    text: text.trim(),
+    text: cleanedText,
     provider: input.settings.provider,
     model: input.settings.model.trim(),
     matchedWorldbookEntries,
