@@ -120,7 +120,7 @@ async function generateProactiveMessage(
   const worldbooks = readLocal<WorldBook[]>('phone:worldbooks', []);
   const personas = readLocal<any[]>('line:user-personas', []);
   const persona = personas.find(item => item.isDefault) || personas[0] || null;
-  const conversationId = character.id || character.name;
+  const conversationId = candidate.groupId || character.id || character.name;
   const recentMessages = readLocal<any[]>(`line:conversation:${conversationId}`, []).slice(-16);
   const world = getWorldRuntime();
   const runtime = world.characters[character.id];
