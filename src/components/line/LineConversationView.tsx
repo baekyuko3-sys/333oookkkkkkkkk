@@ -4346,7 +4346,7 @@ export function LineConversationView({
       {showVideoCall && (
         <div className="absolute inset-0 bg-[#19191b] z-50 flex flex-col justify-between p-6 text-white animate-in zoom-in-95">
           <div className="flex items-center justify-between text-sm">
-            <button onClick={() => setShowVideoCall(false)} className="text-xl opacity-80 cursor-pointer">
+            <button onClick={() => { setShowVideoCall(false); recordLineCall(conversationStorageId, { direction: 'outgoing', kind: 'video', status: 'ended' }); }} className="text-xl opacity-80 cursor-pointer">
               ×
             </button>
             <span className="text-xs text-[#aaa]">端到端加密通话</span>
