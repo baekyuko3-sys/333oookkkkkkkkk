@@ -78,12 +78,7 @@ export function LineAppView({ onNavigateHome }: LineAppViewProps) {
     desc: '现在使用的身份',
   });
 
-  const [masks, setMasks] = useState([
-    { name: 'Coral', id: 'coral_01', desc: '现在使用的身份' },
-    { name: '小林', id: 'kobayashi_02', desc: '东京 · 24' },
-    { name: 'Emma', id: 'emma_03', desc: '伦敦 · 26' },
-    { name: '林安', id: 'linan_04', desc: '上海 · 25' },
-  ]);
+  const [masks, setMasks] = useState<any[]>([]);
 
   // Chat Data with Pin, Mute, Draft, and Group capabilities
   const [chatItems, setChatItems] = useState<any[]>([]);
