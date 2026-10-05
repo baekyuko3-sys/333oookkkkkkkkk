@@ -105,6 +105,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [sessions, setSessions] = useState<StudioSession[]>(() => studioStorage.sessions());
   const [logs, setLogs] = useState<StudioOperationLog[]>(() => studioStorage.logs());
   const [gitCommits, setGitCommits] = useState<any[]>([]);
+  const [currentTask, setCurrentTask] = useState<StudioTask | null>(null);
   const [taskSteps, setTaskSteps] = useState<string[]>([]);
   const [sessionTitle, setSessionTitle] = useState('New build session');
 
@@ -241,7 +242,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setMessage('你：' + request);
     setAiBusy(true);
     setAgentRunning(true);
-    log('agent', 'Started: ' + request);
+    const task: StudioTask = { id:'task-'+Date.now(), title:request.slice(0,50), request, status:'working', steps:[{id:'inspect',title:'Inspect project',status:'working'},{id:'plan',title:'Plan changes',status:'todo'},{id:'review',title:'Review Changes',status:'todo'},{id:'apply',title:'Apply approved changes',status:'todo'}],createdAt:Date.now(),updatedAt:Date.now() };
+    setCurrentTask(task); setTasks(v=>{const next=[task,...v].slice(0,30); studioStorage.saveTasks(next); return next;});
+    log('agent', 'Started task: ' + request);
     setAgentEvents([]);
     setTaskSteps(['理解需求', '检查相关文件', '准备修改', '等待 Changes 审批']);
     setSessionTitle(request.slice(0, 32));
@@ -308,6 +311,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       }, request);
       if (result.text) setMessage(result.text);
       log('agent', 'Finished current pass');
+      setCurrentTask(v => v ? {...v,status:'review',updatedAt:Date.now(),steps:v.steps.map((step,i)=>({...step,status:i<2?'done':i===2?'working':'todo'} as any))} : v);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Meme 请求失败');
     } finally {
@@ -475,7 +479,12 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
                 <button onClick={() => setPrompt('帮我找可能的构建错误')} className="p-2 rounded-xl bg-white/70 text-[8px] text-left">找 Bug</button>
               </div>
             </div>
-            <div className="p-3 rounded-2xl bg-white/70 border border-black/5 text-[10px] whitespace-pre-wrap">{message}</div>
+            <div className="p-3 rounded-2xl bg-white/70 border border-black/5 text-[10px] whitespace-pre-wrap">{message}</div>\n            {currentTask && <div className="p-3 rounded-2xl bg-[#292724] text-white">
+              <div className="text-[8px] font-mono tracking-[1.5px] text-white/50">CURRENT TASK</div>
+              <div className="mt-1 text-[10px]">{currentTask.title}</div>
+              <div className="mt-2 grid grid-cols-4 gap-1">{currentTask.steps.map(step => <div key={step.id} className="text-center"><div className="h-1 rounded-full bg-white/20 overflow-hidden"><div className={step.status === 'done' ? 'h-full w-full bg-white' : step.status === 'working' ? 'h-full w-1/2 bg-white' : 'h-full w-0'} /></div><div className="mt-1 text-[6px] opacity-60">{step.title}</div></div>)}</div>
+            </div>}
+
             {agentRunning && <div className="p-3 rounded-2xl bg-[#292724] text-white text-[8px] font-mono">{agentEvents.length ? agentEvents.map((item, index) => <div key={index}>{item}</div>) : 'MEME · inspecting project…'}</div>}
             {!ready && <div className="p-3 rounded-2xl bg-[#fff4f1] text-[9px]">还没连接 GitHub。去 Settings 填 Token，就可以直接维护项目。</div>}
           </section>
