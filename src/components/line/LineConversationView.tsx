@@ -904,7 +904,6 @@ export function LineConversationView({
         text: '',
         time: '刚刚',
         type: 'ai-reply',
-        status: 'sending',
         showThinking: false,
       },
     ]);
@@ -1894,7 +1893,7 @@ export function LineConversationView({
     setShowReroll(false);
     setRerollPrompt('');
     setIsTyping(true);
-    setMessages(prev => prev.map((m, i) => i === targetIndex ? { ...m, text: '', status: 'sending', error: undefined } : m));
+    setMessages(prev => prev.map((m, i) => i === targetIndex ? { ...m, text: '', error: undefined } : m));
     try {
       let streamed = '';
       const result = await generateCharacterReply({
@@ -1913,7 +1912,7 @@ export function LineConversationView({
         temperature: Number(presetTemp) || 0.85,
         onDelta: delta => {
           streamed += delta;
-          setMessages(prev => prev.map((m, i) => i === targetIndex ? { ...m, text: streamed, status: 'sending' } : m));
+          setMessages(prev => prev.map((m, i) => i === targetIndex ? { ...m, text: streamed } : m));
         },
       });
       setMessages(prev => prev.map((m, i) => i === targetIndex ? { ...m, text: result.text, status: 'delivered', editedAt: new Date().toISOString(), aiModel: result.model } : m));
