@@ -83,34 +83,6 @@ function appendProactiveMessage(character: ImportedCharacter, text: string) {
     status: 'delivered',
     metadata: { proactive: true },
   });
-  const chatItems = readLocal<any[]>('line:chat-items', []);
-  const existing = chatItems.find(item => item.characterId === character.id || item.name === character.name);
-  const updated = existing
-    ? chatItems.map(item =>
-        item.characterId === character.id || item.name === character.name
-          ? {
-              ...item,
-              characterId: character.id,
-              preview: text.replace(/\s+/g, ' ').slice(0, 80),
-              time: '刚刚',
-              unread: Number(item.unread || 0) + 1,
-            }
-          : item
-      )
-    : [{
-        id: character.id,
-        characterId: character.id,
-        name: character.name,
-        variantLabel: character.variantLabel || character.characterVersion || '默认版本',
-        time: '刚刚',
-        preview: text.replace(/\s+/g, ' ').slice(0, 80),
-        unread: 1,
-        isPinned: false,
-        isMuted: false,
-        draft: '',
-        isGroup: false,
-      }, ...chatItems];
-  saveLocal('line:chat-items', updated);
   emitWorldEvent('character.message', {
     characterId: character.id,
     characterName: character.name,
