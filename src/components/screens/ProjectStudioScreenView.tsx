@@ -586,7 +586,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         onEvent: event => {
           if (event.type === 'proposal') {
             stageMemeProposal(event.proposal);
-          } else if (event.type === 'validation') {\n            setAgentEvents(previous => [...previous.slice(-7), 'validation · ' + event.path + ' · ' + event.validation.status]);\n            log('agent', 'Validation ' + event.validation.status + ' · ' + event.path);\n          } else if (event.type === 'message' || event.type === 'done') {
+          } else if (event.type === 'validation') {
+            setAgentEvents(previous => [...previous.slice(-7), 'validation · ' + event.path + ' · ' + event.validation.status]);
+            log('agent', 'Validation ' + event.validation.status + ' · ' + event.path);\n          } else if (event.type === 'message' || event.type === 'done') {
             setMessage(event.text);
           } else if (event.type === 'tool') {
             setAgentEvents(previous => [...previous.slice(-7), event.name + ' · ' + JSON.stringify(event.input)]);
