@@ -6,7 +6,7 @@ import { getProjectManifest } from './projectManifest';
 import { readAppSettings } from './appSettings';
 import { generateCreativeText, readStoredAiSettings } from '../ai/aiEngine';
 import { emitWorldEvent, setCharacterRuntime, syncWorldCharacters } from './worldRuntime';
-import { appendLineMessage, addLineNotification, getLineConversationMessages, saveLineConversationMessages } from './lineRuntime';
+import { appendLineMessage, getLineConversationMessages, saveLineConversationMessages } from './lineRuntime';
 import { getLineRealitySettings, getCurrentLineTimeContext } from './lineReality';
 
 interface ScheduleItem {
