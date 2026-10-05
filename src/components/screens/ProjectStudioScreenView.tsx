@@ -102,7 +102,6 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [agentRunning, setAgentRunning] = useState(false);
   const [agentEvents, setAgentEvents] = useState<string[]>([]);
   const [tasks, setTasks] = useState<StudioTask[]>(() => studioStorage.tasks());
-  const [sessions, setSessions] = useState<StudioSession[]>(() => studioStorage.sessions());
   const [logs, setLogs] = useState<StudioOperationLog[]>(() => studioStorage.logs());
   const [gitCommits, setGitCommits] = useState<any[]>([]);
   const [currentTask, setCurrentTask] = useState<StudioTask | null>(null);
