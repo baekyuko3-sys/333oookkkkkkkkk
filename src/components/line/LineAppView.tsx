@@ -5,7 +5,7 @@ import { ScreenType } from '../../types';
 import { LineConversationView } from './LineConversationView';
 import { createLineGroup } from '../../store/lineGroups';
 import { markCharacterRead } from '../../store/worldRuntime';
-import { markLineConversationRead, markLineNotificationsReadForConversation } from '../../store/lineRuntime';
+import { getLineConversationMeta, markLineConversationRead, markLineNotificationsReadForConversation } from '../../store/lineRuntime';
 import { generateCreativeText, listOpenAiCompatibleModels, resolveChannelAiSettings, testAiConnection, type AiSettings } from '../../ai/aiEngine';
 import { readAppSettings, saveAppSettings, type ChannelAiSettings } from '../../store/appSettings';
 import {
