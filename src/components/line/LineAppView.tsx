@@ -5,6 +5,7 @@ import { ScreenType } from '../../types';
 import { LineConversationView } from './LineConversationView';
 import { createLineGroup } from '../../store/lineGroups';
 import { markCharacterRead } from '../../store/worldRuntime';
+import { markLineConversationRead, markLineNotificationsReadForConversation } from '../../store/lineRuntime';
 import { generateCreativeText, listOpenAiCompatibleModels, resolveChannelAiSettings, testAiConnection, type AiSettings } from '../../ai/aiEngine';
 import { readAppSettings, saveAppSettings, type ChannelAiSettings } from '../../store/appSettings';
 import {
@@ -270,9 +271,13 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
     };
     window.addEventListener('sane333:proactive-message', refreshFromRuntime);
     window.addEventListener('sane333:music-invite-created', handleMusicInvite);
+    window.addEventListener('sane333:line-runtime-changed', refreshFromRuntime);
+    window.addEventListener('sane333:line-runtime-message', refreshFromRuntime);
     return () => {
       window.removeEventListener('sane333:proactive-message', refreshFromRuntime);
       window.removeEventListener('sane333:music-invite-created', handleMusicInvite);
+      window.removeEventListener('sane333:line-runtime-changed', refreshFromRuntime);
+      window.removeEventListener('sane333:line-runtime-message', refreshFromRuntime);
     };
   }, []);
 
@@ -370,7 +375,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           onConversationActivity={({ preview, time }) => {
             setChatItems((prev) =>
               prev.map((c) =>
-                c.name === activeChatName
+                c.id === activeChatId
                   ? { ...c, preview, time, unread: 0 }
                   : c
               )
@@ -456,6 +461,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                   setChatItems((prev) =>
                     prev.map((c) => (c.id === item.id ? { ...c, unread: 0 } : c))
                   );
+                  markLineConversationRead(item.id);
+                  markLineNotificationsReadForConversation(item.id);
                   setActiveChatId(item.id);
                 }}
                 onContextMenu={(e) => {
