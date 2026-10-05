@@ -1456,7 +1456,7 @@ export function LineConversationView({
         ].join('\\n'),
         temperature: Math.min(0.8, Number(presetTemp) || 0.7),
       });
-      const parsed = JSON.parse(raw.trim().replace(/^\`\`\`json\\s*/i, '').replace(/\`\`\`$/i, ''));
+      const parsed = JSON.parse(raw.trim().replace(/^```json\s*/i, '').replace(/```$/i, ''));
       const relationship = String(parsed.relationship || '').trim();
       const callMe = String(parsed.callMe || '').trim();
       if (!relationship && !callMe) throw new Error('AI 没有返回有效关系档案');
