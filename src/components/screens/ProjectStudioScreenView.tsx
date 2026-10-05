@@ -264,6 +264,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         apiBaseUrl: aiSettings.apiBaseUrl,
         apiKey: aiSettings.apiKey,
         model: aiSettings.model,
+        provider: aiSettings.provider,
         codingMode: memeMode,
         project,
         tools: [
@@ -821,7 +822,8 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
                 <button onClick={() => setPrompt('帮我找可能的构建错误')} className="p-2 rounded-xl bg-white/70 text-[8px] text-left">找 Bug</button>
               </div>
             </div>
-            <div className="p-3 rounded-2xl bg-white/70 border border-black/5 text-[10px] whitespace-pre-wrap">{message}</div>\n            {currentTask && <div className="p-3 rounded-2xl bg-[#292724] text-white">
+            <div className="p-3 rounded-2xl bg-white/70 border border-black/5 text-[10px] whitespace-pre-wrap">{message}</div>
+            {currentTask && <div className="p-3 rounded-2xl bg-[#292724] text-white">
               <div className="text-[8px] font-mono tracking-[1.5px] text-white/50">CURRENT TASK</div>
               <div className="mt-1 text-[10px]">{currentTask.title}</div>
               <div className="mt-2 grid grid-cols-4 gap-1">{currentTask.steps.map(step => <div key={step.id} className="text-center"><div className="h-1 rounded-full bg-white/20 overflow-hidden"><div className={step.status === 'done' ? 'h-full w-full bg-white' : step.status === 'working' ? 'h-full w-1/2 bg-white' : 'h-full w-0'} /></div><div className="mt-1 text-[6px] opacity-60">{step.title}</div></div>)}</div>
