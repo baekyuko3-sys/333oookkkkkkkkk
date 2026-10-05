@@ -59,20 +59,20 @@ type AgentOptions = {
 };
 
 function endpoint(base: string) {
-  const value = base.trim().replace(/\\/+$/, '');
-  return /\\/chat\\/completions$/i.test(value) ? value : value + '/chat/completions';
+  const value = base.trim().replace(/\/+$/, '');
+  return /\/chat\/completions$/i.test(value) ? value : value + '/chat/completions';
 }
 
 function extractJson(raw: string) {
   try { return JSON.parse(raw); } catch {}
-  const match = raw.match(/\\{[\\s\\S]*\\}/);
+  const match = raw.match(/\{[\s\S]*\}/);
   if (!match) throw new Error('Meme 返回的不是有效 JSON');
   return JSON.parse(match[0]);
 }
 
 function lineStats(before: string, after: string) {
-  const a = before.split('\\n');
-  const b = after.split('\\n');
+  const a = before.split('\n');
+  const b = after.split('\n');
   let prefix = 0;
   while (prefix < a.length && prefix < b.length && a[prefix] === b[prefix]) prefix++;
   let suffix = 0;
