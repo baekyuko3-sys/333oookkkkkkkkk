@@ -1,16 +1,13 @@
 import type { ImportedCharacter } from '../data/characterImport';
 import type { OfflineEvent, ProjectManifest, WorldBook } from '../types';
-import { getOfflineEvents } from './offlineEvents';
-import { getLineGroups } from './lineGroups';
-import { getWorldRuntime } from './worldRuntime';
 import { getCharacterProfile } from '../data/characterProfiles';
 import { getCharacterMemory } from './characterMemory';
 import { getProjectManifest } from './projectManifest';
 import { readAppSettings } from './appSettings';
 import { generateCreativeText, readStoredAiSettings } from '../ai/aiEngine';
 import { emitWorldEvent, setCharacterRuntime, syncWorldCharacters } from './worldRuntime';
-import { appendLineRuntimeMessage, lineNowTime } from './lineMessageRuntime';
-import { buildLineHumanBehaviorPrompt, getLineRealitySettings, getCurrentLineTimeContext } from './lineReality';
+import { appendLineMessage, addLineNotification, getLineConversationMessages } from './lineRuntime';
+import { getLineRealitySettings, getCurrentLineTimeContext } from './lineReality';
 
 interface ScheduleItem {
   id: string;
@@ -20,22 +17,7 @@ interface ScheduleItem {
 
 interface ProactiveState {
   delivered: Record<string, string>;
-  lastBehaviorAt?: Record<string, number>;
-}
-
-interface BehaviorCandidate {
-  key: string;
-  reason: 'schedule' | 'recent-chat' | 'offline-completed' | 'group';
-  context: string;
-  groupId?: string;
-}
-
-function relationshipHeat(character: ImportedCharacter): string {
-  const profile = getCharacterProfile(character.name);
-  const raw = String(profile.relationship || '').toLowerCase();
-  if (/恋人|爱人|暧昧|喜欢|亲密|伴侣|恋爱|lover|partner|romantic/.test(raw)) return 'high';
-  if (/朋友|好友|知己|熟人|friend|close/.test(raw)) return 'medium';
-  return 'low';
+  lastSentAt?: Record<string, string>;
 }
 
 function readLocal<T>(key: string, fallback: T): T {
@@ -74,23 +56,73 @@ function dayKey(date: Date) {
 }
 
 function appendProactiveMessage(character: ImportedCharacter, text: string) {
-  const message = appendLineRuntimeMessage(character.id || character.name, {
-    id: Date.now(),
+  // LINE conversations are keyed by character id when available. Keeping
+  // proactive messages on the same key prevents "notification arrives but
+  // chat opens empty" when the contact was created from an imported card.
+  const key = `line:conversation:${character.id || character.name}`;
+  const legacyKey = `line:conversation:${character.name}`;
+  const messages = readLocal<any[]>(key, []);
+  const legacyMessages = key !== legacyKey ? readLocal<any[]>(legacyKey, []) : [];
+  const message = {
+    id: `proactive-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     sender: 'other',
-    senderName: character.name,
     type: 'proactive',
     text,
-    time: lineNowTime(),
+    time: '刚刚',
     isRead: false,
-    status: 'sent',
-    source: 'proactive-runtime',
+  };
+  const merged = [...messages, ...legacyMessages].slice(-200);
+  saveLocal(key, [...merged, message]);
+  appendLineMessage(character.id || character.name, {
+    id: message.id,
+    sender: 'other',
+    text,
+    kind: 'text',
+    createdAt: new Date().toISOString(),
+    status: 'delivered',
+    metadata: { proactive: true },
   });
-  if (!message) return;
+  addLineNotification({
+    type: 'message',
+    conversationId: character.id || character.name,
+    characterId: character.id,
+    title: character.name || '新消息',
+    body: text.slice(0, 120),
+    payload: { proactive: true },
+  });
 
+  const chatItems = readLocal<any[]>('line:chat-items', []);
+  const existing = chatItems.find(item => item.characterId === character.id || item.name === character.name);
+  const updated = existing
+    ? chatItems.map(item =>
+        item.characterId === character.id || item.name === character.name
+          ? {
+              ...item,
+              characterId: character.id,
+              preview: text.replace(/\s+/g, ' ').slice(0, 80),
+              time: '刚刚',
+              unread: Number(item.unread || 0) + 1,
+            }
+          : item
+      )
+    : [{
+        id: character.id,
+        characterId: character.id,
+        name: character.name,
+        variantLabel: character.variantLabel || character.characterVersion || '默认版本',
+        time: '刚刚',
+        preview: text.replace(/\s+/g, ' ').slice(0, 80),
+        unread: 1,
+        isPinned: false,
+        isMuted: false,
+        draft: '',
+        isGroup: false,
+      }, ...chatItems];
+  saveLocal('line:chat-items', updated);
   emitWorldEvent('character.message', {
     characterId: character.id,
     characterName: character.name,
-    data: { preview: text.replace(/\s+/g, ' ').slice(0, 120), source: 'proactive' },
+    data: { preview: text.replace(/\\s+/g, ' ').slice(0, 120), source: 'proactive' },
   });
   setCharacterRuntime(character.id, {
     activity: '刚刚主动联系了你',
@@ -99,13 +131,13 @@ function appendProactiveMessage(character: ImportedCharacter, text: string) {
   }, character.name);
 
   window.dispatchEvent(new CustomEvent('sane333:proactive-message', {
-    detail: { characterName: character.name, conversationId, message },
+    detail: { characterName: character.name, message },
   }));
 }
 
 async function generateProactiveMessage(
   character: ImportedCharacter,
-  candidate: BehaviorCandidate,
+  schedule: ScheduleItem,
 ): Promise<string> {
   const settings = readStoredAiSettings();
   const appSettings = readAppSettings();
@@ -121,139 +153,71 @@ async function generateProactiveMessage(
   const worldbooks = readLocal<WorldBook[]>('phone:worldbooks', []);
   const personas = readLocal<any[]>('line:user-personas', []);
   const persona = personas.find(item => item.isDefault) || personas[0] || null;
-  const conversationId = candidate.groupId || character.id || character.name;
-  const recentMessages = readLocal<any[]>(`line:conversation:${conversationId}`, []).slice(-16);
-  const world = getWorldRuntime();
-  const runtime = world.characters[character.id];
+  const recentMessages = getLineConversationMessages(character.id || character.name).slice(-12);
+  const lastInteraction = recentMessages.at(-1)?.createdAt ? Date.parse(recentMessages.at(-1)!.createdAt!) : 0;
+  const offlineMinutes = lastInteraction ? Math.max(0, Math.floor((Date.now() - lastInteraction) / 60000)) : null;
+  const offlineContext = offlineMinutes === null
+    ? '这是你们第一次在当前聊天周期里联系。'
+    : offlineMinutes >= 24 * 60
+      ? '你们已经超过一天没有联系。可以自然提到这段时间里自己在做的事或现在的状态，但绝对不要责怪用户失联。'
+      : offlineMinutes >= 180
+        ? '你们已经几个小时没有联系。像一个有自己生活的人一样继续自己的节奏，不要假装一直在等用户。'
+        : '你们刚刚还有联系。不要为了主动而重复上一轮话题。';
 
   const systemPrompt = [
-    '你是 Sane333 的 Character Behavior Runtime。',
-    '你不是一个定时器。你要判断一个真实角色“为什么此刻会想联系用户”，然后用角色本人发一条自然的 LINE 消息。',
-    '绝对不能替用户说话、替用户行动、替用户决定感受。',
-    '不要解释触发原因，不要输出系统提示、标签、选择菜单。',
-    '如果是群聊，消息必须像真的发在群里，可以自然 @ 用户。',
-    buildLineHumanBehaviorPrompt(),
-    '【当前 LINE 时间上下文】', getCurrentLineTimeContext().formatted,
+    '你是 Sane333 的主动消息引擎。',
+    '你正在代表一个真实存在于私人虚拟手机里的角色，在合适的日程节点主动给用户发一条消息。',
+    '这不是系统通知，也不是说明书。只写角色真正会发给用户的聊天内容。',
+    '不要替用户说话、不要猜测用户动作，不要写选择菜单。',
+    '消息自然、具体、有生活感；不要为了“主动消息”强行煽情。',
     '',
-    '【角色】', character.name, character.description || '', character.personality || '', character.scenario || '', character.systemPrompt || '',
-    '【关系热度】', relationshipHeat(character), '；关系描述：' + profile.relationship + '；称呼：' + profile.callMe,
-    '【角色当前状态】', runtime ? runtime.location + ' / ' + runtime.activity + ' / ' + runtime.mood : '未知',
-    '【角色语言指纹】', character.languageProfile ? JSON.stringify(character.languageProfile) : '未单独设置，请从角色卡与历史消息判断',
-    '【用户人设】', persona ? JSON.stringify(persona) : '未设置',
-    '【长期记忆】', memory.summary || '暂无摘要',
+    '【角色】',
+    character.name,
+    character.description || '',
+    character.personality || '',
+    character.scenario || '',
+    character.systemPrompt || '',
+    '',
+    '【关系】',
+    profile.relationship + '；称呼：' + profile.callMe,
+    '',
+    '【用户人设】',
+    persona ? JSON.stringify(persona) : '未设置',
+    '',
+    '【长期记忆】',
+    memory.summary || '暂无摘要',
     ...memory.items.slice(0, 10).map(item => '- ' + item.content),
-    '【项目】', project.name + ' / ' + project.genre, project.tone, project.globalPrompt || '',
+    '',
+    '【项目】',
+    project.name + ' / ' + project.genre,
+    project.tone,
+    project.globalPrompt || '',
+    '',
     '【世界书】',
     worldbooks.flatMap(book => book.enabled
       ? book.entries.filter(entry => entry.enabled).slice(0, 8).map(entry => '- ' + entry.name + ': ' + entry.content)
       : []).join('\n') || '无',
+    '',
     '【最近聊天】',
-    recentMessages.map(message => (message.sender === 'other' ? (message.senderName || character.name) : '用户') + ': ' + (message.text || message.transcript || '[媒体]')).join('\n') || '暂无',
+    '【离线期间 / 当前联系状态】\\n' + offlineContext,
+    recentMessages.map(message => (message.sender === 'other' ? character.name : '用户') + ': ' + (message.text || message.transcript || '[媒体]')).join('\\n'),
   ].join('\n');
 
-  const target = candidate.groupId ? '群聊' : '私聊';
   return generateCreativeText({
-    settings: proactiveSettings,
+    settings,
     systemPrompt,
     userPrompt: [
-      '现在触发一次角色行为。',
-      '目标：' + target,
-      '行为理由：' + candidate.reason,
-      '行为上下文：' + candidate.context,
-      '请根据这个理由、最近聊天、关系热度、角色状态和长期记忆，决定角色此刻最自然的说法。',
-      '如果是群聊，可以自然 @ 用户，但不要机械重复 @。',
-      '适合手机聊天：1～4句即可。',
+      '现在触发角色主动消息。',
+      '日程时间：' + schedule.time,
+      '日程事件：' + schedule.title,
+      '请结合角色自己的生活节奏、离线期间发生的事情、长期记忆、最近聊天与当前日程，发出一条自然的主动消息。',
+      '主动联系必须有具体动机：刚发生的事、日程、想到某件旧事、分享生活、回复之前未完的话题等；不要只是因为计时器到了就机械问候。',
+      '如果长时间没联系，不要说“你为什么不回”“怎么不理我”；角色可以自然地继续自己的生活，再分享现在发生的事。',
+      '控制在适合手机聊天的长度，不要解释你为什么主动联系。',
     ].join('\n'),
     temperature: proactiveSettings.temperature ?? 0.85,
   });
 }
-
-function chooseBehavior(
-  character: ImportedCharacter,
-  now: Date,
-  schedule: ScheduleItem[],
-  state: ProactiveState,
-): BehaviorCandidate | null {
-  const id = character.id || character.name;
-  const lastBehavior = state.lastBehaviorAt?.[id] || 0;
-  const cooldownMs = getLineRealitySettings().proactiveCooldownMinutes * 60_000;
-  if (now.getTime() - lastBehavior < cooldownMs) return null;
-
-  const messages = readLocal<any[]>(`line:conversation:${id}`, []);
-  const last = messages[messages.length - 1];
-  if (last?.sender === 'me') {
-    // 旧消息可能没有 createdAt；此时由 30 分钟行为冷却控制，避免因为历史数据时间未知而永远不触发。
-    const age = typeof last.createdAt === 'string' ? now.getTime() - new Date(last.createdAt).getTime() : 2 * 60_000;
-    if (age >= 2 * 60_000) {
-      return {
-        key: 'chat:' + String(last.id),
-        reason: 'recent-chat',
-        context: '用户上一条消息已经过去一段时间，角色可以自然接住这段对话，但不要替用户补完答案。',
-      };
-    }
-  }
-
-  const completed = getOfflineEvents()
-    .filter(event => event.characterId === character.id && event.status === 'completed')
-    .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())[0];
-  if (completed) {
-    const completedAt = new Date(completed.updatedAt || completed.createdAt).getTime();
-    if (now.getTime() - completedAt < getLineRealitySettings().proactiveCooldownMinutes * 60_000) {
-      return {
-        key: 'offline:' + completed.id,
-        reason: 'offline-completed',
-        context: '刚刚结束线下剧情「' + completed.title + '」，地点：' + completed.location + '。角色可以带着见面后的情绪继续联系用户。',
-      };
-    }
-  }
-
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const due = schedule
-    .map(item => ({ item, minute: parseClock(item.time) }))
-    .filter((entry): entry is { item: ScheduleItem; minute: number } => entry.minute !== null && entry.minute <= currentMinutes)
-    .sort((a, b) => b.minute - a.minute);
-  if (due.length) {
-    const item = due[0].item;
-    return {
-      key: 'schedule:' + item.id + ':' + dayKey(now),
-      reason: 'schedule',
-      context: '角色今天的日程节点「' + item.title + '」到了，时间：' + item.time + '。不要像系统提醒一样说话，要像角色自然想起这件事。',
-    };
-  }
-  return null;
-}
-
-function appendBehaviorMessage(character: ImportedCharacter, text: string, groupId?: string) {
-  const conversationId = groupId || character.id || character.name;
-  const message = appendLineRuntimeMessage(conversationId, {
-    id: Date.now(),
-    sender: 'other',
-    senderName: character.name,
-    type: groupId ? 'group-proactive' : 'proactive',
-    text,
-    time: lineNowTime(),
-    isRead: false,
-    status: 'sent',
-    source: 'character-behavior-runtime',
-    groupId: groupId || undefined,
-  });
-  if (!message) return null;
-  emitWorldEvent('character.message', {
-    characterId: character.id,
-    characterName: character.name,
-    data: { preview: text.replace(/\s+/g, ' ').slice(0, 120), source: 'character-behavior', groupId },
-  });
-  setCharacterRuntime(character.id, {
-    activity: groupId ? '刚在群里说了句话' : '刚刚主动联系了你',
-    mood: '想起了你',
-    lastInteractionAt: new Date().toISOString(),
-  }, character.name);
-  window.dispatchEvent(new CustomEvent('sane333:proactive-message', {
-    detail: { characterName: character.name, conversationId, message },
-  }));
-  return message;
-}
-
 
 let running = false;
 
@@ -267,42 +231,44 @@ export async function runProactiveCatchup() {
   syncWorldCharacters(characters);
 
   const now = new Date();
-  const today = dayKey(now);
-  const state = readLocal<ProactiveState>('phone:proactive-state', { delivered: {}, lastBehaviorAt: {} });
-  state.lastBehaviorAt = state.lastBehaviorAt || {};
+  const reality = getLineRealitySettings();
+  const timeContext = getCurrentLineTimeContext();
+  const zonedParts = new Intl.DateTimeFormat('en-US', { timeZone: reality.timezone, hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(now);
+  const currentMinutes = Number(zonedParts.find(part => part.type === 'hour')?.value || 0) * 60 + Number(zonedParts.find(part => part.type === 'minute')?.value || 0);
+  const zonedDate = new Intl.DateTimeFormat('en-CA', { timeZone: reality.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  const today = zonedDate;
+  const cooldownMs = reality.proactiveCooldownMinutes * 60 * 1000;
+  const state = readLocal<ProactiveState>('phone:proactive-state', { delivered: {}, lastSentAt: {} });
+  state.lastSentAt ||= {};
   let dirty = false;
 
   running = true;
   try {
     for (const character of characters) {
-      const scheduleKeys = Array.from(new Set([
-        `line:schedule:${character.id}`,
-        `line:schedule:${character.name}`,
-      ].filter(Boolean)));
+      const rawSchedule = window.localStorage.getItem(`line:schedule:${character.name}`);
+      if (!rawSchedule) continue;
+
       let schedule: ScheduleItem[] = [];
-      for (const scheduleKey of scheduleKeys) {
-        const rawSchedule = window.localStorage.getItem(scheduleKey);
-        if (!rawSchedule) continue;
-        try {
-          const parsed = JSON.parse(rawSchedule);
-          if (Array.isArray(parsed)) schedule = [...schedule, ...parsed];
-        } catch {}
-      }
+      try { schedule = JSON.parse(rawSchedule); } catch { continue; }
+      const due = schedule
+        .map(item => ({ item, minute: parseClock(item.time) }))
+        .filter((entry): entry is { item: ScheduleItem; minute: number } => entry.minute !== null && entry.minute <= currentMinutes)
+        .sort((a, b) => b.minute - a.minute);
 
-      const candidate = chooseBehavior(character, now, schedule, state);
-      if (!candidate) continue;
+      if (!due.length) continue;
 
-      const deliveryKey = today + ':' + character.id + ':' + candidate.key;
+      const candidate = due[0];
+      const deliveryKey = today + ':' + character.id + ':' + candidate.item.id;
       if (state.delivered[character.id] === deliveryKey) continue;
+      const lastSent = state.lastSentAt?.[character.id] ? Date.parse(state.lastSentAt[character.id]!) : 0;
+      if (lastSent && now.getTime() - lastSent < cooldownMs) continue;
 
-      const message = await generateProactiveMessage(character, candidate);
+      const message = await generateProactiveMessage(character, candidate.item);
       if (!message.trim()) continue;
 
-      const sent = appendBehaviorMessage(character, message.trim());
-      if (!sent) continue;
-
+      appendProactiveMessage(character, message.trim());
       state.delivered[character.id] = deliveryKey;
-      state.lastBehaviorAt[character.id] = now.getTime();
+      state.lastSentAt![character.id] = now.toISOString();
       dirty = true;
 
       if (settings.notificationEnabled && 'Notification' in window && Notification.permission === 'granted') {
@@ -312,39 +278,8 @@ export async function runProactiveCatchup() {
         });
       }
     }
-
-    // 群聊主动插话：只在群里最近有人说话且角色属于该群时触发，避免无意义刷屏。
-    for (const group of getLineGroups()) {
-      const memberCharacters = group.members
-        .map(member => characters.find(character => character.id === member.characterId || character.name === member.name))
-        .filter(Boolean) as ImportedCharacter[];
-      if (!memberCharacters.length) continue;
-
-      const groupMessages = readLocal<any[]>(`line:conversation:${group.id}`, []);
-      const last = groupMessages[groupMessages.length - 1];
-      if (!last || last.sender === 'other') continue;
-      const lastTime = typeof last.createdAt === 'string' ? new Date(last.createdAt).getTime() : now.getTime() - 2 * 60_000;
-      if (now.getTime() - lastTime < 2 * 60_000 || now.getTime() - lastTime > 20 * 60_000) continue;
-
-      const actor = memberCharacters[0];
-      const key = 'group:' + group.id + ':' + String(last.id);
-      if (state.delivered[group.id] === today + ':' + key) continue;
-
-      const candidate: BehaviorCandidate = {
-        key,
-        reason: 'group',
-        groupId: group.id,
-        context: '群成员刚刚发言，角色可以自然接话。群名：' + group.name + '。最近一句：' + (last.text || ''),
-      };
-      const message = await generateProactiveMessage(actor, candidate);
-      if (!message.trim()) continue;
-      const sent = appendBehaviorMessage(actor, message.trim(), group.id);
-      if (!sent) continue;
-      state.delivered[group.id] = today + ':' + key;
-      dirty = true;
-    }
   } catch {
-    // Character behavior must never break the phone runtime.
+    // Proactive messages must never break the phone runtime.
   } finally {
     running = false;
     if (dirty) saveLocal('phone:proactive-state', state);

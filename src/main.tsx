@@ -3,10 +3,12 @@ import App from './App.tsx';
 import './index.css';
 import { startBackgroundRuntime } from './store/backgroundRuntime';
 import { cleanupOldDemoData } from './store/blankPhoneMigration';
+import { bindLineRuntimeEvents } from './store/lineRuntime';
 
 if (typeof window !== 'undefined') {
   cleanupOldDemoData();
   startBackgroundRuntime();
+  bindLineRuntimeEvents();
 
   // The project does not currently ship a service worker. Remove any
   // service worker left behind by an older deployment so stale cached

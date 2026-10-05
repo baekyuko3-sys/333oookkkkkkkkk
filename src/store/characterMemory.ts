@@ -86,11 +86,19 @@ export function addCharacterMemoryItem(
 
   const now = new Date().toISOString();
   const current = getCharacterMemory(characterId, characterName);
-  const duplicate = current.items.find(item => item.content === trimmed);
+  const importance = Math.max(0, Math.min(100, Number(options?.importance ?? 50) || 50));
+  const normalized = normalizeMemoryText(trimmed);
+
+  const duplicate = current.items.find(item => {
+    const existing = normalizeMemoryText(item.content);
+    return existing === normalized || existing.includes(normalized) || normalized.includes(existing);
+  });
+
   if (duplicate) {
+    const mergedContent = trimmed.length > duplicate.content.length ? trimmed : duplicate.content;
     const updatedItems = current.items.map(item =>
       item.id === duplicate.id
-        ? { ...item, updatedAt: now, importance: Math.max(item.importance, options?.importance ?? item.importance) }
+        ? { ...item, content: mergedContent, updatedAt: now, importance: Math.max(item.importance, importance), source: options?.source || item.source, kind: options?.kind || item.kind }
         : item
     );
     return saveCharacterMemory({ ...current, items: updatedItems });
@@ -102,14 +110,52 @@ export function addCharacterMemoryItem(
     source: options?.source || 'manual',
     createdAt: now,
     updatedAt: now,
-    importance: options?.importance ?? 50,
+    importance,
     kind: options?.kind || 'fact',
   };
 
+  return saveCharacterMemory({ ...current, items: [item, ...current.items].slice(0, 120) });
+}
+
+function normalizeMemoryText(value: string): string {
+  return value.toLowerCase().replace(/[“”‘’]/g, '').replace(/[，。！？、；：,.!?;:]/g, '').replace(/\s+/g, '').trim();
+}
+
+export function updateCharacterMemoryItem(
+  characterId: string,
+  characterName: string,
+  itemId: string,
+  patch: Partial<Pick<CharacterMemoryItem, 'content' | 'importance' | 'kind'>>,
+): CharacterMemory {
+  const current = getCharacterMemory(characterId, characterName);
+  const now = new Date().toISOString();
   return saveCharacterMemory({
     ...current,
-    items: [item, ...current.items].slice(0, 120),
+    items: current.items.map(item => item.id === itemId ? {
+      ...item,
+      ...patch,
+      content: patch.content?.trim() || item.content,
+      importance: patch.importance === undefined ? item.importance : Math.max(0, Math.min(100, Number(patch.importance) || 0)),
+      updatedAt: now,
+    } : item),
   });
+}
+
+export function mergeCharacterMemoryItems(
+  characterId: string,
+  characterName: string,
+  itemIds: string[],
+): CharacterMemory {
+  const current = getCharacterMemory(characterId, characterName);
+  const selected = current.items.filter(item => itemIds.includes(item.id));
+  if (selected.length < 2) return current;
+
+  const merged = selected.map(item => item.content).filter(Boolean).join('；');
+  const keep = selected.slice().sort((a, b) => b.importance - a.importance)[0];
+  const ids = new Set(selected.map(item => item.id));
+  const nextItems = current.items.filter(item => !ids.has(item.id));
+  nextItems.unshift({ ...keep, content: merged, importance: Math.max(...selected.map(item => item.importance)), updatedAt: new Date().toISOString() });
+  return saveCharacterMemory({ ...current, items: nextItems.slice(0, 120) });
 }
 
 export function deleteCharacterMemoryItem(characterId: string, itemId: string): CharacterMemory | null {

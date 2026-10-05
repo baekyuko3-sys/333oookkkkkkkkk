@@ -1,5 +1,6 @@
 import YAML from 'yaml';
-import type { CharacterLanguageProfile } from '../types';
+import type { WorldBook } from '../types';
+import { importWorldBooks } from '../store/worldbookFormats';
 export interface ImportedCharacter {
   id: string;
   name: string;
@@ -17,8 +18,10 @@ export interface ImportedCharacter {
   tags: string[];
   creator: string;
   characterVersion: string;
+  extensions?: Record<string, unknown>;
+  languageProfile?: import('../types').CharacterLanguageProfile;
+  embeddedWorldBook?: WorldBook;
   groupId?: string | null;
-  languageProfile?: CharacterLanguageProfile;
   sourceFormat: 'json' | 'yaml' | 'png' | 'manual';
   importedAt: string;
 }
@@ -67,8 +70,12 @@ function normalizeCharacter(raw: any, sourceFormat: ImportedCharacter['sourceFor
     creator: cleanString(data.creator),
     characterVersion:
       cleanString(data.character_version) || cleanString(data.characterVersion),
+    extensions: data.extensions && typeof data.extensions === 'object' ? data.extensions : undefined,
+    languageProfile: data.languageProfile && typeof data.languageProfile === 'object' ? data.languageProfile : undefined,
+    embeddedWorldBook: data.character_book && typeof data.character_book === 'object'
+      ? (() => { try { return importWorldBooks(JSON.stringify(data.character_book))[0]; } catch { return undefined; } })()
+      : undefined,
     groupId: cleanString(data.groupId) || cleanString(data.group_id) || null,
-    languageProfile: data.languageProfile && typeof data.languageProfile === 'object' ? data.languageProfile as CharacterLanguageProfile : undefined,
     sourceFormat,
     importedAt: now,
   };
@@ -207,8 +214,34 @@ export function exportCharacterJson(character: ImportedCharacter): string {
       creator: character.creator,
       character_version: character.characterVersion,
       groupId: character.groupId || null,
+      extensions: { ...(character.extensions || {}), ...(character.languageProfile ? { languageProfile: character.languageProfile } : {}) },
+      ...(character.embeddedWorldBook ? { character_book: character.embeddedWorldBook } : {}),
     },
     null,
     2,
   );
+}
+
+export function exportCharacterCardV2(character: ImportedCharacter): string {
+  return JSON.stringify({
+    spec: 'chara_card_v2',
+    spec_version: '2.0',
+    data: {
+      name: character.name,
+      description: character.description,
+      personality: character.personality,
+      scenario: character.scenario,
+      first_mes: character.firstMessage,
+      mes_example: character.exampleDialogue,
+      creator_notes: character.creatorNotes,
+      system_prompt: character.systemPrompt,
+      post_history_instructions: character.postHistoryInstructions,
+      alternate_greetings: character.alternateGreetings,
+      tags: character.tags,
+      creator: character.creator,
+      character_version: character.characterVersion,
+      extensions: { ...(character.extensions || {}), ...(character.languageProfile ? { languageProfile: character.languageProfile } : {}) },
+      ...(character.embeddedWorldBook ? { character_book: character.embeddedWorldBook } : {}),
+    },
+  }, null, 2);
 }

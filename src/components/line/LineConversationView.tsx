@@ -14,13 +14,14 @@ import { getInitialChatMessages } from '../../data/characterChatSeeds';
 import { upsertOfflineEvent, updateOfflineEvent } from '../../store/offlineEvents';
 import { getLineGroupByName } from '../../store/lineGroups';
 import { getGroupPreset, getGroupPresets } from '../../store/groupPresets';
-import { getLineGroups } from '../../store/lineGroups';
+import { getLineGroups, updateLineGroupMember, addLineGroupMemory, setLineGroupRelationships } from '../../store/lineGroups';
 import { createTogetherMusicSession, type TogetherMusicSession } from '../../store/togetherMusic';
 import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
 import { getStatusBarPresets, type StatusBarPreset } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset } from '../../store/cotPresets';
 import { PresetResourceManager } from './PresetResourceManager';
-import { lineNowTime, markLineMessagesRead, appendOfflineEventToLine } from '../../store/lineMessageRuntime';
+import { editLineMessage, toggleLineReaction, setLineMessageFavorite, recordLineCall, markLineMessageFailed, clearLineConversation, recallLineMessage, updateLineMessage } from '../../store/lineRuntime';
+import { getLineConversationMessages, markLineConversationRead, saveLineConversationMessages, searchLineMessages, type LineRuntimeMessage } from '../../store/lineRuntime';
 import {
   Video, Settings, Plus, Mic, Send, Smile,
   Image as ImageIcon, Film, FileText, Calendar, Sliders, RefreshCw, X,
@@ -86,12 +87,88 @@ export function LineConversationView({
 }: LineConversationViewProps) {
   // Input & Messages
   const [inputText, setInputText] = useState(initialDraft);
+  const [lineLocale] = usePersistentState<'zh-CN' | 'ja-JP'>('line:locale', 'zh-CN');
+  const ja = lineLocale === 'ja-JP';
+  const tx = (zh: string, jp: string) => ja ? jp : zh;
   const conversationStorageId = conversationId || characterId || contactName;
   const hasImportedCharacter = hasImportedCharacterInStorage(contactName, characterId);
   const [messages, setMessages] = usePersistentState<any[]>(
     `line:conversation:${conversationStorageId}`,
     hasImportedCharacter ? [] : getInitialChatMessages(contactName),
   );
+
+  // LINE keeps the complete conversation in storage, but only renders the newest
+  // page at first. Older messages load naturally as you scroll upward.
+  const LINE_PAGE_SIZE = 60;
+  const [loadedMessageCount, setLoadedMessageCount] = useState(LINE_PAGE_SIZE);
+  const messagesViewportRef = useRef<HTMLDivElement>(null);
+  const visibleMessages = messages.slice(-loadedMessageCount);
+
+  useEffect(() => {
+    setLoadedMessageCount(Math.min(LINE_PAGE_SIZE, Math.max(0, messages.length)));
+  }, [conversationStorageId]);
+
+  const loadOlderMessages = () => {
+    if (loadedMessageCount >= messages.length) return;
+    const viewport = messagesViewportRef.current;
+    const previousHeight = viewport?.scrollHeight ?? 0;
+    setLoadedMessageCount((count) => Math.min(messages.length, count + LINE_PAGE_SIZE));
+    requestAnimationFrame(() => {
+      if (!viewport) return;
+      viewport.scrollTop += viewport.scrollHeight - previousHeight;
+    });
+  };
+
+  const jumpToLineMessage = (messageId: number | string) => {
+    const index = messages.findIndex((message) => String(message.id) === String(messageId));
+    if (index < 0) return;
+    setLoadedMessageCount((count) => Math.max(count, messages.length - index + 8));
+    window.setTimeout(() => {
+      const node = document.querySelector('[data-line-message-id="' + String(messageId).replaceAll('"', '&quot;') + '"]');
+      node?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
+  };
+
+  // LINE runtime persistence: keep the existing visual/message UI untouched while
+  // giving the conversation a durable runtime layer for search, read state and events.
+  useEffect(() => {
+    const stored = getLineConversationMessages(conversationStorageId);
+    if (stored.length && messages.length === 0) {
+      setMessages(stored);
+    }
+    markLineConversationRead(conversationStorageId, messages.at(-1)?.id);
+  }, [conversationStorageId]);
+
+  useEffect(() => {
+    if (!messages.length) return;
+    const runtimeMessages: LineRuntimeMessage[] = messages.map((message) => ({
+      id: message.id,
+      sender: message.sender,
+      text: message.text || message.content,
+      kind: message.type,
+      createdAt: message.createdAt || message.timestamp,
+      status: message.status || (message.sender === 'me' ? 'sent' : 'delivered'),
+      replyToId: message.replyToId,
+      reactions: Array.isArray(message.reactions)
+        ? Object.fromEntries(message.reactions.map((emoji: string) => [emoji, 1]))
+        : message.reactions,
+      editedAt: message.editedAt,
+      recalledAt: message.recalledAt,
+      deletedAt: message.deletedAt,
+      metadata: {
+        ...(message.metadata || {}),
+        mediaType: message.mediaType,
+        mediaRef: message.mediaRef,
+        transcript: message.transcript,
+        fileName: message.fileName,
+      },
+    }));
+    // Mirror the whole visible conversation so older messages remain searchable,
+    // recoverable after reload, and available to the AI context layer.
+    saveLineConversationMessages(conversationStorageId, runtimeMessages);
+    markLineConversationRead(conversationStorageId, messages.at(-1)?.id);
+  }, [messages, conversationStorageId]);
+
 
   // Sheets & Overlays
   const [showPlusSheet, setShowPlusSheet] = useState(false);
@@ -159,8 +236,11 @@ export function LineConversationView({
 
   // 聊天记录内搜索
   const [showInChatSearch, setShowInChatSearch] = useState(false);
+  const [lineRuntimeSearchResults, setLineRuntimeSearchResults] = useState<LineRuntimeMessage[]>([]);
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
-  const [inChatSearchIndex, setInChatSearchIndex] = useState(0);
+  useEffect(() => {
+    setLineRuntimeSearchResults(inChatSearchQuery.trim() ? searchLineMessages(conversationStorageId, inChatSearchQuery) : []);
+  }, [inChatSearchQuery, conversationStorageId, messages]);
 
   // 转发弹窗
   const [forwardMsg, setForwardMsg] = useState<any | null>(null);
@@ -260,73 +340,6 @@ export function LineConversationView({
     ...lineFriends.map(friend => friend.name).filter(Boolean),
     ...getLineGroups().filter(group => group.id !== activeGroup?.id).map(group => group.name).filter(Boolean),
   ]));
-
-  const resolveForwardConversationId = (recipientName: string): string | null => {
-    const group = getLineGroups().find(group => group.name === recipientName);
-    if (group?.id) return group.id;
-    const friend = lineFriends.find(item => item.name === recipientName);
-    return friend?.characterId || friend?.name || recipientName || null;
-  };
-
-  const appendForwardToConversation = (recipientName: string, payload: any) => {
-    const targetConversationId = resolveForwardConversationId(recipientName);
-    if (!targetConversationId) {
-      showToast('找不到目标会话，转发失败');
-      return false;
-    }
-    const storageKey = `line:conversation:${targetConversationId}`;
-    const forwardedMessage = {
-      ...payload,
-      id: Date.now() + Math.floor(Math.random() * 1000),
-      sender: 'me',
-      senderName: currentUserNameFallback() || activePersona?.name || '我',
-      time: '刚刚',
-      status: 'sent',
-      isRead: false,
-    };
-    try {
-      const raw = window.localStorage.getItem(storageKey);
-      const targetMessages = raw ? JSON.parse(raw) : [];
-      const nextMessages = Array.isArray(targetMessages) ? targetMessages : [];
-      if (targetConversationId === conversationStorageId) {
-        setMessages(prev => [...prev, forwardedMessage]);
-      } else {
-        window.localStorage.setItem(storageKey, JSON.stringify([...nextMessages, forwardedMessage]));
-      }
-
-      try {
-        const chatItemsRaw = window.localStorage.getItem('line:chat-items');
-        const chatItems = chatItemsRaw ? JSON.parse(chatItemsRaw) : [];
-        if (Array.isArray(chatItems)) {
-          const preview = forwardedMessage.text || '[转发消息]';
-          window.localStorage.setItem(
-            'line:chat-items',
-            JSON.stringify(chatItems.map((item: any) =>
-              item.id === targetConversationId || item.name === recipientName
-                ? { ...item, preview: String(preview).replace(/\s+/g, ' ').slice(0, 80), time: '刚刚', unread: (item.unread || 0) + 1 }
-                : item
-            ))
-          );
-        }
-      } catch {
-        // 聊天列表同步失败不影响消息本身已经保存。
-      }
-
-      return true;
-    } catch {
-      showToast('目标会话保存失败，转发未完成');
-      return false;
-    }
-  };
-
-  const getForwardableText = (msg: any): string => {
-    if (!msg) return '';
-    if (msg.text) return String(msg.text);
-    if (msg.descTitle || msg.desc) return `[${msg.descTitle || msg.title || '多媒体'}] ${msg.desc || ''}`.trim();
-    if (msg.fileName) return `[文件] ${msg.fileName}`;
-    if (msg.transcript) return `[语音] ${msg.transcript}`;
-    return '[多媒体消息]';
-  };
   const characterMemory = getCharacterMemory(importedCharacter?.id || contactName, contactName);
   const projectManifest = getProjectManifest();
 
@@ -416,62 +429,13 @@ export function LineConversationView({
 
   // Toast
   const [toastMsg, setToastMsg] = useState('');
-
-  // LINE 消息 Runtime：所有消息修改都从这里经过，确保单聊 / 群聊 / 主动消息共用同一持久化通道。
-  const updateMessageRuntime = (messageId: number, updater: (message: any) => any) => {
-    setMessages(prev => prev.map(message => message.id === messageId ? updater(message) : message));
-  };
-
-  const appendMessageRuntime = (message: any) => {
-    setMessages(prev => [...prev, {
-      id: message.id ?? Date.now(),
-      time: message.time ?? '刚刚',
-      ...message,
-    }]);
-  };
-
-  const deleteMessageRuntime = (messageId: number) => {
-    setMessages(prev => prev.filter(message => message.id !== messageId));
-  };
-
-  const favoriteMessageRuntime = (message: any) => {
-    const newFavorite = {
-      id: `${conversationStorageId}:${message.id}`,
-      messageId: message.id,
-      conversationId: conversationStorageId,
-      contactName,
-      sender: message.sender,
-      senderName: message.senderName,
-      text: message.text || message.desc || message.transcript || '多媒体内容',
-      time: message.time,
-      savedAt: new Date().toISOString(),
-    };
-    setFavorites(prev => prev.some(item => item.messageId === message.id) ? prev : [newFavorite, ...prev]);
-  };
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messageRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
   const recordingStreamRef = useRef<MediaStream | null>(null);
   const recordingDiscardRef = useRef(false);
   const avatarClickTimerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (!showInChatSearch || !inChatSearchQuery.trim()) return;
-    const query = inChatSearchQuery.trim().toLowerCase();
-    const matches = messages.filter((message) =>
-      getForwardableText(message).toLowerCase().includes(query)
-    );
-    if (matches.length === 0) return;
-    const normalizedIndex = inChatSearchIndex % matches.length;
-    if (normalizedIndex !== inChatSearchIndex) setInChatSearchIndex(normalizedIndex);
-    const targetId = matches[normalizedIndex]?.id;
-    if (targetId === undefined) return;
-    window.requestAnimationFrame(() => {
-      messageRefs.current[targetId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-  }, [showInChatSearch, inChatSearchQuery, inChatSearchIndex, messages]);
 
   const handleMessageAvatarClick = () => {
     if (avatarClickTimerRef.current) window.clearTimeout(avatarClickTimerRef.current);
@@ -625,25 +589,20 @@ export function LineConversationView({
 
   useEffect(() => {
     const onProactive = (event: Event) => {
-      const customEvent = event as CustomEvent<{ characterName?: string; conversationId?: string; message?: any }>;
-      if (customEvent.detail?.conversationId !== conversationStorageId && customEvent.detail?.characterName !== contactName) return;
-      const incoming = customEvent.detail?.message;
-      if (!incoming) return;
+      const customEvent = event as CustomEvent<{ characterName?: string }>;
+      if (customEvent.detail?.characterName !== contactName) return;
 
-      setMessages(prev => prev.some(message => message.id === incoming.id)
-        ? prev
-        : [...prev, { ...incoming, status: 'sent', isRead: false }]);
+      try {
+        const raw = window.localStorage.getItem(`line:conversation:${conversationStorageId}`);
+        if (raw) setMessages(JSON.parse(raw));
+      } catch {
+        // Keep the current conversation state.
+      }
     };
 
     window.addEventListener('sane333:proactive-message', onProactive);
     return () => window.removeEventListener('sane333:proactive-message', onProactive);
   }, [contactName]);
-
-  // 会话打开期间，所有进入消息统一视为已读；状态机仍保留 recalled/failed 等终态。
-  useEffect(() => {
-    if (!messages.some(message => message.sender !== 'me' && !message.isRead)) return;
-    setMessages(prev => markLineMessagesRead(prev));
-  }, [messages, setMessages]);
 
   // Keep the parent chat list synchronized with the newest message.
   useEffect(() => {
@@ -701,9 +660,8 @@ export function LineConversationView({
       sender: 'me',
       senderName: currentUserNameFallback() || activePersona?.name || '我',
       text: userText,
-      time: lineNowTime(),
-      status: 'sending',
-      isRead: true,
+      time: '刚刚',
+      isRead: false,
     };
 
     if (replyingToMsg) {
@@ -718,18 +676,18 @@ export function LineConversationView({
     setInputText('');
     setIsTyping(true);
 
+    // 保留 LINE 的已读节奏，但回复本身改为真正的模型请求。
     window.setTimeout(() => {
-      setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, status: 'sent' } : m)));
-    }, 180);
-
-    window.setTimeout(() => {
-      setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, status: 'read', isRead: true } : m)));
+      setMessages((prev) =>
+        prev.map((m) => (m.id === msgId ? { ...m, isRead: true } : m))
+      );
     }, 1200);
 
     if (isGroup) {
       try {
       if (groupAiMembers.length === 0) {
         showToast('这个群还没有导入可接入 AI 的角色卡');
+        setMessages(prev => prev.filter(message => message.id !== msgId));
         return;
       }
       const mentioned = groupAiMembers.filter(({ member }) => userText.includes('@' + member.name) || userText.includes('@' + (member.nickname || '')));
@@ -742,7 +700,7 @@ export function LineConversationView({
         const memberProfile = getCharacterProfile(character.name, character.id);
         const memberMemory = getCharacterMemory(character.id, character.name);
         const replyMsgId = Date.now() + index + 1;
-        setMessages(prev => [...prev, { id: replyMsgId, sender: 'other', senderName: character.name, text: '', time: lineNowTime(), type: 'ai-reply', status: 'receiving', isRead: true, showThinking: false }]);
+        setMessages(prev => [...prev, { id: replyMsgId, sender: 'other', senderName: character.name, text: '', time: '刚刚', type: 'ai-reply', showThinking: false }]);
         let streamedText = '';
         const result = await generateCharacterReply({
           settings: conversationAiSettings(),
@@ -755,7 +713,15 @@ export function LineConversationView({
           messages: workingMessages,
           userMessage: userText,
           isGroup: true,
-          authorNote: [authorsNote, '群聊预设：' + activeGroupPreset.name, activeGroupPreset.systemPrompt, groupNoticeText ? '群公告：' + groupNoticeText : ''].filter(Boolean).join('\n'),
+          authorNote: [
+            authorsNote,
+            '群聊预设：' + activeGroupPreset.name,
+            activeGroupPreset.systemPrompt,
+            groupNoticeText ? '群公告：' + groupNoticeText : '',
+            activeGroup?.relationships?.length ? '【成员关系】\\n' + activeGroup.relationships.map(item => item.from + ' → ' + item.to + '：' + item.relation).join('\\n') : '',
+            activeGroup?.events?.length ? '【群事件记忆】\\n' + activeGroup.events.slice(-12).map(item => item.text).join('\\n') : '',
+            '【成员状态】\\n' + (activeGroup?.members || []).map(member => member.name + '：' + [member.online === false ? '离线' : '在线', member.mood || '', member.relationship || ''].filter(Boolean).join(' / ')).join('\\n'),
+          ].filter(Boolean).join('\\n'),
           stylePreset: activeCotPreset?.title || selectedPreset,
           temperature: Number(presetTemp) || 0.85,
           onDelta: delta => {
@@ -763,13 +729,20 @@ export function LineConversationView({
             setMessages(prev => prev.map(m => m.id === replyMsgId ? { ...m, text: streamedText, senderName: character.name } : m));
           },
         });
-        setMessages(prev => prev.map(m => m.id === replyMsgId ? { ...m, text: result.text, senderName: character.name, time: lineNowTime(), status: 'sent', isRead: true, aiModel: result.model, matchedWorldbookEntries: result.matchedWorldbookEntries } : m));
+        setMessages(prev => prev.map(m => m.id === replyMsgId ? { ...m, text: result.text, senderName: character.name, aiModel: result.model, matchedWorldbookEntries: result.matchedWorldbookEntries } : m));
         workingMessages = [...workingMessages, { id: replyMsgId, sender: 'other', senderName: character.name, text: result.text }];
+        const member = responders[index].member;
+        updateLineGroupMember(activeGroup?.id || '', member.id, {
+          online: true,
+          lastSeenAt: new Date().toISOString(),
+          mood: '刚刚参与群聊',
+          memory: [...(member.memory || []), result.text.slice(0, 160)].slice(-20),
+        });
+        addLineGroupMemory(activeGroup?.id || '', character.name + ' 在群聊中说：' + result.text.slice(0, 180));
         window.dispatchEvent(new CustomEvent('sane333:play-sound', { detail: { kind: 'message' } }));
       }
         return;
       } catch (error) {
-        setMessages(prev => prev.map(m => m.sender === 'other' && m.status === 'receiving' ? { ...m, text: m.text || '消息生成失败', status: 'failed', isRead: true, time: lineNowTime() } : m));
         const message = error instanceof Error ? error.message : '群聊 AI 请求失败';
         // Keep the error path as normal source lines; never embed literal escape text here.
         showToast(message.length > 72 ? message.slice(0, 72) + '…' : message);
@@ -785,10 +758,9 @@ export function LineConversationView({
         id: replyMsgId,
         sender: 'other',
         text: '',
-        time: lineNowTime(),
+        time: '刚刚',
         type: 'ai-reply',
-        status: 'receiving',
-        isRead: true,
+        status: 'sending',
         showThinking: false,
       },
     ]);
@@ -816,7 +788,7 @@ export function LineConversationView({
           setMessages((prev) =>
             prev.map((m) =>
               m.id === replyMsgId
-                ? { ...m, text: streamedText, time: lineNowTime() }
+                ? { ...m, text: streamedText, time: '刚刚' }
                 : m
             )
           );
@@ -830,10 +802,9 @@ export function LineConversationView({
             ? {
                 ...m,
                 text: result.text,
-                time: lineNowTime(),
+                time: '刚刚',
                 type: 'ai-reply',
-                status: 'sent',
-                isRead: true,
+                status: 'delivered',
                 aiModel: result.model,
                 matchedWorldbookEntries: result.matchedWorldbookEntries,
               }
@@ -909,19 +880,19 @@ export function LineConversationView({
         setStatusData((prev) => ({ ...prev, favor: String(Number(prev.favor) + 1) }));
       }
     } catch (error) {
-      setMessages((prev) => {
-        const partial = prev.find(m => m.id === replyMsgId)?.text;
-        return partial
-          ? prev.map(m => m.id === replyMsgId ? { ...m, text: partial, status: 'sent' } : m)
-          : prev.map(m => m.id === replyMsgId ? { ...m, text: '消息生成失败', status: 'failed' } : m);
-      });
+      const message = error instanceof Error ? error.message : 'AI 请求失败';
+      setMessages((prev) => prev.map(m =>
+        m.id === replyMsgId
+          ? { ...m, status: 'failed', error: message, text: m.text || '发送失败，可重试' }
+          : m
+      ));
+      markLineMessageFailed(conversationStorageId, replyMsgId, message);
 
       if (error instanceof Error && error.message === 'AI_NOT_CONFIGURED') {
         showToast('还没有配置 AI：打开「设置」填写 API Key');
       } else if (error instanceof Error && error.message === 'AI_BASE_URL_MISSING') {
         showToast('OpenAI Compatible 需要填写 API Base URL');
       } else {
-        const message = error instanceof Error ? error.message : 'AI 请求失败';
         showToast(message.length > 72 ? message.slice(0, 72) + '…' : message);
       }
     } finally {
@@ -1024,7 +995,8 @@ export function LineConversationView({
   // 批量操作处理 (Batch Actions)
   const handleBatchDelete = () => {
     if (selectedMsgIds.length === 0) return;
-    setMessages((prev) => prev.filter((message) => !selectedMsgIds.includes(message.id)));
+    selectedMsgIds.forEach(id => import('../../store/lineRuntime').then(({ deleteLineMessage }) => deleteLineMessage(conversationStorageId, id)));
+    setMessages((prev) => prev.map((m) => selectedMsgIds.includes(m.id) ? { ...m, text: '', status: 'deleted', deletedAt: new Date().toISOString() } : m));
     showToast(`已删除 ${selectedMsgIds.length} 条消息`);
     setIsMultiSelectMode(false);
     setSelectedMsgIds([]);
@@ -1033,25 +1005,25 @@ export function LineConversationView({
   const handleBatchFavorite = () => {
     if (selectedMsgIds.length === 0) return;
     const toFav = messages.filter((m) => selectedMsgIds.includes(m.id));
-    toFav.forEach(message => favoriteMessageRuntime(message));
+    const newFavs = toFav.map((m) => ({
+      id: Date.now() + Math.random(),
+      contactName,
+      sender: m.sender,
+      text: m.text || m.desc || '多媒体内容',
+      time: m.time,
+      savedAt: '刚刚'
+    }));
+    setFavorites((prev) => [...newFavs, ...prev]);
     showToast(`已收藏 ${selectedMsgIds.length} 条内容至收藏箱 ☆`);
     setIsMultiSelectMode(false);
     setSelectedMsgIds([]);
   };
 
   const handleBatchForward = () => {
-    const selectedMessages = messages.filter(message => selectedMsgIds.includes(message.id));
-    if (selectedMessages.length === 0) return;
+    if (selectedMsgIds.length === 0) return;
     setForwardMsg({
-      id: Date.now(),
-      text: `[合并转发 ${selectedMessages.length} 条聊天记录]`,
-      forwardedMessages: selectedMessages.map(message => ({
-        id: message.id,
-        sender: message.sender,
-        senderName: message.senderName || (message.sender === 'me' ? '我' : characterProfile.nickname),
-        text: getForwardableText(message),
-        time: message.time || '刚刚',
-      })),
+      text: `[合并转发 ${selectedMsgIds.length} 条聊天记录]`,
+      id: Date.now()
     });
     setIsMultiSelectMode(false);
     setSelectedMsgIds([]);
@@ -1088,14 +1060,9 @@ export function LineConversationView({
 
   // 清空聊天记录 (Clear Chat)
   const handleClearChat = () => {
-    try {
-      window.localStorage.removeItem(`line:conversation:${conversationStorageId}`);
-    } catch {}
+    clearLineConversation(conversationStorageId);
     setMessages([]);
-    setSelectedMsgIds([]);
-    setIsMultiSelectMode(false);
-    setContextMenuMsg(null);
-    setReplyingToMsg(null);
+    setLoadedMessageCount(LINE_PAGE_SIZE);
     setShowClearConfirm(false);
     setShowSettings(false);
     showToast('已清空所有聊天记录');
@@ -1103,28 +1070,40 @@ export function LineConversationView({
 
   // 消息撤回 (我方撤回)
   const handleRecallMessage = (msgId: number) => {
-    updateMessageRuntime(msgId, message => ({
-      ...message,
-      isRecalled: true,
-      recalledOriginalText: message.text,
-      recalledAt: new Date().toISOString(),
-      status: 'recalled',
-    }));
+    // Persist recall in the same runtime record used by search/history/AI.
+    import('../../store/lineRuntime').then(({ recallLineMessage }) => recallLineMessage(conversationStorageId, msgId));
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === msgId
+          ? { ...m, isRecalled: true, recalledOriginalText: m.text }
+          : m
+      )
+    );
     setContextMenuMsg(null);
     showToast('已撤回一条消息');
   };
 
   // 角色撤回消息 (对方撤回 / 剧情害羞撤回)
   const handleOtherRecallMessage = (msgId: number, isRoleplayEvent = false) => {
-    updateMessageRuntime(msgId, message => ({
-      ...message,
-      isRecalledByOther: true,
-      recalledByOtherReason: isRoleplayEvent
-        ? '（刚才手滑发出了内心私语，仓促撤回了……）'
-        : '（对方撤回了一条消息）',
-      recalledAt: new Date().toISOString(),
+    updateLineMessage(conversationStorageId, msgId, {
+      text: '对方撤回了一条消息',
       status: 'recalled',
-    }));
+      recalledAt: new Date().toISOString(),
+      metadata: { recalledByOther: true, roleplayEvent: isRoleplayEvent },
+    });
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === msgId
+          ? {
+              ...m,
+              isRecalledByOther: true,
+              recalledByOtherReason: isRoleplayEvent
+                ? '（刚才手滑发出了内心私语，仓促撤回了……）'
+                : '（对方撤回了一条消息）',
+            }
+          : m
+      )
+    );
     setContextMenuMsg(null);
     showToast(`${contextMenuMsg?.senderName || characterProfile.nickname} 撤回了一条消息`);
 
@@ -1231,10 +1210,6 @@ export function LineConversationView({
     showToast('已确认赴约！好感度 +5 💖');
 
     const invite = messages.find(message => message.id === msgId);
-    if (invite) {
-      const eventMessage = appendOfflineEventToLine({ ...invite, characterId: importedCharacter?.id || contactName, characterName: characterProfile.nickname }, '已接受邀约，线下剧情可以开始了。', 'accepted');
-      if (eventMessage) setMessages(prev => [...prev, eventMessage]);
-    }
     const settings = conversationAiSettings();
     if (!settings.apiKey.trim()) return;
 
@@ -1282,9 +1257,7 @@ export function LineConversationView({
         id: Date.now() + 1,
         sender: 'other',
         text: reply,
-        time: lineNowTime(),
-        status: 'sent',
-        isRead: true,
+        time: '刚刚',
         showThinking: false,
       }]);
     } catch {
@@ -1298,82 +1271,199 @@ export function LineConversationView({
       prev.map((m) => (m.id === msgId ? { ...m, inviteStatus: 'declined' } : m))
     );
     updateOfflineEvent(`offline-${msgId}`, { status: 'declined' });
-    const invite = messages.find(message => message.id === msgId);
-    if (invite) {
-      const eventMessage = appendOfflineEventToLine({ ...invite, characterId: importedCharacter?.id || contactName, characterName: characterProfile.nickname }, '这次邀约先暂缓了，之后可以再约。', 'declined');
-      if (eventMessage) setMessages(prev => [...prev, eventMessage]);
-    }
     showToast('已暂缓本次邀约');
   };
 
-  // AI 动态推演角色与用户关系、称呼
-  const handleAiUpdateRelationship = () => {
-    showToast('AI 正在分析聊天记录、好感度与世界书……');
-    setTimeout(() => {
-      const currentFavorNum = Number(statusData.favor) || 90;
-      let newRel = '心意相通 · 晚间常伴的特别存在';
-      let newCall = '我的小摄影师';
-      if (currentFavorNum >= 95) {
-        newRel = '已确认心意 · 双向偏爱的恋人未满';
-        newCall = '我的宝藏女孩';
-      }
-      setCharacterProfile((prev) => ({
+  // AI 动态推演角色与用户关系、称呼：真正读取当前聊天、记忆与世界书。
+  const handleAiUpdateRelationship = async () => {
+    if (!importedCharacter) {
+      showToast('当前聊天没有绑定角色');
+      return;
+    }
+    showToast('AI 正在分析聊天记录、长期记忆与世界书……');
+    try {
+      const settings = conversationAiSettings();
+      const raw = await generateCreativeText({
+        settings,
+        systemPrompt: [
+          '你是一个私人虚拟手机中的关系档案分析器。',
+          '只分析当前角色与用户已经发生的互动，不要编造没有发生的事件。',
+          '根据最近聊天、角色设定、长期记忆、世界书和当前关系档案，判断关系状态与角色自然称呼。',
+          'relationship 要短而有画面感；callMe 要像这个角色真实会使用的称呼。',
+          '不要因为一次聊天就极端跳跃，保持关系连续性。',
+          '严格输出 JSON：{"relationship":"...","callMe":"..."}',
+        ].join('\\n'),
+        userPrompt: [
+          '【角色】' + importedCharacter.name,
+          '【角色设定】' + [importedCharacter.description, importedCharacter.personality, importedCharacter.scenario].filter(Boolean).join('\\n'),
+          '【当前关系】' + [characterProfile.relationship, characterProfile.callMe].filter(Boolean).join(' / '),
+          '【好感度】' + String(statusData.favor || '未知'),
+          '【长期记忆】' + (characterMemory.summary || '暂无'),
+          ...characterMemory.items.slice(0, 12).map(item => '- ' + item.content),
+          '【世界书】' + (worldbooks.flatMap(book => book.enabled ? book.entries.filter(entry => entry.enabled).map(entry => entry.name + ': ' + entry.content) : []).join('\\n') || '暂无'),
+          '【最近聊天】' + messages.slice(-20).map(message => (message.sender === 'me' ? '用户' : (message.senderName || importedCharacter.name)) + ': ' + (message.text || message.transcript || '')).join('\\n'),
+        ].join('\\n'),
+        temperature: Math.min(0.8, Number(presetTemp) || 0.7),
+      });
+      const parsed = JSON.parse(raw.trim().replace(/^\`\`\`json\\s*/i, '').replace(/\`\`\`$/i, ''));
+      const relationship = String(parsed.relationship || '').trim();
+      const callMe = String(parsed.callMe || '').trim();
+      if (!relationship && !callMe) throw new Error('AI 没有返回有效关系档案');
+      setCharacterProfile(prev => ({
         ...prev,
-        relationship: newRel,
-        callMe: newCall,
+        ...(relationship ? { relationship } : {}),
+        ...(callMe ? { callMe } : {}),
       }));
-      showToast(`已推演更新关系：${newRel}，专属称呼：${newCall} ✨`);
-    }, 1200);
+      showToast('关系档案已根据当前真实互动更新 ✦');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '关系档案更新失败');
+    }
   };
 
-  // AI 推演群聊人际关系网
-  const handleAiInferGroupRelations = () => {
+  // AI 推演群聊人际关系网：根据真实群聊内容生成，而不是套固定关系模板。
+  const handleAiInferGroupRelations = async () => {
     if (groupAiMembers.length < 2) {
       showToast('当前群聊至少需要两名角色，才能推演人物关系网络');
       return;
     }
-    showToast('正在结合当前群成员、聊天记录与世界书推演关系网络……');
-    window.setTimeout(() => {
-      const inferred = groupAiMembers.slice(0, 6).map((item, index) => ({
-        from: item.member.name,
-        to: index === 0 ? '我' : groupAiMembers[index - 1].member.name,
-        relation: '待继续推演',
-      }));
+    showToast('正在结合群成员、聊天记录与世界书推演关系网络……');
+    try {
+      const settings = conversationAiSettings();
+      const raw = await generateCreativeText({
+        settings,
+        systemPrompt: [
+          '你是私人虚拟手机的群聊关系分析器。',
+          '只根据已经发生的群聊、成员资料、群公告和事件记忆判断关系，不要凭空编造。',
+          '可以只输出真实存在且有证据的关系；不确定时写“关系尚未明确”。',
+          '严格输出 JSON 数组，每项格式：{"from":"成员","to":"成员","relation":"关系"}。',
+        ].join('\\n'),
+        userPrompt: [
+          '【成员】',
+          ...groupAiMembers.map(item => {
+            const member = item.member;
+            return member.name + '：' + [member.relationship, member.mood, member.online === false ? '离线' : '在线'].filter(Boolean).join(' / ');
+          }),
+          '【群公告】' + (groupNoticeText || '暂无'),
+          '【已有关系】' + (activeGroup?.relationships || groupRelationships || []).map(item => item.from + ' → ' + item.to + '：' + item.relation).join('\\n'),
+          '【群事件】' + (activeGroup?.events || []).slice(-12).map(item => item.text).join('\\n'),
+          '【最近聊天】' + messages.slice(-30).map(message => (message.sender === 'me' ? '我' : (message.senderName || '角色')) + ': ' + (message.text || '')).join('\\n'),
+        ].join('\\n'),
+        temperature: 0.55,
+      });
+      const parsed = JSON.parse(raw.trim().replace(/^\`\`\`json\\s*/i, '').replace(/\`\`\`$/i, ''));
+      const inferred = Array.isArray(parsed)
+        ? parsed
+            .filter(item => item && item.from && item.to && item.relation)
+            .slice(0, 12)
+            .map(item => ({ from: String(item.from), to: String(item.to), relation: String(item.relation) }))
+        : [];
+      if (!inferred.length) throw new Error('AI 没有返回有效关系网络');
       setGroupRelationships(inferred);
-      showToast('已基于当前群成员建立关系网络框架');
-    }, 600);
+      if (activeGroup?.id) setLineGroupRelationships(activeGroup.id, inferred);
+      showToast('群聊关系网络已根据真实互动更新 ✦');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '群聊关系推演失败');
+    }
   };
 
   // 表情回应 (Reaction)
   const handleAddReaction = (msgId: number, emoji: string) => {
-    updateMessageRuntime(msgId, message => {
-      const currentReactions = Array.isArray(message.reactions) ? message.reactions : [];
-      const exists = currentReactions.includes(emoji);
-      return {
-        ...message,
-        reactions: exists
-          ? currentReactions.filter((reaction: string) => reaction !== emoji)
-          : [...currentReactions, emoji],
-        reactionUpdatedAt: new Date().toISOString(),
-      };
-    });
+    toggleLineReaction(conversationStorageId, msgId, emoji);
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== msgId) return m;
+        const currentReactions = m.reactions || [];
+        const exists = currentReactions.includes(emoji);
+        const updated = exists
+          ? currentReactions.filter((r: string) => r !== emoji)
+          : [...currentReactions, emoji];
+        return { ...m, reactions: updated };
+      })
+    );
     setContextMenuMsg(null);
   };
 
-  // 酒馆“继续 (Continue)”生成
-  const handleContinueGenerating = () => {
-    showToast('AI 正在继续生成后半段……');
-    setTimeout(() => {
-      const continuationMsg = {
-        id: Date.now(),
+  // 酒馆“继续 (Continue)”生成：真正调用当前角色 AI，不再插入固定假回复。
+  const handleContinueGenerating = async () => {
+    if (!importedCharacter) {
+      showToast('还没有可继续生成的角色');
+      return;
+    }
+    if (isTyping) return;
+
+    const lastOther = [...messages].reverse().find(m => m.sender === 'other' && m.text?.trim());
+    const lastUser = [...messages].reverse().find(m => m.sender === 'me' && m.text?.trim());
+    const continuationId = Date.now() + 1;
+    const settings = conversationAiSettings();
+
+    setIsTyping(true);
+    setMessages(prev => [...prev, {
+      id: continuationId,
+      sender: 'other',
+      type: 'ai-reply',
+      text: '',
+      time: '刚刚',
+      status: 'sending',
+      showThinking: false,
+    }]);
+
+    let streamedText = '';
+    try {
+      const result = await generateCharacterReply({
+        settings,
+        character: importedCharacter,
+        characterProfile,
+        persona: activePersona,
+        worldbooks,
+        memory: characterMemory,
+        project: projectManifest,
+        messages,
+        userMessage: lastUser?.text || '继续刚才的对话',
+        isGroup,
+        authorNote: [
+          authorsNote,
+          '这是 Continue：请自然接着角色上一条未说完的内容继续。',
+          lastOther?.text ? '【上一条角色消息】\\n' + lastOther.text : '',
+          '不要重复上一条已经说过的内容，也不要突然改变话题；像真实聊天一样自然补完。',
+        ].filter(Boolean).join('\\n'),
+        stylePreset: activeCotPreset?.title || selectedPreset,
+        temperature: Number(presetTemp) || 0.85,
+        onDelta: delta => {
+          streamedText += delta;
+          setMessages(prev => prev.map(m =>
+            m.id === continuationId
+              ? { ...m, text: streamedText, status: 'sending' }
+              : m
+          ));
+        },
+      });
+
+      const finalText = result.text || streamedText;
+      setMessages(prev => prev.map(m =>
+        m.id === continuationId
+          ? { ...m, text: finalText, status: 'delivered', aiModel: result.model }
+          : m
+      ));
+      appendLineMessage(conversationStorageId, {
+        id: continuationId,
         sender: 'other',
-        thinking: '【角色潜意识】刚才的话好像还没表达完整，想再多补充一句关照。',
-        showThinking: false,
-        text: '顺便……明早想喝什么？路过那家烘焙店的时候，我顺路带给你。',
-        time: '刚刚',
-      };
-      setMessages((prev) => [...prev, continuationMsg]);
-    }, 1000);
+        text: finalText,
+        kind: 'text',
+        status: 'delivered',
+        createdAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '继续生成失败';
+      setMessages(prev => prev.map(m =>
+        m.id === continuationId
+          ? { ...m, status: 'failed', error: message, text: streamedText }
+          : m
+      ));
+      markLineMessageFailed(conversationStorageId, continuationId, message);
+      showToast(message.length > 72 ? message.slice(0, 72) + '…' : message);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   // 分支重抽滑动切换 (Swipe variant)
@@ -1582,6 +1672,12 @@ export function LineConversationView({
               try { await generateSpeech(result.text, latestSettings); } catch {}
             }
           } catch (error) {
+      setMessages((prev) => prev.map((m) =>
+        m.id === replyMsgId
+          ? { ...m, status: 'failed', error: error instanceof Error ? error.message : 'AI 请求失败' }
+          : m
+      ));
+
             setMessages(prev => prev.filter(message => message.id !== replyMsgId));
             const message = error instanceof Error ? error.message : '图片理解失败';
             showToast(message.length > 72 ? message.slice(0, 72) + '…' : message);
@@ -1609,12 +1705,12 @@ export function LineConversationView({
 
   // 保存消息原地编辑
   const handleSaveMessageEdit = (id: number) => {
-    updateMessageRuntime(id, message => ({
-      ...message,
-      text: editingMessageText.trim(),
-      edited: true,
-      editedAt: new Date().toISOString(),
-    }));
+    const nextText = editingMessageText.trim();
+    if (!nextText) return;
+    editLineMessage(conversationStorageId, id, nextText);
+    setMessages((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, text: nextText, edited: true, editedAt: new Date().toISOString() } : m))
+    );
     setEditingMessageId(null);
     setEditingMessageText('');
     showToast('消息已原地修改');
@@ -1636,14 +1732,54 @@ export function LineConversationView({
   };
 
   // 重新生成 (Reroll)
-  const handleDoReroll = () => {
-    if (!rerollPrompt.trim()) {
+  const handleDoReroll = async () => {
+    const instruction = rerollPrompt.trim();
+    if (!instruction) {
       showToast('告诉 AI 这一轮怎么改');
       return;
     }
+    const targetIndex = [...messages].map((m, index) => ({ m, index })).reverse().find(item => item.m.sender === 'other' && item.m.type !== 'system-nudge')?.index;
+    if (targetIndex === undefined || !importedCharacter) {
+      showToast('还没有可以重新生成的角色消息');
+      return;
+    }
+    const target = messages[targetIndex];
+    const previousUser = [...messages.slice(0, targetIndex)].reverse().find(m => m.sender === 'me' && m.text)?.text || inputText;
     setShowReroll(false);
     setRerollPrompt('');
-    showToast('正在重新生成这一条……');
+    setIsTyping(true);
+    setMessages(prev => prev.map((m, i) => i === targetIndex ? { ...m, text: '', status: 'sending', error: undefined } : m));
+    try {
+      let streamed = '';
+      const result = await generateCharacterReply({
+        settings: conversationAiSettings(),
+        character: importedCharacter,
+        characterProfile,
+        persona: activePersona,
+        worldbooks,
+        memory: characterMemory,
+        project: projectManifest,
+        messages: messages.slice(0, targetIndex),
+        userMessage: previousUser || '继续当前对话',
+        isGroup,
+        authorNote: [authorsNote, '重新生成要求：' + instruction].filter(Boolean).join('\\n'),
+        stylePreset: activeCotPreset?.title || selectedPreset,
+        temperature: Number(presetTemp) || 0.85,
+        onDelta: delta => {
+          streamed += delta;
+          setMessages(prev => prev.map((m, i) => i === targetIndex ? { ...m, text: streamed, status: 'sending' } : m));
+        },
+      });
+      setMessages(prev => prev.map((m, i) => i === targetIndex ? { ...m, text: result.text, status: 'delivered', editedAt: new Date().toISOString(), aiModel: result.model } : m));
+      showToast('这一条已经重新生成');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '重新生成失败';
+      setMessages(prev => prev.map((m, i) => i === targetIndex ? { ...m, status: 'failed', error: message } : m));
+      markLineMessageFailed(conversationStorageId, target.id, message);
+      showToast(message.length > 60 ? message.slice(0, 60) + '…' : message);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   // 状态栏 HTML
@@ -1765,13 +1901,13 @@ export function LineConversationView({
                   <div className="text-[10px] text-[#aaa] mt-0.5 flex items-center gap-1">
                     {isTyping ? (
                       <span className="text-[#ae7e89] font-medium animate-pulse flex items-center gap-1">
-                        <span>对方正在输入</span>
+                        <span>{tx('对方正在输入', '入力中')}</span>
                         <span className="inline-block animate-bounce">.</span>
                         <span className="inline-block animate-bounce delay-100">.</span>
                         <span className="inline-block animate-bounce delay-200">.</span>
                       </span>
                     ) : (
-                      <span>在线 · 点击看状态栏与主页 · 双击拍一拍</span>
+                      <span>{tx('在线 · 点击看状态栏与主页 · 双击拍一拍', 'オンライン · ステータスとプロフィール · ダブルタップでノック')}</span>
                     )}
                   </div>
                 </div>
@@ -1783,15 +1919,15 @@ export function LineConversationView({
               <button
                 onClick={() => setShowInChatSearch(!showInChatSearch)}
                 className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#555]"
-                title="搜索聊天记录"
+                title={tx('搜索聊天记录', 'チャット履歴を検索')}
               >
                 <Search className="w-4 h-4 stroke-[1.7]" />
               </button>
 
               <button
-                onClick={() => setShowAudioCall(true)}
+                onClick={() => { setAudioCallDuration(0); setShowAudioCall(true); recordLineCall(conversationStorageId, { direction: 'outgoing', kind: 'audio', status: 'connected' }); }}
                 className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#303033]"
-                title="语音通话"
+                title={tx('语音通话', '音声通話')}
               >
                 <Phone className="w-4 h-4 stroke-[1.7]" />
               </button>
@@ -1799,7 +1935,7 @@ export function LineConversationView({
               <button
                 onClick={() => setShowTogetherMusic(true)}
                 className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#8b7560]"
-                title="一起听歌"
+                title={tx('一起听歌', '一緒に音楽を聴く')}
               >
                 <Music2 className="w-4 h-4 stroke-[1.7]" />
               </button>
@@ -1807,7 +1943,7 @@ export function LineConversationView({
               <button
                 onClick={() => setShowVideoCall(true)}
                 className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#303033]"
-                title="视频通话"
+                title={tx('视频通话', 'ビデオ通話')}
               >
                 <Video className="w-4 h-4 stroke-[1.7]" />
               </button>
@@ -1836,7 +1972,7 @@ export function LineConversationView({
               <button
                 onClick={() => setShowSettings(true)}
                 className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#303033]"
-                title="聊天设置与酒馆设定"
+                title={tx('聊天设置与酒馆设定', 'チャット設定')}
               >
                 <Settings className="w-4 h-4 stroke-[1.7]" />
               </button>
@@ -1850,7 +1986,7 @@ export function LineConversationView({
         <div className="bg-[#faf4f6] border-b border-[#f0dee3] px-3.5 py-1.5 flex items-center justify-between text-[11px] text-[#8c5f6b] animate-in slide-in-from-top">
           <div className="flex items-center gap-1.5 truncate">
             <span>📢</span>
-            <span className="font-semibold">群公告：</span>
+            <span className="font-semibold">{tx('群公告：', 'グループのお知らせ：')}</span>
             <span className="truncate">{groupNoticeText}</span>
           </div>
           <button
@@ -1864,34 +2000,18 @@ export function LineConversationView({
 
       {/* In-chat Search Input Bar */}
       {showInChatSearch && (
-        <div className="h-10 px-3 bg-[#f8f8fa] border-b border-[#ededee] flex items-center gap-2 animate-in slide-in-from-top duration-200">
+        <div className="px-3 py-1.5 bg-[#f8f8fa] border-b border-[#ededee] animate-in slide-in-from-top duration-200">
+          <div className="h-8 flex items-center gap-2">
           <Search className="w-3.5 h-3.5 text-[#aaa] shrink-0" />
           <input
             type="text"
             value={inChatSearchQuery}
-            onChange={(e) => {
-              setInChatSearchQuery(e.target.value);
-              setInChatSearchIndex(0);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && inChatSearchQuery.trim()) {
-                e.preventDefault();
-                setInChatSearchIndex(prev => prev + 1);
-              }
-            }}
+            onChange={(e) => setInChatSearchQuery(e.target.value)}
             placeholder="搜索当前聊天记录关键字..."
             className="w-full text-xs bg-transparent outline-none text-[#333]"
           />
           {inChatSearchQuery && (
-            <span className="text-[9px] text-[#aaa] shrink-0">
-              {(() => {
-                const count = messages.filter(message => getForwardableText(message).toLowerCase().includes(inChatSearchQuery.trim().toLowerCase())).length;
-                return count ? `${(inChatSearchIndex % count) + 1}/${count}` : '0';
-              })()}
-            </span>
-          )}
-          {inChatSearchQuery && (
-            <button onClick={() => { setInChatSearchQuery(''); setInChatSearchIndex(0); }} className="text-xs text-[#aaa]">
+            <button onClick={() => setInChatSearchQuery('')} className="text-xs text-[#aaa]">
               ×
             </button>
           )}
@@ -1901,21 +2021,58 @@ export function LineConversationView({
           >
             取消
           </button>
+          </div>
+          {inChatSearchQuery.trim() && (
+            <div className="max-h-40 overflow-y-auto border-t border-[#ededee] mt-1 pt-1">
+              {lineRuntimeSearchResults.length === 0 ? (
+                <div className="py-2 text-[10px] text-[#aaa] text-center">没有找到相关聊天记录</div>
+              ) : (
+                lineRuntimeSearchResults.slice(-8).reverse().map((result) => (
+                  <button
+                    key={result.id}
+                    onClick={() => jumpToLineMessage(result.id)}
+                    className="w-full text-left px-2 py-1.5 rounded-md hover:bg-white transition-colors"
+                  >
+                    <div className="text-[9px] text-[#aaa] mb-0.5">
+                      {result.sender === 'me' ? '我' : contactName} · {result.createdAt ? new Date(result.createdAt).toLocaleString() : ''}
+                    </div>
+                    <div className="text-[10.5px] text-[#444] truncate">{result.text || '[媒体消息]'}</div>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </div>
       )}
 
       {/* 2. MESSAGES STREAM */}
-      <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-4 no-scrollbar">
+      <div
+        ref={messagesViewportRef}
+        onScroll={(event) => {
+          if (event.currentTarget.scrollTop <= 48 && loadedMessageCount < messages.length) {
+            loadOlderMessages();
+          }
+        }}
+        className="flex-1 overflow-y-auto px-3.5 py-4 space-y-4 no-scrollbar"
+      >
+        {loadedMessageCount < messages.length && (
+          <button
+            onClick={loadOlderMessages}
+            className="mx-auto block text-[9.5px] text-[#aaa] hover:text-[#ae7e89] py-1.5 px-3 rounded-full hover:bg-[#faf1f3] transition-colors"
+          >
+            加载更早的消息 · 还有 {messages.length - loadedMessageCount} 条
+          </button>
+        )}
         <div className="text-center text-[10px] text-[#b3b3b7] my-1">
           今天
         </div>
 
-        {messages.map((msg) => {
+        {visibleMessages.map((msg) => {
           if (msg.type === 'music-together') {
             const session = msg.musicSession as TogetherMusicSession | undefined;
             if (!session) return null;
             return (
-              <div key={msg.id} className={'flex ' + (msg.sender === 'me' ? 'justify-end' : 'justify-start') + ' mb-2'}>
+              <div key={msg.id} data-line-message-id={msg.id} className={'flex ' + (msg.sender === 'me' ? 'justify-end' : 'justify-start') + ' mb-2'}>
                 <div className="max-w-[82%] rounded-[15px] border border-[#e8ddd3] bg-[#fbf7f1] p-3">
                   <div className="flex items-center gap-2">
                     <div className="w-9 h-9 rounded-full bg-[#292724] text-white grid place-items-center"><Music2 className="w-4 h-4" /></div>
@@ -1930,7 +2087,7 @@ export function LineConversationView({
 
           if (msg.type === 'system-nudge') {
             return (
-              <div key={msg.id} className="flex justify-center my-1.5 animate-in fade-in">
+              <div key={msg.id} data-line-message-id={msg.id} className="flex justify-center my-1.5 animate-in fade-in">
                 <span className="text-[10px] text-[#999b9f] bg-[#f5f5f6] border border-[#ececee] px-3 py-1 rounded-full shadow-2xs">
                   {msg.text}
                 </span>
@@ -1944,13 +2101,9 @@ export function LineConversationView({
 
           return (
             <div
-              ref={(node) => { messageRefs.current[msg.id] = node; }}
               key={msg.id}
-              className={`flex items-end gap-2 group ${isMe ? 'justify-end' : 'justify-start'} ${
-                inChatSearchQuery.trim() && getForwardableText(msg).toLowerCase().includes(inChatSearchQuery.trim().toLowerCase())
-                  ? 'ring-1 ring-[#d4aab5] rounded-[16px]'
-                  : ''
-              }`}
+              data-line-message-id={msg.id}
+              className={`flex items-end gap-2 group ${isMe ? 'justify-end' : 'justify-start'}`}
             >
               {/* Multi-select checkbox */}
               {isMultiSelectMode && (
@@ -2387,14 +2540,8 @@ export function LineConversationView({
               {/* Time & LINE Iconic "已读" status for me */}
               {isMe && !msg.isRecalled && (
                 <div className="flex flex-col items-end text-[9px] text-[#b8b8bb] pb-0.5 leading-none shrink-0">
-                  {(msg.status === 'read' || msg.isRead) && (
+                  {msg.isRead && (
                     <span className="text-[8.5px] text-[#ae7e89] font-medium mb-0.5">已读</span>
-                  )}
-                  {msg.status === 'sending' && (
-                    <span className="text-[8.5px] text-[#aaa] font-medium mb-0.5">发送中</span>
-                  )}
-                  {msg.status === 'failed' && (
-                    <span className="text-[8.5px] text-[#c46b76] font-medium mb-0.5">失败</span>
                   )}
                   <span>{msg.time}</span>
                 </div>
@@ -2409,7 +2556,25 @@ export function LineConversationView({
             </div>
           );
         })}
-
+        {isTyping && !isRecording && (
+          <div className="flex items-center gap-2 px-1 py-0.5 animate-in fade-in slide-in-from-bottom-1">
+            <div className="w-6 h-6 rounded-full bg-[#f1f1f2] border border-[#ededee] flex items-center justify-center overflow-hidden shrink-0">
+              {importedCharacter?.avatar ? (
+                <img src={importedCharacter.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="text-[9px] text-[#999]">{(characterProfile.nickname || contactName || '?').slice(0, 1)}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 text-[10px] text-[#aaa]">
+              <span className="font-medium tracking-wide">texting</span>
+              <span className="flex items-end gap-0.5">
+                <span className="w-1 h-1 rounded-full bg-[#b9a1a6] animate-bounce" />
+                <span className="w-1 h-1 rounded-full bg-[#b9a1a6] animate-bounce [animation-delay:120ms]" />
+                <span className="w-1 h-1 rounded-full bg-[#b9a1a6] animate-bounce [animation-delay:240ms]" />
+              </span>
+            </div>
+          </div>
+        )}
         {/* AI 正在生成时，固定显示在消息流最底部，而不是顶栏 */}
         {isTyping && (
           <div className="flex items-center justify-start px-1 py-1 animate-in fade-in">
@@ -2544,7 +2709,7 @@ export function LineConversationView({
                     }
                   }}
                   rows={1}
-                  placeholder="输入消息…"
+                  placeholder="メッセージを入力…"
                   className="w-full resize-none bg-transparent outline-none text-[13px] text-[#333] placeholder-[#aaa] py-1 font-sans"
                 />
               </div>
@@ -4331,7 +4496,7 @@ export function LineConversationView({
       {showVideoCall && (
         <div className="absolute inset-0 bg-[#19191b] z-50 flex flex-col justify-between p-6 text-white animate-in zoom-in-95">
           <div className="flex items-center justify-between text-sm">
-            <button onClick={() => setShowVideoCall(false)} className="text-xl opacity-80 cursor-pointer">
+            <button onClick={() => { setShowVideoCall(false); recordLineCall(conversationStorageId, { direction: 'outgoing', kind: 'video', status: 'ended' }); }} className="text-xl opacity-80 cursor-pointer">
               ×
             </button>
             <span className="text-xs text-[#aaa]">端到端加密通话</span>
@@ -4399,7 +4564,7 @@ export function LineConversationView({
             </button>
 
             <button
-              onClick={() => setShowAudioCall(false)}
+              onClick={() => { setShowAudioCall(false); recordLineCall(conversationStorageId, { direction: 'outgoing', kind: 'audio', status: 'ended', duration: audioCallDuration }); }}
               className="w-16 h-16 rounded-full bg-[#d56f7d] hover:bg-[#c95867] flex items-center justify-center shadow-lg active:scale-95 cursor-pointer"
               title="挂断"
             >
@@ -4474,19 +4639,40 @@ export function LineConversationView({
                 </div>
               )}
 
+              {/* 编辑：只允许编辑自己发送的文字消息 */}
+              {contextMenuMsg.sender === 'me' && contextMenuMsg.text && (
+                <div
+                  onClick={() => {
+                    setEditingMessageId(contextMenuMsg.id);
+                    setEditingMessageText(contextMenuMsg.text || '');
+                    setContextMenuMsg(null);
+                  }}
+                  className="py-3 flex items-center gap-3 cursor-pointer hover:bg-neutral-50 px-2"
+                >
+                  <Edit3 className="w-4 h-4 text-[#666]" />
+                  <span className="text-[#333]">编辑消息</span>
+                </div>
+              )}
+
+              {/* 失败消息重试 */}
+              {contextMenuMsg.status === 'failed' && (
+                <div
+                  onClick={() => {
+                    setRerollPrompt('请基于上一轮上下文重新发送，保持角色设定与语气。');
+                    setShowReroll(true);
+                    setContextMenuMsg(null);
+                  }}
+                  className="py-3 flex items-center gap-3 cursor-pointer hover:bg-neutral-50 px-2 text-[#ae7e89]"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span className="text-[#333]">失败重试</span>
+                </div>
+              )}
+
               {/* 转发 */}
               <div
                 onClick={() => {
-                  setForwardMsg({
-        ...contextMenuMsg,
-        forwardedMessages: [{
-          id: contextMenuMsg?.id,
-          sender: contextMenuMsg?.sender,
-          senderName: contextMenuMsg?.senderName || (contextMenuMsg?.sender === 'me' ? '我' : characterProfile.nickname),
-          text: getForwardableText(contextMenuMsg),
-          time: contextMenuMsg?.time || '刚刚',
-        }],
-      });
+                  setForwardMsg(contextMenuMsg);
                   setContextMenuMsg(null);
                 }}
                 className="py-3 flex items-center gap-3 cursor-pointer hover:bg-neutral-50 px-2"
@@ -4498,7 +4684,16 @@ export function LineConversationView({
               {/* 收藏 */}
               <div
                 onClick={() => {
-                  favoriteMessageRuntime(contextMenuMsg);
+                  const newFav = {
+                    id: Date.now(),
+                    contactName,
+                    sender: contextMenuMsg.sender,
+                    text: contextMenuMsg.text || contextMenuMsg.desc || '多媒体内容',
+                    time: contextMenuMsg.time,
+                    savedAt: '刚刚'
+                  };
+                  setFavorites((prev) => [newFav, ...prev]);
+                  setLineMessageFavorite(conversationStorageId, contextMenuMsg.id, true);
                   setContextMenuMsg(null);
                   showToast('已收藏此条消息至收藏箱 ☆');
                 }}
@@ -4543,7 +4738,7 @@ export function LineConversationView({
               {/* 删除 */}
               <div
                 onClick={() => {
-                  deleteMessageRuntime(contextMenuMsg.id);
+                  setMessages(messages.filter((m) => m.id !== contextMenuMsg.id));
                   setContextMenuMsg(null);
                   showToast('消息已删除');
                 }}
@@ -4582,27 +4777,19 @@ export function LineConversationView({
                 <div
                   key={i}
                   onClick={() => {
-                    const forwardedMessages = forwardMsg?.forwardedMessages || [{
-                      id: forwardMsg?.id || Date.now(),
-                      sender: forwardMsg?.sender || 'me',
-                      senderName: forwardMsg?.senderName || (forwardMsg?.sender === 'me' ? '我' : characterProfile.nickname),
-                      text: getForwardableText(forwardMsg),
-                      time: forwardMsg?.time || '刚刚',
-                    }];
-                    const isBatch = forwardedMessages.length > 1;
-                    const payload = {
-                      type: 'forwarded',
-                      text: isBatch
-                        ? `[合并转发 ${forwardedMessages.length} 条聊天记录]\n\n${forwardedMessages.map((item: any) => `${item.senderName}：${item.text}`).join('\n')}`
-                        : forwardedMessages[0].text,
-                      forwardedMessages,
-                      forwardedFromConversationId: conversationStorageId,
-                      forwardedFromContact: contactName,
-                    };
-                    if (appendForwardToConversation(f, payload)) {
-                      setForwardMsg(null);
-                      showToast(`已将消息转发给 ${f}`);
-                    }
+                    const forwardedText = forwardMsg.text || '[多媒体消息]';
+                    const forwardedId = `forward-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                    import('../../store/lineRuntime').then(({ appendLineMessage }) => appendLineMessage(f, {
+                      id: forwardedId,
+                      sender: 'me',
+                      text: forwardedText,
+                      kind: 'text',
+                      createdAt: new Date().toISOString(),
+                      status: 'sent',
+                      metadata: { forwarded: true, fromConversationId: conversationStorageId, sourceMessageId: forwardMsg.id },
+                    }));
+                    setForwardMsg(null);
+                    showToast(`已将消息转发给 ${f}`);
                   }}
                   className="py-2.5 flex items-center justify-between cursor-pointer hover:bg-neutral-50 px-2"
                 >

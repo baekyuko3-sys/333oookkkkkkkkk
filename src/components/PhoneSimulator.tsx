@@ -14,11 +14,11 @@ import { WorldBookScreenView } from './screens/WorldBookScreenView';
 import { SettingsScreenView } from './screens/SettingsScreenView';
 import { ProjectStudioScreenView } from './screens/ProjectStudioScreenView';
 import { MemoryScreenView } from './screens/MemoryScreenView';
+import { AppearanceScreenView } from './screens/AppearanceScreenView';
 import { OfflineStoryScreenView } from './screens/OfflineStoryScreenView';
 import { CalendarScreenView } from './screens/CalendarScreenView';
 import { NpcScreenView } from './screens/NpcScreenView';
 import { GroupPresetScreenView } from './screens/GroupPresetScreenView';
-import { AppearanceScreenView } from './screens/AppearanceScreenView';
 import { LineAppView } from './line/LineAppView';
 import { LockScreenView } from './screens/LockScreenView';
 import { HomeCustomizeSheet } from './modals/HomeCustomizeSheet';
@@ -183,20 +183,20 @@ export function PhoneSimulator({
             <SettingsScreenView onNavigate={setCurrentScreen} />
           )}
 
-          {currentScreen === 'appearance' && (
-            <AppearanceScreenView
-              currentTheme={themeMode}
-              onNavigate={setCurrentScreen}
-              onSelectTheme={onSelectTheme}
-            />
-          )}
-
           {currentScreen === 'project-studio' && (
             <ProjectStudioScreenView onNavigate={setCurrentScreen} />
           )}
 
           {currentScreen === 'memory' && (
             <MemoryScreenView onNavigate={setCurrentScreen} />
+          )}
+
+          {currentScreen === 'appearance' && (
+            <AppearanceScreenView
+              currentTheme={themeMode}
+              onNavigate={setCurrentScreen}
+              onSelectTheme={onSelectTheme}
+            />
           )}
 
           {currentScreen === 'offline-story' && (

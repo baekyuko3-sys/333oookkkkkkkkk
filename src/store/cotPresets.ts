@@ -22,7 +22,7 @@ export const DEFAULT_COT_PRESETS: CotPreset[] = [
     description: '分析潜台词、心理防御与情感策略。',
     template: '在每次发言前，分析当前情境、角色真实欲念、关系阶段与台词策略；只将最终角色消息输出给用户。',
     exampleThinking: '分析潜台词 → 判断关系状态 → 决定情绪暴露尺度 → 形成自然回复。',
-    targets: ['line', 'offline'],
+    targets: ['line', 'offline', 'group'],
     createdAt: '2026-10-04T00:00:00.000Z',
     updatedAt: '2026-10-04T00:00:00.000Z',
   },
@@ -108,4 +108,10 @@ export type CotAssignments = Partial<Record<CotPresetTarget, string>>;
 const ASSIGN_KEY = 'line:cot-assignments';
 export function getCotAssignments(): CotAssignments { if (typeof window === 'undefined') return {}; try { return JSON.parse(window.localStorage.getItem(ASSIGN_KEY) || '{}'); } catch { return {}; } }
 export function saveCotAssignment(target: CotPresetTarget, presetId: string) { if (typeof window === 'undefined') return; const next={...getCotAssignments(),[target]:presetId}; window.localStorage.setItem(ASSIGN_KEY,JSON.stringify(next)); window.dispatchEvent(new CustomEvent('sane333:cot-assignments-changed')); }
-export function getCotForTarget(target: CotPresetTarget): CotPreset | null { const id=getCotAssignments()[target]; return getCotPresets().find(item=>item.id===id) || getCotPresets().find(item=>item.targets.includes(target)) || null; }
+export function getCotForTarget(target: CotPresetTarget): CotPreset | null {
+  const presets = getCotPresets();
+  const assignedId = getCotAssignments()[target];
+  return presets.find(item => item.id === assignedId)
+    || presets.find(item => item.targets.includes(target))
+    || (target === 'group' ? presets.find(item => item.targets.includes('line')) || null : null);
+}

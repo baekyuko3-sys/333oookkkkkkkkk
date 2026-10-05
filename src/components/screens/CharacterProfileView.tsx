@@ -1,13 +1,15 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Brain, Download, Edit3, FileDown, FilePlus2, Folder, Plus, ShieldCheck, Trash2, UserRound, X } from 'lucide-react';
 import { ScreenType } from '../../types';
 import { usePersistentState } from '../../store/usePersistentState';
 import {
   ImportedCharacter,
   exportCharacterJson,
+  exportCharacterCardV2,
   parseCharacterFile,
 } from '../../data/characterImport';
 import type { CharacterMemory } from '../../store/characterMemory';
+import type { WorldBook } from '../../types';
 import { getWorldRuntime } from '../../store/worldRuntime';
 import {
   addCharacterMemoryItem,
@@ -34,6 +36,7 @@ function downloadText(filename: string, content: string) {
 export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [characters, setCharacters] = usePersistentState<ImportedCharacter[]>('phone:characters', []);
+  const [, setWorldBooks] = usePersistentState<WorldBook[]>('phone:worldbooks', []);
   const [groups, setGroups] = usePersistentState<Array<{ id: string; name: string }>>('phone:character-groups', []);
   const [selectedGroupId, setSelectedGroupId] = useState('all');
   const [selectedId, setSelectedId] = usePersistentState<string | null>(
@@ -46,11 +49,26 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
   const visibleCharacters = selectedGroupId === 'all'
     ? characters
     : characters.filter(character => (character.groupId || 'ungrouped') === selectedGroupId);
-  const selected = characters.find(character => character.id === selectedId)
-    || visibleCharacters[0]
-    || characters[0]
-    || null;
+  const selected = selectedId
+    ? characters.find(character => character.id === selectedId) || null
+    : null;
   const runtimeState = selected ? getWorldRuntime().characters[selected.id] : null;
+
+  const characterSections = useMemo(() => {
+    if (selectedGroupId !== 'all') {
+      const group = groups.find(item => item.id === selectedGroupId);
+      return [{ id: selectedGroupId, name: group?.name || '未分组', characters: visibleCharacters }];
+    }
+
+    const sections: Array<{ id: string; name: string; characters: ImportedCharacter[] }> = [];
+    groups.forEach(group => {
+      const items = characters.filter(character => character.groupId === group.id);
+      if (items.length) sections.push({ id: group.id, name: group.name, characters: items });
+    });
+    const ungrouped = characters.filter(character => !character.groupId || !groups.some(group => group.id === character.groupId));
+    if (ungrouped.length) sections.push({ id: 'ungrouped', name: 'UNSORTED · 未分组', characters: ungrouped });
+    return sections;
+  }, [characters, groups, selectedGroupId, visibleCharacters]);
 
   useEffect(() => {
     const refresh = () => setRuntimeTick(value => value + 1);
@@ -169,6 +187,8 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
       tags: [],
       creator: '',
       characterVersion: '',
+      extensions: {},
+      embeddedWorldBook: undefined,
       groupId: selectedGroupId === 'all' ? null : selectedGroupId,
       sourceFormat: 'manual',
       importedAt: now,
@@ -193,6 +213,12 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
         }
         return [nextCharacter, ...prev];
       });
+      if (parsed.embeddedWorldBook) {
+        setWorldBooks(prev => [
+          parsed.embeddedWorldBook!,
+          ...prev.filter(book => book.id !== parsed.embeddedWorldBook!.id),
+        ]);
+      }
       setSelectedId(parsed.id);
       setIsEditing(false);
       showNotice(`已导入「${parsed.name}」 · ${parsed.sourceFormat.toUpperCase()}`);
@@ -334,31 +360,65 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
               </div>
             </div>
 
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-              {visibleCharacters.map(character => (
-                <button
-                  key={character.id}
-                  onClick={() => { setSelectedId(character.id); setIsEditing(false); }}
-                  className={`shrink-0 px-3 py-1.5 rounded-full border text-[10px] font-medium transition-all ${
-                    selected?.id === character.id
-                      ? 'bg-[#292724] text-white border-[#292724]'
-                      : 'bg-white/55 text-[#655f59] border-[rgba(40,36,31,.14)]'
-                  }`}
-                >
-                  <span>{character.name}</span>
-                  <span className="text-[8px] opacity-65">· {character.variantLabel || character.characterVersion || '默认版本'}</span>
-                </button>
+            <div className="space-y-4">
+              {characterSections.map(section => (
+                <section key={section.id}>
+                  <div className="flex items-end justify-between px-1 mb-2">
+                    <div>
+                      <div className="text-[8px] font-mono tracking-[2px] text-[#8b8782]">YEARBOOK SECTION</div>
+                      <h3 className="mt-0.5 text-[13px] font-serif font-bold text-[#242323]">{section.name}</h3>
+                    </div>
+                    <span className="text-[8px] font-mono text-[#9b625b]">{section.characters.length} CARDS</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {section.characters.map(character => (
+                      <button
+                        key={character.id}
+                        onClick={() => { setSelectedId(character.id); setIsEditing(false); }}
+                        className={"text-left overflow-hidden rounded-2xl border transition-all active:scale-[.98] " + (
+                          selected?.id === character.id
+                            ? 'bg-[#292724] text-white border-[#292724] shadow-[0_10px_26px_rgba(40,35,30,.16)]'
+                            : 'bg-white/65 text-[#242323] border-[rgba(40,36,31,.1)] shadow-[0_6px_18px_rgba(40,35,30,.05)]'
+                        )}
+                      >
+                        <div className="aspect-[4/3] bg-[#ded7cc] overflow-hidden">
+                          {character.avatar ? (
+                            <img src={character.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          ) : (
+                            <div className="w-full h-full grid place-items-center">
+                              <UserRound className="w-8 h-8 text-[#8b8782]" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-2.5">
+                          <div className="font-serif font-bold text-[13px] truncate">{character.name || '未命名角色'}</div>
+                          <div className={selected?.id === character.id ? 'mt-1 text-[8px] text-white/55 font-mono truncate' : 'mt-1 text-[8px] text-[#8b8782] font-mono truncate'}>
+                            {character.variantLabel || character.characterVersion || 'DEFAULT VERSION'}
+                          </div>
+                          <div className={selected?.id === character.id ? 'mt-2 text-[7px] tracking-[1.2px] text-white/45 font-mono' : 'mt-2 text-[7px] tracking-[1.2px] text-[#9b625b] font-mono'}>
+                            {selected?.id === character.id ? 'OPEN · PROFILE' : 'TAP TO OPEN'}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </section>
               ))}
               <button
                 onClick={() => fileRef.current?.click()}
-                className="shrink-0 px-3 py-1.5 rounded-full border border-dashed border-[#8b7560]/50 text-[10px] text-[#8b7560]"
+                className="w-full min-h-[120px] rounded-2xl border border-dashed border-[#8b7560]/45 bg-white/35 text-[#8b7560] grid place-items-center text-[9px]"
               >
-                ＋ 导入
+                <span><Plus className="w-4 h-4 mx-auto mb-1" />导入角色卡</span>
               </button>
             </div>
 
             {selected && (
               <>
+                <div className="flex items-center justify-between px-1">
+                  <div className="text-[8px] font-mono tracking-[1.6px] text-[#8b8782]">YEARBOOK PROFILE · SELECTED</div>
+                  <button onClick={() => { setSelectedId(null); setIsEditing(false); }} className="px-2 py-1 rounded-full bg-white/60 text-[8px] text-[#8b7560]">收起</button>
+                </div>
+
                 <div className="relative p-3 pb-5 rounded-2xl bg-[#eee9df] border border-[rgba(40,36,31,.14)] shadow-[0_8px_25px_rgba(45,37,30,.12)] rotate-[0.7deg]">
                   <div className="absolute right-4 top-4 border-2 border-[#9b625b]/60 text-[#9b625b] text-[8px] font-mono tracking-widest px-2 py-0.5 rounded -rotate-[10deg]">
                     IMPORTED
@@ -462,43 +522,79 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                           className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none"
                         />
                       </label>
-
-                      <div className="col-span-2 mt-1 pt-3 border-t border-[rgba(40,36,31,.1)] space-y-2">
+                      <div className="mt-4 pt-4 border-t border-[rgba(40,36,31,.1)] space-y-2.5">
                         <div>
                           <div className="text-[8px] tracking-[1.5px] font-mono text-[#8b8782]">CHARACTER LANGUAGE · 语言指纹</div>
-                          <div className="mt-1 text-[8px] text-[#8b8782]">控制角色长期的聊天语言、标点和句子习惯。</div>
+                          <div className="mt-1 text-[9px] text-[#8b8782] leading-relaxed">不是“人设标签”，而是这个角色长期形成的真实聊天习惯。</div>
                         </div>
                         {(() => {
-                          const language = selected.languageProfile || {
-                            language: 'zh-CN' as const, bilingualMode: 'off' as const, bilingualLayout: 'below-bubble' as const,
-                            bilingualTranslationDirection: 'original-first' as const, punctuationStyle: 'natural' as const,
-                            sentenceLength: 'natural' as const, lineBreakStyle: 'natural' as const, colloquialLevel: 'natural' as const,
-                            fillerWords: [], emojiStyle: 'light' as const, capitalizationStyle: 'standard' as const,
-                            numberStyle: 'standard' as const, preferredSpaces: false, examples: [],
+                          const profile = selected.languageProfile || {
+                            language: 'zh-CN', bilingualMode: 'off', bilingualLayout: 'below-bubble',
+                            bilingualTranslationDirection: 'original-first', punctuationStyle: 'natural',
+                            sentenceLength: 'natural', lineBreakStyle: 'natural', colloquialLevel: 'natural',
+                            fillerWords: [], emojiStyle: 'light', capitalizationStyle: 'standard',
+                            numberStyle: 'standard', preferredSpaces: false, examples: []
                           };
-                          const updateLanguage = (patch: Partial<typeof language>) => patchSelected({ languageProfile: { ...language, ...patch } });
-                          return <div className="grid grid-cols-2 gap-2">
-                            <label className="text-[8px]">语言
-                              <select value={language.language} onChange={e => updateLanguage({ language: e.target.value as typeof language.language })} className="w-full mt-1 bg-white/65 rounded-xl px-2.5 py-2 outline-none text-[9px]">
-                                <option value="zh-CN">中文</option><option value="en">English</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="fr">Français</option><option value="es">Español</option><option value="de">Deutsch</option><option value="other">其他</option>
-                              </select>
-                            </label>
-                            <label className="text-[8px]">双语
-                              <select value={language.bilingualMode} onChange={e => updateLanguage({ bilingualMode: e.target.value as typeof language.bilingualMode })} className="w-full mt-1 bg-white/65 rounded-xl px-2.5 py-2 outline-none text-[9px]">
-                                <option value="off">关闭</option><option value="auto">非中文自动双语</option>
-                              </select>
-                            </label>
-                            <label className="text-[8px]">标点习惯
-                              <select value={language.punctuationStyle} onChange={e => updateLanguage({ punctuationStyle: e.target.value as typeof language.punctuationStyle })} className="w-full mt-1 bg-white/65 rounded-xl px-2.5 py-2 outline-none text-[9px]">
-                                <option value="natural">自然</option><option value="spaces">偏空格</option><option value="tight">紧凑</option><option value="mixed">混合</option>
-                              </select>
-                            </label>
-                            <label className="text-[8px]">句长
-                              <select value={language.sentenceLength} onChange={e => updateLanguage({ sentenceLength: e.target.value as typeof language.sentenceLength })} className="w-full mt-1 bg-white/65 rounded-xl px-2.5 py-2 outline-none text-[9px]">
-                                <option value="short">短句</option><option value="natural">自然</option><option value="long">偏长</option><option value="mixed">混合</option>
-                              </select>
-                            </label>
-                          </div>;
+                          const updateLanguage = (patch: Partial<typeof profile>) =>
+                            patchSelected({ languageProfile: { ...profile, ...patch } } as Partial<ImportedCharacter>);
+                          return <>
+                            <div className="grid grid-cols-2 gap-2">
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">LANGUAGE</span>
+                                <select value={profile.language} onChange={e => updateLanguage({ language: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
+                                  <option value="zh-CN">普通话 / 中文</option><option value="en">English</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="fr">Français</option><option value="es">Español</option><option value="de">Deutsch</option><option value="other">其他</option>
+                                </select>
+                              </label>
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">BILINGUAL</span>
+                                <select value={profile.bilingualMode} onChange={e => updateLanguage({ bilingualMode: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
+                                  <option value="off">关闭</option><option value="auto">非普通话自动双语</option>
+                                </select>
+                              </label>
+                            </div>
+                            {profile.bilingualMode === 'auto' && <div className="grid grid-cols-2 gap-2">
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">TRANSLATION</span>
+                                <select value={profile.bilingualLayout} onChange={e => updateLanguage({ bilingualLayout: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
+                                  <option value="below-bubble">气泡下方 · 推荐</option><option value="inside-bubble">气泡内部</option>
+                                </select>
+                              </label>
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">ORDER</span>
+                                <select value={profile.bilingualTranslationDirection} onChange={e => updateLanguage({ bilingualTranslationDirection: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
+                                  <option value="original-first">原文 → 中文</option><option value="translation-first">中文 → 原文</option>
+                                </select>
+                              </label>
+                            </div>}
+                            <div className="grid grid-cols-2 gap-2">
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">PUNCTUATION</span>
+                                <select value={profile.punctuationStyle} onChange={e => updateLanguage({ punctuationStyle: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
+                                  <option value="natural">自然变化</option><option value="spaces">偏空格</option><option value="tight">紧凑少标点</option><option value="mixed">混合</option>
+                                </select>
+                              </label>
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">SENTENCE</span>
+                                <select value={profile.sentenceLength} onChange={e => updateLanguage({ sentenceLength: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
+                                  <option value="short">短句</option><option value="natural">自然</option><option value="long">偏长</option><option value="mixed">长短混合</option>
+                                </select>
+                              </label>
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">LINE BREAKS</span>
+                                <select value={profile.lineBreakStyle} onChange={e => updateLanguage({ lineBreakStyle: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
+                                  <option value="natural">自然</option><option value="every-sentence">一句一行</option><option value="compact">紧凑</option><option value="mixed">混合</option>
+                                </select>
+                              </label>
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">COLLOQUIAL</span>
+                                <select value={profile.colloquialLevel} onChange={e => updateLanguage({ colloquialLevel: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
+                                  <option value="formal">正式</option><option value="natural">自然口语</option><option value="casual">随意</option><option value="very-casual">很口语</option>
+                                </select>
+                              </label>
+                            </div>
+                            <input value={profile.fillerWords.join(', ')} onChange={e => updateLanguage({ fillerWords: e.target.value.split(',').map(v => v.trim()).filter(Boolean) })} placeholder="常用语气词：嗯, 啊, 哈哈, 哦" className="w-full bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none" />
+                            <div className="grid grid-cols-2 gap-2">
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">EMOJI</span>
+                                <select value={profile.emojiStyle} onChange={e => updateLanguage({ emojiStyle: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none"><option value="none">不用</option><option value="light">少量</option><option value="frequent">频繁</option><option value="mixed">自然混用</option></select>
+                              </label>
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">SPACING</span>
+                                <select value={profile.preferredSpaces ? 'yes' : 'no'} onChange={e => updateLanguage({ preferredSpaces: e.target.value === 'yes' })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none"><option value="no">按自然习惯</option><option value="yes">偏好空格</option></select>
+                              </label>
+                            </div>
+                            <input value={(profile.examples || []).join(' / ')} onChange={e => updateLanguage({ examples: e.target.value.split(' / ').map(v => v.trim()).filter(Boolean) })} placeholder="语言示例：你吃了 我也是 / im here lol" className="w-full bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none" />
+                          </>;
                         })()}
                       </div>
                     </div>
@@ -527,6 +623,13 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                   >
                     <Download className="w-3.5 h-3.5" />
                     导出 JSON
+                  </button>
+                  <button
+                    onClick={() => downloadText(`${selected.name}.card.json`, exportCharacterCardV2(selected))}
+                    className="py-2.5 rounded-xl bg-white border border-[rgba(40,36,31,.15)] text-[#5f5952] text-xs font-serif flex items-center justify-center gap-1.5"
+                  >
+                    <FileDown className="w-3.5 h-3.5" />
+                    导出 Tavern V2
                   </button>
                   <button
                     onClick={handleDelete}
