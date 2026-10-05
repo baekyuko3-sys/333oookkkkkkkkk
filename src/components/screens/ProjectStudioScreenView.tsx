@@ -596,21 +596,29 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
         {tab === 'changes' && (
           <section className="p-3.5 space-y-2.5">
-            <div className="p-3 rounded-2xl bg-[#ebe6de] text-[9px]"><b>Changes</b><div className="mt-1 text-[#777069]">AI 的修改先在这里预览，不会自动写 GitHub。</div></div>\n            {changes.length > 0 && <div className="p-3 rounded-2xl bg-white/60 border border-black/5"><div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">REVIEW · {sessionTitle}</div><div className="mt-2 space-y-1 text-[8px]">{taskSteps.map((step, i) => <div key={step} className="flex gap-2"><span>{i < 2 ? '✓' : i === 2 ? '•' : '○'}</span><span>{step}</span></div>)}</div></div>
+            <div className="p-3 rounded-2xl bg-[#ebe6de] text-[9px]">
+              <b>Changes</b>
+              <div className="mt-1 text-[#777069]">先看 Diff，再决定是否把整个任务一次性写入 GitHub。</div>
+              <div className="grid grid-cols-2 gap-1.5 mt-2">
+                <button onClick={() => void loadDiff()} className="py-2 rounded-xl bg-white text-[8px]">Diff against main</button>
+                <button disabled={!changes.length || saving} onClick={() => void approveAllChanges()} className="py-2 rounded-xl bg-[#292724] text-white text-[8px] disabled:opacity-40">批准全部 · Atomic Commit</button>
+              </div>
+            </div>
+            {ciText && <pre className="p-3 rounded-2xl bg-[#252422] text-[#ddd] text-[7px] whitespace-pre-wrap max-h-44 overflow-auto">{ciText}</pre>}
             {changes.map(change => (
               <div key={change.path} className="p-3 rounded-2xl bg-white/65 border border-black/5">
-                <div className="flex items-center gap-2"><div className="text-[9px] font-mono truncate flex-1">{change.path}</div>{change.risk && <span className="text-[7px] px-1.5 py-0.5 rounded-full bg-black/5">{change.risk} risk</span>}</div>{change.reason && <div className="mt-1 text-[8px] text-[#777069]">{change.reason}</div>}
-                <pre className="mt-2 max-h-28 overflow-hidden rounded-xl bg-[#252422] text-[#ddd] p-2 text-[7px] whitespace-pre-wrap">{change.content.slice(0, 1000)}</pre>
+                <div className="flex items-center gap-2"><div className="text-[9px] font-mono truncate flex-1">{change.path}</div><span className="text-[7px] px-1.5 py-0.5 rounded-full bg-black/5">{change.operation || 'update'}</span></div>
+                {change.reason && <div className="mt-1 text-[8px] text-[#777069]">{change.reason}</div>}
+                <pre className="mt-2 max-h-28 overflow-hidden rounded-xl bg-[#252422] text-[#ddd] p-2 text-[7px] whitespace-pre-wrap">+ {change.content.slice(0,1200)}</pre>
                 <div className="grid grid-cols-2 gap-1.5 mt-2">
-                  <button onClick={() => { setFile({ name: change.path.split('/').pop() || change.path, path: change.path, type: 'file' }); setCode(change.content); setOriginal(''); setTab('files'); }} className="py-2 rounded-lg bg-white text-[#292724] text-[9px]">查看 / 编辑</button>
-                  <button disabled={saving} onClick={() => void approveChange(change)} className="py-2 rounded-lg bg-[#292724] text-white text-[9px] disabled:opacity-40">批准并写入</button>
+                  <button onClick={() => { setFile({ name: change.path.split('/').pop() || change.path, path: change.path, type:'file' }); setCode(change.content); setOriginal(change.originalContent || ''); setTab('files'); }} className="py-2 rounded-lg bg-white text-[#292724] text-[9px]">查看 / 编辑</button>
+                  <button disabled={saving} onClick={() => void approveChange(change)} className="py-2 rounded-lg bg-[#292724] text-white text-[9px] disabled:opacity-40">批准此文件</button>
                 </div>
               </div>
             ))}
             {!changes.length && <div className="py-12 text-center text-[9px] text-[#888]">暂无 AI 修改草案。</div>}
           </section>
         )}
-
         {tab === 'admin' && (
           <section className="p-3.5 space-y-2.5">
             <div className="p-3.5 rounded-2xl bg-[#ebe6de] border border-black/5">
