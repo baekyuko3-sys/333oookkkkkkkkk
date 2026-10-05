@@ -91,6 +91,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [original, setOriginal] = useState('');
   const [prompt, setPrompt] = useState('');
   const [message, setMessage] = useState('hey ✦ 我是 Studio。你告诉我想改什么，我们一起改这个小手机。');
+  const [conversation, setConversation] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
   const [changes, setChanges] = useState<Change[]>([]);
   const [newPath, setNewPath] = useState('');
   const [newContent, setNewContent] = useState('');
@@ -250,6 +251,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     const request = prompt.trim();
     setPrompt('');
     setMessage('你：' + request);
+    setConversation(previous => [...previous, { role: 'user', content: request }].slice(-24));
     setAiBusy(true);
     setAgentRunning(true);
     const task: StudioTask = { id:'task-'+Date.now(), title:request.slice(0,50), request, status:'working', steps:[{id:'inspect',title:'Inspect project',status:'working'},{id:'plan',title:'Plan changes',status:'todo'},{id:'review',title:'Review Changes',status:'todo'},{id:'apply',title:'Apply approved changes',status:'todo'}],createdAt:Date.now(),updatedAt:Date.now() };
@@ -265,6 +267,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         apiKey: aiSettings.apiKey,
         model: aiSettings.model,
         provider: aiSettings.provider,
+        conversation,
         codingMode: memeMode,
         project,
         tools: [
@@ -315,7 +318,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
           }
         },
       }, request);
-      if (result.text) setMessage(result.text);
+      if (result.text) {
+        setMessage(result.text);
+        setConversation(previous => [...previous, { role: 'assistant', content: result.text }].slice(-24));
+      }
       log('agent', 'Finished current pass');
       setCurrentTask(v => v ? {...v,status:'review',updatedAt:Date.now(),steps:v.steps.map((step,i)=>({...step,status:i<2?'done':i===2?'working':'todo'} as any))} : v);
     } catch (error) {
@@ -328,10 +334,14 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
           userPrompt: request,
           temperature: 0.35,
         });
-        setMessage(fallback || '你好，有什么可以帮到你？');
+        const reply = fallback || '你好，有什么可以帮到你？';
+        setMessage(reply);
+        setConversation(previous => [...previous, { role: 'assistant', content: reply }].slice(-24));
         log('agent', 'Meme Agent fallback → normal model chat');
       } catch (fallbackError) {
-        setMessage(error instanceof Error ? error.message : fallbackError instanceof Error ? fallbackError.message : 'Meme 请求失败');
+        const failure = error instanceof Error ? error.message : fallbackError instanceof Error ? fallbackError.message : 'Meme 请求失败';
+      setMessage(failure);
+      setConversation(previous => [...previous, { role: 'assistant', content: failure }].slice(-24));
       }
     } finally {
       setAiBusy(false);
