@@ -169,16 +169,6 @@ export function LineConversationView({
     markLineConversationRead(conversationStorageId, messages.at(-1)?.id);
   }, [messages, conversationStorageId]);
 
-  useEffect(() => {
-    if (unreadAnchorId !== null || !messages.length) return;
-    const firstUnread = messages.find((message) => message.sender !== 'me' && message.isRead === false);
-    if (firstUnread) {
-      setUnreadAnchorId(firstUnread.id);
-      setShowUnreadJump(true);
-    }
-  }, [messages, unreadAnchorId]);
-
-
   // Sheets & Overlays
   const [showPlusSheet, setShowPlusSheet] = useState(false);
   const [subSheetType, setSubSheetType] = useState<'image' | 'video' | 'file' | null>(null);
@@ -239,6 +229,16 @@ export function LineConversationView({
   const [showGroupMembers, setShowGroupMembers] = useState(false);
   const [unreadAnchorId, setUnreadAnchorId] = useState<number | string | null>(null);
   const [showUnreadJump, setShowUnreadJump] = useState(false);
+  useEffect(() => {
+    if (unreadAnchorId !== null || !messages.length) return;
+    const firstUnread = messages.find((message) => message.sender !== 'me' && message.isRead === false);
+    if (firstUnread) {
+      setUnreadAnchorId(firstUnread.id);
+      setShowUnreadJump(true);
+    }
+  }, [messages, unreadAnchorId]);
+
+
   // Mobile LINE-style gesture: swipe a message left to quote/reply to it.
   const [swipingMessageId, setSwipingMessageId] = useState<number | string | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
