@@ -21,7 +21,28 @@ export type StudioSession = {
   title: string;
   createdAt: number;
   updatedAt: number;
-  messages: Array<{ role: 'user' | 'meme' | 'system'; text: string }>;
+  messages: Array<{ role: 'user' | 'meme' | 'system'; text: string; createdAt: number }>;
+};
+
+export type StudioTask = {
+  id: string;
+  title: string;
+  request: string;
+  status: 'planning' | 'working' | 'review' | 'done' | 'failed';
+  steps: Array<{
+    id: string;
+    title: string;
+    status: 'todo' | 'working' | 'done' | 'blocked';
+  }>;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type StudioOperationLog = {
+  id: string;
+  at: number;
+  type: 'agent' | 'tool' | 'change' | 'git' | 'error' | 'system';
+  text: string;
 };
 
 export type StudioGitTarget = {
@@ -29,27 +50,3 @@ export type StudioGitTarget = {
   repo: string;
   branch: string;
 };
-
-
-export type StudioTaskStatus = 'planning' | 'working' | 'review' | 'done' | 'failed';
-
-export type StudioTask = {
-  id: string;
-  title: string;
-  request: string;
-  status: StudioTaskStatus;
-  steps: Array<{
-    id: string;
-    label: string;
-    status: 'pending' | 'working' | 'done' | 'blocked';
-  }>;
-  createdAt: number;
-  updatedAt: number;
-};
-
-export type StudioGitOperation =
-  | { type: 'commit'; message: string }
-  | { type: 'branch'; name: string; base?: string }
-  | { type: 'pull-request'; title: string; body?: string; base: string; head: string }
-  | { type: 'compare'; base: string; head: string }
-  | { type: 'history' };
