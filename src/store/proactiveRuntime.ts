@@ -83,15 +83,6 @@ function appendProactiveMessage(character: ImportedCharacter, text: string) {
     status: 'delivered',
     metadata: { proactive: true },
   });
-  addLineNotification({
-    type: 'message',
-    conversationId: character.id || character.name,
-    characterId: character.id,
-    title: character.name || '新消息',
-    body: text.slice(0, 120),
-    payload: { proactive: true },
-  });
-
   const chatItems = readLocal<any[]>('line:chat-items', []);
   const existing = chatItems.find(item => item.characterId === character.id || item.name === character.name);
   const updated = existing
@@ -132,7 +123,14 @@ function appendProactiveMessage(character: ImportedCharacter, text: string) {
   }, character.name);
 
   window.dispatchEvent(new CustomEvent('sane333:proactive-message', {
-    detail: { characterName: character.name, message },
+    detail: {
+      id: messageId,
+      character: { id: character.id, name: character.name },
+      text,
+      kind: 'text',
+      createdAt: new Date().toISOString(),
+      reason: 'scheduled-proactive',
+    },
   }));
 }
 
