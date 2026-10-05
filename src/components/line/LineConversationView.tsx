@@ -808,13 +808,6 @@ export function LineConversationView({
     setInputText('');
     setIsTyping(true);
 
-    // 保留 LINE 的已读节奏，但回复本身改为真正的模型请求。
-    window.setTimeout(() => {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === msgId ? { ...m, isRead: true } : m))
-      );
-    }, 1200);
-
     if (isGroup) {
       try {
       if (groupAiMembers.length === 0) {
@@ -862,6 +855,8 @@ export function LineConversationView({
           },
         });
         setMessages(prev => prev.map(m => m.id === replyMsgId ? { ...m, text: result.text, senderName: character.name, aiModel: result.model, matchedWorldbookEntries: result.matchedWorldbookEntries } : m));
+        // 角色真正回复后，用户刚才的消息才变成已读。
+        setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isRead: true } : m));
         workingMessages = [...workingMessages, { id: replyMsgId, sender: 'other', senderName: character.name, text: result.text }];
         const member = responders[index].member;
         updateLineGroupMember(activeGroup?.id || '', member.id, {
@@ -940,7 +935,9 @@ export function LineConversationView({
                 aiModel: result.model,
                 matchedWorldbookEntries: result.matchedWorldbookEntries,
               }
-            : m
+            : m.id === msgId
+              ? { ...m, isRead: true }
+              : m
         )
       );
 
