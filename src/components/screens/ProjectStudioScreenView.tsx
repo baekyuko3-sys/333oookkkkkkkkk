@@ -522,7 +522,12 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
             {agentRunning && <div className="p-3 rounded-2xl bg-[#292724] text-white text-[8px] font-mono">{agentEvents.length ? agentEvents.map((item, index) => <div key={index}>{item}</div>) : 'MEME · inspecting project…'}</div>}
             {!ready && <div className="p-3 rounded-2xl bg-[#fff4f1] text-[9px]">还没连接 GitHub。去 Settings 填 Token，就可以直接维护项目。</div>}
-          </section>
+                      <div className="p-3 rounded-2xl bg-white/60 border border-black/5">
+              <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">SESSION HISTORY</div>
+              {sessions.slice(0,6).map(session => <button key={session.id} onClick={() => setSessionTitle(session.title)} className="w-full text-left mt-1.5 p-2 rounded-xl bg-white/70"><div className="text-[8px] truncate">{session.title}</div><div className="text-[6px] text-[#999]">{new Date(session.createdAt).toLocaleString()}</div></button>)}
+              {!sessions.length && <div className="mt-2 text-[8px] text-[#888]">还没有历史 Session。</div>}
+            </div>
+</section>
         )}
 
         {tab === 'git' && (
