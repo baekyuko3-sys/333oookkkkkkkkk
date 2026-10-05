@@ -239,10 +239,12 @@ export function addLineNotification(input: Omit<LineNotification, 'id' | 'create
 
 export function markLineNotificationRead(id: string) {
   writeJson(NOTIFICATION_KEY, getLineNotifications().map(item => item.id === id ? { ...item, read: true } : item));
+  window.dispatchEvent(new CustomEvent('sane333:line-notifications-changed'));
 }
 
 export function markAllLineNotificationsRead() {
   writeJson(NOTIFICATION_KEY, getLineNotifications().map(item => ({ ...item, read: true })));
+  window.dispatchEvent(new CustomEvent('sane333:line-notifications-changed'));
 }
 
 export function markLineNotificationsReadForConversation(conversationId: string) {
