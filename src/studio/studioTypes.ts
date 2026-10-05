@@ -29,3 +29,27 @@ export type StudioGitTarget = {
   repo: string;
   branch: string;
 };
+
+
+export type StudioTaskStatus = 'planning' | 'working' | 'review' | 'done' | 'failed';
+
+export type StudioTask = {
+  id: string;
+  title: string;
+  request: string;
+  status: StudioTaskStatus;
+  steps: Array<{
+    id: string;
+    label: string;
+    status: 'pending' | 'working' | 'done' | 'blocked';
+  }>;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type StudioGitOperation =
+  | { type: 'commit'; message: string }
+  | { type: 'branch'; name: string; base?: string }
+  | { type: 'pull-request'; title: string; body?: string; base: string; head: string }
+  | { type: 'compare'; base: string; head: string }
+  | { type: 'history' };
