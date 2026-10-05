@@ -371,13 +371,19 @@ export function bindLineRuntimeEvents() {
   };
   const onWorldEvent = (event: Event) => {
     const detail = (event as CustomEvent<any>).detail || {};
-    if (!['offline.invite', 'offline.accepted'].includes(detail.type)) return;
+    if (!['offline.invite', 'offline.accepted', 'offline.started', 'offline.completed'].includes(detail.type)) return;
+    const bodyByType: Record<string, string> = {
+      'offline.invite': '发来了一份线下邀约',
+      'offline.accepted': '线下邀约已接受',
+      'offline.started': '你们的线下剧情已经开始',
+      'offline.completed': '这次见面已经结束并存档',
+    };
     addLineNotification({
       type: 'invite',
       conversationId: detail.characterId,
       characterId: detail.characterId,
       title: detail.characterName || '线下剧情',
-      body: detail.type === 'offline.invite' ? '发来了一份线下邀约' : '线下邀约已接受',
+      body: bodyByType[detail.type] || '线下剧情有新进展',
       payload: detail,
     });
   };
