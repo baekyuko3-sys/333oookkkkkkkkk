@@ -4,13 +4,13 @@ import { PhoneSimulator } from './components/PhoneSimulator';
 import { cleanupOldDemoData } from './store/blankPhoneMigration';
 
 export default function App() {
+  const release = '2026.10.06-studio-agent';
   const [themeMode, setThemeMode] = useState<ThemeMode>('nordic-light');
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
   const [showUpdate, setShowUpdate] = useState(false);
 
   useEffect(() => {
     cleanupOldDemoData();
-    const release = '2026.10.06-studio-agent';
     const seen = window.localStorage.getItem('sane333:last-seen-release');
     if (seen !== release) setShowUpdate(true);
     const marker = 'sane333:blank-foundation-v1';
