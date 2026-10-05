@@ -553,7 +553,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
           </section>
         )}
 
-        {marker}
+        {tab === 'files' && (
           <section className="p-3.5 space-y-2.5">
             <div className="flex gap-1.5">
               <button onClick={() => void list(path)} className="flex-1 py-2 rounded-xl bg-[#292724] text-white text-[9px]">刷新</button>
