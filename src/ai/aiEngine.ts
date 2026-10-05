@@ -528,7 +528,7 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
   requireApiKey(input.settings);
 
   const worldbooks = input.worldbooks || [];
-  const scanDepth = Math.max(1, Math.min(50, Math.max(12, ...worldbooks.flatMap(book => book.entries.map(entry => Number(entry.scanDepth || 0)))));
+  const scanDepth = Math.max(1, Math.min(50, Math.max(12, ...worldbooks.flatMap(book => book.entries.map(entry => Number(entry.scanDepth || 0))))));
   const scannedText = input.messages
     .filter(message => !message.isRecalled && !message.isRecalledByOther && message.type !== 'system-nudge')
     .slice(-scanDepth)
