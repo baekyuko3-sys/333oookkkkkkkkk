@@ -832,7 +832,16 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
                 <button onClick={() => setPrompt('帮我找可能的构建错误')} className="p-2 rounded-xl bg-white/70 text-[8px] text-left">找 Bug</button>
               </div>
             </div>
-            <div className="p-3 rounded-2xl bg-white/70 border border-black/5 text-[10px] whitespace-pre-wrap">{message}</div>
+            <div className="space-y-2">
+              {!conversation.length && <div className="p-3 rounded-2xl bg-white/70 border border-black/5 text-[10px] whitespace-pre-wrap">{message}</div>}
+              {conversation.map((item, index) => (
+                <div key={index} className={item.role === 'user' ? 'ml-7 p-3 rounded-2xl rounded-br-md bg-[#292724] text-white text-[10px] whitespace-pre-wrap' : 'mr-7 p-3 rounded-2xl rounded-bl-md bg-white/70 border border-black/5 text-[10px] whitespace-pre-wrap'}>
+                  <div className="mb-1 text-[7px] font-mono tracking-[1px] opacity-45">{item.role === 'user' ? 'YOU' : 'MEME'}</div>
+                  {item.content}
+                </div>
+              ))}
+              {aiBusy && <div className="mr-7 p-3 rounded-2xl rounded-bl-md bg-[#292724] text-white text-[9px] font-mono"><Loader2 className="w-3 h-3 inline mr-1 animate-spin" />Meme 正在理解项目并工作…</div>}
+            </div>
             {currentTask && <div className="p-3 rounded-2xl bg-[#292724] text-white">
               <div className="text-[8px] font-mono tracking-[1.5px] text-white/50">CURRENT TASK</div>
               <div className="mt-1 text-[10px]">{currentTask.title}</div>
