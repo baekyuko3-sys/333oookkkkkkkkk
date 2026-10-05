@@ -1,5 +1,6 @@
 import { MEME_PROJECT_MAP, MEME_PROJECT_PRINCIPLES } from './projectMap';
 import { generateCreativeText } from '../ai/aiEngine';
+import type { ChatProvider } from '../store/appSettings';
 
 export type MemeCodingMode = 'always-ask' | 'confirm-before-commit' | 'auto';
 
@@ -51,7 +52,7 @@ type AgentOptions = {
   apiBaseUrl: string;
   apiKey: string;
   model: string;
-  provider?: 'openai' | 'gemini';
+  provider?: ChatProvider;
   codingMode: MemeCodingMode;
   project: string;
   tools: MemeTool[];
@@ -119,7 +120,7 @@ async function callModel(options: AgentOptions, messages: any[], temperature = 0
   // Studio must not depend on the character/roleplay engine.
   const raw = await generateCreativeText({
     settings: {
-      provider: options.provider || 'openai',
+      provider: options.provider || 'openai-compatible',
       apiBaseUrl: options.apiBaseUrl,
       apiKey: options.apiKey,
       model: options.model,
