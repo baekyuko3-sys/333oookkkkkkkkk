@@ -2823,6 +2823,7 @@ export function LineConversationView({
               )}
               </div>
             </div>
+              </div>
           );
         })}
         {/* AI 正在生成时，固定显示在消息流最底部，而不是顶栏 */}
