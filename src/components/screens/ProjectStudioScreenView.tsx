@@ -409,7 +409,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     const base = 'https://api.github.com/repos/' + owner + '/' + repo;
     const errorText = String(ciError || '').slice(-16000);
     const changePaths = changes.map(change => change.path);
-    const errorPaths = Array.from(errorText.matchAll(/(?:src|app|lib|components|pages|public|tests?|packages?)\\/[A-Za-z0-9_./-]+/g))
+    const errorPaths = Array.from(errorText.matchAll(/(?:src|app|lib|components|pages|public|tests?|packages?)\/[A-Za-z0-9_./-]+/g))
       .map(match => match[0].replace(/[),:;]+$/, ''));
     const guessedPaths = Array.from(new Set([...changePaths, ...errorPaths])).filter(Boolean).slice(0, 10);
 
