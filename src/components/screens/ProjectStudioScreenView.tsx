@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Check, ChevronRight, FileCode2, Folder, Github, KeyRound, Loader2, MessageCircle, Plus, Save, Send, Settings2, ShieldAlert, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import type { ScreenType } from '../../types';
-import { listOpenAiCompatibleModels, testAiConnection } from '../../ai/aiEngine';
+import { generateCreativeText, listOpenAiCompatibleModels, testAiConnection } from '../../ai/aiEngine';
 import { readAppSettings, saveAppSettings, type AppSettings } from '../../store/appSettings';
 import { runMemeAgent, type MemeCodingMode } from '../../studio/memeAgent';
 import { studioStorage } from '../../studio/studioStorage';
@@ -154,8 +154,14 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const testAi = async () => {
     setTestingAi(true);
     try {
-      const result = await testAiConnection(aiSettings);
-      notify(result.text || 'AI 连接成功');
+      // Studio 的连接测试必须走“普通模型对话”，不能进入角色卡/角色聊天引擎。
+      const text = await generateCreativeText({
+        settings: { ...aiSettings, streaming: false },
+        systemPrompt: '你是 Studio 内置的 Meme 助手。这里是普通助手对话，不存在角色卡、角色人设或世界书。请自然、简洁地回答用户。',
+        userPrompt: '请回复：你好，有什么可以帮到你？',
+        temperature: 0.2,
+      });
+      notify(text || 'AI 连接成功');
     } catch (error) {
       notify(error instanceof Error ? error.message : 'AI 连接失败');
     } finally {
@@ -312,7 +318,20 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       log('agent', 'Finished current pass');
       setCurrentTask(v => v ? {...v,status:'review',updatedAt:Date.now(),steps:v.steps.map((step,i)=>({...step,status:i<2?'done':i===2?'working':'todo'} as any))} : v);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Meme 请求失败');
+      // Meme Agent 不可用时，Studio 仍然应该像普通 AI 助手一样回复，
+      // 尤其是“你好 / 这是什么 / 帮我看看”等非代码请求，不应该落到角色卡逻辑。
+      try {
+        const fallback = await generateCreativeText({
+          settings: { ...aiSettings, streaming: false },
+          systemPrompt: '你是 Studio 内置的 Meme 助手。你正在帮助用户维护一个 GitHub 项目。不要扮演任何角色，不要读取角色卡或世界书。对于普通聊天直接回答；对于代码问题，告诉用户你需要 GitHub 项目连接后才能实际检查和修改。',
+          userPrompt: request,
+          temperature: 0.35,
+        });
+        setMessage(fallback || '你好，有什么可以帮到你？');
+        log('agent', 'Meme Agent fallback → normal model chat');
+      } catch (fallbackError) {
+        setMessage(error instanceof Error ? error.message : fallbackError instanceof Error ? fallbackError.message : 'Meme 请求失败');
+      }
     } finally {
       setAiBusy(false);
       setAgentRunning(false);
