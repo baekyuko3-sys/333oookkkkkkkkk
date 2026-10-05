@@ -5,12 +5,13 @@ import { listOpenAiCompatibleModels, testAiConnection } from '../../ai/aiEngine'
 import { readAppSettings, saveAppSettings, type AppSettings } from '../../store/appSettings';
 import { runMemeAgent, type MemeCodingMode } from '../../studio/memeAgent';
 import { studioStorage } from '../../studio/studioStorage';
+import { applyAtomicChanges, compare, createBranch, createPullRequest, getWorkflowJobs, getWorkflowRunsForCommit, getJobLog, rollbackBranch } from '../../studio/studioGit';
 import type { StudioOperationLog, StudioSession, StudioTask } from '../../studio/studioTypes';
 
 type Tab = 'chat' | 'files' | 'changes' | 'admin' | 'settings';
 const MEME_MODE_STORE = 'studio:meme-coding-mode';
 type Item = { name: string; path: string; type: 'file' | 'dir'; sha?: string };
-type Change = { path: string; content: string; reason?: string; risk?: 'low' | 'medium' | 'high' };
+type Change = { path: string; content: string; reason?: string; risk?: 'low' | 'medium' | 'high'; operation?: 'create' | 'update' | 'delete'; originalContent?: string };
 
 const STORE = {
   base: 'studio:ai-base',
@@ -107,6 +108,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [currentTask, setCurrentTask] = useState<StudioTask | null>(null);
   const [taskSteps, setTaskSteps] = useState<string[]>([]);
   const [sessionTitle, setSessionTitle] = useState('New build session');
+  const [crafted, setCrafted] = useState<any[]>(() => readStore('studio:crafted', '[]') ? JSON.parse(readStore('studio:crafted', '[]')) : []);
+  const [prUrl, setPrUrl] = useState('');
+  const [ciText, setCiText] = useState('');
 
   const ready = Boolean(owner.trim() && repo.trim() && branch.trim() && token.trim());
   const aiReady = Boolean(aiSettings.apiBaseUrl.trim() && aiSettings.apiKey.trim() && aiSettings.model.trim());
@@ -320,37 +324,93 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const approveChange = async (change: Change) => {
-    if (!ready) {
-      setTab('settings');
-      notify('先连接 GitHub');
-      return;
-    }
+    if (!ready) { setTab('settings'); notify('先连接 GitHub'); return; }
     setSaving(true);
     try {
-      const target = change.path.trim().replace(/^\\/+|\\/+$/g, '');
-      const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + target.split('/').map(encodeURIComponent).join('/');
-      let existing: any = null;
-      try { existing = await github(url + '?ref=' + encodeURIComponent(branch), token); } catch {}
-      const body: any = {
-        message: 'Studio: apply Meme change ' + target,
-        content: encodeBase64(change.content),
-        branch,
-      };
-      if (existing?.sha) body.sha = existing.sha;
-      await github(url, token, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      const result = await applyAtomicChanges(owner, repo, branch, token, [{
+        path: change.path,
+        content: change.content,
+        operation: change.operation || 'update',
+      }], 'Studio: apply Meme change ' + change.path);
       setChanges(previous => previous.filter(item => item.path !== change.path));
-      notify('已批准并写入 GitHub：' + target);
+      log('git', 'Applied ' + change.path + ' · ' + result.sha.slice(0,8));
+      notify('已批准并写入：' + change.path);
       await list(path);
-    } catch (error) {
-      notify(error instanceof Error ? error.message : '应用修改失败');
-    } finally {
-      setSaving(false);
-    }
+    } catch (error) { notify(error instanceof Error ? error.message : '应用修改失败'); }
+    finally { setSaving(false); }
   };
+
+  const approveAllChanges = async () => {
+    if (!ready || !changes.length) return;
+    if (!window.confirm('确认把 ' + changes.length + ' 个文件作为一个原子 commit 写入 ' + branch + '？')) return;
+    setSaving(true);
+    try {
+      const result = await applyAtomicChanges(owner, repo, branch, token, changes.map(change => ({
+        path: change.path, content: change.content, operation: change.operation || 'update',
+      })), 'Studio: apply Meme task · ' + sessionTitle);
+      const artifact = { id:'crafted-'+Date.now(), name:sessionTitle, kind:'feature', summary:'Meme completed an approved multi-file change.', files:changes.map(c=>c.path), commitSha:result.sha, createdAt:Date.now() };
+      const nextCrafted=[artifact,...crafted].slice(0,50);
+      setCrafted(nextCrafted); writeStore('studio:crafted', JSON.stringify(nextCrafted));
+      setChanges([]);
+      setCurrentTask(v => v ? {...v,status:'done',updatedAt:Date.now(),steps:v.steps.map(step=>({...step,status:'done'}))} : v);
+      log('git', 'Atomic commit ' + result.sha);
+      notify('已一次性写入 ' + artifact.files.length + ' 个文件');
+    } catch (error) { notify(error instanceof Error ? error.message : '批量提交失败'); }
+    finally { setSaving(false); }
+  };
+
+  const createStudioBranch = async () => {
+    if (!ready) return;
+    const name = window.prompt('新分支名称', 'meme/' + Date.now());
+    if (!name) return;
+    try { await createBranch(owner, repo, name, branch, token); setBranch(name); writeStore(STORE.branch,name); notify('已创建分支：'+name); log('git','Created branch '+name); }
+    catch (error) { notify(error instanceof Error ? error.message : '创建分支失败'); }
+  };
+
+  const openPullRequest = async () => {
+    if (!ready || branch === 'main') { notify('PR 需要一个非 main 分支'); return; }
+    try {
+      const result=await createPullRequest(owner,repo,branch,'main','Studio · '+sessionTitle,'Created by Meme Studio.\n\nReviewed changes: '+changes.length,token,true);
+      setPrUrl(result.html_url || result.url || '');
+      notify('Draft PR 已创建');
+      log('git','Created PR '+(result.number || ''));
+    } catch(error){ notify(error instanceof Error ? error.message : 'PR 创建失败'); }
+  };
+
+  const loadDiff = async () => {
+    try {
+      const data=await compare(owner,repo,'main',branch,token);
+      const files=(data.files||[]).map((item:any)=>item.filename+' · '+item.status+' · +'+item.additions+' -'+item.deletions).join('\n');
+      setCiText(files || '没有差异');
+      setTab('changes');
+    } catch(error){ notify(error instanceof Error ? error.message : 'Diff 获取失败'); }
+  };
+
+  const rollback = async () => {
+    if (!ready) return;
+    const target=window.prompt('输入要恢复到的 commit SHA（完整 SHA）');
+    if (!target || !window.confirm('确认将 '+branch+' 强制恢复到 '+target+'？这是破坏性 Git 操作。')) return;
+    try { await rollbackBranch(owner,repo,branch,target,token); notify('已恢复到 '+target.slice(0,8)); log('git','Rollback '+branch+' -> '+target); await list(path); }
+    catch(error){ notify(error instanceof Error ? error.message : '回滚失败'); }
+  };
+
+  const checkCI = async (sha?: string) => {
+    try {
+      const runs=await getWorkflowRunsForCommit(owner,repo,sha || (gitCommits[0]?.sha || ''),token);
+      const run=runs.workflow_runs?.[0];
+      if (!run) { setCiText('暂时没有找到 CI run'); return; }
+      if (run.conclusion === 'failure') {
+        const jobs=await getWorkflowJobs(owner,repo,run.id,token);
+        const failed=jobs.jobs?.filter((job:any)=>job.conclusion==='failure') || [];
+        const logsText=failed.length ? await getJobLog(owner,repo,failed[0].id,token) : '';
+        setCiText((logsText || 'CI failed') .slice(-12000));
+        log('error','CI failure received from GitHub Actions');
+      } else {
+        setCiText('CI · '+run.status+' · '+(run.conclusion || 'running'));
+      }
+    } catch(error){ setCiText(error instanceof Error ? error.message : 'CI 检查失败'); }
+  };
+
 
   const createFile = async () => {
     const target = newPath.trim().replace(/^\/+|\/+$/g, '');
