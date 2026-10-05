@@ -227,6 +227,26 @@ export function LineConversationView({
   // 消息操作菜单 (长按/右键菜单 Context Menu & 引用回复)
   const [contextMenuMsg, setContextMenuMsg] = useState<any | null>(null);
   const [replyingToMsg, setReplyingToMsg] = useState<any | null>(null);
+  // Mobile LINE-style gesture: swipe a message left to quote/reply to it.
+  const messageSwipeRef = useRef<{ id: number | string; startX: number; startY: number } | null>(null);
+  const handleMessagePointerDown = (event: React.PointerEvent, msg: any) => {
+    if (isMultiSelectMode || event.pointerType === 'mouse') return;
+    messageSwipeRef.current = { id: msg.id, startX: event.clientX, startY: event.clientY };
+  };
+  const handleMessagePointerUp = (event: React.PointerEvent, msg: any) => {
+    const start = messageSwipeRef.current;
+    messageSwipeRef.current = null;
+    if (!start || start.id !== msg.id || isMultiSelectMode || event.pointerType === 'mouse') return;
+    const dx = event.clientX - start.startX;
+    const dy = event.clientY - start.startY;
+    if (dx <= -64 && Math.abs(dy) <= 42) {
+      setReplyingToMsg(msg);
+      showToast('已引用这条消息');
+    }
+  };
+  const cancelMessageSwipe = () => {
+    messageSwipeRef.current = null;
+  };
 
   // 语音通话状态 (Voice Audio Call)
   const [showAudioCall, setShowAudioCall] = useState(false);
@@ -2116,6 +2136,11 @@ export function LineConversationView({
               )}
               <div
               data-line-message-id={msg.id}
+              onPointerDown={(event) => handleMessagePointerDown(event, msg)}
+              onPointerUp={(event) => handleMessagePointerUp(event, msg)}
+              onPointerCancel={cancelMessageSwipe}
+              onPointerLeave={cancelMessageSwipe}
+              style={{ touchAction: 'pan-y' }}
               className={`flex items-end gap-2 group ${isMe ? 'justify-end' : 'justify-start'}`}
             >
               {/* Multi-select checkbox */}
