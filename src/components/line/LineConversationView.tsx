@@ -341,6 +341,9 @@ export function LineConversationView({
     ...getLineGroups().filter(group => group.id !== activeGroup?.id).map(group => group.name).filter(Boolean),
   ]));
   const characterMemory = getCharacterMemory(importedCharacter?.id || contactName, contactName);
+  const contactOnline = isGroup
+    ? groupAiMembers.some(({ member }) => member.online !== false)
+    : (lineFriends.find(friend => friend.characterId === characterId || friend.name === contactName)?.online ?? true);
   const projectManifest = getProjectManifest();
 
   // 酒馆角色核心档案
@@ -1899,16 +1902,11 @@ export function LineConversationView({
                     </span>
                   </div>
                   <div className="text-[10px] text-[#aaa] mt-0.5 flex items-center gap-1">
-                    {isTyping ? (
-                      <span className="text-[#ae7e89] font-medium animate-pulse flex items-center gap-1">
-                        <span>{tx('对方正在输入', '入力中')}</span>
-                        <span className="inline-block animate-bounce">.</span>
-                        <span className="inline-block animate-bounce delay-100">.</span>
-                        <span className="inline-block animate-bounce delay-200">.</span>
-                      </span>
-                    ) : (
-                      <span>{tx('在线 · 点击看状态栏与主页 · 双击拍一拍', 'オンライン · ステータスとプロフィール · ダブルタップでノック')}</span>
-                    )}
+                    <span className={contactOnline ? 'text-[#78927e]' : 'text-[#aaa]'}>
+                      {contactOnline
+                        ? tx('在线 · 点击查看主页', 'オンライン · プロフィール')
+                        : tx('离线 · 点击查看主页', 'オフライン · プロフィール')}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -2067,7 +2065,15 @@ export function LineConversationView({
           今天
         </div>
 
-        {visibleMessages.map((msg) => {
+        {visibleMessages.map((msg, messageIndex) => {
+          const previousMessage = visibleMessages[messageIndex - 1];
+          const currentDay = msg.createdAt ? new Date(msg.createdAt).toLocaleDateString() : 'today';
+          const previousDay = previousMessage?.createdAt ? new Date(previousMessage.createdAt).toLocaleDateString() : (messageIndex === 0 ? '' : currentDay);
+          const showDaySeparator = messageIndex === 0 || currentDay !== previousDay;
+          const dayLabel = msg.createdAt
+            ? new Date(msg.createdAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric' })
+            : '今天';
+
           if (msg.type === 'music-together') {
             const session = msg.musicSession as TogetherMusicSession | undefined;
             if (!session) return null;
@@ -2100,8 +2106,15 @@ export function LineConversationView({
           const hasVariants = msg.variants && msg.variants.length > 1;
 
           return (
-            <div
-              key={msg.id}
+            <div key={msg.id} className="contents">
+              {showDaySeparator && (
+                <div className="flex justify-center py-1.5">
+                  <span className="px-3 py-1 rounded-full bg-[#f5f5f6] text-[9px] text-[#a2a2a6]">
+                    {dayLabel}
+                  </span>
+                </div>
+              )}
+              <div
               data-line-message-id={msg.id}
               className={`flex items-end gap-2 group ${isMe ? 'justify-end' : 'justify-start'}`}
             >
@@ -2553,6 +2566,7 @@ export function LineConversationView({
                   {msg.time}
                 </span>
               )}
+              </div>
             </div>
           );
         })}
