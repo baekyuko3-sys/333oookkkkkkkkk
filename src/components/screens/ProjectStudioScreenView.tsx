@@ -333,6 +333,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       log('git', 'Applied ' + change.path + ' · ' + result.sha.slice(0,8));
       notify('已批准并写入：' + change.path);
       await list(path);
+      await waitForCIAndRepair(result.sha);
     } catch (error) { notify(error instanceof Error ? error.message : '应用修改失败'); }
     finally { setSaving(false); }
   };
@@ -345,8 +346,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       const result = await applyAtomicChanges(owner, repo, branch, token, changes.map(change => ({ path: change.path, content: change.content, operation: change.operation || 'update' })), 'Studio: apply Meme task · ' + sessionTitle);
       const artifact = { id:'crafted-'+Date.now(), name:sessionTitle, kind:'feature', summary:'Meme completed an approved multi-file change.', files:changes.map(c=>c.path), commitSha:result.sha, createdAt:Date.now() };
       const next=[artifact,...crafted].slice(0,50); setCrafted(next); writeStore('studio:crafted',JSON.stringify(next));
-      setChanges([]); setCurrentTask(v => v ? {...v,status:'done',updatedAt:Date.now(),steps:v.steps.map(step=>({...step,status:'done'}))} : v);
-      log('git','Atomic commit '+result.sha); notify('已一次性写入 '+artifact.files.length+' 个文件');
+      setChanges([]); setCurrentTask(v => v ? {...v,status:'working',updatedAt:Date.now(),steps:v.steps.map(step=>({...step,status:'done'}))} : v);
+      log('git','Atomic commit '+result.sha); notify('已一次性写入 '+artifact.files.length+' 个文件，正在等待 CI…');
+      await waitForCIAndRepair(result.sha);
     } catch (error) { notify(error instanceof Error ? error.message : '批量提交失败'); }
     finally { setSaving(false); }
   };
