@@ -104,6 +104,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
           <symbol id="gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.6"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></symbol>
           <symbol id="threads" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c2.8 0 5.4-1.1 7.2-3l-1.5-1.5C16.2 19 14.2 20 12 20c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8c0 2.2-.9 4.1-2.4 5.3-1.1.9-2.5 1.2-3.8.9-1.8-.4-2.8-1.8-2.8-3.7V11c0-1.7-1.3-3-3-3s-3 1.3-3 3 1.3 3 3 3c1 0 1.9-.5 2.4-1.2v1.7c0 2.8 1.7 4.8 4.3 5.4 1.8.4 3.7-.1 5.2-1.3C21 16.9 22 14.5 22 12c0-5.5-4.5-10-10-10zm-1 10.5c-.8 0-1.5-.7-1.5-1.5s.7-1.5 1.5-1.5 1.5.7 1.5 1.5-.7 1.5-1.5 1.5z" fill="currentColor"/></symbol>
           <symbol id="spy" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="1.6"/><circle cx="12" cy="18" r="1" fill="currentColor"/><circle cx="12" cy="9" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.5"/><path d="M9.5 9h5M12 6.5v5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></symbol>
+          <symbol id="studio" viewBox="0 0 24 24"><path d="M12 3.5l1.8 5.7L19.5 11l-5.7 1.8L12 18.5l-1.8-5.7L4.5 11l5.7-1.8L12 3.5z" fill="none" stroke="currentColor" strokeWidth="1.45" strokeLinejoin="round"/><circle cx="18.5" cy="5.5" r="1" fill="currentColor"/></symbol>
         </defs>
       </svg>
 
@@ -527,6 +528,18 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
             <button onClick={() => onNavigate('memory')} className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group">
               <div className="w-[54px] h-[54px] rounded-[18px] bg-[#292724] text-white grid place-items-center group-hover:scale-105 transition-transform">{appearance.appIcons.memory ? renderAppIcon('memory', 'card') : <span className="font-serif text-[20px]">M</span>}</div>
               <span className="font-semibold tracking-tight text-[var(--ink)]">Memory</span>
+            </button>
+
+            {/* App 6: STUDIO · Meme Workshop */}
+            <button
+              onClick={() => onNavigate('project-studio')}
+              className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
+              title="打开 STUDIO · Meme Workshop"
+            >
+              <div className="w-[54px] h-[54px] rounded-[18px] bg-[#242220] text-white grid place-items-center group-hover:scale-105 transition-transform shadow-[0_7px_18px_rgba(38,34,30,.10)]">
+                {renderAppIcon('studio', 'studio')}
+              </div>
+              <span className="font-semibold tracking-tight text-[var(--ink)]">STUDIO</span>
             </button>
           </section>
 
