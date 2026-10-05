@@ -13,6 +13,7 @@ import { getCharacterMemory } from '../../store/characterMemory';
 import { getCharacterProfile } from '../../data/characterProfiles';
 import { generateCreativeText, readStoredAiSettings } from '../../ai/aiEngine';
 import { setCurrentScene, setCharacterRuntime } from '../../store/worldRuntime';
+import { emitWorldEvent } from '../../store/worldRuntime';
 import { recordOfflineEventInLine } from '../../store/lineRuntime';
 
 const statusLabel: Record<OfflineEvent['status'], string> = {
@@ -85,7 +86,14 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
 
   const acceptInvite = (event: OfflineEvent) => {
     const updated = updateOfflineEvent(event.id, { status: 'accepted', updatedAt: nowIso() });
-    if (updated) recordOfflineEventInLine(updated);
+    if (updated) {
+      recordOfflineEventInLine(updated);
+      emitWorldEvent('offline.accepted', {
+        characterId: updated.characterId,
+        characterName: updated.characterName,
+        data: { offlineEventId: updated.id, status: updated.status },
+      });
+    }
     sync();
     notify('已接受邀约，可以开始这条线下剧情');
   };
@@ -161,6 +169,11 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
       });
       if (updated) {
         recordOfflineEventInLine(updated);
+        emitWorldEvent('offline.started', {
+          characterId: updated.characterId,
+          characterName: updated.characterName,
+          data: { offlineEventId: updated.id, status: updated.status },
+        });
         setEvents(getOfflineEvents());
         setCurrentScene(event.id);
         setCharacterRuntime(event.characterId, {
@@ -234,7 +247,14 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
   const completeScene = () => {
     if (!selected) return;
     const completed = updateOfflineEvent(selected.id, { status: 'completed', updatedAt: nowIso() });
-    if (completed) recordOfflineEventInLine(completed);
+    if (completed) {
+      recordOfflineEventInLine(completed);
+      emitWorldEvent('offline.completed', {
+        characterId: completed.characterId,
+        characterName: completed.characterName,
+        data: { offlineEventId: completed.id, status: completed.status },
+      });
+    }
     setCurrentScene(null);
     setCharacterRuntime(selected.characterId, { activity: '刚结束一次见面' }, selected.characterName);
     sync();
