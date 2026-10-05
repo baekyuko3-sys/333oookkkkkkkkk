@@ -11,7 +11,7 @@ import type { StudioOperationLog, StudioSession, StudioTask } from '../../studio
 type Tab = 'chat' | 'files' | 'changes' | 'crafted' | 'admin' | 'git' | 'settings';
 const MEME_MODE_STORE = 'studio:meme-coding-mode';
 type Item = { name: string; path: string; type: 'file' | 'dir'; sha?: string };
-type Change = { path: string; content: string; reason?: string; risk?: 'low' | 'medium' | 'high'; operation?: 'create' | 'update' | 'delete'; originalContent?: string };
+type Change = { path: string; content: string; reason?: string; risk?: 'low' | 'medium' | 'high'; operation?: 'create' | 'update' | 'delete'; originalContent?: string; validation?: { status: 'passed' | 'needs_revision' | 'needs_more_context'; summary: string; checks: string[]; concerns: string[]; changedLines: number; removedLines: number } };
 
 const STORE = {
   base: 'studio:ai-base',
@@ -381,6 +381,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const stageMemeProposal = (p: any) => {
+    const validation = p.validation;
     setChanges(previous => [
       ...previous.filter(change => change.path !== p.path),
       {
@@ -389,13 +390,15 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         reason: p.reason,
         risk: p.risk,
         operation: p.operation || 'update',
+        originalContent: p.originalContent || '',
+        validation,
       },
     ]);
     setTaskSteps(previous => previous.map((step, index) =>
-      index === 2 ? '修改草案已准备' : index === 3 ? '等待你的批准' : step
+      index === 2 ? '修复已通过 Meme 自检' : index === 3 ? '等待你的批准' : step
     ));
-    setMessage('Meme 已提出修改：' + p.path + '\\n' + p.reason);
-    log('change', p.operation + ' ' + p.path);
+    setMessage('Meme 已完成修复前后验证：' + p.path + '\\n' + (validation?.summary || p.reason));
+    log('change', p.operation + ' ' + p.path + ' · validation passed');
     setTab('changes');
   };
 
@@ -589,7 +592,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             log('error', event.text);
           }
         },
-      }, repairRequest);
+      }, repairRequest, JSON.stringify(context));
 
       if (result.text) setMessage(result.text);
       setCurrentTask(v => v ? {
@@ -860,7 +863,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
               <div className="grid grid-cols-2 gap-1.5 mt-2"><button onClick={() => void loadDiff()} className="py-2 rounded-xl bg-white text-[8px]">Diff</button><button disabled={!changes.length||saving} onClick={() => void approveAllChanges()} className="py-2 rounded-xl bg-[#292724] text-white text-[8px] disabled:opacity-40">Atomic Commit</button></div>
             </div>
             {ciText && <pre className="p-3 rounded-2xl bg-[#252422] text-[#ddd] text-[7px] whitespace-pre-wrap max-h-40 overflow-auto">{ciText}</pre>}
-            {changes.map(change => <div key={change.path} className="p-3 rounded-2xl bg-white/65 border border-black/5"><div className="flex gap-2"><div className="text-[9px] font-mono flex-1 truncate">{change.path}</div><span className="text-[7px]">{change.operation||'update'}</span></div>{change.reason&&<div className="mt-1 text-[8px] text-[#777069]">{change.reason}</div>}<pre className="mt-2 max-h-24 overflow-hidden rounded-xl bg-[#252422] text-[#ddd] p-2 text-[7px] whitespace-pre-wrap">+ {change.content.slice(0,1000)}</pre><div className="grid grid-cols-2 gap-1.5 mt-2"><button onClick={() => {setFile({name:change.path.split('/').pop()||change.path,path:change.path,type:'file'});setCode(change.content);setOriginal(change.originalContent||'');setTab('files')}} className="py-2 rounded-lg bg-white text-[9px]">查看 / 编辑</button><button disabled={saving} onClick={() => void approveChange(change)} className="py-2 rounded-lg bg-[#292724] text-white text-[9px] disabled:opacity-40">批准</button></div></div>)}
+            {changes.map(change => <div key={change.path} className="p-3 rounded-2xl bg-white/65 border border-black/5"><div className="flex gap-2"><div className="text-[9px] font-mono flex-1 truncate">{change.path}</div><span className="text-[7px]">{change.operation||'update'}</span></div>{change.validation && <div className="mt-2 p-2 rounded-xl bg-[#eef5ef] text-[7px]"><b>✓ Meme self-check passed</b><div className="mt-1">{change.validation.summary}</div><div className="mt-1 text-[#777]">Diff: +{change.validation.changedLines} / -{change.validation.removedLines} · risk {change.risk || 'medium'}</div>{change.validation.concerns.length > 0 && <div className="mt-1 text-[#8f6f68]">注意：{change.validation.concerns.join(' · ')}</div>}</div>}{change.reason&&<div className="mt-1 text-[8px] text-[#777069]">{change.reason}</div>}<pre className="mt-2 max-h-24 overflow-hidden rounded-xl bg-[#252422] text-[#ddd] p-2 text-[7px] whitespace-pre-wrap">+ {change.content.slice(0,1000)}</pre><div className="grid grid-cols-2 gap-1.5 mt-2"><button onClick={() => {setFile({name:change.path.split('/').pop()||change.path,path:change.path,type:'file'});setCode(change.content);setOriginal(change.originalContent||'');setTab('files')}} className="py-2 rounded-lg bg-white text-[9px]">查看 / 编辑</button><button disabled={saving} onClick={() => void approveChange(change)} className="py-2 rounded-lg bg-[#292724] text-white text-[9px] disabled:opacity-40">批准</button></div></div>)}
             {!changes.length&&<div className="py-12 text-center text-[9px] text-[#888]">暂无 AI 修改草案。</div>}
           </section>
         )}
