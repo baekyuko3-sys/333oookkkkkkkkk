@@ -4830,7 +4830,7 @@ export function LineConversationView({
               <MicOff className="w-5 h-5 text-white" />
             </button>
             <button
-              onClick={() => setShowVideoCall(false)}
+              onClick={() => { setShowVideoCall(false); recordLineCall(conversationStorageId, { direction: 'outgoing', kind: 'video', status: 'ended' }); }}
               className="w-14 h-14 rounded-full bg-[#d56f7d] flex items-center justify-center shadow-lg active:scale-95 cursor-pointer"
             >
               <PhoneOff className="w-6 h-6 text-white" />
@@ -4843,7 +4843,7 @@ export function LineConversationView({
       {showAudioCall && (
         <div className="absolute inset-0 bg-[#23252a] z-50 flex flex-col justify-between p-6 text-white animate-in zoom-in-95">
           <div className="flex items-center justify-between text-sm">
-            <button onClick={() => setShowAudioCall(false)} className="text-xl opacity-80 cursor-pointer">
+            <button onClick={() => { setShowAudioCall(false); recordLineCall(conversationStorageId, { direction: 'outgoing', kind: 'audio', status: 'ended', duration: audioCallDuration }); }} className="text-xl opacity-80 cursor-pointer">
               ×
             </button>
             <span className="text-xs text-[#aaa]">LINE 语音通话</span>
