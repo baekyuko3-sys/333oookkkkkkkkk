@@ -825,6 +825,12 @@ export function LineConversationView({
     setInputText('');
     setIsTyping(true);
 
+    // LINE read state: once the role starts processing the message, it has been seen.
+    // A later role message upgrades the footer from “已读 · 暂未回复” to “已读”.
+    setMessages((prev) =>
+      prev.map((message) => message.id === msgId ? { ...message, isRead: true } : message)
+    );
+
     if (isGroup) {
       try {
       if (groupAiMembers.length === 0) {
@@ -2788,12 +2794,25 @@ export function LineConversationView({
 
               {/* Time & LINE Iconic "已读" status for me */}
               {isMe && !msg.isRecalled && (
-                <div className="flex flex-col items-end text-[9px] text-[#b8b8bb] pb-0.5 leading-none shrink-0">
-                  <span className={msg.isRead ? "text-[8.5px] text-[#ae7e89] font-medium mb-0.5" : "text-[8.5px] text-[#b8b8bb] font-medium mb-0.5"}>
-                    {msg.isRead ? '已读' : '未读'}
-                  </span>
-                  <span>{msg.time}</span>
-                </div>
+                (() => {
+                  const msgIndex = messages.findIndex((candidate) => String(candidate.id) === String(msg.id));
+                  const hasRoleReply = msgIndex >= 0 && messages.slice(msgIndex + 1).some((candidate) =>
+                    candidate.sender !== 'me' && candidate.type !== 'system-nudge'
+                  );
+                  const readLabel = !msg.isRead
+                    ? '未读'
+                    : hasRoleReply
+                      ? '已读'
+                      : '已读 · 暂未回复';
+                  return (
+                    <div className="flex flex-col items-end text-[9px] text-[#b8b8bb] pb-0.5 leading-none shrink-0">
+                      <span className={msg.isRead ? "text-[8.5px] text-[#ae7e89] font-medium mb-0.5" : "text-[8.5px] text-[#b8b8bb] font-medium mb-0.5"}>
+                        {readLabel}
+                      </span>
+                      <span>{msg.time}</span>
+                    </div>
+                  );
+                })()
               )}
 
               {/* Time for other */}
