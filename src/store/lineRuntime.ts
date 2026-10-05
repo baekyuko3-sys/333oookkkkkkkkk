@@ -96,8 +96,40 @@ export function appendLineMessage(id: string, message: LineRuntimeMessage): Line
   const next = [...current, nextMessage];
   saveLineConversationMessages(id, next);
   const previousUnread = getLineConversationMeta(id)?.unread || 0;
+  const nextUnread = nextMessage.sender === 'other' ? previousUnread + 1 : 0;
+
+  // Keep the visible LINE chat list synchronized with the runtime message stream.
+  // This is especially important for background events such as offline-story updates
+  // and call records that arrive while the conversation screen is closed.
+  if (typeof window !== 'undefined') {
+    try {
+      const rawChats = window.localStorage.getItem('line:chat-items');
+      const chats = rawChats ? JSON.parse(rawChats) : [];
+      if (Array.isArray(chats)) {
+        const preview = String(
+          nextMessage.text ||
+          (nextMessage.kind === 'offline-invite' ? '💌 线下剧情邀约' : '') ||
+          (nextMessage.kind === 'call-record' ? nextMessage.text || '通话记录' : '') ||
+          (nextMessage.kind === 'voice' ? '[语音]' : '') ||
+          (nextMessage.kind === 'image' ? '[图片]' : '') ||
+          (nextMessage.kind === 'video' ? '[视频]' : '') ||
+          (nextMessage.kind === 'file' ? '[文件]' : '') ||
+          '[新消息]'
+        ).replace(/\\s+/g, ' ').slice(0, 80);
+        const nextChats = chats.map((item: any) =>
+          item.id === id || item.characterId === id
+            ? { ...item, preview, time: '刚刚', unread: nextUnread }
+            : item
+        );
+        window.localStorage.setItem('line:chat-items', JSON.stringify(nextChats));
+      }
+    } catch {
+      // Chat-list synchronization is best-effort.
+    }
+  }
+
   touchLineConversation(id, {
-    unread: nextMessage.sender === 'other' ? previousUnread + 1 : 0,
+    unread: nextUnread,
   });
   return next;
 }
