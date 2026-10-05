@@ -296,15 +296,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         ],
         onEvent: event => {
           if (event.type === 'proposal') {
-            const p = event.proposal;
-            setChanges(previous => [
-              ...previous.filter(change => change.path !== p.path),
-              { path: p.path, content: p.content || '', reason: p.reason, risk: p.risk },
-            ]);
-            setTaskSteps(previous => previous.map((step, index) => index === 2 ? '修改草案已准备' : index === 3 ? '等待你的批准' : step));
-            setMessage('Meme 已提出修改：' + p.path + '\\n' + p.reason);
-            log('change', p.operation + ' ' + p.path);
-            setTab('changes');
+            stageMemeProposal(event.proposal);
           } else if (event.type === 'message' || event.type === 'done') {
             setMessage(event.text);
           } else if (event.type === 'tool') {
@@ -571,6 +563,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
           if (run.conclusion === 'success') {
             setCiText('CI · success · ' + sha.slice(0, 8));
             log('git', 'CI passed · ' + sha.slice(0, 8));
+            setCurrentTask(v => v ? { ...v, status: 'done', updatedAt: Date.now(), steps: v.steps.map(step => ({ ...step, status: 'done' })) } : v);
             notify('CI 通过 ✓');
             return;
           }
