@@ -46,7 +46,6 @@ export interface CharacterInfo {
   unreadCount?: number;
 }
 
-
 export type CharacterLanguage = 'zh-CN' | 'en' | 'ja' | 'ko' | 'fr' | 'es' | 'de' | 'other';
 export type BilingualMode = 'off' | 'auto';
 export type BilingualLayout = 'inside-bubble' | 'below-bubble';

@@ -12,6 +12,7 @@ export interface ContextEngineInput {
   project?: ProjectManifest | null;
   worldbooks?: WorldBook[];
   userMessage: string;
+  worldBookScanForEntry?: (entry: WorldBook['entries'][number]) => string;
 }
 
 export interface ResolvedContext {
@@ -22,60 +23,164 @@ export interface ResolvedContext {
   world: string;
   project: string;
   worldBook: string;
+  worldBookBefore: string;
+  worldBookAfter: string;
 }
 
-function normalize(value: string) {
-  return value.toLowerCase().replace(/\\s+/g, ' ').trim();
+function stableRoll(seed: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash ^= seed.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) % 100;
 }
 
-function keywordMatches(text: string, keyword: string, entry: WorldBook['entries'][number]) {
-  const rawKeyword = keyword.trim();
-  if (!rawKeyword) return false;
-  const haystack = entry.caseSensitive ? text : normalize(text);
-  const key = entry.caseSensitive ? rawKeyword : normalize(rawKeyword);
-  const index = haystack.indexOf(key);
-  if (index < 0) return false;
-  if (!entry.matchWholeWords) return true;
-  const before = index === 0 ? '' : haystack[index - 1];
-  const afterIndex = index + key.length;
-  const after = afterIndex >= haystack.length ? '' : haystack[afterIndex];
-  const isWord = (char: string) => /[A-Za-z0-9_]/.test(char);
-  return !isWord(before) && !isWord(after);
+function worldBookKeyMatches(keyword: string, haystack: string, entry: WorldBook['entries'][number]): boolean {
+  const raw = keyword.trim();
+  if (!raw) return false;
+
+  const caseSensitive = Boolean(entry.caseSensitive);
+
+  if (raw.startsWith('/') && raw.lastIndexOf('/') > 0) {
+    const lastSlash = raw.lastIndexOf('/');
+    try {
+      const pattern = raw.slice(1, lastSlash);
+      const flags = raw.slice(lastSlash + 1) || (caseSensitive ? '' : 'i');
+      return new RegExp(pattern, flags).test(haystack);
+    } catch {
+      // Invalid regex keys fall back to literal matching.
+    }
+  }
+
+  const source = caseSensitive ? haystack : haystack.toLowerCase();
+  const key = caseSensitive ? raw : raw.toLowerCase();
+
+  if (entry.matchWholeWords) {
+    const escaped = key.replace(/[.*+?^()|[\]\\]/g, '\\$&');
+    return new RegExp('(?:^|\\b)' + escaped + '(?:$|\\b)', caseSensitive ? '' : 'i').test(source);
+  }
+
+  return source.includes(key);
 }
 
-function resolveWorldBook(worldbooks: WorldBook[], userMessage: string) {
-  const selected = worldbooks.flatMap(book => !book.enabled ? [] : book.entries
-    .filter(entry => entry.enabled)
-    .map(entry => {
-      const primary = entry.keywords.filter(keyword => keywordMatches(userMessage, keyword, entry));
-      const secondary = (entry.secondaryKeywords || []).filter(keyword => keywordMatches(userMessage, keyword, entry));
-      const selectiveHit = entry.selective !== true || secondary.length > 0;
-      const constantHit = entry.constant === true;
-      const probabilityHit = entry.useProbability ? Math.random() * 100 <= Math.max(0, Math.min(100, entry.probability ?? 100)) : true;
-      const matched = [...primary, ...secondary];
-      if ((!primary.length && !constantHit) || !selectiveHit || !probabilityHit) return null;
-      return { book, entry, matched };
-    })
-    .filter(Boolean) as Array<{ book: WorldBook; entry: WorldBook['entries'][number]; matched: string[] }>);
+export function selectWorldBookEntries(worldbooks: WorldBook[], inputText: string, scanTextForEntry?: (entry: WorldBook['entries'][number]) => string) {
+  const candidates = worldbooks.flatMap(book => {
+    if (!book.enabled) return [];
 
-  selected.sort((a, b) =>
-    (b.entry.order ?? b.entry.priority) - (a.entry.order ?? a.entry.priority) ||
-    b.entry.weight - a.entry.weight ||
-    b.matched.length - a.matched.length
-  );
+    return book.entries
+      .filter(entry => entry.enabled && !entry.outletName)
+      .map(entry => {
+        const matchText = scanTextForEntry ? scanTextForEntry(entry) : inputText;
+        const matchedKeywords = entry.constant
+          ? ['[constant]']
+          : entry.keywords.filter(keyword => worldBookKeyMatches(keyword, matchText, entry));
 
-  if (!selected.length) return '当前没有命中的世界书条目。';
+        if (!entry.constant && !matchedKeywords.length) return null;
 
-  return selected.slice(0, 18).map(({ book, entry, matched }) => [
-    '[WORLD BOOK]',
+        const secondary = entry.secondaryKeywords || [];
+        if (entry.selective && secondary.length) {
+          const matchedSecondary = secondary.filter(keyword => worldBookKeyMatches(keyword, matchText, entry));
+          const logic = entry.selectiveLogic ?? 0;
+          const passes =
+            logic === 1 ? matchedSecondary.length < secondary.length :
+            logic === 2 ? matchedSecondary.length === 0 :
+            logic === 3 ? matchedSecondary.length === secondary.length :
+            matchedSecondary.length > 0;
+          if (!passes) return null;
+        }
+
+        if (entry.useProbability || entry.probability !== undefined) {
+          const probability = Math.max(0, Math.min(100, Number(entry.probability ?? 100)));
+          if (probability <= 0 || stableRoll(entry.id + '|' + matchText) >= probability) return null;
+        }
+
+        return { book, entry, matchedKeywords };
+      })
+      .filter(Boolean) as Array<{
+        book: WorldBook;
+        entry: WorldBook['entries'][number];
+        matchedKeywords: string[];
+      }>;
+  });
+
+  const blocked = new Set<string>();
+  const groups = new Map<string, typeof candidates>();
+  candidates.forEach(candidate => {
+    const labels = String(candidate.entry.group || '')
+      .split(',')
+      .map(value => value.trim())
+      .filter(Boolean);
+    labels.forEach(label => {
+      const group = groups.get(label) || [];
+      group.push(candidate);
+      groups.set(label, group);
+    });
+  });
+
+  groups.forEach((groupCandidates, groupName) => {
+    const available = groupCandidates.filter(candidate => !blocked.has(candidate.entry.id));
+    if (available.length <= 1) return;
+
+    const totalWeight = available.reduce((sum, candidate) => sum + Math.max(0, Number(candidate.entry.groupWeight ?? candidate.entry.weight ?? 100)), 0);
+    if (totalWeight <= 0) {
+      available.slice(1).forEach(candidate => blocked.add(candidate.entry.id));
+      return;
+    }
+
+    let cursor = (stableRoll(groupName + '|' + inputText) / 100) * totalWeight;
+    let winner = available[0];
+    for (const candidate of available) {
+      cursor -= Math.max(0, Number(candidate.entry.groupWeight ?? candidate.entry.weight ?? 100));
+      if (cursor <= 0) {
+        winner = candidate;
+        break;
+      }
+    }
+
+    const winnerGroups = String(winner.entry.group || '')
+      .split(',')
+      .map(value => value.trim())
+      .filter(Boolean);
+
+    groupCandidates.forEach(candidate => {
+      if (candidate.entry.id !== winner.entry.id && winnerGroups.some(label => String(candidate.entry.group || '').split(',').map(value => value.trim()).includes(label))) {
+        blocked.add(candidate.entry.id);
+      }
+    });
+  });
+
+  return candidates
+    .filter(candidate => !blocked.has(candidate.entry.id))
+    .sort((a, b) =>
+      Number(Boolean(b.entry.constant)) - Number(Boolean(a.entry.constant)) ||
+      (b.entry.order ?? b.entry.priority ?? 0) - (a.entry.order ?? a.entry.priority ?? 0) ||
+      (b.entry.weight ?? 0) - (a.entry.weight ?? 0) ||
+      b.matchedKeywords.length - a.matchedKeywords.length
+    );
+}
+
+function resolveWorldBook(worldbooks: WorldBook[], scannedText: string, scanTextForEntry?: (entry: WorldBook['entries'][number]) => string) {
+  const selected = selectWorldBookEntries(worldbooks, scannedText, scanTextForEntry)
+    .filter(({ entry }) => entry.insertion !== 'depth');
+
+  const before = selected.filter(({ entry }) => entry.insertion === 'before');
+  const after = selected.filter(({ entry }) => entry.insertion === 'after');
+
+  const render = (items: typeof selected, position: string) => items.map(({ book, entry, matchedKeywords }) => [
+    '[WORLD BOOK · ' + position + ']',
     '书名：' + book.name,
     '条目：' + entry.name,
-    '命中关键词：' + (matched.length ? matched.join('、') : 'constant'),
-    '优先级：' + (entry.order ?? entry.priority) + '；权重：' + entry.weight + '；插入：' + entry.insertion + (entry.insertion === 'depth' ? '；depth=' + entry.depth : ''),
-    entry.scanDepth != null ? '扫描深度：' + entry.scanDepth : '',
+    '命中关键词：' + matchedKeywords.join('、'),
+    '常驻：' + (entry.constant ? '是' : '否') + '；优先级：' + (entry.order ?? entry.priority ?? 0) + '；权重：' + (entry.weight ?? 0),
     '内容：',
     entry.content,
-  ].filter(Boolean).join('\n')).join('\n\n');
+  ].join('\n')).join('\n\n');
+
+  return {
+    before: before.length ? render(before, 'before · 角色定义前') : '',
+    after: after.length ? render(after, 'after · 角色定义后') : '',
+  };
 }
 
 export function resolveCharacterContext(input: ContextEngineInput): ResolvedContext {
@@ -89,14 +194,13 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
         '创作者注释：' + (input.character.creatorNotes || '未填写'),
         '角色系统提示：' + (input.character.systemPrompt || '未填写'),
         '历史指令：' + (input.character.postHistoryInstructions || '未填写'),
-        '语言指纹：' + (input.character.languageProfile ? JSON.stringify(input.character.languageProfile) : '未单独设置'),
-      ].join('\\n')
+      ].join('\n')
     : [
         '姓名：' + (p.callMe || '角色'),
         '关系：' + (p.relationship || '未设置'),
         '称呼：' + (p.callMe || '未设置'),
         '简介：' + (p.bio || '未填写'),
-      ].join('\\n');
+      ].join('\n');
 
   const persona = input.persona
     ? [
@@ -105,7 +209,7 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
         '性别：' + (input.persona.gender || '未设置'),
         '特质：' + (input.persona.traits || '未填写'),
         '背景：' + (input.persona.background || '未填写'),
-      ].join('\\n')
+      ].join('\n')
     : '未设置。';
 
   const runtime = getWorldRuntime();
@@ -120,14 +224,14 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
         '下一行动：' + (live.nextActionTitle || '无') + (live.nextActionAt ? '（' + live.nextActionAt + '）' : ''),
         '最近互动：' + (live.lastInteractionAt || '暂无'),
         '当前场景：' + (runtime.currentScene || '无'),
-      ].join('\\n')
+      ].join('\n')
     : '当前没有可用的角色实时世界状态。';
 
   const relationship = [
     '关系：' + (p.relationship || '未设置'),
     'TA希望被称为：' + (p.callMe || '未设置'),
     live ? '当前未读：' + live.unread : '',
-  ].filter(Boolean).join('\\n');
+  ].filter(Boolean).join('\n');
 
   const project = input.project
     ? [
@@ -135,9 +239,11 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
         '类型：' + input.project.genre,
         '语言：' + input.project.language,
         '整体风格：' + input.project.tone,
-        input.project.globalPrompt ? '项目级 AI 指令：\\n' + input.project.globalPrompt : '项目级 AI 指令：无。',
-      ].join('\\n')
+        input.project.globalPrompt ? '项目级 AI 指令：\n' + input.project.globalPrompt : '项目级 AI 指令：无。',
+      ].join('\n')
     : '使用默认项目规则。';
+
+  const lore = resolveWorldBook(input.worldbooks || [], input.userMessage, input.worldBookScanForEntry);
 
   return {
     character,
@@ -146,6 +252,8 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
     memory: input.memory ? buildMemoryContext(input.memory) : '当前没有已保存的长期记忆。',
     world,
     project,
-    worldBook: resolveWorldBook(input.worldbooks || [], input.userMessage),
+    worldBook: [lore.before, lore.after].filter(Boolean).join('\n\n') || '当前没有命中的世界书条目。',
+    worldBookBefore: lore.before,
+    worldBookAfter: lore.after,
   };
 }

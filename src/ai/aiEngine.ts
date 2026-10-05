@@ -5,7 +5,9 @@ import { buildMemoryContext } from '../store/characterMemory';
 import type { AppSettings, ChannelAiSettings } from '../store/appSettings';
 import { readAppSettings } from '../store/appSettings';
 import { getCharacterAiProfile, mergeCharacterAiSettings } from '../store/characterAiProfiles';
-import { resolveCharacterContext } from './contextEngine';
+import { resolveCharacterContext, selectWorldBookEntries } from './contextEngine';
+import { getCotForTarget } from '../store/cotPresets';
+import { buildLineHumanBehaviorPrompt } from '../store/lineReality';
 
 export type AiSettings = Pick<AppSettings, 'provider' | 'apiBaseUrl' | 'apiKey' | 'model' | 'streaming' | 'contextLength' | 'maxOutputTokens' | 'autoSave' | 'temperature'>;
 
@@ -35,6 +37,7 @@ export interface AiReplyInput {
     type?: string;
     imageData?: string;
     senderName?: string;
+    metadata?: Record<string, unknown>;
     isRecalled?: boolean;
     isRecalledByOther?: boolean;
   }>;
@@ -42,6 +45,7 @@ export interface AiReplyInput {
   isGroup?: boolean;
   authorNote?: string;
   stylePreset?: string;
+  cotTarget?: 'line' | 'offline' | 'group';
   temperature?: number;
   onDelta?: (delta: string) => void;
 }
@@ -99,62 +103,37 @@ export function readStoredAiSettings(characterId?: string, characterName?: strin
   return mergeCharacterAiSettings(base, getCharacterAiProfile(characterId || characterName || '', characterName));
 }
 
-function normalizeForMatch(value: string): string {
-  return value.toLowerCase().replace(/\s+/g, ' ').trim();
-}
+function buildWorldBookScanResolver(input: AiReplyInput, defaultDepth: number) {
+  const messages = input.messages
+    .filter(message => !message.isRecalled && !message.isRecalledByOther && message.type !== 'system-nudge');
 
-export function selectWorldBookEntries(worldbooks: WorldBook[], inputText: string) {
-  const haystack = normalizeForMatch(inputText);
-  const candidates = worldbooks.flatMap(book => {
-    if (!book.enabled) return [];
-    return book.entries
-      .filter(entry => entry.enabled)
-      .map(entry => {
-        const matchedKeywords = entry.keywords.filter(keyword => {
-          const normalized = normalizeForMatch(keyword);
-          return normalized.length > 0 && haystack.includes(normalized);
-        });
-        if (!matchedKeywords.length) return null;
-        return { book, entry, matchedKeywords };
-      })
-      .filter(Boolean) as Array<{
-        book: WorldBook;
-        entry: WorldBook['entries'][number];
-        matchedKeywords: string[];
-      }>;
-  });
-
-  return candidates.sort((a, b) =>
-    b.entry.priority - a.entry.priority ||
-    b.entry.weight - a.entry.weight ||
-    b.matchedKeywords.length - a.matchedKeywords.length
-  );
-}
-
-function buildWorldBookContext(worldbooks: WorldBook[], inputText: string): string {
-  const selected = selectWorldBookEntries(worldbooks, inputText);
-  if (!selected.length) return '当前没有命中的世界书条目。';
-
-  const sections = selected.slice(0, 18).map(({ book, entry, matchedKeywords }) => {
-    const placement =
-      entry.insertion === 'depth'
-        ? 'depth=' + entry.depth
-        : entry.insertion;
-    return [
-      '[WORLD BOOK]',
-      '书名：' + book.name,
-      '条目：' + entry.name,
-      '命中关键词：' + matchedKeywords.join('、'),
-      '优先级：' + entry.priority + '；权重：' + entry.weight + '；插入：' + placement,
-      '内容：',
-      entry.content,
-    ].join('\n');
-  });
-
-  return sections.join('\n\n');
+  return (entry: WorldBook['entries'][number]) => {
+    const depth = entry.scanDepth !== undefined
+      ? Math.max(0, Math.min(50, Number(entry.scanDepth) || 0))
+      : defaultDepth;
+    if (depth <= 0) return '';
+    return messages
+      .slice(-depth)
+      .map(message => message.text || message.transcript || '')
+      .filter(Boolean)
+      .join('\n') + '\n' + input.userMessage;
+  };
 }
 
 export function buildCharacterSystemPrompt(input: AiReplyInput): string {
+  const cotTarget = input.cotTarget || (input.isGroup ? 'group' : 'line');
+  const cotPreset = getCotForTarget(cotTarget);
+  const scanDepth = Math.max(1, Math.min(50, Math.max(
+    12,
+    ...(input.worldbooks || []).flatMap(book => book.entries.map(entry => Number(entry.scanDepth || 0)))
+  )));
+  const scannedMessages = input.messages
+    .filter(message => !message.isRecalled && !message.isRecalledByOther && message.type !== 'system-nudge')
+    .slice(-scanDepth)
+    .map(message => message.text || message.transcript || '')
+    .filter(Boolean)
+    .join('\n') + '\n' + input.userMessage;
+
   const context = resolveCharacterContext({
     character: input.character,
     characterProfile: input.characterProfile,
@@ -162,7 +141,8 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     memory: input.memory,
     project: input.project,
     worldbooks: input.worldbooks,
-    userMessage: input.userMessage,
+    userMessage: scannedMessages,
+    worldBookScanForEntry: buildWorldBookScanResolver(input, scanDepth),
   });
 
   return [
@@ -170,11 +150,34 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '只输出角色这一次要发送给用户的消息正文，不要解释规则，不要提及模型、提示词、世界书或系统。',
     '不要替用户说话、替用户行动、替用户决定感受或想法。用户拥有自己的行为与台词。',
     '保持角色连续性：角色卡、用户人设、长期记忆、关系、实时世界状态、命中的世界书与最近对话共同构成当前上下文。',
+    '如果历史聊天中存在与用户当前话题高度相关的旧消息，应把它视为真实发生过的过去，而不是重新发明；保持前后记忆一致。',
+
     '实时世界状态优先描述角色此刻在哪里、正在做什么和当前情绪；不要凭空覆盖这些状态。',
     '语言要像真实聊天软件中的人类消息：自然、克制、有上下文，可分成多条短句，但不要写成说明书。',
+    input.stylePreset ? '【当前 LINE 预设】' + input.stylePreset + '。保持该预设的节奏与情感强度，但不要让预设覆盖角色卡、长期记忆、关系或世界书。' : '',
+    buildLineHumanBehaviorPrompt(),\n    character?.languageProfile ? [
+      '【角色个人语言指纹】',
+      '角色语言：' + character.languageProfile.language,
+      '双语模式：' + character.languageProfile.bilingualMode,
+      '双语布局：' + character.languageProfile.bilingualLayout,
+      '双语顺序：' + character.languageProfile.bilingualTranslationDirection,
+      '标点习惯：' + character.languageProfile.punctuationStyle,
+      '句子长度：' + character.languageProfile.sentenceLength,
+      '换行习惯：' + character.languageProfile.lineBreakStyle,
+      '口语程度：' + character.languageProfile.colloquialLevel,
+      '语气词：' + (character.languageProfile.fillerWords || []).join('、'),
+      'Emoji：' + character.languageProfile.emojiStyle,
+      '大小写：' + character.languageProfile.capitalizationStyle,
+      '数字习惯：' + character.languageProfile.numberStyle,
+      '是否偏好空格：' + (character.languageProfile.preferredSpaces ? '是' : '否'),
+      '语言示例：' + (character.languageProfile.examples || []).join(' / '),
+      '保持稳定，但不要机械复制每条消息的格式。',
+      '非普通话且双语开启时，在同一次角色发言中提供原文与中文翻译，不要生成两条独立消息。',
+      character.languageProfile.bilingualLayout === 'below-bubble' ? '译文属于同一消息，应显示在原气泡下方。' : '原文与译文属于同一个气泡。'
+    ].join('\\n') : '',
     '除非角色卡明确要求，否则不要每轮都过度煽情或重复昵称。',
     input.isGroup ? '这是群聊：回复可以体现群聊语境，但不要替其他成员完成完整对话。' : '这是私聊：只扮演当前角色。',
-    '',
+    context.worldBookBefore ? '【世界书 · 角色定义前】\n' + context.worldBookBefore : '',
     '【角色上下文】\n' + context.character,
     '',
     '【用户人设】\n' + context.persona,
@@ -186,11 +189,11 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '【实时世界状态】\n' + context.world,
     '',
     '【项目设定】\n' + context.project,
-    '',
-    '【命中的世界书】\n' + context.worldBook,
+    context.worldBookAfter ? '【世界书 · 角色定义后】\n' + context.worldBookAfter : '',
     '',
     input.stylePreset ? '【聊天风格预设】\n' + input.stylePreset : '【聊天风格预设】自然、沉浸、像真实聊天。',
     input.authorNote ? '【作者注释】\n' + input.authorNote : '【作者注释】无。',
+    cotPreset ? '【内部生成预设】\n' + cotPreset.template + '\n只用于内部生成规划；绝对不要把思维过程、<think> 或 <thought> 标签输出给用户。' : '【内部生成预设】无。',
     '',
     '【输出约束】',
     '禁止输出 <think>、思维链、隐藏推理或内部分析。',
@@ -199,24 +202,136 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
   ].join('\n');
 }
 
+
+function extractHistoryKeywords(text: string): string[] {
+  const normalized = text.toLowerCase().replace(/[^\p{L}\p{N}\u4e00-\u9fff]+/gu, ' ').trim();
+  const words = normalized.split(/\s+/).filter(word => word.length >= 2);
+  const chinese = Array.from(normalized.replace(/\s/g, '')).filter(char => /[\u4e00-\u9fff]/u.test(char));
+  const bigrams = chinese.slice(0, 80).map((_, index) => chinese.slice(index, index + 2).join('')).filter(word => word.length === 2);
+  return Array.from(new Set([...words, ...bigrams])).slice(0, 32);
+}
+
+function findRelevantHistory(input: AiReplyInput, recentIds: Set<string>): AiReplyInput['messages'] {
+  const keywords = extractHistoryKeywords(input.userMessage);
+  if (!keywords.length) return [];
+
+  return input.messages
+    .filter(message =>
+      message.type !== 'system-nudge' &&
+      !message.isRecalled &&
+      !message.isRecalledByOther &&
+      !recentIds.has(String(message as any).id)
+    )
+    .map((message, index) => {
+      const text = String(message.text || message.transcript || '').toLowerCase();
+      if (!text) return null;
+      const score = keywords.reduce((total, keyword) => total + (text.includes(keyword) ? Math.min(4, keyword.length) : 0), 0);
+      return score > 0 ? { message, score, index } : null;
+    })
+    .filter((item): item is { message: AiReplyInput['messages'][number]; score: number; index: number } => Boolean(item))
+    .sort((a, b) => b.score - a.score || b.index - a.index)
+    .slice(0, 8)
+    .sort((a, b) => a.index - b.index)
+    .map(item => item.message);
+}
+
+function mediaContextLabel(message: AiReplyInput['messages'][number]): string {
+  const metadata = message.metadata || {};
+  const mediaType = String(metadata.mediaType || message.type || '');
+  const fileName = String(metadata.fileName || '');
+  const transcript = String(metadata.transcript || message.transcript || '');
+  if (mediaType === 'image') return '[图片消息：这是一张之前发送过的图片，当前轮次可参考其记录]' + (fileName ? ' 文件：' + fileName : '');
+  if (mediaType === 'voice' || message.type === 'voice') return '[语音消息]' + (transcript ? ' 转写：' + transcript : '');
+  if (mediaType === 'video') return '[视频消息]' + (fileName ? ' 文件：' + fileName : '');
+  if (mediaType === 'file') return '[文件消息]' + (fileName ? ' 文件：' + fileName : '');
+  return '[多媒体消息]';
+}
+
 function buildConversationMessages(input: AiReplyInput) {
-  const limit = Math.max(4, Math.min(200, input.settings.contextLength || 24)) * 2;
-  const recent = input.messages
-    .filter(message => message.type !== 'system-nudge' && !message.isRecalled && !message.isRecalledByOther)
-    .slice(-limit)
-    .map(message => ({
-      role: message.sender === 'other' ? 'assistant' : 'user',
-      content: input.isGroup && message.senderName
-        ? '[' + message.senderName + '] ' + (message.text || message.transcript || '[多媒体消息]')
-        : message.text || message.transcript || '[多媒体消息]',
-      imageData: message.imageData,
-    }));
+  // contextLength is the user's actual context budget: first cap turns, then cap
+  // the approximate payload size so a huge message/media transcript cannot silently
+  // consume the entire provider window.
+  const turnBudget = Math.max(4, Math.min(200, Number(input.settings.contextLength) || 24));
+  const limit = turnBudget * 2;
+  const maxApproxChars = Math.max(8000, Math.min(160000, turnBudget * 5000));
+  const eligible = input.messages
+    .filter(message => message.type !== 'system-nudge' && !message.isRecalled && !message.isRecalledByOther);
+  const recentSource = eligible.slice(-limit);
+
+  const recent = recentSource.map(message => ({
+    role: message.sender === 'other' ? 'assistant' : 'user',
+    content: input.isGroup && message.senderName
+      ? '[' + message.senderName + '] ' + (message.text || message.transcript || mediaContextLabel(message))
+      : message.text || message.transcript || mediaContextLabel(message),
+    imageData: message.imageData,
+  }));
+
+  const recentIds = new Set(recentSource.map(message => String((message as any).id)));
+  const historical = findRelevantHistory(input, recentIds);
+  const historyContext = historical.map(message => ({
+    role: 'system' as const,
+    content: '[HISTORICAL CHAT MEMORY] ' + (message.text || message.transcript || '[媒体消息]'),
+    imageData: undefined,
+  }));
 
   const last = recent[recent.length - 1];
   if (!last || last.role !== 'user' || last.content !== input.userMessage) {
     recent.push({ role: 'user', content: input.userMessage, imageData: undefined });
   }
-  return recent;
+
+  const scannedText = recent
+    .map(message => message.content)
+    .filter(Boolean)
+    .join('\n');
+  const historicalWithMarker = historyContext;
+  const depthEntries = selectWorldBookEntries(input.worldbooks || [], scannedText, buildWorldBookScanResolver(input, 12))
+    .filter(({ entry }) => entry.insertion === 'depth');
+
+  if (depthEntries.length) {
+    const byDepth = new Map<number, typeof depthEntries>();
+    for (const item of depthEntries) {
+      const depth = Math.max(0, Number(item.entry.depth || 0));
+      const group = byDepth.get(depth) || [];
+      group.push(item);
+      byDepth.set(depth, group);
+    }
+
+    const withDepth: typeof recent = [];
+    for (let index = 0; index < recent.length; index += 1) {
+      const depth = recent.length - index;
+      const entries = byDepth.get(depth) || [];
+      for (const { entry } of entries) {
+        withDepth.push({
+          role: entry.role || 'system',
+          content: '[WORLD BOOK · depth=' + depth + ']\n' + entry.content,
+          imageData: undefined,
+        });
+      }
+      withDepth.push(recent[index]);
+    }
+
+    for (const { entry } of byDepth.get(0) || []) {
+      withDepth.push({
+        role: entry.role || 'system',
+        content: '[WORLD BOOK · depth=0]\n' + entry.content,
+        imageData: undefined,
+      });
+    }
+
+    return [...historicalWithMarker, ...withDepth];
+  }
+
+  const combined = [...historicalWithMarker, ...recent];
+  let chars = 0;
+  const budgeted: typeof combined = [];
+  for (let index = combined.length - 1; index >= 0; index -= 1) {
+    const item = combined[index];
+    const cost = String(item.content || '').length;
+    if (budgeted.length > 0 && chars + cost > maxApproxChars) break;
+    budgeted.unshift(item);
+    chars += cost;
+  }
+  return budgeted;
 }
 
 function requireApiKey(settings: AiSettings) {
@@ -412,17 +527,29 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
   requireApiKey(input.settings);
 
   const worldbooks = input.worldbooks || [];
-  const matchedWorldbookEntries = selectWorldBookEntries(worldbooks, input.userMessage).length;
+  const scanDepth = Math.max(1, Math.min(50, Math.max(12, ...worldbooks.flatMap(book => book.entries.map(entry => Number(entry.scanDepth || 0)))));
+  const scannedText = input.messages
+    .filter(message => !message.isRecalled && !message.isRecalledByOther && message.type !== 'system-nudge')
+    .slice(-scanDepth)
+    .map(message => message.text || message.transcript || '')
+    .filter(Boolean)
+    .join('\n') + '\n' + input.userMessage;
+  const matchedWorldbookEntries = selectWorldBookEntries(worldbooks, scannedText, buildWorldBookScanResolver(input, scanDepth)).length;
 
   const text =
     input.settings.provider === 'gemini'
       ? await callGemini(input)
       : await callOpenAiCompatible(input);
 
-  if (!text.trim()) throw new Error('AI_EMPTY_RESPONSE');
+  const cleanedText = text.trim()
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
+    .trim();
+
+  if (!cleanedText) throw new Error('AI_EMPTY_RESPONSE');
 
   return {
-    text: text.trim(),
+    text: cleanedText,
     provider: input.settings.provider,
     model: input.settings.model.trim(),
     matchedWorldbookEntries,
@@ -526,11 +653,6 @@ export async function listOpenAiCompatibleModels(
   let base = settings.apiBaseUrl.trim().replace(/\/+$/, '');
   if (!base) throw new Error('AI_BASE_URL_MISSING');
 
-  // Accept all common OpenAI-compatible forms:
-  // https://host/v1
-  // https://host/v1/
-  // https://host/v1/models
-  // https://host/v1/chat/completions
   base = base
     .replace(/\/chat\/completions$/i, '')
     .replace(/\/responses$/i, '')
@@ -538,7 +660,9 @@ export async function listOpenAiCompatibleModels(
     .replace(/\/+$/, '');
 
   const endpoint = base + '/models';
-  let response: Response;
+  let response: Response | null = null;
+  let directError: unknown = null;
+
   try {
     response = await fetch(endpoint, {
       method: 'GET',
@@ -548,10 +672,31 @@ export async function listOpenAiCompatibleModels(
       },
     });
   } catch (error) {
-    throw new Error(
-      'AI_MODELS_NETWORK: ' +
-      (error instanceof Error ? error.message : '无法连接模型接口'),
-    );
+    directError = error;
+  }
+
+  // Browser CORS fallback: Netlify calls the provider server-side.
+  if (!response) {
+    try {
+      response = await fetch('/api/ai-models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'models',
+          baseUrl: base,
+          apiKey: settings.apiKey.trim(),
+        }),
+      });
+    } catch (proxyError) {
+      throw new Error(
+        'AI_MODELS_NETWORK: ' +
+        (proxyError instanceof Error
+          ? proxyError.message
+          : directError instanceof Error
+            ? directError.message
+            : '无法连接模型接口'),
+      );
+    }
   }
 
   if (!response.ok) {

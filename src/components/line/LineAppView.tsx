@@ -53,6 +53,9 @@ interface LineUserProfile {
 export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewProps) {
   // Tabs: 'chat' | 'friends' | 'moments' | 'me'
   const [activeTab, setActiveTab] = useState<'chat' | 'friends' | 'moments' | 'me'>('chat');
+  const [lineLocale, setLineLocale] = usePersistentState<'zh-CN' | 'ja-JP'>('line:locale', 'zh-CN');
+  const ja = lineLocale === 'ja-JP';
+  const tx = (zh: string, jp: string) => ja ? jp : zh;
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
 
   // Search queries
@@ -262,11 +265,9 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
       }
     };
     window.addEventListener('sane333:proactive-message', refreshFromRuntime);
-    window.addEventListener('sane333:line-runtime-message', refreshFromRuntime);
     window.addEventListener('sane333:music-invite-created', handleMusicInvite);
     return () => {
       window.removeEventListener('sane333:proactive-message', refreshFromRuntime);
-      window.removeEventListener('sane333:line-runtime-message', refreshFromRuntime);
       window.removeEventListener('sane333:music-invite-created', handleMusicInvite);
     };
   }, []);
@@ -405,7 +406,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                 CHAT
               </div>
               <div className="mt-1 text-[10px] text-[#b2b2b4] tracking-[0.7px]">
-                トーク · 今日はゆっくり。
+                会話 · 今日もゆっくり暮らす。
               </div>
             </div>
 
@@ -417,7 +418,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                   setShowGroupModal(true);
                 }}
                 className="w-[35px] h-[35px] border border-[#e7e7e8] rounded-full flex items-center justify-center text-lg text-[#555] hover:bg-[#f7f7f7] cursor-pointer"
-                title="创建群聊"
+                title={tx('创建群聊', 'グループを作成')}
               >
                 ＋
               </button>
@@ -431,7 +432,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               type="text"
               value={chatSearch}
               onChange={(e) => setChatSearch(e.target.value)}
-              placeholder="搜索联系人或聊天记录"
+              placeholder={tx('搜索联系人或聊天记录', '連絡先・チャットを検索')}
               className="w-full bg-transparent outline-none text-xs text-[#555] font-sans"
             />
             {chatSearch && (
@@ -542,7 +543,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                 FRIENDS
               </div>
               <div className="mt-1 text-[10px] text-[#b2b2b4] tracking-[0.7px]">
-                友だち · 大切な人たち
+                大切な人たち · ({friendsList.length})
               </div>
             </div>
 
@@ -764,10 +765,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           {/* Header */}
           <div className="h-[78px] px-5 pt-4 pb-2.5 bg-white">
             <div className="text-[25px] font-bold tracking-[-0.8px] text-[#202124] leading-tight">
-              ME
+              我的
             </div>
             <div className="mt-1 text-[10px] text-[#b2b2b4] tracking-[0.7px]">
-              
+              个人中心 · 当前身份
             </div>
           </div>
 
@@ -813,7 +814,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               className="h-[57px] px-5 flex items-center cursor-pointer hover:bg-[#fafafa]"
             >
               <span className="w-[31px] text-[#999] text-[16px]">♡</span>
-              <span className="text-[13px] text-[#444]">我的朋友圈</span>
+              <span className="text-[13px] text-[#444]" >{tx('我的朋友圈', 'マイモーメンツ')}</span>
               <span className="ml-auto text-[#ccc] text-lg">›</span>
             </div>
 
@@ -858,7 +859,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               className="h-[57px] px-5 flex items-center cursor-pointer hover:bg-[#fafafa]"
             >
               <span className="w-[31px] text-[#999] text-[16px]">⚙</span>
-              <span className="text-[13px] text-[#444]">系统通用设置</span>
+              <span className="text-[13px] text-[#444]" >{tx('系统通用设置', 'システム設定')}</span>
               <span className="ml-auto text-[#ccc] text-lg">›</span>
             </div>
           </div>
@@ -877,7 +878,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           }`}
         >
           <div className="text-[19px] leading-none">◯</div>
-          <div className="text-[9px]">CHAT</div>
+          <div className="text-[9px]" >CHAT</div>
         </div>
 
         {/* Tab 2: 好友 */}
@@ -888,7 +889,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           }`}
         >
           <div className="text-[19px] leading-none">♧</div>
-          <div className="text-[9px]">FRIENDS</div>
+          <div className="text-[9px]" >FRIENDS</div>
         </div>
 
         {/* Tab 3: 朋友圈 */}
@@ -899,7 +900,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           }`}
         >
           <div className="text-[19px] leading-none">⌁</div>
-          <div className="text-[9px]">VROOM</div>
+          <div className="text-[9px]" >VROOM</div>
         </div>
 
         {/* Tab 4: 我的 */}
@@ -910,7 +911,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           }`}
         >
           <div className="text-[19px] leading-none">○</div>
-          <div className="text-[9px]">ME</div>
+          <div className="text-[9px]" >ME</div>
         </div>
       </div>
 
@@ -1648,7 +1649,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           >
             <div className="flex justify-between items-center">
               <div>
-                <span className="text-[17px] font-semibold text-[#202124]">我的朋友圈</span>
+                <span className="text-[17px] font-semibold text-[#202124]" >{tx('我的朋友圈', 'マイモーメンツ')}</span>
                 <div className="text-[10px] text-[#aaa]">当前身份：{currentUser.name}</div>
               </div>
               <button onClick={() => setShowMyMomentsModal(false)} className="text-xl text-[#aaa] cursor-pointer">
@@ -1705,7 +1706,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           >
             <div className="flex justify-between items-center">
               <div>
-                <span className="text-[17px] font-semibold text-[#202124]">我的收藏</span>
+                <span className="text-[17px] font-semibold text-[#202124]" >{tx('我的收藏', 'お気に入り')}</span>
                 <div className="text-[10px] text-[#aaa]">共 {globalFavorites.length} 条珍藏内容</div>
               </div>
               <button onClick={() => setShowFavoritesModal(false)} className="text-xl text-[#aaa] cursor-pointer">
@@ -1761,7 +1762,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
             className="w-full bg-white rounded-t-[20px] p-5 pb-8 space-y-4 animate-in slide-in-from-bottom"
           >
             <div className="flex justify-between items-center">
-              <span className="text-[17px] font-semibold text-[#202124]">新消息通知设置</span>
+              <span className="text-[17px] font-semibold text-[#202124]" >{tx('新消息通知设置', '通知設定')}</span>
               <button onClick={() => setShowNotificationModal(false)} className="text-xl text-[#aaa] cursor-pointer">
                 ×
               </button>
@@ -1836,7 +1837,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
             className="w-full bg-white rounded-t-[20px] p-5 pb-8 space-y-4 animate-in slide-in-from-bottom"
           >
             <div className="flex justify-between items-center">
-              <span className="text-[17px] font-semibold text-[#202124]">聊天通用设置</span>
+              <span className="text-[17px] font-semibold text-[#202124]" >{tx('聊天通用设置', 'チャット設定')}</span>
               <button onClick={() => setShowGlobalChatSettingsModal(false)} className="text-xl text-[#aaa] cursor-pointer">
                 ×
               </button>
@@ -1892,7 +1893,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
             className="w-full bg-white rounded-t-[20px] p-5 pb-8 space-y-3 animate-in slide-in-from-bottom text-xs"
           >
             <div className="flex justify-between items-center mb-1">
-              <span className="text-[17px] font-semibold text-[#202124]">隐私权限与安全</span>
+              <span className="text-[17px] font-semibold text-[#202124]" >{tx('隐私权限与安全', 'プライバシーと安全')}</span>
               <button onClick={() => setShowPrivacyModal(false)} className="text-xl text-[#aaa] cursor-pointer">
                 ×
               </button>
@@ -1928,7 +1929,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
             className="w-full bg-white rounded-t-[20px] p-5 pb-8 space-y-3 animate-in slide-in-from-bottom text-xs"
           >
             <div className="flex justify-between items-center mb-1">
-              <span className="text-[17px] font-semibold text-[#202124]">系统通用设置</span>
+              <span className="text-[17px] font-semibold text-[#202124]" >{tx('系统通用设置', 'システム設定')}</span>
               <button onClick={() => setShowGeneralSettingsModal(false)} className="text-xl text-[#aaa] cursor-pointer">
                 ×
               </button>
@@ -1956,8 +1957,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                 <span className="text-[#ae7e89]">前往 ›</span>
               </button>
               <div className="py-2.5 flex justify-between items-center">
-                <span className="text-[#333]">多语言 (Language)</span>
-                <span className="text-[#888]">简体中文 / 日文 (LINE)</span>
+                <span className="text-[#333]">{tx('多语言 (Language)', '言語 (Language)')}</span>
+                <button onClick={() => setLineLocale(ja ? 'zh-CN' : 'ja-JP')} className="text-[#ae7e89]">{ja ? '日本語' : '简体中文'} ↔</button>
               </div>
               <div className="py-2.5 flex justify-between items-center">
                 <span className="text-[#333]">版本</span>

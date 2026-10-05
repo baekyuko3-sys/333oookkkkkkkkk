@@ -1,13 +1,15 @@
 import { useMemo, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, Download, FilePlus2, Plus, Save, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { ArrowLeft, BookOpen, Download, Plus, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { ScreenType, WorldBook, WorldBookEntry } from '../../types';
 import { usePersistentState } from '../../store/usePersistentState';
-import { exportSillyTavernWorldBook, importWorldBooks } from '../../store/worldbookFormats';
+import { exportNativeWorldBook, exportSillyTavernWorldBook, importWorldBooks } from '../../store/worldbookFormats';
 
 const starterBook: WorldBook = {
   id: 'worldbook-template',
   name: '新世界书',
   description: '',
+  category: '未分类',
+  tags: [],
   enabled: true,
   updatedAt: new Date().toISOString(),
   entries: [],
@@ -45,6 +47,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
   const [selectedBookId, setSelectedBookId] = useState(books[0]?.id || '');
   const [selectedEntryId, setSelectedEntryId] = useState(books[0]?.entries[0]?.id || '');
   const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [notice, setNotice] = useState('');
 
   const book = books.find(item => item.id === selectedBookId) || books[0] || null;
@@ -53,12 +56,14 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
   const filteredEntries = useMemo(() => {
     if (!book) return [];
     const q = search.trim().toLowerCase();
-    if (!q) return book.entries;
     return book.entries.filter(entry =>
-      entry.name.toLowerCase().includes(q) ||
-      entry.keywords.some(keyword => keyword.toLowerCase().includes(q))
+      (!q ||
+        entry.name.toLowerCase().includes(q) ||
+        entry.keywords.some(keyword => keyword.toLowerCase().includes(q)) ||
+        entry.content.toLowerCase().includes(q)) &&
+      (categoryFilter === 'all' || (book.category || '未分类') === categoryFilter)
     );
-  }, [book, search]);
+  }, [book, search, categoryFilter]);
 
   const showNotice = (message: string) => {
     setNotice(message);
@@ -88,6 +93,8 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
       id,
       name: '新世界书',
       description: '',
+      category: '未分类',
+      tags: [],
       entries: [],
       updatedAt: new Date().toISOString(),
     };
@@ -125,13 +132,16 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
   const importBook = async (file?: File) => {
     if (!file) return;
     try {
-      const incoming = importWorldBooks(await file.text());
-      setBooks(prev => [...incoming, ...prev.filter(existing => !incoming.some(item => item.id === existing.id))]);
-      setSelectedBookId(incoming[0]?.id || '');
-      setSelectedEntryId(incoming[0]?.entries?.[0]?.id || '');
-      showNotice(`已导入 ${incoming.length} 本世界书（JSON / YAML）`);
+      const normalized = importWorldBooks(await file.text());
+      setBooks(prev => [
+        ...normalized,
+        ...prev.filter(existing => !normalized.some(item => item.id === existing.id)),
+      ]);
+      setSelectedBookId(normalized[0]?.id || '');
+      setSelectedEntryId(normalized[0]?.entries?.[0]?.id || '');
+      showNotice(`已识别并导入 ${normalized.length} 本世界书`);
     } catch (error) {
-      showNotice(error instanceof Error ? error.message : '世界书解析失败');
+      showNotice(error instanceof Error ? error.message : '世界书导入失败');
     } finally {
       if (importRef.current) importRef.current.value = '';
     }
@@ -180,8 +190,54 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
           </button>
         </div>
 
+        <div className="px-4 pb-2 grid grid-cols-2 gap-2">
+          <label className="p-2 rounded-xl bg-white/55 border border-[rgba(40,36,31,.1)] text-[8px] font-mono text-[#8b8782]">
+            RESOURCE NAME
+            <input
+              value={book?.name || ''}
+              onChange={e => patchBook({ name: e.target.value })}
+              className="w-full mt-1 bg-transparent text-[10px] font-serif font-semibold text-[#242323] outline-none"
+              placeholder="世界书名称"
+            />
+          </label>
+          <label className="p-2 rounded-xl bg-white/55 border border-[rgba(40,36,31,.1)] text-[8px] font-mono text-[#8b8782]">
+            CATEGORY
+            <input
+              value={book?.category || ''}
+              onChange={e => patchBook({ category: e.target.value })}
+              className="w-full mt-1 bg-transparent text-[10px] text-[#444] outline-none"
+              placeholder="人物 / 世界 / 剧情"
+            />
+          </label>
+          <label className="col-span-2 p-2 rounded-xl bg-white/55 border border-[rgba(40,36,31,.1)] text-[8px] font-mono text-[#8b8782]">
+            DESCRIPTION · TAGS
+            <input
+              value={book ? (book.description || '') + (book.tags?.length ? ' · ' + book.tags.join(', ') : '') : ''}
+              onChange={e => {
+                const [description, ...tags] = e.target.value.split('·');
+                patchBook({
+                  description: description.trim(),
+                  tags: tags.join('·').split(',').map(v => v.trim()).filter(Boolean),
+                });
+              }}
+              className="w-full mt-1 bg-transparent text-[9px] text-[#444] outline-none"
+              placeholder="描述 · tag1, tag2"
+            />
+          </label>
+        </div>
+
         <div className="min-h-0 px-4 pb-4 grid grid-rows-[auto_1fr] gap-2">
           <div className="flex gap-2 items-center">
+            <select
+              value={categoryFilter}
+              onChange={e => setCategoryFilter(e.target.value)}
+              className="w-[86px] bg-white/60 border border-[rgba(40,36,31,.12)] rounded-xl px-2 py-2 text-[9px] outline-none text-[#444]"
+            >
+              <option value="all">全部资源</option>
+              {[...new Set(books.map(item => item.category || '未分类'))].map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -192,16 +248,18 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
               导入
             </button>
             <button
-              onClick={() => book && downloadJson(`${book.name}.json`, book)}
+              onClick={() => book && downloadJson(`${book.name}.json`, JSON.parse(exportNativeWorldBook(book)))}
               className="px-3 py-2 rounded-xl bg-[#ebe7df] border border-[rgba(40,36,31,.12)] text-[10px] text-[#5d5751]"
             >
               <Download className="w-3 h-3 inline mr-1" />导出
             </button>
             <button
-              onClick={() => book && downloadJson(`${book.name}-st.json`, JSON.parse(exportSillyTavernWorldBook(book)))}
-              className="px-3 py-2 rounded-xl bg-[#ebe7df] border border-[rgba(40,36,31,.12)] text-[10px] text-[#5d5751]"
-              title="导出 SillyTavern 格式"
-            >ST</button>
+              onClick={() => book && downloadJson(`${book.name}-tavern.json`, JSON.parse(exportSillyTavernWorldBook(book)))}
+              className="px-3 py-2 rounded-xl bg-[#292724] text-white text-[10px]"
+              title="导出为 SillyTavern World Info 格式"
+            >
+              Tavern
+            </button>
             <input ref={importRef} type="file" accept=".json,.yaml,.yml" className="hidden" onChange={e => importBook(e.target.files?.[0])} />
           </div>
 
@@ -274,6 +332,124 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
                       <input type="number" value={selectedEntry.depth} onChange={e => patchEntry({ depth: Number(e.target.value) || 0 })} className="w-full mt-1 bg-transparent outline-none font-mono text-xs" />
                     </label>
                   </div>
+                  <div className="p-2.5 rounded-xl bg-white/50 border border-black/5 space-y-2">
+                    <div className="text-[8px] font-mono tracking-[1.2px] text-[#8b8782]">ADVANCED TRIGGERS</div>
+                    <label className="text-[9px] block">
+                      Secondary Keys
+                      <input
+                        value={(selectedEntry.secondaryKeywords || []).join(', ')}
+                        onChange={e => patchEntry({ secondaryKeywords: e.target.value.split(',').map(v => v.trim()).filter(Boolean) })}
+                        className="w-full mt-1 bg-white/70 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 text-[9px] outline-none"
+                        placeholder="可选：额外条件关键词"
+                      />
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <label className="bg-white/55 rounded-xl p-2 text-[9px]">
+                        Probability %
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={selectedEntry.probability ?? 100}
+                          onChange={e => patchEntry({ probability: Math.max(0, Math.min(100, Number(e.target.value) || 0)), useProbability: true })}
+                          className="w-full mt-1 bg-transparent outline-none font-mono text-xs"
+                        />
+                      </label>
+                      <label className="bg-white/55 rounded-xl p-2 text-[9px]">
+                        Scan Depth
+                        <input
+                          type="number"
+                          min="0"
+                          max="50"
+                          value={selectedEntry.scanDepth ?? 0}
+                          onChange={e => patchEntry({ scanDepth: Math.max(0, Math.min(50, Number(e.target.value) || 0)) })}
+                          className="w-full mt-1 bg-transparent outline-none font-mono text-xs"
+                        />
+                      </label>
+                    </div>
+                    <label className="flex items-center justify-between text-[9px] py-1">
+                      <span>Constant · 常驻</span>
+                      <input type="checkbox" checked={Boolean(selectedEntry.constant)} onChange={e => patchEntry({ constant: e.target.checked })} />
+                    </label>
+                    <label className="flex items-center justify-between text-[9px] py-1">
+                      <span>Selective · 使用 Secondary Keys</span>
+                      <input type="checkbox" checked={Boolean(selectedEntry.selective)} onChange={e => patchEntry({ selective: e.target.checked })} />
+                    </label>
+                    <label className="flex items-center justify-between text-[9px] py-1">
+                      <span>Case Sensitive · 区分大小写</span>
+                      <input type="checkbox" checked={Boolean(selectedEntry.caseSensitive)} onChange={e => patchEntry({ caseSensitive: e.target.checked })} />
+                    </label>
+                    <label className="flex items-center justify-between text-[9px] py-1">
+                      <span>Whole Words · 完整单词</span>
+                      <input type="checkbox" checked={Boolean(selectedEntry.matchWholeWords)} onChange={e => patchEntry({ matchWholeWords: e.target.checked })} />
+                    </label>
+                    {selectedEntry.selective && (
+                      <label className="text-[9px] block">
+                        Selective Logic
+                        <select
+                          value={selectedEntry.selectiveLogic ?? 0}
+                          onChange={e => patchEntry({ selectiveLogic: Number(e.target.value) as 0 | 1 | 2 | 3 })}
+                          className="w-full mt-1 bg-white/70 rounded-xl px-2.5 py-2 text-[9px] outline-none"
+                        >
+                          <option value="0">AND ANY</option>
+                          <option value="1">NOT ALL</option>
+                          <option value="2">NOT ANY</option>
+                          <option value="3">AND ALL</option>
+                        </select>
+                      </label>
+                    )}
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <label className="bg-white/55 rounded-xl p-2 text-[9px]">
+                        Role · Depth
+                        <select
+                          value={selectedEntry.role || 'system'}
+                          onChange={e => patchEntry({ role: e.target.value as WorldBookEntry['role'] })}
+                          className="w-full mt-1 bg-transparent outline-none text-[9px]"
+                        >
+                          <option value="system">SYSTEM</option>
+                          <option value="user">USER</option>
+                          <option value="assistant">ASSISTANT</option>
+                        </select>
+                      </label>
+                      <label className="bg-white/55 rounded-xl p-2 text-[9px]">
+                        Group
+                        <input
+                          value={selectedEntry.group || ''}
+                          onChange={e => patchEntry({ group: e.target.value })}
+                          className="w-full mt-1 bg-transparent outline-none text-[9px]"
+                          placeholder="例如：school"
+                        />
+                      </label>
+                      <label className="bg-white/55 rounded-xl p-2 text-[9px]">
+                        Group Weight
+                        <input
+                          type="number"
+                          min="0"
+                          value={selectedEntry.groupWeight ?? 100}
+                          onChange={e => patchEntry({ groupWeight: Math.max(0, Number(e.target.value) || 0) })}
+                          className="w-full mt-1 bg-transparent outline-none font-mono text-[9px]"
+                        />
+                      </label>
+                      <label className="bg-white/55 rounded-xl p-2 text-[9px]">
+                        Outlet
+                        <input
+                          value={selectedEntry.outletName || ''}
+                          onChange={e => patchEntry({ outletName: e.target.value })}
+                          className="w-full mt-1 bg-transparent outline-none text-[9px]"
+                          placeholder="可选"
+                        />
+                      </label>
+                    </div>
+                    <label className="flex items-center justify-between text-[9px] py-1">
+                      <span>Prevent Recursion · 阻止继续递归</span>
+                      <input type="checkbox" checked={Boolean(selectedEntry.preventRecursion)} onChange={e => patchEntry({ preventRecursion: e.target.checked })} />
+                    </label>
+                    <label className="flex items-center justify-between text-[9px] py-1">
+                      <span>Exclude Recursion · 不被递归触发</span>
+                      <input type="checkbox" checked={Boolean(selectedEntry.excludeRecursion)} onChange={e => patchEntry({ excludeRecursion: e.target.checked })} />
+                    </label>
+                  </div>
+
                   <div className="flex items-center justify-between pt-1">
                     <button
                       onClick={() => patchEntry({ enabled: !selectedEntry.enabled })}
