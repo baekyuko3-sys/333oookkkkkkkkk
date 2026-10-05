@@ -1,4 +1,5 @@
 import { MEME_PROJECT_MAP, MEME_PROJECT_PRINCIPLES } from './projectMap';
+import { generateCreativeText } from '../ai/aiEngine';
 
 export type MemeCodingMode = 'always-ask' | 'confirm-before-commit' | 'auto';
 
@@ -50,6 +51,7 @@ type AgentOptions = {
   apiBaseUrl: string;
   apiKey: string;
   model: string;
+  provider?: 'openai' | 'gemini';
   codingMode: MemeCodingMode;
   project: string;
   tools: MemeTool[];
@@ -108,22 +110,30 @@ After every tool result, continue working. Do not ask the user to copy code manu
 `;
 
 async function callModel(options: AgentOptions, messages: any[], temperature = 0.1) {
-  const response = await fetch(endpoint(options.apiBaseUrl), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + options.apiKey,
-    },
-    body: JSON.stringify({
+  const systemPrompt = String(messages.find(message => message.role === 'system')?.content || '');
+  const history = messages
+    .filter(message => message.role !== 'system')
+    .map(message => ({ role: message.role === 'assistant' ? 'assistant' : 'user', content: String(message.content || '') }));
+
+  // Use the same model transport as the rest of the app, including Gemini.
+  // Studio must not depend on the character/roleplay engine.
+  const raw = await generateCreativeText({
+    settings: {
+      provider: options.provider || 'openai',
+      apiBaseUrl: options.apiBaseUrl,
+      apiKey: options.apiKey,
       model: options.model,
-      messages,
+      streaming: false,
+      contextLength: 32,
+      maxOutputTokens: 5000,
+      autoSave: false,
       temperature,
-      response_format: { type: 'json_object' },
-    }),
+    },
+    systemPrompt: systemPrompt + '\n\nReturn JSON only. No Markdown fences.',
+    history,
+    temperature,
   });
-  if (!response.ok) throw new Error('Meme API ' + response.status);
-  const data = await response.json();
-  return { raw: data?.choices?.[0]?.message?.content || '', parsed: extractJson(data?.choices?.[0]?.message?.content || '') };
+  return { raw, parsed: extractJson(raw) };
 }
 
 async function validateProposal(options: AgentOptions, userRequest: string, proposal: MemeProposal, originalContent: string, validationContext: string, toolEvidence: string) {
