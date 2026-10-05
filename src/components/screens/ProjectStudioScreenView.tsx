@@ -5,7 +5,7 @@ import { listOpenAiCompatibleModels, testAiConnection } from '../../ai/aiEngine'
 import { readAppSettings, saveAppSettings, type AppSettings } from '../../store/appSettings';
 import { runMemeAgent, type MemeCodingMode } from '../../studio/memeAgent';
 import { studioStorage } from '../../studio/studioStorage';
-import { applyAtomicChanges, compare, createBranch, createPullRequest, getWorkflowRunsForCommit, getWorkflowJobs, getJobLog } from '../../studio/studioGit';
+import { applyAtomicChanges, compare, createBranch, createPullRequest, getWorkflowRunsForCommit, getWorkflowJobs, getJobLog, rollbackBranch } from '../../studio/studioGit';
 import type { StudioOperationLog, StudioSession, StudioTask } from '../../studio/studioTypes';
 
 type Tab = 'chat' | 'files' | 'changes' | 'crafted' | 'admin' | 'git' | 'settings';
@@ -371,6 +371,19 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       const files=(data.files||[]).map((item:any)=>item.filename+' · '+item.status+' · +'+item.additions+' -'+item.deletions).join('\\n');
       setCiText(files || '没有差异'); setTab('changes');
     } catch(error){ notify(error instanceof Error ? error.message : 'Diff 获取失败'); }
+  };
+
+  const rollbackToCommit = async (sha: string) => {
+    if (!ready || !sha) return;
+    if (!window.confirm('确认把当前分支恢复到这个 commit？\\n' + sha.slice(0,8) + '\\n此操作会改变远端分支指向。')) return;
+    try {
+      await rollbackBranch(owner, repo, branch, sha, token);
+      notify('已恢复到 ' + sha.slice(0,8));
+      log('git', 'Rollback ' + branch + ' -> ' + sha.slice(0,8));
+      setGitCommits([]);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '恢复失败');
+    }
   };
 
   const checkCI = async (sha: string) => {
