@@ -2227,8 +2227,45 @@ export function LineConversationView({
                   </div>
                 )}
 
+                {/* 1.5 引用回复：让聊天真正保留上下文 */}
+                {msg.quote && !msg.isRecalled && (
+                  <div className={`max-w-[240px] rounded-[10px] border px-2.5 py-1.5 text-[9.5px] mb-1 ${
+                    isMe
+                      ? 'bg-[#f8eef1] border-[#ead9de] text-[#8b6871] ml-auto'
+                      : 'bg-[#f7f7f8] border-[#e9e9eb] text-[#777]'
+                  }`}>
+                    <div className="font-medium mb-0.5 truncate">
+                      {msg.quote.sender || '消息'}
+                    </div>
+                    <div className="truncate opacity-80">
+                      {msg.quote.text || '多媒体消息'}
+                    </div>
+                  </div>
+                )}
+
                 {/* 2. 主消息体 */}
-                {msg.isRecalled ? (
+                {msg.type === 'real-media' && (msg.mediaRef || mediaCache[msg.mediaRef]) ? (
+                  <button
+                    onClick={() => setLightboxImg(mediaCache[msg.mediaRef] || msg.mediaRef)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setContextMenuMsg(msg);
+                    }}
+                    className="block max-w-[230px] overflow-hidden rounded-[16px] border border-[#ededee] bg-[#f5f5f6] shadow-sm cursor-pointer"
+                  >
+                    <img
+                      src={mediaCache[msg.mediaRef] || msg.mediaRef}
+                      alt={msg.fileName || '图片'}
+                      className="max-h-[300px] w-full object-cover"
+                      loading="lazy"
+                    />
+                    {msg.fileName && (
+                      <span className="block px-2 py-1.5 text-[9px] text-[#888] text-left truncate bg-white">
+                        {msg.fileName}
+                      </span>
+                    )}
+                  </button>
+                ) : msg.isRecalled ? (
                   /* 我撤回状态展示 (User Recall State) */
                   <div className="py-1 px-3 rounded-full bg-[#f8f8fa] text-[10px] text-[#aaa] border border-[#f0f0f2]">
                     你撤回了一条消息{' '}
