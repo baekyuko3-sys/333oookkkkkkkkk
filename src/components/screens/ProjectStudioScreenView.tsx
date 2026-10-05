@@ -481,7 +481,17 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
           </section>
         )}
 
-        {tab === 'files' && (
+        {tab === 'git' && (
+          <section className="p-3.5 space-y-3">
+            <div className="p-3.5 rounded-2xl bg-[#ebe6de]"><div className="text-[8px] font-mono tracking-[2px] text-[#8b8782]">GIT WORKSPACE</div><b className="text-[17px]">History & Recovery</b><div className="mt-1 text-[9px] text-[#777069]">{owner}/{repo} · {branch}</div></div>
+            <button onClick={async () => { try { const data=await github('https://api.github.com/repos/'+owner+'/'+repo+'/commits?sha='+encodeURIComponent(branch)+'&per_page=20',token); setGitCommits(data || []); log('git','Loaded commit history'); } catch(e){ notify(e instanceof Error ? e.message : 'Git 历史读取失败'); } }} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">刷新提交历史</button>
+            {gitCommits.map((c:any)=><div key={c.sha} className="p-3 rounded-2xl bg-white/65"><div className="text-[9px]">{c.commit?.message?.split('\n')[0]}</div><div className="mt-1 text-[7px] font-mono text-[#888]">{c.sha?.slice(0,8)}</div></div>)}
+            {!gitCommits.length && <div className="py-10 text-center text-[9px] text-[#888]">刷新后查看最近提交。</div>}
+            <div className="p-3 rounded-2xl bg-[#fff4f1] text-[8px] text-[#8f6f68]">回滚入口会要求二次确认；不会让 Meme 悄悄改写历史。</div>
+          </section>
+        )}
+
+        {marker}
           <section className="p-3.5 space-y-2.5">
             <div className="flex gap-1.5">
               <button onClick={() => void list(path)} className="flex-1 py-2 rounded-xl bg-[#292724] text-white text-[9px]">刷新</button>
@@ -611,11 +621,12 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         </div>
       )}
 
-      <nav className="absolute bottom-0 left-0 right-0 z-30 px-2 pb-3 pt-2 bg-[#f7f4ee]/95 border-t border-black/10 grid grid-cols-5 gap-1">
+      <nav className="absolute bottom-0 left-0 right-0 z-30 px-2 pb-3 pt-2 bg-[#f7f4ee]/95 border-t border-black/10 grid grid-cols-6 gap-1">
         {tabButton('chat', 'Chat', MessageCircle)}
         {tabButton('files', 'Files', FileCode2)}
         {tabButton('changes', 'Changes', Upload)}
         {tabButton('admin', 'Admin', ShieldAlert)}
+        {tabButton('git', 'Git', Github)}
         {tabButton('settings', 'Settings', KeyRound)}
       </nav>
     </div>
