@@ -551,98 +551,19 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
         {tab === 'git' && (
           <section className="p-3.5 space-y-3">
-            <div className="p-3.5 rounded-2xl bg-[#ebe6de]"><div className="text-[8px] font-mono tracking-[2px] text-[#8b8782]">GIT WORKSPACE</div><b className="text-[17px]">History & Recovery</b><div className="mt-1 text-[9px] text-[#777069]">{owner}/{repo} · {branch}</div></div>
-            <button onClick={async () => { try { const data=await github('https://api.github.com/repos/'+owner+'/'+repo+'/commits?sha='+encodeURIComponent(branch)+'&per_page=20',token); setGitCommits(data || []); log('git','Loaded commit history'); } catch(e){ notify(e instanceof Error ? e.message : 'Git 历史读取失败'); } }} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">刷新提交历史</button>
-            {gitCommits.map((c:any)=><div key={c.sha} className="p-3 rounded-2xl bg-white/65"><div className="text-[9px]">{c.commit?.message?.split('\n')[0]}</div><div className="mt-1 text-[7px] font-mono text-[#888]">{c.sha?.slice(0,8)}</div></div>)}
-            {!gitCommits.length && <div className="py-10 text-center text-[9px] text-[#888]">刷新后查看最近提交。</div>}
-            <div className="p-3 rounded-2xl bg-[#fff4f1] text-[8px] text-[#8f6f68]">回滚入口会要求二次确认；不会让 Meme 悄悄改写历史。</div>
+            <div className="p-3.5 rounded-2xl bg-[#ebe6de]"><div className="text-[8px] font-mono tracking-[2px] text-[#8b8782]">GIT WORKSPACE</div><b className="text-[17px]">History / Branch / PR</b><div className="mt-1 text-[9px] text-[#777069]">{owner}/{repo} · {branch}</div></div>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button onClick={() => void createStudioBranch()} className="py-2.5 rounded-xl bg-[#292724] text-white text-[8px]">+ New branch</button>
+              <button onClick={() => void openPullRequest()} className="py-2.5 rounded-xl bg-white text-[8px]">Draft PR</button>
+              <button onClick={() => void loadDiff()} className="py-2.5 rounded-xl bg-white text-[8px]">Compare main</button>
+            </div>
+            {prUrl && <div className="p-2.5 rounded-xl bg-white text-[8px] break-all">PR · {prUrl}</div>}
+            <button onClick={async () => { try { const data=await github('https://api.github.com/repos/'+owner+'/'+repo+'/commits?sha='+encodeURIComponent(branch)+'&per_page=20',token); setGitCommits(data||[]); } catch(e){ notify(e instanceof Error?e.message:'Git 历史读取失败'); } }} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">Refresh history</button>
+            {gitCommits.map((c:any)=><div key={c.sha} className="p-3 rounded-2xl bg-white/65"><div className="text-[9px]">{c.commit?.message?.split('\n')[0]}</div><div className="mt-1 text-[7px] font-mono text-[#888]">{c.sha?.slice(0,8)} · <button onClick={() => void checkCI(c.sha)} className="underline">Check CI</button></div></div>)}
+            {!gitCommits.length && <div className="py-8 text-center text-[9px] text-[#888]">刷新后查看最近提交。</div>}
+            {ciText && <pre className="p-3 rounded-2xl bg-[#252422] text-[#ddd] text-[7px] whitespace-pre-wrap max-h-52 overflow-auto">{ciText}</pre>}
           </section>
         )}
-
-        {marker}
-          <section className="p-3.5 space-y-2.5">
-            <div className="flex gap-1.5">
-              <button onClick={() => void list(path)} className="flex-1 py-2 rounded-xl bg-[#292724] text-white text-[9px]">刷新</button>
-              <button onClick={() => void list('')} className="py-2 px-3 rounded-xl bg-white text-[9px]">根目录</button>
-            </div>
-            {file && (
-              <div className="rounded-2xl bg-[#252422] text-white overflow-hidden">
-                <div className="p-2.5 flex items-center gap-2 text-[9px] border-b border-white/10">
-                  <FileCode2 className="w-3.5 h-3.5" />
-                  <span className="flex-1 truncate">{file.path}</span>
-                  <button onClick={() => setFile(null)}><X className="w-3 h-3" /></button>
-                </div>
-                <textarea value={code} onChange={event => setCode(event.target.value)} spellCheck={false} className="w-full h-[310px] bg-transparent p-3 text-[8px] leading-[1.55] font-mono outline-none resize-none" />
-                <div className="p-2 border-t border-white/10">
-                  <button disabled={!dirty || saving} onClick={() => void saveFile()} className="w-full py-2 rounded-lg bg-white text-[#292724] text-[9px] disabled:opacity-30">
-                    <Save className="w-3 h-3 inline mr-1" />{saving ? '保存中…' : '保存到 GitHub'}
-                  </button>
-                </div>
-              </div>
-            )}
-            <div className="p-2.5 rounded-2xl bg-white/60 text-[9px] text-[#777069]">当前：{path || '/'}</div>
-            <div className="rounded-2xl bg-white/60 overflow-hidden">
-              {busy ? <div className="p-6 text-center"><Loader2 className="w-4 h-4 mx-auto animate-spin" /></div> : items.map(item => (
-                <button key={item.path} onClick={() => void open(item)} className="w-full p-2.5 flex gap-2 items-center border-b border-black/5 text-left">
-                  {item.type === 'dir' ? <Folder className="w-3.5 h-3.5 text-[#9b8068]" /> : <FileCode2 className="w-3.5 h-3.5" />}
-                  <span className="flex-1 text-[9px] truncate">{item.name}</span>
-                  <ChevronRight className="w-3 h-3 text-[#aaa]" />
-                </button>
-              ))}
-              {!busy && !items.length && <div className="p-8 text-center text-[9px] text-[#888]">点击“刷新”读取 GitHub。</div>}
-            </div>
-          </section>
-        )}
-
-        {tab === 'changes' && (
-          <section className="p-3.5 space-y-2.5">
-            <div className="p-3 rounded-2xl bg-[#ebe6de] text-[9px]">
-              <b>Changes</b>
-              <div className="mt-1 text-[#777069]">先看 Diff，再决定是否把整个任务一次性写入 GitHub。</div>
-              <div className="grid grid-cols-2 gap-1.5 mt-2">
-                <button onClick={() => void loadDiff()} className="py-2 rounded-xl bg-white text-[8px]">Diff against main</button>
-                <button disabled={!changes.length || saving} onClick={() => void approveAllChanges()} className="py-2 rounded-xl bg-[#292724] text-white text-[8px] disabled:opacity-40">批准全部 · Atomic Commit</button>
-              </div>
-            </div>
-            {ciText && <pre className="p-3 rounded-2xl bg-[#252422] text-[#ddd] text-[7px] whitespace-pre-wrap max-h-44 overflow-auto">{ciText}</pre>}
-            {changes.map(change => (
-              <div key={change.path} className="p-3 rounded-2xl bg-white/65 border border-black/5">
-                <div className="flex items-center gap-2"><div className="text-[9px] font-mono truncate flex-1">{change.path}</div><span className="text-[7px] px-1.5 py-0.5 rounded-full bg-black/5">{change.operation || 'update'}</span></div>
-                {change.reason && <div className="mt-1 text-[8px] text-[#777069]">{change.reason}</div>}
-                <pre className="mt-2 max-h-28 overflow-hidden rounded-xl bg-[#252422] text-[#ddd] p-2 text-[7px] whitespace-pre-wrap">+ {change.content.slice(0,1200)}</pre>
-                <div className="grid grid-cols-2 gap-1.5 mt-2">
-                  <button onClick={() => { setFile({ name: change.path.split('/').pop() || change.path, path: change.path, type:'file' }); setCode(change.content); setOriginal(change.originalContent || ''); setTab('files'); }} className="py-2 rounded-lg bg-white text-[#292724] text-[9px]">查看 / 编辑</button>
-                  <button disabled={saving} onClick={() => void approveChange(change)} className="py-2 rounded-lg bg-[#292724] text-white text-[9px] disabled:opacity-40">批准此文件</button>
-                </div>
-              </div>
-            ))}
-            {!changes.length && <div className="py-12 text-center text-[9px] text-[#888]">暂无 AI 修改草案。</div>}
-          </section>
-        )}
-        {tab === 'admin' && (
-          <section className="p-3.5 space-y-2.5">
-            <div className="p-3.5 rounded-2xl bg-[#ebe6de] border border-black/5">
-              <div className="flex items-center gap-2"><ShieldAlert className="w-4 h-4" /><b>Studio Admin</b></div>
-              <div className="mt-1 text-[9px] text-[#777069]">完整项目维护权限：创建、修改、删除文件，也可以递归删除 App / 目录。</div>
-            </div>
-            <div className="p-3 rounded-2xl bg-white/60 space-y-2">
-              <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">CREATE FILE</div>
-              <input value={newPath} onChange={event => setNewPath(event.target.value)} placeholder="例如 src/components/screens/MyApp.tsx" className="w-full p-2.5 rounded-xl text-[9px] outline-none" />
-              <textarea value={newContent} onChange={event => setNewContent(event.target.value)} placeholder="文件内容" className="w-full h-28 p-2.5 rounded-xl text-[8px] font-mono outline-none resize-none" />
-              <button disabled={saving} onClick={() => void createFile()} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px] disabled:opacity-40"><Plus className="w-3 h-3 inline mr-1" />{saving ? '处理中…' : '创建文件'}</button>
-            </div>
-            <div className="p-3 rounded-2xl bg-white/60 space-y-2">
-              <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">DELETE</div>
-              <input value={deletePath} onChange={event => setDeletePath(event.target.value)} placeholder="输入文件或 App / 目录路径" className="w-full p-2.5 rounded-xl text-[9px] outline-none" />
-              <div className="grid grid-cols-2 gap-1.5">
-                <button disabled={saving} onClick={() => void deleteFile(deletePath)} className="py-2.5 rounded-xl bg-[#8d4e4e] text-white text-[9px] disabled:opacity-40"><Trash2 className="w-3 h-3 inline mr-1" />删除文件</button>
-                <button disabled={saving} onClick={() => void removeTree()} className="py-2.5 rounded-xl bg-[#9b625b] text-white text-[9px] disabled:opacity-40"><Trash2 className="w-3 h-3 inline mr-1" />删除 App / 目录</button>
-              </div>
-              <div className="text-[8px] leading-relaxed text-[#8f6f68]">递归删除属于最高权限操作，会逐个删除 GitHub 中的文件，并需要你确认。</div>
-            </div>
-          </section>
-        )}
-
         {tab === 'settings' && (
           <section className="p-3.5 space-y-2.5">
             <div className="p-3.5 rounded-2xl bg-[#ebe6de] text-[9px]"><b>Studio Settings</b><div className="mt-1 text-[#777069]">AI Key 与 GitHub Token 仅保存在当前浏览器。</div></div>
