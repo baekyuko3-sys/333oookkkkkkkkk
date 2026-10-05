@@ -4,6 +4,8 @@ import type { ScreenType } from '../../types';
 import { listOpenAiCompatibleModels, testAiConnection } from '../../ai/aiEngine';
 import { readAppSettings, saveAppSettings, type AppSettings } from '../../store/appSettings';
 import { runMemeAgent, type MemeCodingMode } from '../../studio/memeAgent';
+import { studioStorage } from '../../studio/studioStorage';
+import type { StudioOperationLog, StudioSession, StudioTask } from '../../studio/studioTypes';
 
 type Tab = 'chat' | 'files' | 'changes' | 'admin' | 'settings';
 const MEME_MODE_STORE = 'studio:meme-coding-mode';
@@ -99,12 +101,18 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [memeMode, setMemeMode] = useState<MemeCodingMode>(() => readStore(MEME_MODE_STORE, 'always-ask') as MemeCodingMode);
   const [agentRunning, setAgentRunning] = useState(false);
   const [agentEvents, setAgentEvents] = useState<string[]>([]);
+  const [tasks, setTasks] = useState<StudioTask[]>(() => studioStorage.tasks());
+  const [sessions, setSessions] = useState<StudioSession[]>(() => studioStorage.sessions());
+  const [logs, setLogs] = useState<StudioOperationLog[]>(() => studioStorage.logs());
+  const [gitCommits, setGitCommits] = useState<any[]>([]);
   const [taskSteps, setTaskSteps] = useState<string[]>([]);
   const [sessionTitle, setSessionTitle] = useState('New build session');
 
   const ready = Boolean(owner.trim() && repo.trim() && branch.trim() && token.trim());
   const aiReady = Boolean(aiSettings.apiBaseUrl.trim() && aiSettings.apiKey.trim() && aiSettings.model.trim());
   const dirty = Boolean(file && code !== original);
+
+  const log = (type: StudioOperationLog['type'], text: string) => { const item={id:'log-'+Date.now(),at:Date.now(),type,text}; setLogs(v=>[item,...v].slice(0,100)); studioStorage.addLog(item); };
 
   const notify = (text: string) => {
     setNotice(text);
@@ -233,6 +241,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setMessage('你：' + request);
     setAiBusy(true);
     setAgentRunning(true);
+    log('agent', 'Started: ' + request);
     setAgentEvents([]);
     setTaskSteps(['理解需求', '检查相关文件', '准备修改', '等待 Changes 审批']);
     setSessionTitle(request.slice(0, 32));
@@ -287,15 +296,18 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             ]);
             setTaskSteps(previous => previous.map((step, index) => index === 2 ? '修改草案已准备' : index === 3 ? '等待你的批准' : step));
             setMessage('Meme 已提出修改：' + p.path + '\\n' + p.reason);
+            log('change', p.operation + ' ' + p.path);
             setTab('changes');
           } else if (event.type === 'message' || event.type === 'done') {
             setMessage(event.text);
           } else if (event.type === 'tool') {
             setAgentEvents(previous => [...previous.slice(-7), event.name + ' · ' + JSON.stringify(event.input)]);
+            log('tool', event.name);
           }
         },
       }, request);
       if (result.text) setMessage(result.text);
+      log('agent', 'Finished current pass');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Meme 请求失败');
     } finally {
