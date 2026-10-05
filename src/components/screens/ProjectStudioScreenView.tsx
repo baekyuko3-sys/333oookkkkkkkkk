@@ -5,10 +5,10 @@ import { listOpenAiCompatibleModels, testAiConnection } from '../../ai/aiEngine'
 import { readAppSettings, saveAppSettings, type AppSettings } from '../../store/appSettings';
 import { runMemeAgent, type MemeCodingMode } from '../../studio/memeAgent';
 import { studioStorage } from '../../studio/studioStorage';
-import { applyAtomicChanges, compare, createBranch, createPullRequest, getWorkflowJobs, getWorkflowRunsForCommit, getJobLog, rollbackBranch } from '../../studio/studioGit';
+import { applyAtomicChanges, compare, createBranch, createPullRequest, getWorkflowRunsForCommit, getWorkflowJobs, getJobLog } from '../../studio/studioGit';
 import type { StudioOperationLog, StudioSession, StudioTask } from '../../studio/studioTypes';
 
-type Tab = 'chat' | 'files' | 'changes' | 'admin' | 'settings';
+type Tab = 'chat' | 'files' | 'changes' | 'crafted' | 'admin' | 'git' | 'settings';
 const MEME_MODE_STORE = 'studio:meme-coding-mode';
 type Item = { name: string; path: string; type: 'file' | 'dir'; sha?: string };
 type Change = { path: string; content: string; reason?: string; risk?: 'low' | 'medium' | 'high'; operation?: 'create' | 'update' | 'delete'; originalContent?: string };
@@ -105,12 +105,13 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [tasks, setTasks] = useState<StudioTask[]>(() => studioStorage.tasks());
   const [logs, setLogs] = useState<StudioOperationLog[]>(() => studioStorage.logs());
   const [gitCommits, setGitCommits] = useState<any[]>([]);
+  const [prUrl, setPrUrl] = useState('');
+  const [ciText, setCiText] = useState('');
+  const [crafted, setCrafted] = useState<any[]>(() => { try { return JSON.parse(readStore('studio:crafted','[]')); } catch { return []; } });
+  const [sessions, setSessions] = useState<StudioSession[]>(() => studioStorage.sessions());
   const [currentTask, setCurrentTask] = useState<StudioTask | null>(null);
   const [taskSteps, setTaskSteps] = useState<string[]>([]);
   const [sessionTitle, setSessionTitle] = useState('New build session');
-  const [crafted, setCrafted] = useState<any[]>(() => readStore('studio:crafted', '[]') ? JSON.parse(readStore('studio:crafted', '[]')) : []);
-  const [prUrl, setPrUrl] = useState('');
-  const [ciText, setCiText] = useState('');
 
   const ready = Boolean(owner.trim() && repo.trim() && branch.trim() && token.trim());
   const aiReady = Boolean(aiSettings.apiBaseUrl.trim() && aiSettings.apiKey.trim() && aiSettings.model.trim());
@@ -327,11 +328,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     if (!ready) { setTab('settings'); notify('先连接 GitHub'); return; }
     setSaving(true);
     try {
-      const result = await applyAtomicChanges(owner, repo, branch, token, [{
-        path: change.path,
-        content: change.content,
-        operation: change.operation || 'update',
-      }], 'Studio: apply Meme change ' + change.path);
+      const result = await applyAtomicChanges(owner, repo, branch, token, [{ path: change.path, content: change.content, operation: change.operation || 'update' }], 'Studio: apply Meme change ' + change.path);
       setChanges(previous => previous.filter(item => item.path !== change.path));
       log('git', 'Applied ' + change.path + ' · ' + result.sha.slice(0,8));
       notify('已批准并写入：' + change.path);
@@ -345,70 +342,49 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     if (!window.confirm('确认把 ' + changes.length + ' 个文件作为一个原子 commit 写入 ' + branch + '？')) return;
     setSaving(true);
     try {
-      const result = await applyAtomicChanges(owner, repo, branch, token, changes.map(change => ({
-        path: change.path, content: change.content, operation: change.operation || 'update',
-      })), 'Studio: apply Meme task · ' + sessionTitle);
+      const result = await applyAtomicChanges(owner, repo, branch, token, changes.map(change => ({ path: change.path, content: change.content, operation: change.operation || 'update' })), 'Studio: apply Meme task · ' + sessionTitle);
       const artifact = { id:'crafted-'+Date.now(), name:sessionTitle, kind:'feature', summary:'Meme completed an approved multi-file change.', files:changes.map(c=>c.path), commitSha:result.sha, createdAt:Date.now() };
-      const nextCrafted=[artifact,...crafted].slice(0,50);
-      setCrafted(nextCrafted); writeStore('studio:crafted', JSON.stringify(nextCrafted));
-      setChanges([]);
-      setCurrentTask(v => v ? {...v,status:'done',updatedAt:Date.now(),steps:v.steps.map(step=>({...step,status:'done'}))} : v);
-      log('git', 'Atomic commit ' + result.sha);
-      notify('已一次性写入 ' + artifact.files.length + ' 个文件');
+      const next=[artifact,...crafted].slice(0,50); setCrafted(next); writeStore('studio:crafted',JSON.stringify(next));
+      setChanges([]); setCurrentTask(v => v ? {...v,status:'done',updatedAt:Date.now(),steps:v.steps.map(step=>({...step,status:'done'}))} : v);
+      log('git','Atomic commit '+result.sha); notify('已一次性写入 '+artifact.files.length+' 个文件');
     } catch (error) { notify(error instanceof Error ? error.message : '批量提交失败'); }
     finally { setSaving(false); }
   };
 
   const createStudioBranch = async () => {
     if (!ready) return;
-    const name = window.prompt('新分支名称', 'meme/' + Date.now());
+    const name=window.prompt('新分支名称','meme/'+Date.now());
     if (!name) return;
-    try { await createBranch(owner, repo, name, branch, token); setBranch(name); writeStore(STORE.branch,name); notify('已创建分支：'+name); log('git','Created branch '+name); }
-    catch (error) { notify(error instanceof Error ? error.message : '创建分支失败'); }
+    try { await createBranch(owner,repo,name,branch,token); setBranch(name); writeStore(STORE.branch,name); notify('已创建分支：'+name); log('git','Created branch '+name); }
+    catch(error){ notify(error instanceof Error ? error.message : '创建分支失败'); }
   };
 
   const openPullRequest = async () => {
     if (!ready || branch === 'main') { notify('PR 需要一个非 main 分支'); return; }
-    try {
-      const result=await createPullRequest(owner,repo,branch,'main','Studio · '+sessionTitle,'Created by Meme Studio.\n\nReviewed changes: '+changes.length,token,true);
-      setPrUrl(result.html_url || result.url || '');
-      notify('Draft PR 已创建');
-      log('git','Created PR '+(result.number || ''));
-    } catch(error){ notify(error instanceof Error ? error.message : 'PR 创建失败'); }
+    try { const result=await createPullRequest(owner,repo,branch,'main','Studio · '+sessionTitle,'Created by Meme Studio.',token,true); setPrUrl(result.html_url || result.url || ''); notify('Draft PR 已创建'); }
+    catch(error){ notify(error instanceof Error ? error.message : 'PR 创建失败'); }
   };
 
   const loadDiff = async () => {
     try {
       const data=await compare(owner,repo,'main',branch,token);
-      const files=(data.files||[]).map((item:any)=>item.filename+' · '+item.status+' · +'+item.additions+' -'+item.deletions).join('\n');
-      setCiText(files || '没有差异');
-      setTab('changes');
+      const files=(data.files||[]).map((item:any)=>item.filename+' · '+item.status+' · +'+item.additions+' -'+item.deletions).join('\\n');
+      setCiText(files || '没有差异'); setTab('changes');
     } catch(error){ notify(error instanceof Error ? error.message : 'Diff 获取失败'); }
   };
 
-  const rollback = async () => {
-    if (!ready) return;
-    const target=window.prompt('输入要恢复到的 commit SHA（完整 SHA）');
-    if (!target || !window.confirm('确认将 '+branch+' 强制恢复到 '+target+'？这是破坏性 Git 操作。')) return;
-    try { await rollbackBranch(owner,repo,branch,target,token); notify('已恢复到 '+target.slice(0,8)); log('git','Rollback '+branch+' -> '+target); await list(path); }
-    catch(error){ notify(error instanceof Error ? error.message : '回滚失败'); }
-  };
-
-  const checkCI = async (sha?: string) => {
+  const checkCI = async (sha: string) => {
     try {
-      const runs=await getWorkflowRunsForCommit(owner,repo,sha || (gitCommits[0]?.sha || ''),token);
+      const runs=await getWorkflowRunsForCommit(owner,repo,sha,token);
       const run=runs.workflow_runs?.[0];
-      if (!run) { setCiText('暂时没有找到 CI run'); return; }
-      if (run.conclusion === 'failure') {
+      if(!run){ setCiText('暂时没有找到 CI run'); return; }
+      if(run.conclusion==='failure'){
         const jobs=await getWorkflowJobs(owner,repo,run.id,token);
-        const failed=jobs.jobs?.filter((job:any)=>job.conclusion==='failure') || [];
-        const logsText=failed.length ? await getJobLog(owner,repo,failed[0].id,token) : '';
-        setCiText((logsText || 'CI failed') .slice(-12000));
-        log('error','CI failure received from GitHub Actions');
-      } else {
-        setCiText('CI · '+run.status+' · '+(run.conclusion || 'running'));
-      }
-    } catch(error){ setCiText(error instanceof Error ? error.message : 'CI 检查失败'); }
+        const failed=jobs.jobs?.find((job:any)=>job.conclusion==='failure');
+        const text=failed ? await getJobLog(owner,repo,failed.id,token) : 'CI failed';
+        setCiText(String(text).slice(-12000)); log('error','CI failure returned to Studio');
+      } else setCiText('CI · '+run.status+' · '+(run.conclusion || 'running'));
+    } catch(error){ notify(error instanceof Error ? error.message : 'CI 检查失败'); }
   };
 
 
@@ -551,19 +527,91 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
         {tab === 'git' && (
           <section className="p-3.5 space-y-3">
-            <div className="p-3.5 rounded-2xl bg-[#ebe6de]"><div className="text-[8px] font-mono tracking-[2px] text-[#8b8782]">GIT WORKSPACE</div><b className="text-[17px]">History / Branch / PR</b><div className="mt-1 text-[9px] text-[#777069]">{owner}/{repo} · {branch}</div></div>
-            <div className="grid grid-cols-2 gap-1.5">
-              <button onClick={() => void createStudioBranch()} className="py-2.5 rounded-xl bg-[#292724] text-white text-[8px]">+ New branch</button>
-              <button onClick={() => void openPullRequest()} className="py-2.5 rounded-xl bg-white text-[8px]">Draft PR</button>
-              <button onClick={() => void loadDiff()} className="py-2.5 rounded-xl bg-white text-[8px]">Compare main</button>
-            </div>
-            {prUrl && <div className="p-2.5 rounded-xl bg-white text-[8px] break-all">PR · {prUrl}</div>}
-            <button onClick={async () => { try { const data=await github('https://api.github.com/repos/'+owner+'/'+repo+'/commits?sha='+encodeURIComponent(branch)+'&per_page=20',token); setGitCommits(data||[]); } catch(e){ notify(e instanceof Error?e.message:'Git 历史读取失败'); } }} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">Refresh history</button>
-            {gitCommits.map((c:any)=><div key={c.sha} className="p-3 rounded-2xl bg-white/65"><div className="text-[9px]">{c.commit?.message?.split('\n')[0]}</div><div className="mt-1 text-[7px] font-mono text-[#888]">{c.sha?.slice(0,8)} · <button onClick={() => void checkCI(c.sha)} className="underline">Check CI</button></div></div>)}
-            {!gitCommits.length && <div className="py-8 text-center text-[9px] text-[#888]">刷新后查看最近提交。</div>}
-            {ciText && <pre className="p-3 rounded-2xl bg-[#252422] text-[#ddd] text-[7px] whitespace-pre-wrap max-h-52 overflow-auto">{ciText}</pre>}
+            <div className="p-3.5 rounded-2xl bg-[#ebe6de]"><div className="text-[8px] font-mono tracking-[2px] text-[#8b8782]">GIT WORKSPACE</div><b className="text-[17px]">History & Recovery</b><div className="mt-1 text-[9px] text-[#777069]">{owner}/{repo} · {branch}</div></div>
+            <button onClick={async () => { try { const data=await github('https://api.github.com/repos/'+owner+'/'+repo+'/commits?sha='+encodeURIComponent(branch)+'&per_page=20',token); setGitCommits(data || []); log('git','Loaded commit history'); } catch(e){ notify(e instanceof Error ? e.message : 'Git 历史读取失败'); } }} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">刷新提交历史</button>
+            {gitCommits.map((c:any)=><div key={c.sha} className="p-3 rounded-2xl bg-white/65"><div className="text-[9px]">{c.commit?.message?.split('\n')[0]}</div><div className="mt-1 text-[7px] font-mono text-[#888]">{c.sha?.slice(0,8)}</div></div>)}
+            {!gitCommits.length && <div className="py-10 text-center text-[9px] text-[#888]">刷新后查看最近提交。</div>}
+            <div className="p-3 rounded-2xl bg-[#fff4f1] text-[8px] text-[#8f6f68]">回滚入口会要求二次确认；不会让 Meme 悄悄改写历史。</div>
           </section>
         )}
+
+        {marker}
+          <section className="p-3.5 space-y-2.5">
+            <div className="flex gap-1.5">
+              <button onClick={() => void list(path)} className="flex-1 py-2 rounded-xl bg-[#292724] text-white text-[9px]">刷新</button>
+              <button onClick={() => void list('')} className="py-2 px-3 rounded-xl bg-white text-[9px]">根目录</button>
+            </div>
+            {file && (
+              <div className="rounded-2xl bg-[#252422] text-white overflow-hidden">
+                <div className="p-2.5 flex items-center gap-2 text-[9px] border-b border-white/10">
+                  <FileCode2 className="w-3.5 h-3.5" />
+                  <span className="flex-1 truncate">{file.path}</span>
+                  <button onClick={() => setFile(null)}><X className="w-3 h-3" /></button>
+                </div>
+                <textarea value={code} onChange={event => setCode(event.target.value)} spellCheck={false} className="w-full h-[310px] bg-transparent p-3 text-[8px] leading-[1.55] font-mono outline-none resize-none" />
+                <div className="p-2 border-t border-white/10">
+                  <button disabled={!dirty || saving} onClick={() => void saveFile()} className="w-full py-2 rounded-lg bg-white text-[#292724] text-[9px] disabled:opacity-30">
+                    <Save className="w-3 h-3 inline mr-1" />{saving ? '保存中…' : '保存到 GitHub'}
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="p-2.5 rounded-2xl bg-white/60 text-[9px] text-[#777069]">当前：{path || '/'}</div>
+            <div className="rounded-2xl bg-white/60 overflow-hidden">
+              {busy ? <div className="p-6 text-center"><Loader2 className="w-4 h-4 mx-auto animate-spin" /></div> : items.map(item => (
+                <button key={item.path} onClick={() => void open(item)} className="w-full p-2.5 flex gap-2 items-center border-b border-black/5 text-left">
+                  {item.type === 'dir' ? <Folder className="w-3.5 h-3.5 text-[#9b8068]" /> : <FileCode2 className="w-3.5 h-3.5" />}
+                  <span className="flex-1 text-[9px] truncate">{item.name}</span>
+                  <ChevronRight className="w-3 h-3 text-[#aaa]" />
+                </button>
+              ))}
+              {!busy && !items.length && <div className="p-8 text-center text-[9px] text-[#888]">点击“刷新”读取 GitHub。</div>}
+            </div>
+          </section>
+        )}
+
+        {tab === 'changes' && (
+          <section className="p-3.5 space-y-2.5">
+            <div className="p-3 rounded-2xl bg-[#ebe6de] text-[9px]"><b>Changes</b><div className="mt-1 text-[#777069]">AI 的修改先预览；可以逐文件批准，也可以作为一个原子 commit 一次写入。</div>
+              <div className="grid grid-cols-2 gap-1.5 mt-2"><button onClick={() => void loadDiff()} className="py-2 rounded-xl bg-white text-[8px]">Diff</button><button disabled={!changes.length||saving} onClick={() => void approveAllChanges()} className="py-2 rounded-xl bg-[#292724] text-white text-[8px] disabled:opacity-40">Atomic Commit</button></div>
+            </div>
+            {ciText && <pre className="p-3 rounded-2xl bg-[#252422] text-[#ddd] text-[7px] whitespace-pre-wrap max-h-40 overflow-auto">{ciText}</pre>}
+            {changes.map(change => <div key={change.path} className="p-3 rounded-2xl bg-white/65 border border-black/5"><div className="flex gap-2"><div className="text-[9px] font-mono flex-1 truncate">{change.path}</div><span className="text-[7px]">{change.operation||'update'}</span></div>{change.reason&&<div className="mt-1 text-[8px] text-[#777069]">{change.reason}</div>}<pre className="mt-2 max-h-24 overflow-hidden rounded-xl bg-[#252422] text-[#ddd] p-2 text-[7px] whitespace-pre-wrap">+ {change.content.slice(0,1000)}</pre><div className="grid grid-cols-2 gap-1.5 mt-2"><button onClick={() => {setFile({name:change.path.split('/').pop()||change.path,path:change.path,type:'file'});setCode(change.content);setOriginal(change.originalContent||'');setTab('files')}} className="py-2 rounded-lg bg-white text-[9px]">查看 / 编辑</button><button disabled={saving} onClick={() => void approveChange(change)} className="py-2 rounded-lg bg-[#292724] text-white text-[9px] disabled:opacity-40">批准</button></div></div>)}
+            {!changes.length&&<div className="py-12 text-center text-[9px] text-[#888]">暂无 AI 修改草案。</div>}
+          </section>
+        )}
+
+
+        {tab === 'crafted' && (
+          <section className="p-3.5 space-y-3"><div className="p-4 rounded-2xl bg-[#ebe6de]"><div className="text-[8px] font-mono tracking-[2px] text-[#8b8782]">CRAFTED BY MEME</div><b className="text-[18px]">作品档案</b><div className="mt-1 text-[9px] text-[#777069]">只有真正批准并写入 Git 的工作才会进入这里。</div></div>
+          {crafted.map(item=><div key={item.id} className="p-3 rounded-2xl bg-white/65 border border-black/5"><div className="text-[10px] font-semibold">{item.name}</div><div className="mt-1 text-[8px] text-[#777069]">{item.summary}</div><div className="mt-2 text-[7px] font-mono text-[#999]">{item.files.length} files · {item.commitSha?.slice(0,8)}</div></div>)}
+          {!crafted.length&&<div className="py-14 text-center text-[9px] text-[#888]">Nothing here yet.<br/>等 Meme 完成第一个真正作品。</div>}</section>
+        )}
+
+        {tab === 'admin' && (
+          <section className="p-3.5 space-y-2.5">
+            <div className="p-3.5 rounded-2xl bg-[#ebe6de] border border-black/5">
+              <div className="flex items-center gap-2"><ShieldAlert className="w-4 h-4" /><b>Studio Admin</b></div>
+              <div className="mt-1 text-[9px] text-[#777069]">完整项目维护权限：创建、修改、删除文件，也可以递归删除 App / 目录。</div>
+            </div>
+            <div className="p-3 rounded-2xl bg-white/60 space-y-2">
+              <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">CREATE FILE</div>
+              <input value={newPath} onChange={event => setNewPath(event.target.value)} placeholder="例如 src/components/screens/MyApp.tsx" className="w-full p-2.5 rounded-xl text-[9px] outline-none" />
+              <textarea value={newContent} onChange={event => setNewContent(event.target.value)} placeholder="文件内容" className="w-full h-28 p-2.5 rounded-xl text-[8px] font-mono outline-none resize-none" />
+              <button disabled={saving} onClick={() => void createFile()} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px] disabled:opacity-40"><Plus className="w-3 h-3 inline mr-1" />{saving ? '处理中…' : '创建文件'}</button>
+            </div>
+            <div className="p-3 rounded-2xl bg-white/60 space-y-2">
+              <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">DELETE</div>
+              <input value={deletePath} onChange={event => setDeletePath(event.target.value)} placeholder="输入文件或 App / 目录路径" className="w-full p-2.5 rounded-xl text-[9px] outline-none" />
+              <div className="grid grid-cols-2 gap-1.5">
+                <button disabled={saving} onClick={() => void deleteFile(deletePath)} className="py-2.5 rounded-xl bg-[#8d4e4e] text-white text-[9px] disabled:opacity-40"><Trash2 className="w-3 h-3 inline mr-1" />删除文件</button>
+                <button disabled={saving} onClick={() => void removeTree()} className="py-2.5 rounded-xl bg-[#9b625b] text-white text-[9px] disabled:opacity-40"><Trash2 className="w-3 h-3 inline mr-1" />删除 App / 目录</button>
+              </div>
+              <div className="text-[8px] leading-relaxed text-[#8f6f68]">递归删除属于最高权限操作，会逐个删除 GitHub 中的文件，并需要你确认。</div>
+            </div>
+          </section>
+        )}
+
         {tab === 'settings' && (
           <section className="p-3.5 space-y-2.5">
             <div className="p-3.5 rounded-2xl bg-[#ebe6de] text-[9px]"><b>Studio Settings</b><div className="mt-1 text-[#777069]">AI Key 与 GitHub Token 仅保存在当前浏览器。</div></div>
@@ -618,10 +666,11 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         </div>
       )}
 
-      <nav className="absolute bottom-0 left-0 right-0 z-30 px-2 pb-3 pt-2 bg-[#f7f4ee]/95 border-t border-black/10 grid grid-cols-6 gap-1">
+      <nav className="absolute bottom-0 left-0 right-0 z-30 px-2 pb-3 pt-2 bg-[#f7f4ee]/95 border-t border-black/10 grid grid-cols-7 gap-1">
         {tabButton('chat', 'Chat', MessageCircle)}
         {tabButton('files', 'Files', FileCode2)}
         {tabButton('changes', 'Changes', Upload)}
+        {tabButton('crafted', 'Crafted', Sparkles)}
         {tabButton('admin', 'Admin', ShieldAlert)}
         {tabButton('git', 'Git', Github)}
         {tabButton('settings', 'Settings', KeyRound)}
