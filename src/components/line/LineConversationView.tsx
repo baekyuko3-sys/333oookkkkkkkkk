@@ -2341,7 +2341,7 @@ export function LineConversationView({
                 <div
                   onClick={() => {
                     if (isGroup) {
-                      setInputText((prev) => `${prev}@${msg.senderName || characterProfile.nickname} `);
+                      handleComposerChange(`${inputText}@${msg.senderName || characterProfile.nickname} `);
                     } else {
                       handleMessageAvatarClick();
                     }
@@ -2790,9 +2790,9 @@ export function LineConversationView({
               {/* Time & LINE Iconic "已读" status for me */}
               {isMe && !msg.isRecalled && (
                 <div className="flex flex-col items-end text-[9px] text-[#b8b8bb] pb-0.5 leading-none shrink-0">
-                  {msg.isRead && (
-                    <span className="text-[8.5px] text-[#ae7e89] font-medium mb-0.5">已读</span>
-                  )}
+                  <span className={msg.isRead ? "text-[8.5px] text-[#ae7e89] font-medium mb-0.5" : "text-[8.5px] text-[#b8b8bb] font-medium mb-0.5"}>
+                    {msg.isRead ? '已读' : '未读'}
+                  </span>
                   <span>{msg.time}</span>
                 </div>
               )}
@@ -2807,25 +2807,6 @@ export function LineConversationView({
             </div>
           );
         })}
-        {isTyping && !isRecording && (
-          <div className="flex items-center gap-2 px-1 py-0.5 animate-in fade-in slide-in-from-bottom-1">
-            <div className="w-6 h-6 rounded-full bg-[#f1f1f2] border border-[#ededee] flex items-center justify-center overflow-hidden shrink-0">
-              {importedCharacter?.avatar ? (
-                <img src={importedCharacter.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                <span className="text-[9px] text-[#999]">{(characterProfile.nickname || contactName || '?').slice(0, 1)}</span>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 text-[10px] text-[#aaa]">
-              <span className="font-medium tracking-wide">texting</span>
-              <span className="flex items-end gap-0.5">
-                <span className="w-1 h-1 rounded-full bg-[#b9a1a6] animate-bounce" />
-                <span className="w-1 h-1 rounded-full bg-[#b9a1a6] animate-bounce [animation-delay:120ms]" />
-                <span className="w-1 h-1 rounded-full bg-[#b9a1a6] animate-bounce [animation-delay:240ms]" />
-              </span>
-            </div>
-          </div>
-        )}
         {/* AI 正在生成时，固定显示在消息流最底部，而不是顶栏 */}
         {isTyping && (
           <div className="flex items-center justify-start px-1 py-1 animate-in fade-in">
