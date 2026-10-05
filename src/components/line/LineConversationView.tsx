@@ -228,24 +228,44 @@ export function LineConversationView({
   const [contextMenuMsg, setContextMenuMsg] = useState<any | null>(null);
   const [replyingToMsg, setReplyingToMsg] = useState<any | null>(null);
   // Mobile LINE-style gesture: swipe a message left to quote/reply to it.
-  const messageSwipeRef = useRef<{ id: number | string; startX: number; startY: number } | null>(null);
+  const [swipingMessageId, setSwipingMessageId] = useState<number | string | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const messageSwipeRef = useRef<{ id: number | string; startX: number; startY: number; active: boolean } | null>(null);
   const handleMessagePointerDown = (event: PointerEvent, msg: any) => {
     if (isMultiSelectMode || event.pointerType === 'mouse') return;
-    messageSwipeRef.current = { id: msg.id, startX: event.clientX, startY: event.clientY };
+    messageSwipeRef.current = { id: msg.id, startX: event.clientX, startY: event.clientY, active: true };
+    setSwipingMessageId(msg.id);
+    setSwipeOffset(0);
+  };
+  const handleMessagePointerMove = (event: PointerEvent, msg: any) => {
+    const start = messageSwipeRef.current;
+    if (!start || !start.active || start.id !== msg.id || isMultiSelectMode || event.pointerType === 'mouse') return;
+    const dx = Math.min(0, event.clientX - start.startX);
+    const dy = event.clientY - start.startY;
+    if (Math.abs(dy) > Math.abs(dx) + 18) {
+      messageSwipeRef.current = null;
+      setSwipingMessageId(null);
+      setSwipeOffset(0);
+      return;
+    }
+    setSwipeOffset(Math.max(-82, dx));
   };
   const handleMessagePointerUp = (event: PointerEvent, msg: any) => {
     const start = messageSwipeRef.current;
     messageSwipeRef.current = null;
     if (!start || start.id !== msg.id || isMultiSelectMode || event.pointerType === 'mouse') return;
-    const dx = event.clientX - start.startX;
-    const dy = event.clientY - start.startY;
-    if (dx <= -64 && Math.abs(dy) <= 42) {
+    const confirmed = swipeOffset <= -64;
+    if (confirmed) {
       setReplyingToMsg(msg);
       showToast('已引用这条消息');
     }
+    setSwipingMessageId(null);
+    setSwipeOffset(0);
   };
   const cancelMessageSwipe = () => {
     messageSwipeRef.current = null;
+    setSwipingMessageId(null);
+    setSwipeOffset(0);
   };
 
   // 语音通话状态 (Voice Audio Call)
@@ -2137,12 +2157,28 @@ export function LineConversationView({
               <div
               data-line-message-id={msg.id}
               onPointerDown={(event) => handleMessagePointerDown(event, msg)}
+              onPointerMove={(event) => handleMessagePointerMove(event, msg)}
               onPointerUp={(event) => handleMessagePointerUp(event, msg)}
               onPointerCancel={cancelMessageSwipe}
-              onPointerLeave={cancelMessageSwipe}
               style={{ touchAction: 'pan-y' }}
-              className={`flex items-end gap-2 group ${isMe ? 'justify-end' : 'justify-start'}`}
+              className="relative flex items-end gap-2 group"
             >
+              {swipingMessageId === msg.id && swipeOffset < -8 && (
+                <div
+                  className={`absolute right-0 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full border transition-all duration-100 ${
+                    swipeOffset <= -64
+                      ? 'w-9 h-9 bg-[#f8eef1] border-[#e5cbd2] text-[#ae7e89] scale-100 shadow-sm'
+                      : 'w-7 h-7 bg-[#fafafa] border-[#ededee] text-[#b5b5b8] scale-90'
+                  }`}
+                  aria-label="引用消息"
+                >
+                  <CornerUpLeft className="w-3.5 h-3.5" />
+                </div>
+              )}
+              <div
+                className="w-full transition-transform duration-75 ease-out"
+                style={{ transform: swipingMessageId === msg.id ? `translateX(${swipeOffset}px)` : 'translateX(0)' }}
+              >
               {/* Multi-select checkbox */}
               {isMultiSelectMode && (
                 <div
