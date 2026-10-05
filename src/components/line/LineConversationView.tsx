@@ -169,6 +169,15 @@ export function LineConversationView({
     markLineConversationRead(conversationStorageId, messages.at(-1)?.id);
   }, [messages, conversationStorageId]);
 
+  useEffect(() => {
+    if (unreadAnchorId !== null || !messages.length) return;
+    const firstUnread = messages.find((message) => message.sender !== 'me' && message.isRead === false);
+    if (firstUnread) {
+      setUnreadAnchorId(firstUnread.id);
+      setShowUnreadJump(true);
+    }
+  }, [messages, unreadAnchorId]);
+
 
   // Sheets & Overlays
   const [showPlusSheet, setShowPlusSheet] = useState(false);
@@ -227,33 +236,61 @@ export function LineConversationView({
   // 消息操作菜单 (长按/右键菜单 Context Menu & 引用回复)
   const [contextMenuMsg, setContextMenuMsg] = useState<any | null>(null);
   const [replyingToMsg, setReplyingToMsg] = useState<any | null>(null);
+  const [showGroupMembers, setShowGroupMembers] = useState(false);
+  const [unreadAnchorId, setUnreadAnchorId] = useState<number | string | null>(null);
+  const [showUnreadJump, setShowUnreadJump] = useState(false);
   // Mobile LINE-style gesture: swipe a message left to quote/reply to it.
   const [swipingMessageId, setSwipingMessageId] = useState<number | string | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
-  const messageSwipeRef = useRef<{ id: number | string; startX: number; startY: number; active: boolean } | null>(null);
+  const messageSwipeRef = useRef<{ id: number | string; startX: number; startY: number; active: boolean; longPressTriggered?: boolean } | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
+  const clearMessageLongPress = () => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
   const handleMessagePointerDown = (event: PointerEvent, msg: any) => {
     if (isMultiSelectMode || event.pointerType === 'mouse') return;
-    messageSwipeRef.current = { id: msg.id, startX: event.clientX, startY: event.clientY, active: true };
+    clearMessageLongPress();
+    messageSwipeRef.current = { id: msg.id, startX: event.clientX, startY: event.clientY, active: true, longPressTriggered: false };
     setSwipingMessageId(msg.id);
     setSwipeOffset(0);
+    longPressTimerRef.current = window.setTimeout(() => {
+      const current = messageSwipeRef.current;
+      if (!current || current.id !== msg.id || !current.active) return;
+      current.longPressTriggered = true;
+      current.active = false;
+      setSwipingMessageId(null);
+      setSwipeOffset(0);
+      setContextMenuMsg(msg);
+    }, 520);
   };
   const handleMessagePointerMove = (event: PointerEvent, msg: any) => {
     const start = messageSwipeRef.current;
     if (!start || !start.active || start.id !== msg.id || isMultiSelectMode || event.pointerType === 'mouse') return;
-    const dx = Math.min(0, event.clientX - start.startX);
+    const dxRaw = event.clientX - start.startX;
     const dy = event.clientY - start.startY;
+    if (Math.abs(dxRaw) > 10 || Math.abs(dy) > 10) clearMessageLongPress();
     if (Math.abs(dy) > Math.abs(dx) + 18) {
       messageSwipeRef.current = null;
       setSwipingMessageId(null);
       setSwipeOffset(0);
       return;
     }
+    const dx = Math.min(0, dxRaw);
     setSwipeOffset(Math.max(-82, dx));
   };
   const handleMessagePointerUp = (event: PointerEvent, msg: any) => {
+    clearMessageLongPress();
     const start = messageSwipeRef.current;
     messageSwipeRef.current = null;
     if (!start || start.id !== msg.id || isMultiSelectMode || event.pointerType === 'mouse') return;
+    if (start.longPressTriggered) {
+      setSwipingMessageId(null);
+      setSwipeOffset(0);
+      return;
+    }
     const confirmed = swipeOffset <= -64;
     if (confirmed) {
       setReplyingToMsg(msg);
@@ -263,6 +300,7 @@ export function LineConversationView({
     setSwipeOffset(0);
   };
   const cancelMessageSwipe = () => {
+    clearMessageLongPress();
     messageSwipeRef.current = null;
     setSwipingMessageId(null);
     setSwipeOffset(0);
@@ -374,6 +412,8 @@ export function LineConversationView({
   const groupAiMembers = activeGroup?.members
     .map(member => ({ member, character: importedCharacters.find(character => character.id === member.characterId || character.name === member.name) || null }))
     .filter(item => item.character && item.member.name !== currentUserNameFallback()) || [];
+  const groupMembers = activeGroup?.members || [];
+  const groupUnreadCount = messages.filter((message) => message.sender !== 'me' && message.isRead === false).length;
   const [worldbooks] = usePersistentState<WorldBook[]>('phone:worldbooks', []);
   const [lineFriends] = usePersistentState<Array<{ name: string; characterId?: string; note?: string; online?: boolean; pinyin?: string }>>('line:friends-list', []);
   const forwardRecipients = Array.from(new Set([
@@ -1937,9 +1977,22 @@ export function LineConversationView({
                         <BellOff className="w-3 h-3 text-[#b2b2b4]" />
                       </span>
                     )}
-                    <span className="text-[9px] text-[#ae7e89] bg-[#faf1f3] px-1 rounded-sm shrink-0">
-                      {characterProfile.relationship}
-                    </span>
+                    {isGroup && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowGroupMembers(true);
+                        }}
+                        className="text-[9px] text-[#777] bg-[#f6f6f7] border border-[#ededee] px-1.5 py-0.5 rounded-full shrink-0"
+                      >
+                        {groupMembers.length}人
+                      </button>
+                    )}
+                    {!isGroup && (
+                      <span className="text-[9px] text-[#ae7e89] bg-[#faf1f3] px-1 rounded-sm shrink-0">
+                        {characterProfile.relationship}
+                      </span>
+                    )}
                   </div>
                   <div className="text-[10px] text-[#aaa] mt-0.5 flex items-center gap-1">
                     <span className={contactOnline ? 'text-[#78927e]' : 'text-[#aaa]'}>
@@ -2091,8 +2144,24 @@ export function LineConversationView({
             loadOlderMessages();
           }
         }}
-        className="flex-1 overflow-y-auto px-3.5 py-4 space-y-4 no-scrollbar"
+        className="flex-1 overflow-y-auto px-3.5 py-4 space-y-4 no-scrollbar relative"
       >
+        {showUnreadJump && unreadAnchorId !== null && (
+          <button
+            onClick={() => {
+              jumpToLineMessage(unreadAnchorId);
+              setShowUnreadJump(false);
+              setMessages((prev) => prev.map((message) => (
+                message.sender === 'me' ? message : { ...message, isRead: true }
+              )));
+              markLineConversationRead(conversationStorageId, unreadAnchorId);
+            }}
+            className="sticky top-1 z-30 mx-auto flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/95 border border-[#eadde1] text-[10px] text-[#8c6670] shadow-sm backdrop-blur"
+          >
+            <span className="font-semibold">{groupUnreadCount || 1} 条新消息</span>
+            <span className="text-[#aaa]">↓</span>
+          </button>
+        )}
         {loadedMessageCount < messages.length && (
           <button
             onClick={loadOlderMessages}
@@ -2152,6 +2221,13 @@ export function LineConversationView({
                   <span className="px-3 py-1 rounded-full bg-[#f5f5f6] text-[9px] text-[#a2a2a6]">
                     {dayLabel}
                   </span>
+                </div>
+              )}
+              {unreadAnchorId !== null && String(msg.id) === String(unreadAnchorId) && showUnreadJump && (
+                <div className="flex items-center gap-2 py-2">
+                  <div className="h-px flex-1 bg-[#eadde1]" />
+                  <span className="text-[9px] font-medium text-[#ae7e89]">NEW MESSAGES</span>
+                  <div className="h-px flex-1 bg-[#eadde1]" />
                 </div>
               )}
               <div
@@ -4692,6 +4768,60 @@ export function LineConversationView({
             >
               <Volume2 className="w-5 h-5" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Group members sheet */}
+      {showGroupMembers && isGroup && (
+        <div
+          onClick={() => setShowGroupMembers(false)}
+          className="absolute inset-0 bg-black/20 z-55 flex items-end animate-in fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-h-[72%] overflow-y-auto bg-white rounded-t-[22px] p-4 pb-7 animate-in slide-in-from-bottom"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div className="font-bold text-[15px] text-[#222]">{contactName}</div>
+                <div className="text-[10px] text-[#aaa] mt-0.5">{groupMembers.length} {tx('位成员', '人のメンバー')}</div>
+              </div>
+              <button onClick={() => setShowGroupMembers(false)} className="w-8 h-8 rounded-full bg-[#f6f6f7] text-[#888] text-lg">×</button>
+            </div>
+            <div className="space-y-1">
+              {groupMembers.map((member: any) => {
+                const character = importedCharacters.find((item) => item.id === member.characterId || item.name === member.name);
+                const isMeMember = member.name === currentUserNameFallback();
+                return (
+                  <button
+                    key={member.id || member.characterId || member.name}
+                    onClick={() => {
+                      if (!isMeMember && character) {
+                        setShowGroupMembers(false);
+                        setShowCharacterProfile(true);
+                      }
+                    }}
+                    className="w-full flex items-center gap-3 p-2.5 rounded-[13px] hover:bg-[#fafafa] text-left"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-[#f2f2f3] border border-[#ededee] overflow-hidden shrink-0 flex items-center justify-center text-xs text-[#888]">
+                      {character?.avatar ? <img src={character.avatar} alt="" className="w-full h-full object-cover" /> : (member.nickname || member.name || '?').slice(0, 1)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-xs text-[#333] truncate">{member.nickname || member.name}</span>
+                        {isMeMember && <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-[#f5f5f6] text-[#999]">我</span>}
+                        {!isMeMember && member.online !== false && <span className="w-1.5 h-1.5 rounded-full bg-[#9db8a5]" />}
+                      </div>
+                      <div className="text-[10px] text-[#aaa] truncate mt-0.5">
+                        {[member.relationship, member.mood, member.online === false ? '离线' : '在线'].filter(Boolean).join(' · ')}
+                      </div>
+                    </div>
+                    {!isMeMember && <ChevronRight className="w-4 h-4 text-[#c3c3c5]" />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
