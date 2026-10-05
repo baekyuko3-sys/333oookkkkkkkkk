@@ -386,18 +386,202 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     }
   };
 
-  const checkCI = async (sha: string) => {
+  const stageMemeProposal = (p: any) => {
+    setChanges(previous => [
+      ...previous.filter(change => change.path !== p.path),
+      {
+        path: p.path,
+        content: p.content || '',
+        reason: p.reason,
+        risk: p.risk,
+        operation: p.operation || 'update',
+      },
+    ]);
+    setTaskSteps(previous => previous.map((step, index) =>
+      index === 2 ? '修改草案已准备' : index === 3 ? '等待你的批准' : step
+    ));
+    setMessage('Meme 已提出修改：' + p.path + '\\n' + p.reason);
+    log('change', p.operation + ' ' + p.path);
+    setTab('changes');
+  };
+
+  const runRepairAgent = async (ciError: string, failedSha: string, sourceLabel = 'CI') => {
+    if (!aiReady || !ready) {
+      setTab('settings');
+      notify('CI 已失败，但 Meme 还没有准备好：请检查 AI / GitHub 设置');
+      return;
+    }
+
+    const errorText = String(ciError || '').slice(-16000);
+    const repairRequest =
+      'CI 自动修复任务。' +
+      '\\n来源：' + sourceLabel +
+      '\\n失败 commit：' + failedSha +
+      '\\n\\n下面是 CI 的真实错误日志。请先定位根因，再检查相关源码、配置和依赖。不要凭空修改。' +
+      '\\n\\n--- CI ERROR ---\\n' + errorText +
+      '\\n--- END CI ERROR ---' +
+      '\\n\\n目标：提出最小、可靠的修复方案。所有实际文件修改必须进入 Studio Changes，等待用户批准；不要直接写 GitHub。';
+
+    setPrompt('');
+    setMessage('Meme 正在分析 CI 错误…');
+    setAgentRunning(true);
+    setAiBusy(true);
+    setAgentEvents([]);
+    setTaskSteps(['读取 CI 错误', '定位失败原因', '检查相关文件', '准备修复 Changes']);
+    const task: StudioTask = {
+      id: 'task-ci-' + Date.now(),
+      title: 'Repair CI · ' + failedSha.slice(0, 8),
+      request: repairRequest,
+      status: 'working',
+      steps: [
+        { id: 'ci', title: 'Read CI failure', status: 'done' },
+        { id: 'inspect', title: 'Inspect root cause', status: 'working' },
+        { id: 'repair', title: 'Prepare repair', status: 'todo' },
+        { id: 'review', title: 'Review Changes', status: 'todo' },
+      ],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    setCurrentTask(task);
+    setTasks(v => {
+      const next = [task, ...v].slice(0, 30);
+      studioStorage.saveTasks(next);
+      return next;
+    });
+    log('agent', 'Started automatic CI repair for ' + failedSha.slice(0, 8));
+
     try {
-      const runs=await getWorkflowRunsForCommit(owner,repo,sha,token);
-      const run=runs.workflow_runs?.[0];
-      if(!run){ setCiText('暂时没有找到 CI run'); return; }
-      if(run.conclusion==='failure'){
-        const jobs=await getWorkflowJobs(owner,repo,run.id,token);
-        const failed=jobs.jobs?.find((job:any)=>job.conclusion==='failure');
-        const text=failed ? await getJobLog(owner,repo,failed.id,token) : 'CI failed';
-        setCiText(String(text).slice(-12000)); log('error','CI failure returned to Studio');
-      } else setCiText('CI · '+run.status+' · '+(run.conclusion || 'running'));
-    } catch(error){ notify(error instanceof Error ? error.message : 'CI 检查失败'); }
+      const project = owner + '/' + repo + '@' + branch;
+      const result = await runMemeAgent({
+        apiBaseUrl: aiSettings.apiBaseUrl,
+        apiKey: aiSettings.apiKey,
+        model: aiSettings.model,
+        codingMode: memeMode,
+        project,
+        tools: [
+          {
+            name: 'inspect',
+            description: 'Inspect a repository directory.',
+            run: async ({ path: target = '' }) => {
+              const clean = String(target).split('/').filter(Boolean).map(encodeURIComponent).join('/');
+              const data = await github(
+                'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + clean + '?ref=' + encodeURIComponent(branch),
+                token
+              );
+              return Array.isArray(data)
+                ? data.map((item: any) => ({ name: item.name, path: item.path, type: item.type, sha: item.sha }))
+                : { name: data.name, path: data.path, type: data.type, sha: data.sha };
+            },
+          },
+          {
+            name: 'read',
+            description: 'Read a repository file.',
+            run: async ({ path: target }) => {
+              const clean = String(target).split('/').filter(Boolean).map(encodeURIComponent).join('/');
+              const data = await github(
+                'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + clean + '?ref=' + encodeURIComponent(branch),
+                token
+              );
+              if (Array.isArray(data)) return { error: 'Path is a directory', items: data.map((item: any) => item.path) };
+              return { path: data.path, sha: data.sha, content: decodeBase64(data.content).slice(0, 60000) };
+            },
+          },
+          {
+            name: 'search',
+            description: 'Search repository code for symbols, imports, error messages, or related implementation.',
+            run: async ({ query }) => {
+              const q = encodeURIComponent(String(query) + ' repo:' + owner + '/' + repo);
+              const data = await github('https://api.github.com/search/code?q=' + q, token);
+              return (data.items || []).slice(0, 20).map((item: any) => ({ path: item.path, name: item.name, sha: item.sha }));
+            },
+          },
+        ],
+        onEvent: event => {
+          if (event.type === 'proposal') {
+            stageMemeProposal(event.proposal);
+          } else if (event.type === 'message' || event.type === 'done') {
+            setMessage(event.text);
+          } else if (event.type === 'tool') {
+            setAgentEvents(previous => [...previous.slice(-7), event.name + ' · ' + JSON.stringify(event.input)]);
+            log('tool', event.name);
+          } else if (event.type === 'error') {
+            log('error', event.text);
+          }
+        },
+      }, repairRequest);
+
+      if (result.text) setMessage(result.text);
+      setCurrentTask(v => v ? {
+        ...v,
+        status: 'review',
+        updatedAt: Date.now(),
+        steps: v.steps.map((step, i) => ({ ...step, status: i < 2 ? 'done' : i === 2 ? 'working' : 'todo' } as any)),
+      } : v);
+      log('agent', 'CI repair analysis finished; awaiting Changes approval');
+    } catch (error) {
+      const text = error instanceof Error ? error.message : 'Meme CI 修复失败';
+      setMessage(text);
+      log('error', text);
+      setCurrentTask(v => v ? { ...v, status: 'failed', updatedAt: Date.now() } : v);
+    } finally {
+      setAiBusy(false);
+      setAgentRunning(false);
+    }
+  };
+
+  const checkCI = async (sha: string, autoRepair = false) => {
+    try {
+      const runs = await getWorkflowRunsForCommit(owner, repo, sha, token);
+      const run = runs.workflow_runs?.[0];
+      if (!run) {
+        setCiText('暂时没有找到 CI run');
+        return;
+      }
+
+      if (run.conclusion === 'failure') {
+        const jobs = await getWorkflowJobs(owner, repo, run.id, token);
+        const failed = jobs.jobs?.find((job: any) =>
+          job.conclusion === 'failure' || job.status === 'failure'
+        );
+        const text = failed ? await getJobLog(owner, repo, failed.id, token) : 'CI failed';
+        const errorText = String(text).slice(-16000);
+        setCiText(errorText);
+        log('error', 'CI failure returned to Studio · ' + sha.slice(0, 8));
+
+        if (autoRepair) {
+          await runRepairAgent(errorText, sha, 'GitHub Actions');
+        }
+      } else {
+        setCiText('CI · ' + run.status + ' · ' + (run.conclusion || 'running'));
+      }
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'CI 检查失败');
+    }
+  };
+
+  const waitForCIAndRepair = async (sha: string) => {
+    setCiText('CI 正在运行…');
+    for (let attempt = 0; attempt < 20; attempt++) {
+      try {
+        const runs = await getWorkflowRunsForCommit(owner, repo, sha, token);
+        const run = runs.workflow_runs?.[0];
+        if (run && run.status === 'completed') {
+          if (run.conclusion === 'success') {
+            setCiText('CI · success · ' + sha.slice(0, 8));
+            log('git', 'CI passed · ' + sha.slice(0, 8));
+            notify('CI 通过 ✓');
+            return;
+          }
+          await checkCI(sha, true);
+          return;
+        }
+      } catch (error) {
+        log('error', 'CI poll failed: ' + (error instanceof Error ? error.message : 'unknown'));
+      }
+      await new Promise(resolve => window.setTimeout(resolve, 5000));
+    }
+    setCiText('CI 仍在运行。可以稍后在 Git 页面再次检查。');
+    log('system', 'CI polling timed out · ' + sha.slice(0, 8));
   };
 
 
