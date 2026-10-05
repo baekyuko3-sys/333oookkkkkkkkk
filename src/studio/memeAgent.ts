@@ -59,6 +59,7 @@ type AgentOptions = {
   maxRounds?: number;
   maxValidationRounds?: number;
   onEvent?: (event: MemeEvent) => void;
+  conversation?: Array<{ role: 'user' | 'assistant'; content: string }>;
 };
 
 function endpoint(base: string) {
@@ -208,6 +209,7 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
   const maxValidationRounds = options.maxValidationRounds ?? 2;
   const history: any[] = [
     { role: 'system', content: system(options.project, options.codingMode) },
+    ...(options.conversation || []).map(message => ({ role: message.role, content: message.content })),
     { role: 'user', content: userRequest },
   ];
   const fileSnapshots = new Map<string, string>();
