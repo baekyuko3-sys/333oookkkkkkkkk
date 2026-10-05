@@ -2,6 +2,8 @@ export type StudioTab = 'build' | 'files' | 'crafted' | 'changes' | 'git' | 'set
 
 export type StudioChangeStatus = 'pending' | 'approved' | 'rejected' | 'applied';
 
+export type StudioDiffLine = { type: 'context' | 'add' | 'remove'; text: string };
+
 export type StudioChange = {
   id: string;
   operation: 'create' | 'update' | 'delete';
@@ -12,6 +14,9 @@ export type StudioChange = {
   risk: 'low' | 'medium' | 'high';
   status: StudioChangeStatus;
   createdAt: number;
+  diff?: StudioDiffLine[];
+  approvedAt?: number;
+  appliedCommit?: string;
 };
 
 export type StudioCodingMode = 'always-ask' | 'confirm-before-commit' | 'auto';
@@ -43,6 +48,16 @@ export type StudioOperationLog = {
   at: number;
   type: 'agent' | 'tool' | 'change' | 'git' | 'error' | 'system';
   text: string;
+};
+
+export type StudioCraftedArtifact = {
+  id: string;
+  name: string;
+  kind: 'app' | 'feature' | 'module' | 'fix';
+  summary: string;
+  files: string[];
+  commitSha?: string;
+  createdAt: number;
 };
 
 export type StudioGitTarget = {
