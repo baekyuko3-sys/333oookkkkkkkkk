@@ -454,7 +454,9 @@ async function callGemini(input: AiReplyInput): Promise<string> {
     },
   };
 
-  const response = await fetch(endpoint, {
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -512,6 +514,10 @@ async function callOpenAiCompatible(input: AiReplyInput): Promise<string> {
     body: JSON.stringify(body),
   });
 
+    });
+  } catch (error) {
+    return proxyChat();
+  }
   if (!response.ok) throw new Error('AI_OPENAI_' + response.status + ': ' + await readError(response));
 
   if (input.settings.streaming) {
@@ -589,6 +595,32 @@ export interface CreativeTextInput {
 }
 
 export async function generateCreativeText(input: CreativeTextInput): Promise<string> {
+  // Browser-to-provider calls can be blocked by CORS. Fall back to the Netlify proxy
+  // that already exists for model discovery, so Studio works from the deployed phone too.
+  const proxyChat = async () => {
+    const response = await fetch('/api/ai-models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'chat',
+        provider: input.settings.provider,
+        baseUrl: input.settings.apiBaseUrl,
+        apiKey: input.settings.apiKey.trim(),
+        model: input.settings.model.trim(),
+        systemPrompt: input.systemPrompt,
+        userPrompt: input.userPrompt,
+        history: input.history || [],
+      }),
+    });
+    if (!response.ok) throw new Error('AI_PROXY_' + response.status + ': ' + await readError(response));
+    const data = await response.json();
+    const text = input.settings.provider === 'gemini'
+      ? extractGeminiText(data).trim()
+      : extractOpenAiText(data).trim();
+    if (!text) throw new Error('AI_EMPTY_RESPONSE');
+    input.onDelta?.(text);
+    return text;
+  };
   requireApiKey(input.settings);
   const temperature = Math.max(0, Math.min(2, input.temperature ?? input.settings.temperature ?? 0.85));
   const history = input.history || [];
@@ -598,7 +630,9 @@ export async function generateCreativeText(input: CreativeTextInput): Promise<st
     const action = input.settings.streaming ? 'streamGenerateContent' : 'generateContent';
     const suffix = input.settings.streaming ? '?alt=sse' : '';
     const endpoint = base + '/models/' + encodeURIComponent(input.settings.model.trim()) + ':' + action + suffix;
-    const response = await fetch(endpoint, {
+    let response: Response;
+    try {
+      response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': input.settings.apiKey.trim() },
       body: JSON.stringify({
@@ -610,6 +644,10 @@ export async function generateCreativeText(input: CreativeTextInput): Promise<st
         generationConfig: { temperature, maxOutputTokens: 2200 },
       }),
     });
+      });
+    } catch (error) {
+      return proxyChat();
+    }
     if (!response.ok) throw new Error('AI_GEMINI_' + response.status + ': ' + await readError(response));
     if (input.settings.streaming) return parseSseResponse(response, extractGeminiText, input.onDelta);
     const data = await response.json();
