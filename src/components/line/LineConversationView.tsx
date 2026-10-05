@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type PointerEvent } from 'react';
 import { usePersistentState } from '../../store/usePersistentState';
 import type { ImportedCharacter } from '../../data/characterImport';
 import type { ScreenType, WorldBook } from '../../types';
@@ -229,11 +229,11 @@ export function LineConversationView({
   const [replyingToMsg, setReplyingToMsg] = useState<any | null>(null);
   // Mobile LINE-style gesture: swipe a message left to quote/reply to it.
   const messageSwipeRef = useRef<{ id: number | string; startX: number; startY: number } | null>(null);
-  const handleMessagePointerDown = (event: React.PointerEvent, msg: any) => {
+  const handleMessagePointerDown = (event: PointerEvent, msg: any) => {
     if (isMultiSelectMode || event.pointerType === 'mouse') return;
     messageSwipeRef.current = { id: msg.id, startX: event.clientX, startY: event.clientY };
   };
-  const handleMessagePointerUp = (event: React.PointerEvent, msg: any) => {
+  const handleMessagePointerUp = (event: PointerEvent, msg: any) => {
     const start = messageSwipeRef.current;
     messageSwipeRef.current = null;
     if (!start || start.id !== msg.id || isMultiSelectMode || event.pointerType === 'mouse') return;
