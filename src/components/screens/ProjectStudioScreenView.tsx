@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Check, ChevronRight, FileCode2, Folder, Github, KeyRound, Loader2, MessageCircle, Plus, Save, Send, Settings2, ShieldAlert, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import type { ScreenType } from '../../types';
-import { generateCreativeText, listOpenAiCompatibleModels, testAiConnection } from '../../ai/aiEngine';
+import { generateCreativeText, listOpenAiCompatibleModels } from '../../ai/aiEngine';
 import { readAppSettings, saveAppSettings, type AppSettings } from '../../store/appSettings';
 import { runMemeAgent, type MemeCodingMode } from '../../studio/memeAgent';
 import { studioStorage } from '../../studio/studioStorage';
