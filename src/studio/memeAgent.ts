@@ -1,3 +1,5 @@
+import { MEME_PROJECT_MAP, MEME_PROJECT_PRINCIPLES } from './projectMap';
+
 export type MemeCodingMode = 'always-ask' | 'confirm-before-commit' | 'auto';
 
 export type MemeAction =
