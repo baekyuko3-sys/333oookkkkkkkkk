@@ -6,7 +6,7 @@ import { getProjectManifest } from './projectManifest';
 import { readAppSettings } from './appSettings';
 import { generateCreativeText, readStoredAiSettings } from '../ai/aiEngine';
 import { emitWorldEvent, setCharacterRuntime, syncWorldCharacters } from './worldRuntime';
-import { appendLineMessage, addLineNotification, getLineConversationMessages } from './lineRuntime';
+import { appendLineMessage, addLineNotification, getLineConversationMessages, saveLineConversationMessages } from './lineRuntime';
 import { getLineRealitySettings, getCurrentLineTimeContext } from './lineReality';
 
 interface ScheduleItem {
@@ -59,22 +59,23 @@ function appendProactiveMessage(character: ImportedCharacter, text: string) {
   // LINE conversations are keyed by character id when available. Keeping
   // proactive messages on the same key prevents "notification arrives but
   // chat opens empty" when the contact was created from an imported card.
-  const key = `line:conversation:${character.id || character.name}`;
+  const conversationId = character.id || character.name;
   const legacyKey = `line:conversation:${character.name}`;
-  const messages = readLocal<any[]>(key, []);
-  const legacyMessages = key !== legacyKey ? readLocal<any[]>(legacyKey, []) : [];
-  const message = {
-    id: `proactive-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    sender: 'other',
-    type: 'proactive',
-    text,
-    time: '刚刚',
-    isRead: false,
-  };
-  const merged = [...messages, ...legacyMessages].slice(-200);
-  saveLocal(key, [...merged, message]);
-  appendLineMessage(character.id || character.name, {
-    id: message.id,
+  const key = `line:conversation:${conversationId}`;
+  const messageId = `proactive-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+  // The runtime store is the single source of truth. If an older name-keyed
+  // conversation exists, migrate it once before appending the new normalized message.
+  if (conversationId !== character.name) {
+    const legacyMessages = readLocal<any[]>(legacyKey, []);
+    const currentMessages = getLineConversationMessages(conversationId);
+    if (legacyMessages.length && !currentMessages.length) {
+      saveLocal(key, legacyMessages);
+    }
+  }
+
+  appendLineMessage(conversationId, {
+    id: messageId,
     sender: 'other',
     text,
     kind: 'text',
