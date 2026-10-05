@@ -595,8 +595,10 @@ export interface CreativeTextInput {
 }
 
 export async function generateCreativeText(input: CreativeTextInput): Promise<string> {
-  // Browser-to-provider calls can be blocked by CORS. Fall back to the Netlify proxy
-  // that already exists for model discovery, so Studio works from the deployed phone too.
+  requireApiKey(input.settings);
+  const temperature = Math.max(0, Math.min(2, input.temperature ?? input.settings.temperature ?? 0.85));
+  const history = input.history || [];
+
   const proxyChat = async () => {
     const response = await fetch('/api/ai-models', {
       method: 'POST',
@@ -609,80 +611,76 @@ export async function generateCreativeText(input: CreativeTextInput): Promise<st
         model: input.settings.model.trim(),
         systemPrompt: input.systemPrompt,
         userPrompt: input.userPrompt,
-        history: input.history || [],
+        history,
       }),
     });
     if (!response.ok) throw new Error('AI_PROXY_' + response.status + ': ' + await readError(response));
     const data = await response.json();
-    const text = input.settings.provider === 'gemini'
-      ? extractGeminiText(data).trim()
-      : extractOpenAiText(data).trim();
+    const text = input.settings.provider === 'gemini' ? extractGeminiText(data).trim() : extractOpenAiText(data).trim();
     if (!text) throw new Error('AI_EMPTY_RESPONSE');
     input.onDelta?.(text);
     return text;
   };
-  requireApiKey(input.settings);
-  const temperature = Math.max(0, Math.min(2, input.temperature ?? input.settings.temperature ?? 0.85));
-  const history = input.history || [];
 
-  if (input.settings.provider === 'gemini') {
-    const base = (input.settings.apiBaseUrl || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, '');
-    const action = input.settings.streaming ? 'streamGenerateContent' : 'generateContent';
-    const suffix = input.settings.streaming ? '?alt=sse' : '';
-    const endpoint = base + '/models/' + encodeURIComponent(input.settings.model.trim()) + ':' + action + suffix;
-    let response: Response;
-    try {
-      response = await fetch(endpoint, {
+  try {
+    if (input.settings.provider === 'gemini') {
+      const base = (input.settings.apiBaseUrl || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, '');
+      const action = input.settings.streaming ? 'streamGenerateContent' : 'generateContent';
+      const suffix = input.settings.streaming ? '?alt=sse' : '';
+      const endpoint = base + '/models/' + encodeURIComponent(input.settings.model.trim()) + ':' + action + suffix;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': input.settings.apiKey.trim() },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: input.systemPrompt }] },
+          contents: [
+            ...history.map(message => ({ role: message.role === 'assistant' ? 'model' : 'user', parts: [{ text: message.content }] })),
+            { role: 'user', parts: [{ text: input.userPrompt }] },
+          ],
+          generationConfig: { temperature, maxOutputTokens: 2200 },
+        }),
+      });
+      if (!response.ok) throw new Error('AI_GEMINI_' + response.status + ': ' + await readError(response));
+      if (input.settings.streaming) return parseSseResponse(response, extractGeminiText, input.onDelta);
+      const data = await response.json();
+      const text = extractGeminiText(data).trim();
+      input.onDelta?.(text);
+      return text;
+    }
+
+    const endpoint = normalizeOpenAiEndpoint(input.settings.apiBaseUrl);
+    const response = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': input.settings.apiKey.trim() },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + input.settings.apiKey.trim(),
+      },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: input.systemPrompt }] },
-        contents: [
-          ...history.map(message => ({ role: message.role === 'assistant' ? 'model' : 'user', parts: [{ text: message.content }] })),
-          { role: 'user', parts: [{ text: input.userPrompt }] },
+        model: input.settings.model.trim(),
+        stream: Boolean(input.settings.streaming),
+        temperature,
+        max_tokens: Math.max(128, Math.min(12000, Number(input.settings.maxOutputTokens) || 2200)),
+        messages: [
+          { role: 'system', content: input.systemPrompt },
+          ...history,
+          { role: 'user', content: input.userPrompt },
         ],
-        generationConfig: { temperature, maxOutputTokens: 2200 },
       }),
     });
-      });
-    } catch (error) {
-      return proxyChat();
-    }
-    if (!response.ok) throw new Error('AI_GEMINI_' + response.status + ': ' + await readError(response));
-    if (input.settings.streaming) return parseSseResponse(response, extractGeminiText, input.onDelta);
+    if (!response.ok) throw new Error('AI_OPENAI_' + response.status + ': ' + await readError(response));
+    if (input.settings.streaming) return parseSseResponse(response, extractOpenAiText, input.onDelta);
     const data = await response.json();
-    const text = extractGeminiText(data).trim();
+    const text = extractOpenAiText(data).trim();
     input.onDelta?.(text);
     return text;
+  } catch (error) {
+    // CORS/network errors get a second chance through Netlify.
+    if (error instanceof TypeError || /Failed to fetch|NetworkError|Load failed|CORS/i.test(String(error))) {
+      return proxyChat();
+    }
+    throw error;
   }
-
-  const endpoint = normalizeOpenAiEndpoint(input.settings.apiBaseUrl);
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + input.settings.apiKey.trim(),
-    },
-    body: JSON.stringify({
-      model: input.settings.model.trim(),
-      stream: Boolean(input.settings.streaming),
-      temperature,
-      max_tokens: Math.max(128, Math.min(12000, Number(input.settings.maxOutputTokens) || 2200)),
-      messages: [
-        { role: 'system', content: input.systemPrompt },
-        ...history,
-        { role: 'user', content: input.userPrompt },
-      ],
-    }),
-  });
-  if (!response.ok) throw new Error('AI_OPENAI_' + response.status + ': ' + await readError(response));
-  if (input.settings.streaming) return parseSseResponse(response, extractOpenAiText, input.onDelta);
-  const data = await response.json();
-  const text = extractOpenAiText(data).trim();
-  input.onDelta?.(text);
-  return text;
 }
-
 
 export async function listOpenAiCompatibleModels(
   settings: AiSettings,
