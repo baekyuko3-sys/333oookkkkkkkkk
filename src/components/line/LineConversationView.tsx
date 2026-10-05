@@ -414,6 +414,55 @@ export function LineConversationView({
     .filter(item => item.character && item.member.name !== currentUserNameFallback()) || [];
   const groupMembers = activeGroup?.members || [];
   const groupUnreadCount = messages.filter((message) => message.sender !== 'me' && message.isRead === false).length;
+
+  // 群聊 @成员：只在输入框当前 @词时显示候选条。
+  const [mentionPickerOpen, setMentionPickerOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+
+  const currentMentionQuery = (value: string) => {
+    const match = value.match(/(?:^|[\\s])@([^\\s@]*)$/);
+    return match ? match[1] : null;
+  };
+
+  const filteredMentionMembers = isGroup
+    ? groupAiMembers
+        .filter(({ member }) => member.name !== currentUserNameFallback())
+        .filter(({ member, character }) => {
+          const query = mentionQuery.trim().toLowerCase();
+          if (!query) return true;
+          return [member.name, member.nickname, character?.name]
+            .filter(Boolean)
+            .some(name => String(name).toLowerCase().includes(query));
+        })
+        .slice(0, 6)
+    : [];
+
+  const handleComposerChange = (value: string) => {
+    setInputText(value);
+    if (!isGroup) {
+      setMentionPickerOpen(false);
+      return;
+    }
+    const query = currentMentionQuery(value);
+    if (query !== null) {
+      setMentionQuery(query);
+      setMentionPickerOpen(true);
+    } else {
+      setMentionPickerOpen(false);
+      setMentionQuery('');
+    }
+  };
+
+  const insertMention = (name: string) => {
+    const match = inputText.match(/(?:^|[\\s])@([^\\s@]*)$/);
+    if (!match) return;
+    const prefix = inputText.slice(0, match.index! + (match[0].startsWith(' ') ? 1 : 0));
+    setInputText(prefix + '@' + name + ' ');
+    setMentionPickerOpen(false);
+    setMentionQuery('');
+    window.setTimeout(() => document.querySelector<HTMLTextAreaElement>('[data-line-composer="true"]')?.focus(), 0);
+  };
+
   const [worldbooks] = usePersistentState<WorldBook[]>('phone:worldbooks', []);
   const [lineFriends] = usePersistentState<Array<{ name: string; characterId?: string; note?: string; online?: boolean; pinyin?: string }>>('line:friends-list', []);
   const forwardRecipients = Array.from(new Set([
