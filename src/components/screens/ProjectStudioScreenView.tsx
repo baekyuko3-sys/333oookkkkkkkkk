@@ -3,8 +3,10 @@ import { ArrowLeft, Check, ChevronRight, FileCode2, Folder, Github, KeyRound, Lo
 import type { ScreenType } from '../../types';
 import { listOpenAiCompatibleModels, testAiConnection } from '../../ai/aiEngine';
 import { readAppSettings, saveAppSettings, type AppSettings } from '../../store/appSettings';
+import { runMemeAgent, type MemeCodingMode, type MemeProposal } from '../../studio/memeAgent';
 
 type Tab = 'chat' | 'files' | 'changes' | 'admin' | 'settings';
+const MEME_MODE_STORE = 'studio:meme-coding-mode';
 type Item = { name: string; path: string; type: 'file' | 'dir'; sha?: string };
 type Change = { path: string; content: string };
 
@@ -94,6 +96,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [saving, setSaving] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [notice, setNotice] = useState('');
+  const [memeMode, setMemeMode] = useState<MemeCodingMode>(() => readStore(MEME_MODE_STORE, 'always-ask') as MemeCodingMode);
+  const [agentRunning, setAgentRunning] = useState(false);
+  const [agentEvents, setAgentEvents] = useState<string[]>([]);
 
   const ready = Boolean(owner.trim() && repo.trim() && branch.trim() && token.trim());
   const aiReady = Boolean(aiSettings.apiBaseUrl.trim() && aiSettings.apiKey.trim() && aiSettings.model.trim());
@@ -216,62 +221,81 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
   const ask = async () => {
     if (!prompt.trim()) return;
-    if (!aiSettings.apiKey.trim() || !aiSettings.model.trim()) {
+    if (!aiSettings.apiKey.trim() || !aiSettings.model.trim() || !aiSettings.apiBaseUrl.trim()) {
       setTab('settings');
-      notify('先填写 AI API Key 和 Model');
+      notify('先填写 AI API Base URL、Key 和 Model');
       return;
     }
     const request = prompt.trim();
     setPrompt('');
     setMessage('你：' + request);
     setAiBusy(true);
+    setAgentRunning(true);
+    setAgentEvents([]);
     try {
-      const context = file ? '\n当前文件：' + file.path + '\n\n' + code.slice(0, 50000) : '';
-      const response = await fetch(aiUrl(aiSettings.apiBaseUrl), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + aiSettings.apiKey,
-        },
-        body: JSON.stringify({
-          model: aiSettings.model,
-          messages: [
-            {
-              role: 'system',
-              content: '你是小手机项目 Studio 的代码助手。先分析问题。需要修改代码时，只输出 JSON：{"reply":"简短说明","filePath":"文件路径","content":"完整新文件内容"}。不需要修改时输出 JSON：{"reply":"说明"}。不要输出 Markdown。',
+      const project = owner + '/' + repo + '@' + branch;
+      const result = await runMemeAgent({
+        apiBaseUrl: aiSettings.apiBaseUrl,
+        apiKey: aiSettings.apiKey,
+        model: aiSettings.model,
+        codingMode: memeMode,
+        project,
+        tools: [
+          {
+            name: 'inspect',
+            description: 'Inspect a repository directory.',
+            run: async ({ path: target = '' }) => {
+              const clean = String(target).split('/').filter(Boolean).map(encodeURIComponent).join('/');
+              const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + clean + '?ref=' + encodeURIComponent(branch);
+              const data = await github(url, token);
+              return Array.isArray(data)
+                ? data.map((item: any) => ({ name: item.name, path: item.path, type: item.type, sha: item.sha }))
+                : { name: data.name, path: data.path, type: data.type, sha: data.sha };
             },
-            { role: 'user', content: request + context },
-          ],
-          temperature: 0.2,
-        }),
-      });
-      if (!response.ok) throw new Error('AI API ' + response.status);
-      const data = await response.json();
-      const raw = data?.choices?.[0]?.message?.content || '';
-      let parsed: any = null;
-      try { parsed = JSON.parse(raw); } catch {
-        const match = raw.match(/\{[\s\S]*\}/);
-        if (match) {
-          try { parsed = JSON.parse(match[0]); } catch {}
-        }
-      }
-      if (!parsed) {
-        setMessage(raw || 'AI 没有返回内容');
-        return;
-      }
-      setMessage(parsed.reply || 'AI 已完成分析。');
-      if (parsed.filePath && typeof parsed.content === 'string') {
-        setChanges(previous => [
-          ...previous.filter(change => change.path !== parsed.filePath),
-          { path: parsed.filePath, content: parsed.content },
-        ]);
-        setTab('changes');
-        notify('AI 修改草案已放进 Changes');
-      }
+          },
+          {
+            name: 'read',
+            description: 'Read a repository file.',
+            run: async ({ path: target }) => {
+              const clean = String(target).split('/').filter(Boolean).map(encodeURIComponent).join('/');
+              const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + clean + '?ref=' + encodeURIComponent(branch);
+              const data = await github(url, token);
+              if (Array.isArray(data)) return { error: 'Path is a directory', items: data.map((item: any) => item.path) };
+              return { path: data.path, sha: data.sha, content: decodeBase64(data.content).slice(0, 60000) };
+            },
+          },
+          {
+            name: 'search',
+            description: 'Search the repository code.',
+            run: async ({ query }) => {
+              const q = encodeURIComponent(String(query) + ' repo:' + owner + '/' + repo);
+              const data = await github('https://api.github.com/search/code?q=' + q);
+              return (data.items || []).slice(0, 20).map((item: any) => ({ path: item.path, name: item.name, sha: item.sha }));
+            },
+          },
+        ],
+        onEvent: event => {
+          if (event.type === 'proposal') {
+            const p = event.proposal;
+            setChanges(previous => [
+              ...previous.filter(change => change.path !== p.path),
+              { path: p.path, content: p.content || '' },
+            ]);
+            setMessage('Meme 已提出修改：' + p.path + '\\n' + p.reason);
+            setTab('changes');
+          } else if (event.type === 'message' || event.type === 'done') {
+            setMessage(event.text);
+          } else if (event.type === 'tool') {
+            setAgentEvents(previous => [...previous.slice(-7), event.name + ' · ' + JSON.stringify(event.input)]);
+          }
+        },
+      }, request);
+      if (result.text) setMessage(result.text);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'AI 请求失败');
+      setMessage(error instanceof Error ? error.message : 'Meme 请求失败');
     } finally {
       setAiBusy(false);
+      setAgentRunning(false);
     }
   };
 
@@ -402,6 +426,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
               </div>
             </div>
             <div className="p-3 rounded-2xl bg-white/70 border border-black/5 text-[10px] whitespace-pre-wrap">{message}</div>
+            {agentRunning && <div className="p-3 rounded-2xl bg-[#292724] text-white text-[8px] font-mono">{agentEvents.length ? agentEvents.map((item, index) => <div key={index}>{item}</div>) : 'MEME · inspecting project…'}</div>}
             {!ready && <div className="p-3 rounded-2xl bg-[#fff4f1] text-[9px]">还没连接 GitHub。去 Settings 填 Token，就可以直接维护项目。</div>}
           </section>
         )}
@@ -504,6 +529,15 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
               <input value={branch} onChange={event => setBranch(event.target.value)} placeholder="Branch" className="w-full p-2.5 rounded-xl text-[9px] outline-none" />
               <input type="password" value={token} onChange={event => setToken(event.target.value)} placeholder="Fine-grained GitHub Token" className="w-full p-2.5 rounded-xl text-[9px] outline-none" />
               <div className="text-[8px] leading-relaxed text-[#888]">建议 Token 只开放这个仓库的 Contents 读写权限。</div>
+            </div>
+            <div className="p-3 rounded-2xl bg-white/60 space-y-2">
+              <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">MEME · CODING MODE</div>
+              <select value={memeMode} onChange={event => { const value = event.target.value as MemeCodingMode; setMemeMode(value); writeStore(MEME_MODE_STORE, value); }} className="w-full p-2.5 rounded-xl bg-white/80 text-[9px] outline-none">
+                <option value="always-ask">Always ask · 每次修改都确认</option>
+                <option value="confirm-before-commit">Confirm before commit · 修改可准备，提交前确认</option>
+                <option value="auto">Auto · 允许 Agent 自动执行</option>
+              </select>
+              <div className="text-[8px] leading-relaxed text-[#777069]">推荐 Always ask。Meme 会先检查项目、生成 Changes，再由你决定是否落库。</div>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               <button onClick={saveSettings} className="py-2.5 rounded-xl bg-[#292724] text-white text-[9px]"><Check className="w-3 h-3 inline mr-1" />保存</button>
