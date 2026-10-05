@@ -2915,7 +2915,36 @@ export function LineConversationView({
               </button>
             </div>
           ) : (
-            <div className="min-h-[58px] flex items-center px-2 py-1.5 gap-1.5">
+            <div className="relative min-h-[58px] flex items-center px-2 py-1.5 gap-1.5">
+              {isGroup && mentionPickerOpen && filteredMentionMembers.length > 0 && (
+                <div className="absolute bottom-full left-2 right-2 mb-1.5 bg-white border border-[#ededee] rounded-[14px] shadow-[0_8px_30px_rgba(0,0,0,0.08)] overflow-hidden z-30">
+                  <div className="px-3 py-2 border-b border-[#f1f1f2] text-[9px] text-[#aaa]">
+                    {tx('@ 提醒成员', '@ メンション')} · {mentionQuery ? '@' + mentionQuery : '选择成员'}
+                  </div>
+                  <div className="max-h-[220px] overflow-y-auto">
+                    {filteredMentionMembers.map(({ member, character }) => {
+                      const name = member.nickname || member.name || character?.name || '成员';
+                      const avatar = character?.avatar || '';
+                      return (
+                        <button key={member.id} type="button" onPointerDown={(event) => event.preventDefault()} onClick={() => insertMention(name)}
+                          className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left hover:bg-[#faf7f8] active:bg-[#f5eef1] transition-colors">
+                          <div className="w-8 h-8 rounded-full bg-[#f5f5f6] border border-[#ededee] overflow-hidden shrink-0 flex items-center justify-center text-[10px] text-[#999]">
+                            {avatar ? <img src={avatar} alt="" className="w-full h-full object-cover" /> : name.slice(0, 1)}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[11px] font-semibold text-[#333] truncate">{name}</div>
+                            <div className="text-[9px] text-[#aaa] truncate">
+                              {member.online === false ? tx('离线', 'オフライン') : tx('在线', 'オンライン')}
+                              {member.relationship ? ' · ' + member.relationship : ''}
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-[#c98f9d]">@</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               {/* Plus Button */}
               <button
                 onClick={() => setShowPlusSheet(true)}
@@ -2938,8 +2967,13 @@ export function LineConversationView({
               <div className="flex-1 min-h-[38px] max-h-[100px] border border-[#e6e6e7] rounded-full bg-[#fafafa] flex items-center px-3.5">
                 <textarea
                   value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
+                  onChange={(e) => handleComposerChange(e.target.value)}
                   onKeyDown={(e) => {
+                    if (e.key === 'Escape' && mentionPickerOpen) {
+                      e.preventDefault();
+                      setMentionPickerOpen(false);
+                      return;
+                    }
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
                       handleSend();
@@ -2947,6 +2981,7 @@ export function LineConversationView({
                   }}
                   rows={1}
                   placeholder="メッセージを入力…"
+                  data-line-composer="true"
                   className="w-full resize-none bg-transparent outline-none text-[13px] text-[#333] placeholder-[#aaa] py-1 font-sans"
                 />
               </div>
