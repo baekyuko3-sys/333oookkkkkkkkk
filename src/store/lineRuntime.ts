@@ -245,6 +245,15 @@ export function markAllLineNotificationsRead() {
   writeJson(NOTIFICATION_KEY, getLineNotifications().map(item => ({ ...item, read: true })));
 }
 
+export function markLineNotificationsReadForConversation(conversationId: string) {
+  const next = getLineNotifications().map(item =>
+    item.conversationId === conversationId ? { ...item, read: true } : item
+  );
+  writeJson(NOTIFICATION_KEY, next);
+  window.dispatchEvent(new CustomEvent('sane333:line-notifications-changed'));
+  return next;
+}
+
 export function getLineUnreadNotificationCount() {
   return getLineNotifications().filter(item => !item.read).length;
 }
@@ -317,7 +326,6 @@ export function bindLineRuntimeEvents() {
         eventId: detail.eventId,
       },
     });
-    setLineConversationUnread(id, (getLineConversationMeta(id)?.unread || 0) + 1);
     addLineNotification({
       type: 'message',
       conversationId: id,
