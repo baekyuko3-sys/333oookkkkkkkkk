@@ -229,6 +229,23 @@ export function LineConversationView({
   const [showGroupMembers, setShowGroupMembers] = useState(false);
   const [unreadAnchorId, setUnreadAnchorId] = useState<number | string | null>(null);
   const [showUnreadJump, setShowUnreadJump] = useState(false);
+  const [mentionAnchorId, setMentionAnchorId] = useState<number | string | null>(null);
+  const [dismissedMentionId, setDismissedMentionId] = useState<number | string | null>(null);
+
+  useEffect(() => {
+    if (!isGroup || !messages.length) return;
+    const myName = currentUserNameFallback() || activePersona?.name || '';
+    if (!myName.trim()) return;
+    const latestMention = [...messages].reverse().find((message) => {
+      if (message.sender === 'me' || !message.text) return false;
+      const text = String(message.text);
+      return text.includes('@' + myName) || text.includes('＠' + myName);
+    });
+    if (latestMention && String(latestMention.id) !== String(dismissedMentionId)) {
+      setMentionAnchorId(latestMention.id);
+    }
+  }, [messages, isGroup, dismissedMentionId, activePersona?.name]);
+
   useEffect(() => {
     if (unreadAnchorId !== null || !messages.length) return;
     const firstUnread = messages.find((message) => message.sender !== 'me' && message.isRead === false);
@@ -2850,6 +2867,32 @@ export function LineConversationView({
       {/* 4. COMPOSER */}
       {!isRecording && (
         <div className="border-t border-[#ededee] bg-white z-20">
+          {isGroup && mentionAnchorId !== null && (
+            <button
+              type="button"
+              onClick={() => {
+                jumpToLineMessage(mentionAnchorId);
+                setDismissedMentionId(mentionAnchorId);
+                setMentionAnchorId(null);
+              }}
+              className="w-full px-3 py-2 bg-[#fff9fb] border-b border-[#f0dee3] flex items-center justify-between text-left hover:bg-[#faf2f4] active:bg-[#f7eaee] transition-colors"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-6 h-6 rounded-full bg-[#f7e9ed] text-[#ae7e89] grid place-items-center text-[11px] font-semibold">@</span>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-semibold text-[#8c5f6b]">{tx('有人提到了你', 'あなたへのメンション')}</div>
+                  <div className="text-[9px] text-[#aaa] truncate">
+                    {(() => {
+                      const mention = messages.find((message) => String(message.id) === String(mentionAnchorId));
+                      return mention?.senderName ? mention.senderName + ' · ' + (mention.text || '') : '点击查看消息';
+                    })()}
+                  </div>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[#c6a1aa] shrink-0" />
+            </button>
+          )}
+
           {/* 引用回复预览条 (Quote Reply Banner) */}
           {replyingToMsg && (
             <div className="px-3 py-1.5 bg-[#faf2f4] border-b border-[#f0dee3] flex items-center justify-between text-xs text-[#ae7e89] animate-in slide-in-from-bottom duration-150">
