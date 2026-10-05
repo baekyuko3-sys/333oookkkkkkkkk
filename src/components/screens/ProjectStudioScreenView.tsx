@@ -3,7 +3,7 @@ import { ArrowLeft, Check, ChevronRight, FileCode2, Folder, Github, KeyRound, Lo
 import type { ScreenType } from '../../types';
 import { listOpenAiCompatibleModels, testAiConnection } from '../../ai/aiEngine';
 import { readAppSettings, saveAppSettings, type AppSettings } from '../../store/appSettings';
-import { runMemeAgent, type MemeCodingMode, type MemeProposal } from '../../studio/memeAgent';
+import { runMemeAgent, type MemeCodingMode } from '../../studio/memeAgent';
 
 type Tab = 'chat' | 'files' | 'changes' | 'admin' | 'settings';
 const MEME_MODE_STORE = 'studio:meme-coding-mode';
@@ -299,6 +299,39 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     }
   };
 
+  const approveChange = async (change: Change) => {
+    if (!ready) {
+      setTab('settings');
+      notify('先连接 GitHub');
+      return;
+    }
+    setSaving(true);
+    try {
+      const target = change.path.trim().replace(/^\\/+|\\/+$/g, '');
+      const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + target.split('/').map(encodeURIComponent).join('/');
+      let existing: any = null;
+      try { existing = await github(url + '?ref=' + encodeURIComponent(branch), token); } catch {}
+      const body: any = {
+        message: 'Studio: apply Meme change ' + target,
+        content: encodeBase64(change.content),
+        branch,
+      };
+      if (existing?.sha) body.sha = existing.sha;
+      await github(url, token, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      setChanges(previous => previous.filter(item => item.path !== change.path));
+      notify('已批准并写入 GitHub：' + target);
+      await list(path);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '应用修改失败');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const createFile = async () => {
     const target = newPath.trim().replace(/^\/+|\/+$/g, '');
     if (!target || !ready) return;
@@ -473,7 +506,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
               <div key={change.path} className="p-3 rounded-2xl bg-white/65 border border-black/5">
                 <div className="text-[9px] font-mono truncate">{change.path}</div>
                 <pre className="mt-2 max-h-28 overflow-hidden rounded-xl bg-[#252422] text-[#ddd] p-2 text-[7px] whitespace-pre-wrap">{change.content.slice(0, 1000)}</pre>
-                <button onClick={() => { setFile({ name: change.path.split('/').pop() || change.path, path: change.path, type: 'file' }); setCode(change.content); setOriginal(''); setTab('files'); }} className="mt-2 w-full py-2 rounded-lg bg-[#292724] text-white text-[9px]">载入编辑器</button>
+                <div className="grid grid-cols-2 gap-1.5 mt-2">
+                  <button onClick={() => { setFile({ name: change.path.split('/').pop() || change.path, path: change.path, type: 'file' }); setCode(change.content); setOriginal(''); setTab('files'); }} className="py-2 rounded-lg bg-white text-[#292724] text-[9px]">查看 / 编辑</button>
+                  <button disabled={saving} onClick={() => void approveChange(change)} className="py-2 rounded-lg bg-[#292724] text-white text-[9px] disabled:opacity-40">批准并写入</button>
+                </div>
               </div>
             ))}
             {!changes.length && <div className="py-12 text-center text-[9px] text-[#888]">暂无 AI 修改草案。</div>}
