@@ -407,10 +407,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           <div className="h-[78px] px-5 pt-4 pb-2.5 flex items-start justify-between bg-white">
             <div>
               <div className="text-[25px] font-bold tracking-[-0.8px] text-[#202124] leading-tight">
-                CHAT
+                {tx('聊天', 'トーク')}
               </div>
               <div className="mt-1 text-[10px] text-[#b2b2b4] tracking-[0.7px]">
-                会話 · 今日もゆっくり暮らす。
+                {tx('トーク · 今日はゆっくり。', '今日はゆっくり。')}
               </div>
             </div>
 
@@ -544,10 +544,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           <div className="h-[78px] px-5 pt-4 pb-2.5 flex items-start justify-between bg-white">
             <div>
               <div className="text-[25px] font-bold tracking-[-0.8px] text-[#202124] leading-tight">
-                FRIENDS
+                {tx('好友', '友だち')}
               </div>
               <div className="mt-1 text-[10px] text-[#b2b2b4] tracking-[0.7px]">
-                大切な人たち · ({friendsList.length})
+                {tx('友だち · 大切な人たち', '大切な人たち')} · ({friendsList.length})
               </div>
             </div>
 
@@ -633,7 +633,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                 VROOM
               </div>
               <div className="mt-1 text-[10px] text-[#b2b2b4] tracking-[0.7px]">
-                记录一些小事
+                {tx('记录一些小事', '小さなことを記録する')}
               </div>
             </div>
 
@@ -772,10 +772,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           {/* Header */}
           <div className="h-[78px] px-5 pt-4 pb-2.5 bg-white">
             <div className="text-[25px] font-bold tracking-[-0.8px] text-[#202124] leading-tight">
-              我的
+              ME
             </div>
             <div className="mt-1 text-[10px] text-[#b2b2b4] tracking-[0.7px]">
-              个人中心 · 当前身份
+              {tx('个人中心 · 当前身份', 'プロフィール · 今の自分')}
             </div>
           </div>
 
