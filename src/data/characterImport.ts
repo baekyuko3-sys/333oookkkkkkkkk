@@ -1,6 +1,12 @@
 import YAML from 'yaml';
 import type { WorldBook } from '../types';
 import { importWorldBooks } from '../store/worldbookFormats';
+
+async function inflateZlib(bytes: Uint8Array): Promise<Uint8Array> {
+  if (typeof DecompressionStream === 'undefined') throw new Error('当前浏览器不支持 PNG 压缩角色卡解析。');
+  const stream = new Blob([bytes as BlobPart]).stream().pipeThrough(new DecompressionStream('deflate'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
 export interface ImportedCharacter {
   id: string;
   name: string;
@@ -110,6 +116,18 @@ function readPngTextChunks(buffer: ArrayBuffer): Record<string, string> {
     }
 
     // iTXt is used by some card exporters.
+    if (type === 'zTXt') {
+      const zero = chunk.indexOf(0);
+      if (zero > 0 && zero + 2 <= chunk.length) {
+        const keyword = decoder.decode(chunk.slice(0, zero));
+        const compressionMethod = chunk[zero + 1];
+        if (compressionMethod === 0) {
+          // Keep compressed text payloads as base64 so decodeCardPayload can inflate them.
+          result[keyword] = 'zlib:' + btoa(String.fromCharCode(...chunk.slice(zero + 2)));
+        }
+      }
+    }
+
     if (type === 'iTXt') {
       let cursor = 0;
       const readNullTerminated = () => {
@@ -148,19 +166,43 @@ export async function parseCharacterFile(file: File): Promise<ImportedCharacter>
 
   if (lower.endsWith('.png')) {
     const chunks = readPngTextChunks(await file.arrayBuffer());
-    const encoded = chunks.chara || chunks.char || chunks.character;
+    const encoded = chunks.ccv3 || chunks.chara || chunks.char || chunks.character;
     if (!encoded) throw new Error('PNG 中没有找到角色卡数据。');
 
     let jsonText = '';
+    const decodeBase64Bytes = (value: string) => {
+      const normalized = value.replace(/-/g, '+').replace(/_/g, '/').replace(/\\s/g, '');
+      return Uint8Array.from(atob(normalized), char => char.charCodeAt(0));
+    };
+
+    const decodeCardPayload = async (value: string): Promise<string> => {
+      if (value.startsWith('zlib:')) {
+        const compressed = decodeBase64Bytes(value.slice(5));
+        const inflated = await inflateZlib(compressed);
+        return new TextDecoder().decode(inflated);
+      }
+
+      const bytes = decodeBase64Bytes(value);
+      const plain = new TextDecoder().decode(bytes);
+      try {
+        JSON.parse(plain);
+        return plain;
+      } catch {
+        // Some V2 exporters store base64(zlib(JSON)).
+        try {
+          const inflated = await inflateZlib(bytes);
+          return new TextDecoder().decode(inflated);
+        } catch {
+          return plain;
+        }
+      }
+    };
+
     try {
-      jsonText = decodeURIComponent(
-        escape(atob(encoded))
-      );
+      jsonText = await decodeCardPayload(encoded);
     } catch {
       try {
-        jsonText = new TextDecoder().decode(
-          Uint8Array.from(atob(encoded), c => c.charCodeAt(0))
-        );
+        jsonText = decodeURIComponent(escape(atob(encoded)));
       } catch {
         jsonText = atob(encoded);
       }
