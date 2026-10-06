@@ -201,7 +201,7 @@ export function LineConversationView({
   const [musicTitle, setMusicTitle] = useState('');
   const [musicArtist, setMusicArtist] = useState('');
   const [musicUrl, setMusicUrl] = useState('');
-  const [creatorType, setCreatorType] = useState<'image' | 'video' | 'file' | 'voice'>('image');
+  const [creatorType, setCreatorType] = useState<'image' | 'video' | 'file'>('image');
   const [creatorPrompt, setCreatorPrompt] = useState('');
   
   // Settings & Overlays
@@ -1724,7 +1724,7 @@ export function LineConversationView({
           sender: 'me',
           type: 'voice',
           transcript: prompt,
-          duration: Math.max(1, Math.round(prompt.length / 5)) + '"',
+          duration: Math.max(1, Math.round(prompt.length / 5)),
           mediaRef,
           time: '刚刚',
         }]);
@@ -1740,7 +1740,6 @@ export function LineConversationView({
       image: { label: '文字图片', descTitle: '图片描述' },
       video: { label: '文字视频', descTitle: '视频描述' },
       file: { label: '文字文件', descTitle: '文件描述' },
-      voice: { label: '文字语音', descTitle: '语音内容/描述' },
     };
     const info = typeNames[creatorType];
     setMessages((prev) => [...prev, {
