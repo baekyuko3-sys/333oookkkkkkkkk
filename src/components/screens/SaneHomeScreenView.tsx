@@ -291,8 +291,10 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
             
             {/* Weather Card */}
             <button 
+               style={{ transform: `translate(${itemPosition(1, "widget-weather").x - 20}px, ${itemPosition(1, "widget-weather").y - 306}px)` }}
+               onPointerDown={e=>beginDesktopDrag(1,"widget-weather",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-weather",e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)}
               onClick={() => setCityIndex((prev) => (prev + 1) % cities.length)}
-              className="relative overflow-hidden min-h-[105px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] text-left cursor-pointer active:scale-98 transition-all group"
+              className="pointer-events-auto relative overflow-hidden min-h-[105px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] text-left cursor-pointer active:scale-98 transition-all group"
               title="点击切换城市天气"
             >
               <div className="absolute -right-7 -top-8 w-24 h-24 border border-[rgba(67,58,49,.09)] rounded-full pointer-events-none" />
@@ -319,8 +321,10 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
 
             {/* Private Memory Note */}
             <button 
+               style={{ transform: `translate(${itemPosition(1, "widget-note").x - 20}px, ${itemPosition(1, "widget-note").y - 306}px)` }}
+               onPointerDown={e=>beginDesktopDrag(1,"widget-note",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-note",e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)}
               onClick={() => onNavigate('notes')}
-              className="relative overflow-hidden min-h-[105px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] text-left cursor-pointer active:scale-98 transition-all"
+              className="pointer-events-auto relative overflow-hidden min-h-[105px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] text-left cursor-pointer active:scale-98 transition-all"
             >
               <div className="text-[10px] text-[#8b8782] tracking-[1.6px] font-mono">
                 NOTE
@@ -340,7 +344,9 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
 
             {/* Music Player Bar (Full width) */}
             <div 
-              className="col-span-2 min-h-[84px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] flex items-center gap-3 transition-all"
+               style={{ transform: `translate(${itemPosition(1, "widget-music").x - 20}px, ${itemPosition(1, "widget-music").y - 306}px)` }}
+               onPointerDown={e=>beginDesktopDrag(1,"widget-music",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-music",e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)}
+              className="pointer-events-auto col-span-2 min-h-[84px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] flex items-center gap-3 transition-all"
             >
               <div 
                 onClick={() => onNavigate('music')}
