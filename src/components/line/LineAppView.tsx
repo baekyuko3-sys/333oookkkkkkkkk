@@ -296,26 +296,22 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
     };
   }, []);
 
-  // Imported character cards become contacts, not chats.
-  // A chat is created only when the user explicitly chooses “添加聊天”.
+  // Imported character cards are candidates for adding, not automatically friends.
+  // The Add Friend flow must be the only place that creates a friendship.
   useEffect(() => {
-    setFriendsList(prev => {
-      const existingIds = new Set(prev.map(friend => friend.characterId).filter(Boolean));
-      const added = importedCharacters
-        .filter(character => !existingIds.has(character.id))
-        .map(character => ({
-          name: character.name,
-          characterId: character.id,
-          variantLabel: character.variantLabel || character.characterVersion || '默认版本',
-          note: character.description || '已导入角色卡',
-          online: false,
-          pinyin: character.name.slice(0, 1).toUpperCase(),
-        }));
+    // Remove legacy auto-created friend rows that were created only because a card
+    // was imported. Explicitly added friends keep their rows.
+    if (importedCharacters.length) {
+      setFriendsList(prev => {
+        const importedIds = new Set(importedCharacters.map(character => character.id));
+        return prev.filter(friend => {
+          if (!friend.characterId || !importedIds.has(friend.characterId)) return true;
+          return friend.relationship !== undefined;
+        });
+      });
+    }
 
-      return added.length ? [...added, ...prev] : prev;
-    });
-
-    // Remove legacy rows that were created automatically just because a card was imported.
+    // Remove legacy chats that were created automatically just because a card was imported.
     // Explicitly created chats use their own generated id and are left untouched.
     if (importedCharacters.length) {
       setChatItems(prev => {
@@ -1563,13 +1559,13 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                     <div className="mt-1 text-[9px] text-[#aaa]">有几个开场白，就显示几个选择；太多时自动折叠。</div>
                   </div>
                   <div className="space-y-1.5">
-                    {(greetings.length > 4 ? greetings.slice(0, 4) : greetings).map((greeting, index) => (
+                    {(greetings.length > 3 ? greetings.slice(0, 3) : greetings).map((greeting, index) => (
                       <button key={index} onClick={() => { setOpeningMode('context'); setOpeningGreetingIndex(index); }} className={`w-full text-left px-3 py-2 rounded-xl border text-[9px] ${openingMode === 'context' && openingGreetingIndex === index ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white border-[#e3e3e4] text-[#666]'}`}>
                         <div className="font-semibold">开场白 {index + 1}</div>
                         <div className="mt-0.5 line-clamp-2 opacity-70">{greeting}</div>
                       </button>
                     ))}
-                    {greetings.length > 4 && <details className="rounded-xl border border-[#e3e3e4] bg-white"><summary className="px-3 py-2 text-[9px] text-[#666] cursor-pointer">展开其余 {greetings.length - 4} 个开场白</summary><div className="p-2 space-y-1.5">{greetings.slice(4).map((greeting, index) => { const realIndex = index + 4; return <button key={realIndex} onClick={() => { setOpeningMode('context'); setOpeningGreetingIndex(realIndex); }} className={`w-full text-left px-3 py-2 rounded-xl border text-[9px] ${openingMode === 'context' && openingGreetingIndex === realIndex ? 'bg-[#292724] text-white border-[#292724]' : 'bg-[#fafafa] border-[#e3e3e4] text-[#666]'}`}><div className="font-semibold">开场白 {realIndex + 1}</div><div className="mt-0.5 line-clamp-2 opacity-70">{greeting}</div></button>; })}</div></details>}
+                    {greetings.length > 3 && <details className="rounded-xl border border-[#e3e3e4] bg-white"><summary className="px-3 py-2 text-[9px] text-[#666] cursor-pointer">展开其余 {greetings.length - 3} 个开场白</summary><div className="p-2 space-y-1.5">{greetings.slice(3).map((greeting, index) => { const realIndex = index + 3; return <button key={realIndex} onClick={() => { setOpeningMode('context'); setOpeningGreetingIndex(realIndex); }} className={`w-full text-left px-3 py-2 rounded-xl border text-[9px] ${openingMode === 'context' && openingGreetingIndex === realIndex ? 'bg-[#292724] text-white border-[#292724]' : 'bg-[#fafafa] border-[#e3e3e4] text-[#666]'}`}><div className="font-semibold">开场白 {realIndex + 1}</div><div className="mt-0.5 line-clamp-2 opacity-70">{greeting}</div></button>; })}</div></details>}
                     <button onClick={() => setOpeningMode('none')} className={`w-full text-left px-3 py-2 rounded-xl border text-[9px] ${openingMode === 'none' ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white border-[#e3e3e4] text-[#666]'}`}>不选择开场白</button>
                   </div>
                 </div>
