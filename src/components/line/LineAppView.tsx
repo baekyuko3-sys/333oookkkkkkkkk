@@ -3,6 +3,7 @@ import { usePersistentState } from '../../store/usePersistentState';
 import type { ImportedCharacter } from '../../data/characterImport';
 import { ScreenType } from '../../types';
 import { LineConversationView } from './LineConversationView';
+import { LineConversationErrorBoundary } from './LineConversationErrorBoundary';
 import { createLineGroup } from '../../store/lineGroups';
 import { markCharacterRead } from '../../store/worldRuntime';
 import { getLineConversationMeta, markLineConversationRead, markLineNotificationsReadForConversation } from '../../store/lineRuntime';
@@ -371,6 +372,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
     const conversationId = activeItem?.id || activeCharacterId || activeItem?.name || activeChatId;
     return (
       <div className="w-full h-full pt-[30px] bg-white">
+        <LineConversationErrorBoundary onBack={() => setActiveChatId(null)}>
         <LineConversationView
           contactName={activeChatName}
           characterId={activeCharacterId}
@@ -414,6 +416,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
             );
           }}
         />
+        </LineConversationErrorBoundary>
       </div>
     );
   }
