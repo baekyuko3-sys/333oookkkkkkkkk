@@ -4395,6 +4395,28 @@ export function LineConversationView({
               </div>
             </div>
 
+            {/* Section 2.4: 角色开场白选择 */}
+            {!isGroup && importedCharacter && (() => {
+              const greetings = [importedCharacter.firstMessage, ...importedCharacter.alternateGreetings].filter(Boolean);
+              const currentOpening = openingContext || '';
+              return greetings.length ? (
+                <div className="space-y-1.5">
+                  <div className="text-[10px] text-[#aaa] font-medium px-1">角色开场白</div>
+                  <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3">
+                    <select
+                      value={currentOpening}
+                      onChange={() => {}}
+                      className="w-full p-2 bg-[#f8f8fa] border border-[#e8e8e9] rounded-[10px] text-xs text-[#333]"
+                    >
+                      <option value="">当前聊天已选择的开场白</option>
+                      {greetings.map((greeting,index) => <option key={index} value={greeting}>开场白 {index + 1}</option>)}
+                    </select>
+                    <div className="mt-2 text-[9px] text-[#aaa] leading-relaxed">开场白作为前情介绍提供给 AI，不会自动伪装成你已经发送过的消息。</div>
+                  </div>
+                </div>
+              ) : null;
+            })()}
+
             {/* Section 2.5: 酒馆状态栏（默认折叠） */}
             <div className="space-y-1.5">
               <button onClick={() => setShowStatusBarSettings(value => !value)} className="w-full bg-white rounded-[14px] border border-[#f0f0f1] p-3 flex items-center justify-between text-left">
@@ -4402,7 +4424,6 @@ export function LineConversationView({
                 <span className="text-[9px] text-[#aaa]">{showStatusBarSettings ? '收起' : '展开设置'}</span>
               </button>
               {showStatusBarSettings && (
-              {/* Section 2.5: 酒馆状态栏格式与正则表达式配置 (Regex & Status Bar Settings) */}
               <div className="space-y-1.5">
                 <div className="text-[10px] text-[#aaa] font-medium px-1 flex items-center justify-between">
                   <span className="flex items-center gap-1">
