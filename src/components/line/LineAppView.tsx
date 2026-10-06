@@ -57,6 +57,7 @@ interface LineUserProfile {
   id: string;
   desc: string;
   avatar?: string;
+  background?: string;
 }
 
 export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewProps) {
@@ -94,6 +95,61 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
       autoSave: base.autoSave,
       temperature: s.temperature,
     };
+  };
+
+  const downloadJson = (filename: string, payload: unknown) => {
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const readImageFile = (file: File, onDone: (dataUrl: string) => void) => {
+    const reader = new FileReader();
+    reader.onload = () => onDone(String(reader.result || ''));
+    reader.readAsDataURL(file);
+  };
+
+  const exportMomentsData = () => {
+    downloadJson('vroom-backup.json', {
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      posts: momentsPosts,
+      settings: momentsSettings,
+      style: momentsStyle,
+    });
+    showToast('VROOM 已导出');
+  };
+
+  const exportCharacterProfileData = (characterId: string) => {
+    downloadJson('line-character-profile.json', {
+      version: 1,
+      characterId,
+      profile: generatedCharacterProfiles[characterId] || { followers: 0, following: 0, signature: '' },
+      style: characterProfileStyles[characterId] || {},
+    });
+    showToast('角色主页已导出');
+  };
+
+  const importMomentsData = (file: File) => {
+    readImageFile(file, () => {});
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(String(reader.result || '{}'));
+        if (!Array.isArray(data.posts)) throw new Error('invalid');
+        setMomentsPosts(data.posts);
+        if (data.settings) setMomentsSettings(data.settings);
+        if (data.style) setMomentsStyle(prev => ({ ...prev, ...data.style }));
+        showToast('VROOM 已导入');
+      } catch {
+        showToast('VROOM 文件格式不正确');
+      }
+    };
+    reader.readAsText(file);
   };
 
   const generateMomentsPost = async () => {
@@ -214,7 +270,19 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [showCharacterProfileGenerator, setShowCharacterProfileGenerator] = useState(false);
   const [profileGeneratorMode, setProfileGeneratorMode] = useState<'character' | 'memory'>('character');
   const [profileGeneratorBusy, setProfileGeneratorBusy] = useState(false);
-  const [generatedCharacterProfiles, setGeneratedCharacterProfiles] = usePersistentState<Record<string, { bio: string; quote: string; status: string; updatedAt: string }>>('line:character-generated-profiles', {});
+  const [generatedCharacterProfiles, setGeneratedCharacterProfiles] = usePersistentState<Record<string, { followers: number; following: number; signature: string; updatedAt: string }>>('line:character-generated-profiles', {});
+  const [characterProfileStyles, setCharacterProfileStyles] = usePersistentState<Record<string, { avatar?: string; background?: string; accent?: string }>>('line:character-profile-styles', {});
+  const [characterProfileStyleOpen, setCharacterProfileStyleOpen] = useState(false);
+  const [characterProfileManageOpen, setCharacterProfileManageOpen] = useState(false);
+  const [momentsStyle, setMomentsStyle] = usePersistentState<{ banner?: string; accent: string; cardStyle: 'clean' | 'paper' | 'soft'; fontScale: number; showTags: boolean }>('line:moments-style', {
+    banner: '',
+    accent: '#ae7e89',
+    cardStyle: 'clean',
+    fontScale: 1,
+    showTags: true,
+  });
+  const [momentsBeautyOpen, setMomentsBeautyOpen] = useState(false);
+  const [momentsManageOpen, setMomentsManageOpen] = useState(false);
   const [friendProfile, setFriendProfile] = useState<LineFriend | null>(null);
   const [friendSettingsOpen, setFriendSettingsOpen] = useState(false);
   const [friendEditing, setFriendEditing] = useState(false);
@@ -247,6 +315,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
     id: '',
     desc: '',
     avatar: '',
+    background: '',
   });
   const [profileDraft, setProfileDraft] = useState<LineUserProfile>(currentUser);
   const [userPersonas, setUserPersonas] = usePersistentState<any[]>('line:user-personas', []);
@@ -692,41 +761,23 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowMomentsSettings(true)}
-                className="w-[35px] h-[35px] border border-[#e7e7e8] rounded-full flex items-center justify-center text-sm text-[#555] hover:bg-[#f7f7f7] cursor-pointer"
-                title="朋友圈设置"
-              >
-                ⚙
-              </button>
-              <button
-                onClick={() => {
-                  void generateMomentsPost();
-                }}
-                className="w-[35px] h-[35px] border border-[#e7e7e8] rounded-full flex items-center justify-center text-sm text-[#555] hover:bg-[#f7f7f7] cursor-pointer"
-                title="刷新"
-              >
-                ↻
-              </button>
-              <button
-                onClick={() => setShowPostModal(true)
-                className="w-[35px] h-[35px] border border-[#e7e7e8] rounded-full flex items-center justify-center text-lg text-[#555] hover:bg-[#f7f7f7] cursor-pointer"
-                title="发表动态"
-              >
-                ＋
-              </button>
+              <button onClick={() => setMomentsManageOpen(true)} className="w-[35px] h-[35px] border border-[#e7e7e8] rounded-full flex items-center justify-center text-[12px] text-[#555] hover:bg-[#f7f7f7]" title="朋友圈管理">☷</button>
+              <button onClick={() => setMomentsBeautyOpen(true)} className="w-[35px] h-[35px] border border-[#e7e7e8] rounded-full flex items-center justify-center text-[12px] text-[#555] hover:bg-[#f7f7f7]" title="朋友圈美化">✦</button>
+              <button onClick={() => setShowMomentsSettings(true)} className="w-[35px] h-[35px] border border-[#e7e7e8] rounded-full flex items-center justify-center text-sm text-[#555] hover:bg-[#f7f7f7]" title="朋友圈设置">⚙</button>
+              <button onClick={() => { void generateMomentsPost(); }} className="w-[35px] h-[35px] border border-[#e7e7e8] rounded-full flex items-center justify-center text-sm text-[#555] hover:bg-[#f7f7f7]" title="刷新">↻</button>
+              <button onClick={() => setShowPostModal(true)} className="w-[35px] h-[35px] border border-[#e7e7e8] rounded-full flex items-center justify-center text-lg text-[#555] hover:bg-[#f7f7f7]" title="发表动态">＋</button>
             </div>
           </div>
 
           {/* Moments Banner */}
-          <div className="h-[185px] mb-7 relative bg-[#eeeeed]">
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  'radial-gradient(circle at 78% 22%, rgba(255,255,255,.75), transparent 28%), radial-gradient(circle at 22% 80%, rgba(255,255,255,.48), transparent 30%), linear-gradient(135deg, #e8e8e6 0%, #f4f4f2 52%, #dededc 100%)',
-              }}
-            />
+          <div className="h-[185px] mb-7 relative overflow-hidden" style={{ background: momentsStyle.banner ? undefined : '#eeeeed' }}>
+            <div className="absolute inset-0" style={{
+              backgroundImage: momentsStyle.banner
+                ? `linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.2)), url(${momentsStyle.banner})`
+                : 'radial-gradient(circle at 78% 22%, rgba(255,255,255,.75), transparent 28%), radial-gradient(circle at 22% 80%, rgba(255,255,255,.48), transparent 30%), linear-gradient(135deg, #e8e8e6 0%, #f4f4f2 52%, #dededc 100%)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }} />
 
             {/* Profile overlapping banner */}
             <div className="absolute right-[18px] -bottom-[24px] z-5 flex items-end gap-[9px]">
@@ -749,13 +800,12 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
             }`}
           >
             {momentsPosts.map((post) => (
-              <div key={post.id} onClick={() => setPostDetail(post)} className="px-[18px] pb-5 border-b border-[#f0f0f0] mb-[18px] cursor-pointer">
+              <div key={post.id} onClick={() => setPostDetail(post)} className={`px-[18px] pb-5 mb-[18px] cursor-pointer rounded-[18px] transition-all ${momentsStyle.cardStyle === 'paper' ? 'bg-[#fbfaf7] border border-[#eee9df]' : momentsStyle.cardStyle === 'soft' ? 'bg-[#faf7f8] border border-[#f0e5e8]' : 'border-b border-[#f0f0f0]'}`} style={{ fontSize: `${momentsStyle.fontScale}em` }}>
                 <div className="flex items-center">
                   <div className="w-[49px] h-[49px] rounded-full bg-[#f1f1f2] border border-[#e8e8e9] flex items-center justify-center shrink-0 overflow-hidden">
-                    <svg className="w-[31px] h-[31px] text-[#b7b7b9]" viewBox="0 0 48 48" fill="currentColor">
-                      <circle cx="24" cy="17" r="8" />
-                      <path d="M10 40c1.8-8.1 6.8-12 14-12s12.2 3.9 14 12" />
-                    </svg>
+                    {post.characterId ? (
+                      importedCharacters.find(c => c.id === post.characterId)?.avatar ? <img src={importedCharacters.find(c => c.id === post.characterId)?.avatar} alt="" className="w-full h-full object-cover" /> : <span className="text-sm text-[#aaa]">{post.name?.[0] || '·'}</span>
+                    ) : currentUser.avatar ? <img src={currentUser.avatar} alt="" className="w-full h-full object-cover" /> : <span className="text-sm text-[#aaa]">{post.name?.[0] || '·'}</span>}
                   </div>
                   <span className="ml-2.5 text-[13px] font-semibold">{post.name}</span>
                   <span className="ml-auto text-[9px] text-[#aaa]">{post.time}</span>
@@ -766,9 +816,9 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                 </div>
                 {post.image && <img src={post.image} alt="" className="ml-[59px] mt-3 max-w-[78%] max-h-[220px] rounded-[12px] object-cover border border-[#eeeeef]" />}
 
-                <div className="ml-[59px] mt-2 inline-block text-[9px] text-[#b88c97] bg-[#faf3f5] px-2 py-0.5 rounded-[4px]">
+                {momentsStyle.showTags && <div className="ml-[59px] mt-2 inline-block text-[9px] px-2 py-0.5 rounded-[4px]" style={{ color: momentsStyle.accent, background: `${momentsStyle.accent}14` }}>
                   {post.tag}
-                </div>
+                </div>}
 
                 {/* Interactions: Like & Comment */}
                 <div className="ml-[59px] mt-3 flex items-center gap-5 text-[#aaa] text-[11px]">
@@ -977,12 +1027,12 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               ['age','年龄'],
               ['profession','职业'],
               ['setting','设定'],
-              ['avatar','头像 URL'],
+              ['avatar','头像'],
               ['boundCharacterId','绑定角色'],
             ].map(([key,label]) => (
               <div key={key}>
                 <div className="text-[9px] text-[#aaa] mb-1">{label}</div>
-                {key === 'boundCharacterId' ? <select value={personaDraft[key] || ''} onChange={(e) => setPersonaDraft((p:any) => ({...p,[key]:e.target.value}))} className="w-full h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-xs outline-none"><option value="">不绑定（通用人设）</option>{importedCharacters.map(character => <option key={character.id} value={character.id}>{character.name}</option>)}</select> : <input value={personaDraft[key] || ''} onChange={(e) => setPersonaDraft((p:any) => ({...p,[key]:e.target.value}))} placeholder={key === 'setting' ? '你的性格、背景、与你聊天时的身份……' : ''} className="w-full h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-xs outline-none" />}
+                {key === 'boundCharacterId' ? <select value={personaDraft[key] || ''} onChange={(e) => setPersonaDraft((p:any) => ({...p,[key]:e.target.value}))} className="w-full h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-xs outline-none"><option value="">不绑定（通用人设）</option>{importedCharacters.map(character => <option key={character.id} value={character.id}>{character.name}</option>)}</select> : key === 'avatar' ? <label className="w-full h-10 px-3 bg-[#fafafa] border border-dashed border-[#e7e7e8] rounded-[10px] text-xs flex items-center gap-2 cursor-pointer overflow-hidden"><span className="text-[#888]">{personaDraft.avatar ? '已选择头像 · 点击更换' : '上传头像'}</span><input type="file" accept="image/*" className="hidden" onChange={e => { const f=e.target.files?.[0]; if(f) readImageFile(f, data => setPersonaDraft((p:any)=>({...p,avatar:data}))); }} /></label> : <input value={personaDraft[key] || ''} onChange={(e) => setPersonaDraft((p:any) => ({...p,[key]:e.target.value}))} placeholder={key === 'setting' ? '你的性格、背景、与你聊天时的身份……' : ''} className="w-full h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-xs outline-none" />}
               </div>
             ))}
             <button onClick={() => {
@@ -1125,6 +1175,34 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
         </div>
       )}
 
+      {momentsBeautyOpen && (
+        <div className="absolute inset-0 z-[88] bg-black/25 flex items-end" onClick={() => setMomentsBeautyOpen(false)}>
+          <div className="w-full max-h-[88%] overflow-y-auto bg-white rounded-t-[24px] p-5 pb-8 space-y-4" onClick={e=>e.stopPropagation()}>
+            <div className="flex items-center justify-between"><div><div className="text-[8px] font-mono tracking-[1.5px] text-[#aaa]">VROOM · BEAUTY</div><div className="font-semibold text-[15px] mt-1">朋友圈美化</div></div><button onClick={()=>setMomentsBeautyOpen(false)} className="text-xl text-[#aaa]">×</button></div>
+            <label className="block p-4 rounded-2xl border border-dashed border-[#ddd] cursor-pointer"><div className="text-xs font-medium">更换朋友圈背景</div><div className="text-[9px] text-[#aaa] mt-1">推荐横向照片、电影截图、风景图</div><input type="file" accept="image/*" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)readImageFile(f,data=>setMomentsStyle(p=>({...p,banner:data})))}} /></label>
+            <div><div className="text-[9px] text-[#aaa] mb-2">内容卡片</div><div className="grid grid-cols-3 gap-2">{[['clean','极简'],['paper','纸张'],['soft','柔和']].map(([id,label])=><button key={id} onClick={()=>setMomentsStyle(p=>({...p,cardStyle:id as any}))} className={`py-2.5 rounded-xl border text-[10px] ${momentsStyle.cardStyle===id?'bg-[#292724] text-white border-[#292724]':'bg-white border-[#eee] text-[#666]'}`}>{label}</button>)}</div></div>
+            <div><div className="text-[9px] text-[#aaa] mb-2">强调色</div><div className="flex gap-2">{['#292724','#ae7e89','#71849b','#7d8b72','#9b7d62'].map(color=><button key={color} onClick={()=>setMomentsStyle(p=>({...p,accent:color}))} className="w-8 h-8 rounded-full border-2 border-white shadow" style={{background:color}} />)}</div></div>
+            <div><div className="text-[9px] text-[#aaa] mb-2">文字大小</div><input type="range" min="0.9" max="1.15" step="0.05" value={momentsStyle.fontScale} onChange={e=>setMomentsStyle(p=>({...p,fontScale:Number(e.target.value)}))} className="w-full" /></div>
+            <label className="flex items-center justify-between p-3 rounded-xl bg-[#fafafa] text-xs"><span>显示话题标签</span><input type="checkbox" checked={momentsStyle.showTags} onChange={e=>setMomentsStyle(p=>({...p,showTags:e.target.checked}))} /></label>
+            <button onClick={()=>setMomentsStyle({banner:'',accent:'#ae7e89',cardStyle:'clean',fontScale:1,showTags:true})} className="w-full py-2.5 rounded-xl bg-[#f5f5f5] text-[#777] text-xs">恢复 VROOM 默认美化</button>
+          </div>
+        </div>
+      )}
+
+      {momentsManageOpen && (
+        <div className="absolute inset-0 z-[88] bg-black/25 flex items-end" onClick={()=>setMomentsManageOpen(false)}>
+          <div className="w-full max-h-[88%] overflow-y-auto bg-white rounded-t-[24px] p-5 pb-8 space-y-3" onClick={e=>e.stopPropagation()}>
+            <div className="flex items-center justify-between"><div><div className="font-semibold text-[15px]">朋友圈管理</div><div className="text-[9px] text-[#aaa] mt-1">动态、导入导出、美化数据都从这里管理</div></div><button onClick={()=>setMomentsManageOpen(false)} className="text-xl text-[#aaa]">×</button></div>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={exportMomentsData} className="p-3 rounded-xl bg-[#fafafa] border border-[#eee] text-left text-xs">导出 VROOM 数据<div className="text-[9px] text-[#aaa] mt-1">动态 + 设置 + 美化</div></button>
+              <label className="p-3 rounded-xl bg-[#fafafa] border border-[#eee] text-left text-xs cursor-pointer">导入 VROOM 数据<div className="text-[9px] text-[#aaa] mt-1">JSON 备份</div><input type="file" accept=".json,application/json" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)importMomentsData(f)}} /></label>
+            </div>
+            <div className="p-3 rounded-xl bg-[#fafafa] border border-[#eee]"><div className="text-xs font-medium">当前动态 · {momentsPosts.length}</div><div className="mt-2 space-y-1.5 max-h-[220px] overflow-y-auto">{momentsPosts.map(post=><div key={post.id} className="flex items-center gap-2 py-2 border-b border-[#eee]"><div className="min-w-0 flex-1"><div className="text-[10px] font-medium truncate">{post.name}</div><div className="text-[9px] text-[#aaa] truncate">{post.text || '[图片动态]'}</div></div><button onClick={()=>setMomentsPosts(prev=>prev.filter(p=>p.id!==post.id))} className="text-[9px] text-rose-500">删除</button></div>)}</div></div>
+            <button onClick={()=>{setMomentsPosts([]);showToast('VROOM 动态已清空')}} className="w-full py-2.5 rounded-xl bg-rose-50 text-rose-500 text-xs">清空全部动态</button>
+          </div>
+        </div>
+      )}
+
       {/* 创建新身份抽屉 */}
       {showMomentsSettings && (
         <div className="absolute inset-0 z-[85] bg-black/25 flex items-end" onClick={() => setShowMomentsSettings(false)}>
@@ -1140,11 +1218,94 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
       {showCharacterProfileGenerator && friendProfile && (() => {
         const character = importedCharacters.find(c => c.id === friendProfile.characterId) || importedCharacters.find(c => c.name === friendProfile.name);
         if (!character) return null;
-        return <div className="absolute inset-0 z-[90] bg-black/25 flex items-end" onClick={() => setShowCharacterProfileGenerator(false)}><div className="w-full bg-white rounded-t-[24px] p-5 pb-8 space-y-4" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center justify-between"><div><div className="text-[8px] font-mono tracking-[1.5px] text-[#aaa]">CHARACTER PROFILE</div><div className="mt-1 font-semibold text-[15px]">生成 {character.name} 的个人主页</div></div><button onClick={() => setShowCharacterProfileGenerator(false)} className="text-xl text-[#aaa]">×</button></div>
-          <div className="grid grid-cols-2 gap-2"><button onClick={() => setProfileGeneratorMode('character')} className={`p-3 rounded-xl border text-left ${profileGeneratorMode === 'character' ? 'border-[#292724] bg-[#292724] text-white' : 'border-[#eee] bg-[#fafafa]'}`}><div className="text-xs font-semibold">角色自主生成</div><div className="text-[8px] opacity-60 mt-1">根据角色卡自己写主页</div></button><button onClick={() => setProfileGeneratorMode('memory')} className={`p-3 rounded-xl border text-left ${profileGeneratorMode === 'memory' ? 'border-[#292724] bg-[#292724] text-white' : 'border-[#eee] bg-[#fafafa]'}`}><div className="text-xs font-semibold">根据记忆生成</div><div className="text-[8px] opacity-60 mt-1">读取聊天长期记忆与经历</div></button></div>
-          <button disabled={profileGeneratorBusy} onClick={async () => { setProfileGeneratorBusy(true); try { const memory = getCharacterMemory(character.id, character.name); const memoryText = memory.summary + '\\n' + memory.items.slice(0, 20).map(item => item.content).join('\\n'); const prompt = profileGeneratorMode === 'memory' ? `根据以下角色长期记忆，生成一份自然的社交软件个人主页。不要解释，不要提AI。\\n${memoryText}` : `请让角色${character.name}根据自己的角色设定，自主写一份真实的社交软件个人主页。不要解释，不要提AI。`; const text = await generateCreativeText({ settings: channelAsAiSettings('moments'), systemPrompt: [character.description, character.personality, character.scenario, character.creatorNotes].filter(Boolean).join('\\n'), userPrompt: prompt + '\\n请严格输出三行：简介：...\\n签名：...\\n状态：...', temperature: 0.8 }); const lines = text.split(/\\n+/).map(line => line.trim()).filter(Boolean); const pick = (key: string) => lines.find(line => line.startsWith(key))?.slice(key.length).replace(/^[:：]\\s*/, '') || ''; setGeneratedCharacterProfiles(prev => ({...prev, [character.id]: { bio: pick('简介') || text.trim(), quote: pick('签名'), status: pick('状态'), updatedAt: new Date().toISOString() }})); showToast('角色个人主页已生成'); setShowCharacterProfileGenerator(false); } catch (e) { showToast(e instanceof Error ? e.message : '生成失败'); } finally { setProfileGeneratorBusy(false); } }} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-xs disabled:opacity-40">{profileGeneratorBusy ? '正在生成…' : '生成并保存个人主页'}</button>
-        </div></div>;
+        const profile = generatedCharacterProfiles[character.id] || { followers: 0, following: 0, signature: '' };
+        return <div className="absolute inset-0 z-[90] bg-black/25 flex items-end" onClick={() => setShowCharacterProfileGenerator(false)}>
+          <div className="w-full bg-white rounded-t-[24px] p-5 pb-8 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div><div className="text-[8px] font-mono tracking-[1.5px] text-[#aaa]">CHARACTER PROFILE</div><div className="mt-1 font-semibold text-[15px]">生成 {character.name} 的个人主页</div></div>
+              <button onClick={() => setShowCharacterProfileGenerator(false)} className="text-xl text-[#aaa]">×</button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => setProfileGeneratorMode('character')} className={`p-3 rounded-xl border text-left ${profileGeneratorMode === 'character' ? 'border-[#292724] bg-[#292724] text-white' : 'border-[#eee] bg-[#fafafa]'}`}>
+                <div className="text-xs font-semibold">角色自主生成</div><div className="text-[8px] opacity-60 mt-1">角色自己决定签名</div>
+              </button>
+              <button onClick={() => setProfileGeneratorMode('memory')} className={`p-3 rounded-xl border text-left ${profileGeneratorMode === 'memory' ? 'border-[#292724] bg-[#292724] text-white' : 'border-[#eee] bg-[#fafafa]'}`}>
+                <div className="text-xs font-semibold">根据记忆生成</div><div className="text-[8px] opacity-60 mt-1">从聊天长期记忆里找语气</div>
+              </button>
+            </div>
+            <div className="p-4 rounded-2xl bg-[#faf8f8] border border-[#eee5e7]">
+              <div className="text-[9px] text-[#aaa]">主页固定内容</div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                <div><div className="text-[9px] text-[#aaa]">ID</div><div className="mt-1 font-medium">{character.id}</div></div>
+                <div><div className="text-[9px] text-[#aaa]">姓名</div><div className="mt-1 font-medium">{character.name}</div></div>
+                <div><div className="text-[9px] text-[#aaa]">粉丝量</div><input value={profile.followers} type="number" min="0" onChange={e => setGeneratedCharacterProfiles(prev => ({ ...prev, [character.id]: { ...profile, followers: Math.max(0, Number(e.target.value) || 0), updatedAt: new Date().toISOString() } }))} className="mt-1 w-full h-8 rounded-lg bg-white border border-[#eee] px-2 outline-none" /></div>
+                <div><div className="text-[9px] text-[#aaa]">关注量</div><input value={profile.following} type="number" min="0" onChange={e => setGeneratedCharacterProfiles(prev => ({ ...prev, [character.id]: { ...profile, following: Math.max(0, Number(e.target.value) || 0), updatedAt: new Date().toISOString() } }))} className="mt-1 w-full h-8 rounded-lg bg-white border border-[#eee] px-2 outline-none" /></div>
+              </div>
+            </div>
+            <button disabled={profileGeneratorBusy} onClick={async () => {
+              setProfileGeneratorBusy(true);
+              try {
+                const memory = getCharacterMemory(character.id, character.name);
+                const memoryText = memory.summary + '\n' + memory.items.slice(0, 20).map(item => item.content).join('\n');
+                const prompt = profileGeneratorMode === 'memory'
+                  ? `根据以下长期记忆，写一句最像这个角色的社交软件个性签名：\n${memoryText}`
+                  : `请让角色 ${character.name} 根据自己的角色设定，写一句自然、克制、像本人会用的社交软件个性签名。`;
+                const text = await generateCreativeText({
+                  settings: channelAsAiSettings('moments'),
+                  systemPrompt: [character.description, character.personality, character.scenario, character.creatorNotes].filter(Boolean).join('\n'),
+                  userPrompt: prompt + '\n只输出签名本身，不要“签名：”前缀，不要解释，不要提AI。',
+                  temperature: 0.8,
+                });
+                setGeneratedCharacterProfiles(prev => ({
+                  ...prev,
+                  [character.id]: { followers: profile.followers, following: profile.following, signature: text.trim().replace(/^["“”]|["“”]$/g, ''), updatedAt: new Date().toISOString() }
+                }));
+                showToast('角色个性签名已生成');
+              } catch (e) {
+                showToast(e instanceof Error ? e.message : '生成失败');
+              } finally { setProfileGeneratorBusy(false); }
+            }} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-xs disabled:opacity-40">
+              {profileGeneratorBusy ? '正在生成…' : '✦ 让角色生成个性签名'}
+            </button>
+          </div>
+        </div>;
+      })()}
+
+      {characterProfileStyleOpen && friendProfile && (() => {
+        const character = importedCharacters.find(c => c.id === friendProfile.characterId) || importedCharacters.find(c => c.name === friendProfile.name);
+        if (!character) return null;
+        const style = characterProfileStyles[character.id] || {};
+        return <div className="absolute inset-0 z-[96] bg-black/25 flex items-end" onClick={() => setCharacterProfileStyleOpen(false)}>
+          <div className="w-full bg-white rounded-t-[24px] p-5 pb-8 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between"><div><div className="text-[8px] font-mono tracking-[1.5px] text-[#aaa]">PROFILE · BEAUTY</div><div className="font-semibold text-[15px] mt-1">个人主页美化</div></div><button onClick={() => setCharacterProfileStyleOpen(false)} className="text-xl text-[#aaa]">×</button></div>
+            <label className="block p-3 rounded-2xl border border-dashed border-[#ddd] text-xs cursor-pointer">
+              <div className="font-medium">更换头像</div><div className="text-[9px] text-[#aaa] mt-1">图片会用于这个角色的个人主页</div>
+              <input type="file" accept="image/*" className="hidden" onChange={e => { const f=e.target.files?.[0]; if(f) readImageFile(f, data => setCharacterProfileStyles(prev => ({...prev,[character.id]:{...prev[character.id],avatar:data}}))); }} />
+            </label>
+            <label className="block p-3 rounded-2xl border border-dashed border-[#ddd] text-xs cursor-pointer">
+              <div className="font-medium">更换背景图</div><div className="text-[9px] text-[#aaa] mt-1">支持任意本地图片</div>
+              <input type="file" accept="image/*" className="hidden" onChange={e => { const f=e.target.files?.[0]; if(f) readImageFile(f, data => setCharacterProfileStyles(prev => ({...prev,[character.id]:{...prev[character.id],background:data}}))); }} />
+            </label>
+            <div><div className="text-[9px] text-[#aaa] mb-2">强调色</div><div className="flex gap-2">{['#292724','#ae7e89','#71849b','#7d8b72','#9b7d62'].map(color => <button key={color} onClick={() => setCharacterProfileStyles(prev => ({...prev,[character.id]:{...prev[character.id],accent:color}}))} className="w-8 h-8 rounded-full border-2 border-white shadow" style={{background:color}} />)}</div></div>
+            <button onClick={() => { setCharacterProfileStyles(prev => ({...prev,[character.id]:{}})); showToast('主页美化已重置'); }} className="w-full py-2.5 rounded-xl bg-[#f5f5f5] text-[#777] text-xs">恢复默认</button>
+          </div>
+        </div>;
+      })()}
+
+      {characterProfileManageOpen && friendProfile && (() => {
+        const character = importedCharacters.find(c => c.id === friendProfile.characterId) || importedCharacters.find(c => c.name === friendProfile.name);
+        if (!character) return null;
+        const profile = generatedCharacterProfiles[character.id] || { followers: 0, following: 0, signature: '' };
+        return <div className="absolute inset-0 z-[95] bg-black/25 flex items-end" onClick={() => setCharacterProfileManageOpen(false)}>
+          <div className="w-full bg-white rounded-t-[24px] p-5 pb-8 space-y-3" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between"><div><div className="font-semibold text-[15px]">个人主页管理</div><div className="text-[9px] text-[#aaa] mt-1">编辑、导入、导出都在这里</div></div><button onClick={() => setCharacterProfileManageOpen(false)} className="text-xl text-[#aaa]">×</button></div>
+            <label className="block p-3 rounded-xl bg-[#fafafa] border border-[#eee] text-xs cursor-pointer"><div className="font-medium">导入主页 JSON</div><input type="file" accept=".json,application/json" className="hidden" onChange={e => { const f=e.target.files?.[0]; if(!f) return; const reader=new FileReader(); reader.onload=()=>{try{const d=JSON.parse(String(reader.result||'{}')); if(d.profile) setGeneratedCharacterProfiles(prev=>({...prev,[character.id]:{...profile,...d.profile}})); if(d.style) setCharacterProfileStyles(prev=>({...prev,[character.id]:d.style})); showToast('角色主页已导入');}catch{showToast('主页文件格式不正确')}}; reader.readAsText(f); }} /></label>
+            <button onClick={() => exportCharacterProfileData(character.id)} className="w-full p-3 rounded-xl bg-[#fafafa] border border-[#eee] text-left text-xs">导出主页 JSON <span className="float-right text-[#aaa]">›</span></button>
+            <div className="grid grid-cols-2 gap-2"><label className="p-3 rounded-xl bg-[#fafafa] border border-[#eee] text-xs">粉丝量<input type="number" min="0" value={profile.followers} onChange={e=>setGeneratedCharacterProfiles(prev=>({...prev,[character.id]:{...profile,followers:Math.max(0,Number(e.target.value)||0)}}))} className="mt-2 w-full h-8 rounded-lg border border-[#eee] px-2" /></label><label className="p-3 rounded-xl bg-[#fafafa] border border-[#eee] text-xs">关注量<input type="number" min="0" value={profile.following} onChange={e=>setGeneratedCharacterProfiles(prev=>({...prev,[character.id]:{...profile,following:Math.max(0,Number(e.target.value)||0)}}))} className="mt-2 w-full h-8 rounded-lg border border-[#eee] px-2" /></label></div>
+            <textarea value={profile.signature} onChange={e=>setGeneratedCharacterProfiles(prev=>({...prev,[character.id]:{...profile,signature:e.target.value}}))} placeholder="个性签名" className="w-full h-20 rounded-xl bg-[#fafafa] border border-[#eee] p-3 text-xs resize-none outline-none" />
+            <button onClick={() => { setGeneratedCharacterProfiles(prev=>{const next={...prev}; delete next[character.id]; return next;}); showToast('角色主页资料已清空'); setCharacterProfileManageOpen(false); }} className="w-full py-2.5 rounded-xl text-rose-500 bg-rose-50 text-xs">清空主页资料</button>
+          </div>
+        </div>;
       })()}
 
       {friendProfile && (() => {
@@ -1153,10 +1314,17 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
         return (
           <div className="absolute inset-0 z-[70] bg-white animate-in slide-in-from-right">
             <div className="h-full overflow-y-auto no-scrollbar">
-              <div className="h-[170px] bg-[#f0efed] relative">
+              <div className="h-[170px] relative overflow-hidden" style={{ background: characterProfileStyles[character?.id || friendProfile.characterId || '']?.background ? undefined : '#f0efed' }}>
+                <div className="absolute inset-0" style={{
+                  backgroundImage: characterProfileStyles[character?.id || friendProfile.characterId || '']?.background
+                    ? `linear-gradient(180deg, rgba(0,0,0,.04), rgba(0,0,0,.18)), url(${characterProfileStyles[character?.id || friendProfile.characterId || '']?.background})`
+                    : 'linear-gradient(135deg, #f1eeeb, #e8e5e1)',
+                  backgroundSize: 'cover', backgroundPosition: 'center'
+                }} />
                 <button onClick={() => setFriendProfile(null)} className="absolute top-4 left-4 w-8 h-8 rounded-full bg-white/80 text-[#555] z-10">‹</button>
+                <button onClick={() => setCharacterProfileStyleOpen(true)} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/80 text-[#555] z-10">✦</button>
                 <div className="absolute -bottom-9 left-5 w-[78px] h-[78px] rounded-full border-4 border-white bg-[#f1f1f2] overflow-hidden grid place-items-center shadow-sm">
-                  {character?.avatar ? <img src={character.avatar} alt="" className="w-full h-full object-cover" /> : <span className="text-xl text-[#aaa]">{friendProfile.name[0] || '·'}</span>}
+                  {(characterProfileStyles[character?.id || friendProfile.characterId || '']?.avatar || character?.avatar) ? <img src={characterProfileStyles[character?.id || friendProfile.characterId || '']?.avatar || character?.avatar} alt="" className="w-full h-full object-cover" /> : <span className="text-xl text-[#aaa]">{friendProfile.name[0] || '·'}</span>}
                 </div>
               </div>
               <div className="px-5 pt-12 pb-8">
@@ -1168,12 +1336,24 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                   {friendProfile.online && <span className="text-[9px] px-2 py-1 rounded-full bg-[#f1f7f2] text-[#719178]">ONLINE</span>}
                 </div>
 
-                {character && (
-                  <button onClick={() => setShowCharacterProfileGenerator(true)} className="mt-4 w-full py-2.5 rounded-xl bg-[#292724] text-white text-[10px] font-medium">✦ 生成角色个人主页</button>
-                )}
-                {generatedCharacterProfiles[friendProfile.characterId || character?.id || ''] && (
-                  <div className="mt-3 p-3 rounded-2xl bg-[#faf7f5] border border-[#eee4df]"><div className="text-[9px] text-[#aaa]">角色自己写的主页</div><div className="mt-1 text-xs text-[#444] leading-5">{generatedCharacterProfiles[friendProfile.characterId || character?.id || ''].bio}</div>{generatedCharacterProfiles[friendProfile.characterId || character?.id || ''].quote && <div className="mt-2 text-[10px] text-[#8b7560]">“{generatedCharacterProfiles[friendProfile.characterId || character?.id || ''].quote}”</div>}<div className="mt-2 text-[9px] text-[#aaa]">{generatedCharacterProfiles[friendProfile.characterId || character?.id || ''].status}</div></div>
-                )}
+                {character && (() => {
+                  const profile = generatedCharacterProfiles[character.id] || { followers: 0, following: 0, signature: '' };
+                  return <div className="mt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <button onClick={() => setShowCharacterProfileGenerator(true)} className="flex-1 py-2.5 rounded-xl bg-[#292724] text-white text-[10px] font-medium">✦ 生成主页 / 签名</button>
+                      <button onClick={() => setCharacterProfileManageOpen(true)} className="w-10 h-10 rounded-xl border border-[#e5e1df] text-[#555]">☷</button>
+                    </div>
+                    <div className="rounded-[22px] border border-[#eee7e4] p-4" style={{ color: characterProfileStyles[character.id]?.accent || '#333' }}>
+                      <div className="grid grid-cols-3 text-center">
+                        <div><div className="text-[15px] font-semibold">{profile.followers}</div><div className="text-[9px] text-[#aaa]">粉丝</div></div>
+                        <div><div className="text-[15px] font-semibold">{profile.following}</div><div className="text-[9px] text-[#aaa]">关注</div></div>
+                        <div><div className="text-[15px] font-semibold truncate">{character.id}</div><div className="text-[9px] text-[#aaa]">ID</div></div>
+                      </div>
+                      <div className="mt-4 text-[17px] font-semibold text-[#222]">{character.name}</div>
+                      <div className="mt-2 text-[11px] leading-5 text-[#666] min-h-[22px]">{profile.signature || '还没有个性签名。可以让角色自己生成。'}</div>
+                    </div>
+                  </div>;
+                })()}
                 {character && (
                   <div className="mt-5 border border-[#ededed] rounded-2xl overflow-hidden">
                     <button
@@ -1400,6 +1580,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               />
             </div>
 
+            <label className="block p-3 rounded-xl bg-[#fafafa] border border-dashed border-[#ddd] text-xs cursor-pointer">
+              <div className="font-medium">主页背景图</div><div className="text-[9px] text-[#aaa] mt-1">上传图片后会作为你的个人主页背景</div>
+              <input type="file" accept="image/*" className="hidden" onChange={e => { const f=e.target.files?.[0]; if(f) readImageFile(f, data => setProfileDraft(prev => ({...prev,background:data}))); }} />
+            </label>
             <div>
               <label className="text-[10px] text-[#888]">个人简介</label>
               <textarea
