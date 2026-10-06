@@ -161,6 +161,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         systemPrompt: '你是 Studio 内置的 Meme 助手。这里是普通助手对话，不存在角色卡、角色人设或世界书。请自然、简洁地回答用户。',
         userPrompt: '请回复：你好，有什么可以帮到你？',
         temperature: 0.2,
+        timeoutMs: 60000,
       });
       notify(text || 'AI 连接成功');
     } catch (error) {
