@@ -510,7 +510,7 @@ export function LineConversationView({
   const [showPresetResourceManager, setShowPresetResourceManager] = useState<'status' | 'cot' | null>(null);
   const [cotPresets, setCotPresets] = usePersistentState<CotPreset[]>('line:cot-presets', getCotPresets());
   const [activeCotPresetId, setActiveCotPresetId] = usePersistentState(`line:cot-active:${conversationStorageId}`, 'cot-1');
-  const activeCotPreset = cotPresets.find((p) => p.id === activeCotPresetId) || cotPresets[0];
+  const activeCotPreset = cotPresets.find((p) => p.id === activeCotPresetId) || cotPresets[0] || { id: 'cot-fallback', title: '默认预设', description: '', template: '' };
   const [customCotTemplate, setCustomCotTemplate] = usePersistentState(`line:cot-custom:${conversationStorageId}`, activeCotPreset.template);
 
   // 酒馆预设 (Presets)
