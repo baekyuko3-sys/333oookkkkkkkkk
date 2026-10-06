@@ -27,6 +27,15 @@ export interface ResolvedContext {
   worldBookAfter: string;
 }
 
+export function getGlobalWorldBookEnabled(): boolean {
+  try {
+    const raw = window.localStorage.getItem('phone:worldbook:global-enabled');
+    return raw === null ? true : raw !== 'false';
+  } catch {
+    return true;
+  }
+}
+
 function stableRoll(seed: string): number {
   let hash = 2166136261;
   for (let index = 0; index < seed.length; index += 1) {
@@ -65,6 +74,8 @@ function worldBookKeyMatches(keyword: string, haystack: string, entry: WorldBook
 }
 
 export function selectWorldBookEntries(worldbooks: WorldBook[], inputText: string, scanTextForEntry?: (entry: WorldBook['entries'][number]) => string) {
+  if (!getGlobalWorldBookEnabled()) return [];
+
   const candidates = worldbooks.flatMap(book => {
     if (!book.enabled) return [];
 
