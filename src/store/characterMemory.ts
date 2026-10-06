@@ -28,6 +28,11 @@ function emptyMemory(characterId: string, characterName: string): CharacterMemor
   };
 }
 
+export function clearCharacterMemory(characterId: string) {
+  if (typeof window === 'undefined' || !characterId) return;
+  window.localStorage.removeItem(keyFor(characterId));
+}
+
 export function getCharacterMemory(characterId: string, characterName: string): CharacterMemory {
   if (typeof window === 'undefined') return emptyMemory(characterId, characterName);
   try {
