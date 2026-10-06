@@ -220,6 +220,9 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
     const memory = character ? getCharacterMemory(character.id, character.name) : null;
     const project = getProjectManifest();
     const settings = readStoredAiSettings();
+    const cot = getCotForTarget('offline');
+    const selectedBooks = worldbooks.filter(book => selected.worldBookIds?.length ? selected.worldBookIds.includes(book.id) : book.enabled);
+    const persona = personas.find(item => item.id === selected.personaId);
 
     setSceneBusy(true);
     const history = (selected.sceneLog || []).map(item => ({
@@ -237,9 +240,11 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
         '【项目】' + project.name + ' / ' + project.tone,
         character ? '【角色】' + character.name + '\n' + character.description + '\n' + character.personality + '\n' + character.scenario : '【角色】' + profile.nickname,
         memory ? '【长期记忆】' + memory.summary + '\n' + memory.items.slice(0, 12).map(item => '- ' + item.content).join('\n') : '【长期记忆】无。',
-        (() => { const c = getCotForTarget('offline'); return c ? '【思维链预设】\n' + c.template : ''; })(),
-        selected ? '【Author\'s Note】\n' + (selected.authorNote || '') : '',
-        selected ? '【本剧情 System Prompt】\n' + (selected.systemPrompt || '') : '',
+        persona ? '【当前 Persona】\n' + [persona.name, persona.title || '', persona.bio || ''].filter(Boolean).join('\n') : '',
+        selectedBooks.flatMap(book => book.entries.filter(entry => entry.enabled).slice(0, 10).map(entry => '- ' + entry.name + ': ' + entry.content)).join('\n') || '【世界书】无。',
+        cot ? '【思维链预设】\n' + cot.template : '',
+        selected.authorNote ? '【Author\'s Note】\n' + selected.authorNote : '',
+        selected.systemPrompt ? '【本剧情 System Prompt】\n' + selected.systemPrompt : '',
       ].join('\n');
 
       const userText = actionText.trim();
