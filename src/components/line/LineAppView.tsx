@@ -29,6 +29,8 @@ interface LineChatItem {
   relationship?: 'new-friend' | 'old-friend' | 'readded';
   readdedReason?: 'deleted' | 'blocked' | 'mutual-delete';
   relationshipContext?: string;
+  openingMode?: 'none' | 'context';
+  openingGreeting?: string;
   groupId?: string;
   time: string;
   preview: string;
@@ -212,6 +214,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [newChatRelationship, setNewChatRelationship] = useState<'new-friend' | 'old-friend' | 'readded'>('new-friend');
   const [readdedReason, setReaddedReason] = useState<'deleted' | 'blocked' | 'mutual-delete'>('deleted');
   const [relationshipContext, setRelationshipContext] = useState('');
+  const [openingMode, setOpeningMode] = useState<'none' | 'context'>('none');
+  const [openingGreetingIndex, setOpeningGreetingIndex] = useState(0);
   const [postDetail, setPostDetail] = useState<any | null>(null);
   const [showMyProfilePage, setShowMyProfilePage] = useState(false);
   const [newPostImage, setNewPostImage] = useState('');
@@ -408,6 +412,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
             );
           }}
           relationshipContext={activeItem.relationshipContext}
+          openingContext={activeItem.openingMode === 'context' ? activeItem.openingGreeting : ''}
           onToggleMute={() => {
             setChatItems((prev) =>
               prev.map((c) =>
@@ -1098,6 +1103,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                         setNewChatRelationship('new-friend');
                         setReaddedReason('deleted');
                         setRelationshipContext('');
+                        setOpeningMode('none');
+                        setOpeningGreetingIndex(0);
                         setAddCharacterChatFriend(friendProfile);
                       } else {
                         showToast('这是普通联系人，请先保存为聊天联系人');
@@ -1543,6 +1550,31 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               </div>
             </div>
 
+            {(() => {
+              const character = addCharacterChatFriend.characterId
+                ? importedCharacters.find(item => item.id === addCharacterChatFriend.characterId)
+                : null;
+              const greetings = character
+                ? [character.firstMessage, ...character.alternateGreetings].filter(Boolean)
+                : [];
+              if (!greetings.length) return null;
+              return (
+                <div className="rounded-2xl bg-[#f7f7f8] p-3.5 space-y-2.5">
+                  <div>
+                    <div className="text-[10px] text-[#888]">角色卡开场白</div>
+                    <div className="mt-1 text-[9px] text-[#aaa]">LINE 不会自动把它发成消息。你可以让它成为前情提要，也可以完全忽略。</div>
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto no-scrollbar pb-0.5">
+                    <button onClick={() => setOpeningMode('none')} className={`shrink-0 px-3 py-2 rounded-xl border text-[9px] ${openingMode === 'none' ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white border-[#e3e3e4] text-[#666]'}`}>不读取</button>
+                    {greetings.map((greeting, index) => (
+                      <button key={index} onClick={() => { setOpeningMode('context'); setOpeningGreetingIndex(index); }} className={`shrink-0 px-3 py-2 rounded-xl border text-[9px] ${openingMode === 'context' && openingGreetingIndex === index ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white border-[#e3e3e4] text-[#666]'}`}>开场 {index + 1}</button>
+                    ))}
+                  </div>
+                  {openingMode === 'context' && <div className="max-h-[82px] overflow-y-auto rounded-xl bg-white px-3 py-2 text-[9px] leading-5 text-[#666] whitespace-pre-wrap">{greetings[openingGreetingIndex] || greetings[0]}</div>}
+                </div>
+              );
+            })()}
+
             <button
               onClick={() => {
                 const friend = addCharacterChatFriend;
@@ -1564,6 +1596,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                   relationship: newChatRelationship,
                   readdedReason: isReadded ? readdedReason : undefined,
                   relationshipContext: relationshipContext.trim() || undefined,
+                  openingMode,
+                  openingGreeting: openingMode === 'context'
+                    ? [character?.firstMessage, ...(character?.alternateGreetings || [])].filter(Boolean)[openingGreetingIndex]
+                    : undefined,
                   time: '刚刚',
                   preview: isOldFriend ? '好久不见，聊聊近况吧。' : isReadded ? `重新加回 · ${readdedLabel}` : '你们刚刚成为好友.',
                   unread: 0,
@@ -1582,6 +1618,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                 setAddCharacterChatFriend(null);
                 setFriendProfile(null);
                 setRelationshipContext('');
+                setOpeningMode('none');
+                setOpeningGreetingIndex(0);
                 setActiveChatId(chatId);
                 showToast(isOldFriend ? `已建立与 ${friend.name} 的旧友聊天` : isReadded ? `已建立与 ${friend.name} 的加回好友聊天 · ${readdedLabel}` : `已建立与 ${friend.name} 的新好友聊天`);
               }}
