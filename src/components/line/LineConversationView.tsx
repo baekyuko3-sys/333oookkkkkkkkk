@@ -384,16 +384,6 @@ export function LineConversationView({
   const [selectedMsgIds, setSelectedMsgIds] = useState<number[]>([]);
   const [favorites, setFavorites] = usePersistentState<any[]>(`line:favorites:${conversationStorageId}`, []);
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
-  const [showQuickPhrases, setShowQuickPhrases] = useState(false);
-  const [quickPhrases, setQuickPhrases] = usePersistentState('line:quick-phrases', [
-    '在忙吗？',
-    '刚刚忙完回到家~',
-    '今天有点累，想听听你的声音',
-    '晚安，做个好梦 🌙',
-    '明天见！别忘了带伞',
-    '收到啦，马上处理！',
-    '今天天气真好，想和你散步',
-  ]);
   const [showGroupNotice, setShowGroupNotice] = useState(true);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [nudgeAvatar, setNudgeAvatar] = useState(false);
@@ -3085,15 +3075,6 @@ export function LineConversationView({
                 />
               </div>
 
-              {/* 快捷短语按钮 (Quick Phrases) */}
-              <button
-                onClick={() => setShowQuickPhrases(true)}
-                className="w-[32px] h-[38px] flex items-center justify-center text-[#777] hover:text-[#ae7e89] cursor-pointer"
-                title="常用快捷短语"
-              >
-                <MessageCircle className="w-4 h-4 stroke-[1.65]" />
-              </button>
-
               {/* Sticker Button */}
               <button
                 onClick={() => setShowStickerSheet(true)}
@@ -5420,78 +5401,6 @@ export function LineConversationView({
                 </div>
               ))
             )}
-          </div>
-        </div>
-      )}
-
-      {/* 16.9. 快捷常用语抽屉 (Quick Phrases Sheet) */}
-      {showQuickPhrases && (
-        <div
-          onClick={() => setShowQuickPhrases(false)}
-          className="absolute inset-0 bg-black/25 z-60 flex items-end animate-in fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full bg-white rounded-t-[20px] p-4 pb-6 space-y-3 animate-in slide-in-from-bottom max-h-[70%] flex flex-col"
-          >
-            <div className="w-8 h-1 bg-[#ddd] rounded-full mx-auto" />
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-sm text-[#333]">快捷常用语</span>
-              <span className="text-[10px] text-[#aaa]">点击即刻填入输入框</span>
-            </div>
-
-            <div className="divide-y divide-[#f2f2f4] overflow-y-auto flex-1 text-xs">
-              {quickPhrases.map((phrase, i) => (
-                <div
-                  key={i}
-                  onClick={() => {
-                    setInputText(phrase);
-                    setShowQuickPhrases(false);
-                    showToast('已填入输入框');
-                  }}
-                  className="py-2.5 px-2 flex items-center justify-between hover:bg-[#fafafa] cursor-pointer group rounded-md"
-                >
-                  <span className="text-[#333] group-hover:text-[#ae7e89] transition-colors">{phrase}</span>
-                  <span className="text-[10px] text-[#ae7e89] opacity-0 group-hover:opacity-100 transition-opacity">填入 ›</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="pt-2 border-t border-[#f0f0f1] flex gap-2">
-              <input
-                type="text"
-                placeholder="添加自定义快捷语..."
-                id="newQuickPhraseInput"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                    setQuickPhrases([...quickPhrases, e.currentTarget.value.trim()]);
-                    e.currentTarget.value = '';
-                    showToast('已添加新常用语');
-                  }
-                }}
-                className="flex-1 px-3 py-1.5 bg-[#f6f6f7] rounded-[10px] text-xs outline-none"
-              />
-              <button
-                onClick={() => {
-                  const input = document.getElementById('newQuickPhraseInput') as HTMLInputElement;
-                  if (input && input.value.trim()) {
-                    setQuickPhrases([...quickPhrases, input.value.trim()]);
-                    input.value = '';
-                    showToast('已添加新常用语');
-                  }
-                }}
-                className="px-3 py-1.5 bg-[#faf1f3] text-[#ae7e89] rounded-[10px] text-xs font-medium cursor-pointer"
-              >
-                添加
-              </button>
-            </div>
-
-            <button
-              onClick={() => setShowQuickPhrases(false)}
-              className="w-full py-2.5 rounded-[12px] bg-[#f7f7f7] text-[#777] text-xs font-medium cursor-pointer"
-            >
-              取消
-            </button>
           </div>
         </div>
       )}
