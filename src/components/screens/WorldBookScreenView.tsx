@@ -328,7 +328,10 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
           <div className="min-h-0 grid grid-cols-[116px_minmax(0,1fr)] gap-2">
             <div className="min-h-0 overflow-y-auto no-scrollbar space-y-1.5 pr-0.5">
               <div className="sticky top-0 z-10 px-2 py-1.5 rounded-xl bg-[#f7f4ee]/95 backdrop-blur text-[8px] font-mono tracking-[1.2px] text-[#8b847d] border border-[rgba(40,36,31,.08)]">
-                条目 · {filteredEntries.length}
+                <div className="flex items-center justify-between">
+                  <span>条目 · {filteredEntries.length}</span>
+                  <span className="tracking-normal font-sans text-[7px]">☑ 启用 · ☐ 停用</span>
+                </div>
               </div>
               {filteredEntries.map(entry => (
                 <button
@@ -340,8 +343,29 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
                       : 'bg-white/55 text-[#5e5852] border-[rgba(40,36,31,.12)]'
                   }`}
                 >
-                  <div className="text-[10px] font-semibold truncate">{entry.name}</div>
-                  <div className="mt-1 text-[8px] font-mono opacity-70">{entry.priority} · {entry.keywords.length} key</div>
+                  <div className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      checked={entry.enabled}
+                      onChange={() => {
+                        setSelectedEntryId(entry.id);
+                        patchBook({
+                          entries: book.entries.map(item =>
+                            item.id === entry.id ? { ...item, enabled: !item.enabled } : item
+                          ),
+                        });
+                      }}
+                      onClick={event => event.stopPropagation()}
+                      className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[#8b7560]"
+                      aria-label={entry.enabled ? '停用条目' : '启用条目'}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] font-semibold truncate">{entry.name}</div>
+                      <div className="mt-1 text-[8px] font-mono opacity-70">
+                        {entry.priority} · {entry.keywords.length} key · {entry.enabled ? 'ON' : 'OFF'}
+                      </div>
+                    </div>
+                  </div>
                 </button>
               ))}
               {filteredEntries.length === 0 && (
