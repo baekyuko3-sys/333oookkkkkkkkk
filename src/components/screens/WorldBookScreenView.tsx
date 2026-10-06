@@ -600,7 +600,6 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
           </div>
         </div>
       </div>
-      </div>
 
       {book && books.length > 1 && (
         <button
