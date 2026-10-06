@@ -10,22 +10,15 @@ if (typeof window !== 'undefined') {
   startBackgroundRuntime();
   bindLineRuntimeEvents();
 
-  // The project does not currently ship a service worker. Remove any
-  // service worker left behind by an older deployment so stale cached
-  // assets cannot take over a fresh Netlify build.
+  // The app no longer uses a service worker. Clean up legacy registrations
+  // immediately so an older cached shell cannot keep serving stale builds.
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      void navigator.serviceWorker.getRegistrations().then((registrations) => {
-        for (const registration of registrations) {
-          void registration.unregister();
-        }
-      });
-      if ('caches' in window) {
-        void caches.keys().then((keys) => {
-          for (const key of keys) void caches.delete(key);
-        });
-      }
-    });
+    void navigator.serviceWorker.getRegistrations().then((registrations) =>
+      Promise.all(registrations.map((registration) => registration.unregister()))
+    );
+  }
+  if ('caches' in window) {
+    void caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))));
   }
 }
 
