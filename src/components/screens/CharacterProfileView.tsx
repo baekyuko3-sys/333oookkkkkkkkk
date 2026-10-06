@@ -261,7 +261,7 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
       const parsed = await parseCharacterFile(file);
       const normalizedParsed = {
         ...parsed,
-        avatar: await compressCharacterAvatar(normalizedParsed.avatar || ''),
+        avatar: await compressCharacterAvatar(parsed.avatar || ''),
       };
       setCharacters(prev => {
         const existing = prev.findIndex(item => item.id === normalizedParsed.id);
