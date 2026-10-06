@@ -57,6 +57,17 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
     null,
   );
   const [notice, setNotice] = useState('');
+  const [importConfirmation, setImportConfirmation] = useState<{
+    name: string;
+    avatar: string;
+    sourceFormat: string;
+    creator: string;
+    version: string;
+    firstMessage: string;
+    alternateGreetings: string[];
+    worldBookCount: number;
+    description: string;
+  } | null>(null);
   const [runtimeTick, setRuntimeTick] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -252,6 +263,17 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
       }
       setSelectedId(parsed.id);
       setIsEditing(false);
+      setImportConfirmation({
+        name: parsed.name,
+        avatar: parsed.avatar || '',
+        sourceFormat: parsed.sourceFormat.toUpperCase(),
+        creator: parsed.creator || '未填写',
+        version: parsed.variantLabel || parsed.characterVersion || '未填写',
+        firstMessage: parsed.firstMessage || '',
+        alternateGreetings: parsed.alternateGreetings || [],
+        worldBookCount: embeddedWorldBooks.length,
+        description: parsed.description || '',
+      });
       showNotice(
         embeddedWorldBooks.length
           ? `已导入「${parsed.name}」 · 同步导入 ${embeddedWorldBooks.length} 本世界书`
@@ -985,6 +1007,78 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                 确认删除角色
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {importConfirmation && (
+        <div
+          className="absolute inset-0 z-[120] bg-black/30 backdrop-blur-[2px] flex items-center justify-center px-5"
+          onClick={() => setImportConfirmation(null)}
+        >
+          <div
+            className="w-full max-h-[78%] overflow-y-auto rounded-[24px] bg-[#f8f5ef] border border-white/70 shadow-2xl p-5"
+            onClick={event => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="text-[8px] font-mono tracking-[2px] text-[#9b625b]">IMPORT COMPLETE · CHARACTER CARD</div>
+                <div className="mt-1.5 text-[20px] font-serif font-bold text-[#242323]">角色卡已成功导入</div>
+                <div className="mt-1 text-[9px] text-[#8b8782]">已保存到本机角色档案。下面是这次实际读入的内容。</div>
+              </div>
+              <button onClick={() => setImportConfirmation(null)} className="w-8 h-8 rounded-full bg-black/5 text-[#777]">×</button>
+            </div>
+
+            <div className="mt-5 flex gap-3.5 items-center">
+              <div className="w-16 h-16 rounded-2xl bg-[#ded7cc] overflow-hidden border border-black/10 shrink-0 grid place-items-center">
+                {importConfirmation.avatar ? (
+                  <img src={importConfirmation.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  <UserRound className="w-7 h-7 text-[#8b8782]" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="text-[17px] font-serif font-bold text-[#242323] truncate">{importConfirmation.name || '未命名角色'}</div>
+                <div className="mt-1 text-[8px] font-mono text-[#8b8782]">SOURCE · {importConfirmation.sourceFormat} · {importConfirmation.creator}</div>
+                <div className="mt-1 text-[8px] font-mono text-[#8b8782]">VERSION · {importConfirmation.version}</div>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <div className="rounded-xl bg-white/70 border border-black/5 p-2.5">
+                <div className="text-[8px] font-mono text-[#9b625b]">FIRST MESSAGE</div>
+                <div className="mt-1 text-[15px] font-semibold text-[#292724]">{importConfirmation.firstMessage ? '已读取' : '未填写'}</div>
+              </div>
+              <div className="rounded-xl bg-white/70 border border-black/5 p-2.5">
+                <div className="text-[8px] font-mono text-[#9b625b]">ALTERNATE</div>
+                <div className="mt-1 text-[15px] font-semibold text-[#292724]">{importConfirmation.alternateGreetings.length} 条</div>
+              </div>
+              <div className="rounded-xl bg-white/70 border border-black/5 p-2.5">
+                <div className="text-[8px] font-mono text-[#9b625b]">WORLD BOOK</div>
+                <div className="mt-1 text-[15px] font-semibold text-[#292724]">{importConfirmation.worldBookCount} 本</div>
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-xl bg-white/70 border border-black/5 p-3">
+              <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">DESCRIPTION</div>
+              <div className="mt-1.5 text-[10px] leading-5 text-[#55504a] whitespace-pre-wrap">
+                {importConfirmation.description || '角色卡没有填写 description。'}
+              </div>
+            </div>
+
+            {importConfirmation.firstMessage && (
+              <div className="mt-3 rounded-xl bg-white/70 border border-black/5 p-3">
+                <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">FIRST MESSAGE · 已读取</div>
+                <div className="mt-1.5 max-h-24 overflow-y-auto text-[10px] leading-5 text-[#55504a] whitespace-pre-wrap">{importConfirmation.firstMessage}</div>
+              </div>
+            )}
+
+            <button
+              onClick={() => setImportConfirmation(null)}
+              className="mt-5 w-full py-3 rounded-2xl bg-[#292724] text-white text-xs font-semibold"
+            >
+              确认 · 我看到了
+            </button>
           </div>
         </div>
       )}
