@@ -26,6 +26,8 @@ export interface ImportedCharacter {
   characterVersion: string;
   extensions?: Record<string, unknown>;
   languageProfile?: import('../types').CharacterLanguageProfile;
+  onlinePersona?: string;
+  typingHabit?: string;
   embeddedWorldBook?: WorldBook;
   embeddedWorldBooks?: WorldBook[];
   /** Worldbooks explicitly enabled for this character. Empty/undefined preserves legacy behavior. */
