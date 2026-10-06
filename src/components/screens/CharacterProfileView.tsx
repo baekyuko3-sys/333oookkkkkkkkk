@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, Brain, Download, Edit3, FileDown, FilePlus2, Folder, Plus, ShieldCheck, Trash2, UserRound, X } from 'lucide-react';
+import { ArrowLeft, Brain, Download, Edit3, FileDown, FilePlus2, Folder, Plus, ShieldCheck, Trash2, UserRound, X, Settings2, Upload } from 'lucide-react';
 import { ScreenType } from '../../types';
 import { usePersistentState } from '../../store/usePersistentState';
 import {
@@ -102,6 +102,7 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
   const [deleteWorldBooks, setDeleteWorldBooks] = useState(false);
   const [deleteChatHistory, setDeleteChatHistory] = useState(false);
   const [worldBookPickerOpen, setWorldBookPickerOpen] = useState(false);
+  const [managementOpen, setManagementOpen] = useState(false);
   const visibleCharacters = selectedGroupId === 'all'
     ? characters
     : characters.filter(character => (character.groupId || 'ungrouped') === selectedGroupId);
@@ -436,6 +437,7 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
         </div>
 
         <div className="flex items-center gap-1.5">
+          <button onClick={() => setManagementOpen(true)} className="w-8 h-8 rounded-full bg-white/55 border border-[rgba(40,36,31,.12)] text-[#655f59] grid place-items-center" title="角色档案管理"><Settings2 className="w-3.5 h-3.5" /></button>
           <button
             onClick={createBlankCharacter}
             className="w-8 h-8 rounded-full bg-white/55 border border-[rgba(40,36,31,.12)] text-[#655f59] grid place-items-center"
@@ -974,6 +976,22 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
       <div className="relative z-10 p-3 text-center text-[9px] text-[#8b8782] font-mono border-t border-[rgba(40,36,31,.1)]">
         {selectedGroupId === 'all' ? 'CHARACTER ARCHIVE · LOCAL ONLY' : 'CHARACTER GROUP · LOCAL ONLY'}
       </div>
+
+      {managementOpen && (
+        <div className="absolute inset-0 z-[80] bg-black/25 flex items-end" onClick={() => setManagementOpen(false)}>
+          <div className="w-full max-h-[82%] overflow-y-auto bg-white rounded-t-[24px] p-5 pb-8 space-y-3" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between"><div><div className="text-[8px] font-mono tracking-[1.5px] text-[#aaa]">CHARACTERS · MANAGEMENT</div><div className="text-[15px] font-semibold mt-1">角色档案管理</div></div><button onClick={() => setManagementOpen(false)} className="text-xl text-[#aaa]">×</button></div>
+            <div className="p-3 rounded-xl bg-[#fafafa] border border-[#eee] text-[9px] text-[#777]">当前 {characters.length} 个角色 · {groups.length} 个分组。导入、导出、分组和删除都从这里管理。</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => { const data=characters.map(character=>({ ...character, avatar: '' })); downloadText('sane333-characters.json', JSON.stringify({ type:'sane333-characters', version:1, characters:data, groups }, null, 2)); showNotice('角色档案已导出'); }} className="p-3 rounded-xl bg-[#292724] text-white text-[9px] flex items-center justify-center gap-1"><Download className="w-3 h-3"/>导出全部</button>
+              <button onClick={() => fileRef.current?.click()} className="p-3 rounded-xl bg-[#f7f5f1] border border-[#eee] text-[#555] text-[9px] flex items-center justify-center gap-1"><Upload className="w-3 h-3"/>导入角色卡</button>
+            </div>
+            <div className="space-y-1.5">
+              {characters.map(character => <div key={character.id} className="flex items-center gap-2 p-2.5 rounded-xl bg-[#fafafa] border border-[#eee]"><div className="w-8 h-8 rounded-lg overflow-hidden bg-[#eee] shrink-0">{character.avatar ? <img src={character.avatar} alt="" className="w-full h-full object-cover"/> : null}</div><div className="min-w-0 flex-1"><div className="text-[10px] font-medium truncate">{character.name}</div><div className="text-[8px] text-[#aaa] truncate">{character.sourceFormat} · {character.groupId || '未分组'}</div></div><button onClick={() => { setSelectedId(character.id); setManagementOpen(false); }} className="text-[9px] text-[#8b7560]">打开</button></div>)}
+            </div>
+          </div>
+        </div>
+      )}
 
       {deleteDialogOpen && selected && (
         <div className="absolute inset-0 z-[60] bg-black/25 backdrop-blur-[2px] flex items-end justify-center">
