@@ -1656,7 +1656,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                     {(greetings.length > 3 ? greetings.slice(0, 3) : greetings).map((greeting, index) => (
                       <button key={index} onClick={() => { setOpeningMode('context'); setOpeningGreetingIndex(index); }} className={`w-full text-left px-3 py-2 rounded-xl border text-[9px] ${openingMode === 'context' && openingGreetingIndex === index ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white border-[#e3e3e4] text-[#666]'}`}>
                         <div className="font-semibold">开场白 {index + 1}</div>
-                        <div className="mt-0.5 line-clamp-2 opacity-70">{greeting}</div>
+                        <div className="mt-1 whitespace-pre-wrap leading-relaxed opacity-75">{greeting}</div>
                       </button>
                     ))}
                     {greetings.length > 3 && <details className="rounded-xl border border-[#e3e3e4] bg-white"><summary className="px-3 py-2 text-[9px] text-[#666] cursor-pointer">展开其余 {greetings.length - 3} 个开场白</summary><div className="p-2 space-y-1.5">{greetings.slice(3).map((greeting, index) => { const realIndex = index + 3; return <button key={realIndex} onClick={() => { setOpeningMode('context'); setOpeningGreetingIndex(realIndex); }} className={`w-full text-left px-3 py-2 rounded-xl border text-[9px] ${openingMode === 'context' && openingGreetingIndex === realIndex ? 'bg-[#292724] text-white border-[#292724]' : 'bg-[#fafafa] border-[#e3e3e4] text-[#666]'}`}><div className="font-semibold">开场白 {realIndex + 1}</div><div className="mt-0.5 line-clamp-2 opacity-70">{greeting}</div></button>; })}</div></details>}
