@@ -949,8 +949,15 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
           <section className="p-3.5 space-y-2.5">
             <div className="p-3.5 rounded-2xl bg-[#ebe6de] text-[9px]"><b>Studio Settings</b><div className="mt-1 text-[#777069]">AI Key 与 GitHub Token 仅保存在当前浏览器。</div></div>
             <div className="p-3 rounded-2xl bg-white/60 space-y-2">
-              <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">AI · OPENAI COMPATIBLE</div>
-              <label className="text-[9px] block">API Base URL<input value={aiSettings.apiBaseUrl} onChange={event => updateAi('apiBaseUrl', event.target.value)} placeholder="https://api.openai.com/v1" className="mt-1 w-full p-2.5 rounded-xl bg-white/80 text-[9px] outline-none" /></label>
+              <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">AI · MEME PROVIDER</div>
+              <label className="text-[9px] block">Provider
+                <select value={aiSettings.provider} onChange={event => updateAi('provider', event.target.value as AppSettings['provider'])} className="mt-1 w-full p-2.5 rounded-xl bg-white/80 text-[9px] outline-none">
+                  <option value="gemini">Gemini</option>
+                  <option value="openai-compatible">OpenAI Compatible</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+              <label className="text-[9px] block">API Base URL<input value={aiSettings.apiBaseUrl} onChange={event => updateAi('apiBaseUrl', event.target.value)} placeholder={aiSettings.provider === 'gemini' ? '留空 = Google Gemini 官方 v1beta' : 'https://api.openai.com/v1'} className="mt-1 w-full p-2.5 rounded-xl bg-white/80 text-[9px] outline-none" /></label>
               <label className="text-[9px] block">API Key<input type="password" value={aiSettings.apiKey} onChange={event => updateAi('apiKey', event.target.value)} placeholder="sk-..." className="mt-1 w-full p-2.5 rounded-xl bg-white/80 text-[9px] outline-none" /></label>
               <div className="flex gap-1.5">
                 <select value={aiSettings.model} onChange={event => updateAi('model', event.target.value)} className="flex-1 mt-1 p-2.5 rounded-xl bg-white/80 text-[9px] outline-none">
