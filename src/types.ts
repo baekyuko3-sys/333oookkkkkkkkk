@@ -130,6 +130,7 @@ export interface OfflineEvent {
   time: string;
   theme: string;
   letter: string;
+  openingGreeting?: string;
   status: 'draft' | 'pending' | 'accepted' | 'declined' | 'in-progress' | 'completed';
   createdAt: string;
   updatedAt?: string;
