@@ -155,6 +155,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
     <div className="relative w-full h-full overflow-hidden select-none" style={{ background: 'var(--screen, #fff)', color: 'var(--ink, #242323)', backgroundImage: appearance.wallpaper ? `url(${appearance.wallpaper})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
       
       {desktopEditing && <button onClick={() => resetDesktopLayout(currentPage)} className="absolute z-30 top-[70px] left-[25px] px-3 h-8 rounded-full bg-white/80 border border-black/5 text-[9px] font-mono text-[#777]">重置</button>}
+      {desktopEditing && <button onClick={() => setDesktopEditing(false)} className="absolute z-30 top-[70px] right-[25px] px-3 h-8 rounded-full bg-[#292724] text-white border border-[#292724] text-[9px] font-mono">完成整理</button>}
       {/* SVG Icon Definitions */}
       <svg width="0" height="0" className="absolute pointer-events-none" aria-hidden="true">
         <defs>
