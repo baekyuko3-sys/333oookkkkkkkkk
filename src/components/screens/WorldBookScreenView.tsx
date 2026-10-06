@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, Download, Plus, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { ArrowLeft, BookOpen, Download, Plus, Trash2, ToggleLeft, ToggleRight, Settings2, ChevronDown, ChevronUp } from 'lucide-react';
 import { ScreenType, WorldBook, WorldBookEntry } from '../../types';
 import { usePersistentState } from '../../store/usePersistentState';
 import { exportNativeWorldBook, exportSillyTavernWorldBook, importWorldBooks } from '../../store/worldbookFormats';
@@ -49,6 +49,8 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [notice, setNotice] = useState('');
+  const [manageBooks, setManageBooks] = useState(false);
+  const [bookInfoOpen, setBookInfoOpen] = useState(true);
 
   const book = books.find(item => item.id === selectedBookId) || books[0] || null;
   const selectedEntry = book?.entries.find(item => item.id === selectedEntryId) || book?.entries[0] || null;
@@ -120,12 +122,17 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
     showNotice('条目已删除');
   };
 
-  const removeBook = () => {
-    if (!book) return;
-    const next = books.filter(item => item.id !== book.id);
+  const removeBook = (bookId = book?.id) => {
+    if (!bookId) return;
+    const target = books.find(item => item.id === bookId);
+    if (!target) return;
+    if (!window.confirm(`删除世界书「${target.name}」？其中 ${target.entries.length} 条世界设定也会一起删除。`)) return;
+    const next = books.filter(item => item.id !== bookId);
     setBooks(next);
-    setSelectedBookId(next[0]?.id || '');
-    setSelectedEntryId(next[0]?.entries[0]?.id || '');
+    if (selectedBookId === bookId) {
+      setSelectedBookId(next[0]?.id || '');
+      setSelectedEntryId(next[0]?.entries[0]?.id || '');
+    }
     showNotice('世界书已删除');
   };
 
@@ -170,28 +177,68 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
       </header>
 
       <div className="relative z-10 flex-1 overflow-hidden grid grid-rows-[auto_1fr]">
-        <div className="p-4 pb-2 flex items-center gap-2">
-          <select
-            value={book?.id || ''}
-            onChange={e => {
-              const next = books.find(item => item.id === e.target.value);
-              setSelectedBookId(e.target.value);
-              setSelectedEntryId(next?.entries[0]?.id || '');
-            }}
-            className="flex-1 bg-[#ebe7df] border border-[rgba(40,36,31,.12)] rounded-xl px-3 py-2 text-xs text-[#242323] outline-none"
-          >
-            {books.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-          </select>
-          <button
-            onClick={() => book && setBooks(prev => prev.map(item => item.id === book.id ? { ...item, enabled: !item.enabled, updatedAt: new Date().toISOString() } : item))}
-            className="px-3 py-2 rounded-xl bg-white/65 border border-[rgba(40,36,31,.12)] text-[10px] text-[#6d665f]"
-          >
-            {book?.enabled ? '已启用' : '已停用'}
-          </button>
+        <div className="px-4 pt-3 pb-2">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <div className="text-[8px] tracking-[1.8px] font-mono text-[#8b847d]">LOREBOOK ARCHIVE</div>
+              <div className="mt-1 text-sm font-serif font-bold text-[#302d29]">我的世界书</div>
+            </div>
+            <button
+              onClick={() => setManageBooks(value => !value)}
+              className={`px-3 py-1.5 rounded-full border text-[9px] inline-flex items-center gap-1.5 ${manageBooks ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/65 text-[#655f59] border-[rgba(40,36,31,.12)]'}`}
+            >
+              <Settings2 className="w-3 h-3" />{manageBooks ? '完成管理' : '管理'}
+            </button>
+          </div>
+          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+            {books.map(item => (
+              <div key={item.id} className={`shrink-0 w-[145px] rounded-2xl border p-3 transition-all ${item.id === book?.id ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/60 text-[#4f4943] border-[rgba(40,36,31,.12)]'}`}>
+                <button
+                  onClick={() => { setSelectedBookId(item.id); setSelectedEntryId(item.entries[0]?.id || ''); setManageBooks(false); }}
+                  className="w-full text-left"
+                >
+                  <div className="text-[11px] font-serif font-bold truncate">{item.name || '未命名世界书'}</div>
+                  <div className={`mt-1 text-[8px] ${item.id === book?.id ? 'text-white/65' : 'text-[#918980]'}`}>
+                    {item.entries.length} 条设定 · {item.enabled ? '启用' : '停用'}
+                  </div>
+                  {item.sourceType === 'character-card' && (
+                    <div className={`mt-1.5 text-[7px] truncate ${item.id === book?.id ? 'text-white/55' : 'text-[#9b625b]'}`}>
+                      来自角色卡 · {item.sourceCharacterName || '角色'}
+                    </div>
+                  )}
+                </button>
+                {manageBooks && (
+                  <div className="mt-2 pt-2 border-t border-white/15 flex items-center justify-between">
+                    <button
+                      onClick={() => setBooks(prev => prev.map(bookItem => bookItem.id === item.id ? { ...bookItem, enabled: !bookItem.enabled, updatedAt: new Date().toISOString() } : bookItem))}
+                      className="text-[8px] opacity-80"
+                    >
+                      {item.enabled ? '停用' : '启用'}
+                    </button>
+                    <button onClick={() => removeBook(item.id)} className="text-[8px] text-[#e3aaa2]">删除</button>
+                  </div>
+                )}
+              </div>
+            ))}
+            {books.length === 0 && (
+              <div className="w-full py-5 text-center rounded-2xl border border-dashed border-[rgba(40,36,31,.18)] text-[9px] text-[#8b847d]">
+                还没有世界书 · 可以从角色卡自动导入，或右上角 ＋ 新建
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="px-4 pb-2 grid grid-cols-2 gap-2">
-          <label className="p-2 rounded-xl bg-white/55 border border-[rgba(40,36,31,.1)] text-[8px] font-mono text-[#8b8782]">
+        <div className="px-4 pb-2">
+          <button
+            onClick={() => setBookInfoOpen(value => !value)}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/55 border border-[rgba(40,36,31,.1)] text-[9px] text-[#6d665f]"
+          >
+            <span className="inline-flex items-center gap-1.5"><BookOpen className="w-3 h-3" />世界书信息</span>
+            {bookInfoOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+          {bookInfoOpen && (
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <label className="p-2 rounded-xl bg-white/55 border border-[rgba(40,36,31,.1)] text-[8px] font-mono text-[#8b8782]">
             RESOURCE NAME
             <input
               value={book?.name || ''}
@@ -223,7 +270,9 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
               className="w-full mt-1 bg-transparent text-[9px] text-[#444] outline-none"
               placeholder="描述 · tag1, tag2"
             />
-          </label>
+              </label>
+            </div>
+          )}
         </div>
 
         <div className="min-h-0 px-4 pb-4 grid grid-rows-[auto_1fr] gap-2">
