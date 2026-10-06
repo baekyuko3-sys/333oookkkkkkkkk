@@ -17,7 +17,7 @@ interface AppearanceScreenViewProps {
   onSelectTheme: (theme: ThemeMode) => void;
 }
 
-type Section = 'theme' | 'home' | 'widgets' | 'icons' | 'schemes';
+type Section = 'theme' | 'home' | 'widgets' | 'icons' | 'apps' | 'schemes';
 
 const themeOptions: Array<{ id: ThemeMode; title: string; note: string }> = [
   { id: 'nordic-light', title: '胶片原色', note: '米白 / 纸张 / 安静' },
@@ -31,6 +31,14 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
   const [schemes, setSchemes] = useState<AppearanceScheme[]>(() => getAppearanceSchemes());
   const [schemeName, setSchemeName] = useState('');
   const [notice, setNotice] = useState('');
+  const [selectedApp, setSelectedApp] = useState('line');
+  const [appBeauty, setAppBeauty] = useState(() => readAppearance().appBeauty || {});
+  const appItems = [
+    ['line', 'LINE / 聊天'], ['moments', 'VROOM / 朋友圈'], ['character-profile', '角色档案'], ['offline-story', '线下剧情'],
+    ['world-book', '世界书'], ['gallery', '相册'], ['music', '音乐'], ['memory', 'Memory'], ['npc', 'NPC'],
+    ['threads', 'Threads'], ['group-presets', '群聊预设'], ['spy-phone', '查手机'], ['notes', 'Notes'], ['calendar', 'Calendar'],
+    ['studio', 'Studio'], ['settings', '设置'],
+  ] as const;
 
   useEffect(() => {
     const sync = () => {
@@ -49,6 +57,7 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
   const update = <K extends keyof AppearanceScheme>(key: K, value: AppearanceScheme[K]) => {
     const next = saveAppearance({ [key]: value });
     setAppearance(next);
+    setAppBeauty(next.appBeauty || {});
   };
 
   const updateWidget = (key: keyof AppearanceScheme['widget'], value: string | number) => {
@@ -111,6 +120,7 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
     ['home', '文字', Type],
     ['widgets', '小组件', Wand2],
     ['icons', '图标', Sparkles],
+    ['apps', '应用美化', Wand2],
     ['schemes', '方案', Copy],
   ] as const, []);
 
@@ -127,7 +137,7 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
           </div>
           <div className="text-[8px] font-mono text-[#8b8782]">CUSTOM</div>
         </div>
-        <div className="grid grid-cols-4 gap-1 mt-3">
+        <div className="grid grid-cols-3 gap-1 mt-3">
           {navItems.map(([id, label, Icon]) => (
             <button key={id} onClick={() => setSection(id)} className={section === id ? 'py-2 rounded-xl bg-[#292724] text-white text-[8px]' : 'py-2 rounded-xl text-[#777069] text-[8px] bg-white/40'}>
               <Icon className="w-3.5 h-3.5 mx-auto mb-0.5" />
@@ -212,6 +222,20 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
                 填图片 URL 即可替换对应图标；留空恢复原来的内置线稿。默认图标和已经确认好的首页布局不会改变。
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => {
+                const blob = new Blob([JSON.stringify(readAppearance(), null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='sane333-appearance.json'; a.click(); URL.revokeObjectURL(url); notify('整套外观已导出');
+              }} className="py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">导出整套外观</button>
+              <label className="py-2.5 rounded-xl bg-white border border-black/5 text-[9px] text-center cursor-pointer">导入整套外观
+                <input type="file" accept=".json,application/json" className="hidden" onChange={async e => {
+                  const file=e.target.files?.[0]; if(!file) return;
+                  try { const parsed=JSON.parse(await file.text()); const next=saveAppearance(parsed); setAppearance(next); setAppBeauty(next.appBeauty||{}); onSelectTheme(next.themeMode); notify('整套外观已导入'); }
+                  catch { notify('外观文件格式不正确'); }
+                  e.currentTarget.value='';
+                }} />
+              </label>
+            </div>
             <div className="space-y-1.5">
               {iconItems.map(([key, label]) => (
                 <div key={key} className="p-2.5 rounded-2xl bg-white/65 border border-black/5 flex items-center gap-2">
@@ -240,6 +264,45 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
                 </div>
               ))}
             </div>
+          </>
+        )}
+
+        {section === 'apps' && (
+          <>
+            <div className="p-3 rounded-2xl bg-[#ebe6de] border border-black/5">
+              <div className="text-[9px] font-mono tracking-[1.5px] text-[#8b8782]">APP BEAUTY · SELECT ANY APP</div>
+              <div className="mt-1 text-[12px] font-semibold">选择任意应用，单独保存它的美化</div>
+              <div className="mt-1 text-[9px] text-[#777069] leading-relaxed">每个应用都有自己的背景、强调色、圆角和文字比例。保存外观方案时，这些设置也会一起保存。</div>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {appItems.map(([id, label]) => (
+                <button key={id} onClick={() => setSelectedApp(id)} className={selectedApp === id ? 'p-2.5 rounded-xl bg-[#292724] text-white text-left text-[9px]' : 'p-2.5 rounded-xl bg-white/65 border border-black/5 text-left text-[9px] text-[#555]'}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {(() => {
+              const current = appBeauty[selectedApp] || { background: '', accent: '#292724', radius: 18, fontScale: 1 };
+              const updateAppBeauty = (patch: Partial<typeof current>) => {
+                const next = { ...appBeauty, [selectedApp]: { ...current, ...patch } };
+                setAppBeauty(next);
+                update('appBeauty', next);
+              };
+              return <div className="p-3 rounded-2xl bg-white/65 border border-black/5 space-y-3">
+                <div className="flex items-center justify-between"><div><div className="text-[11px] font-semibold">{appItems.find(x => x[0] === selectedApp)?.[1]}</div><div className="text-[8px] text-[#8b8782] mt-1">只影响这个应用的视觉层</div></div><div className="w-9 h-9 rounded-xl" style={{ background: current.accent }} /></div>
+                <label className="block p-3 rounded-xl border border-dashed border-[#ddd] text-[9px] cursor-pointer">
+                  <div className="font-medium">上传应用背景</div><div className="text-[#aaa] mt-1">图片会保存到这个应用的专属美化设置</div>
+                  <input type="file" accept="image/*" className="hidden" onChange={e => {
+                    const file=e.target.files?.[0]; if(!file) return;
+                    const reader=new FileReader(); reader.onload=()=>updateAppBeauty({background:String(reader.result||'')}); reader.readAsDataURL(file);
+                  }} />
+                </label>
+                <div><div className="text-[8px] text-[#999] mb-1.5">强调色</div><div className="flex gap-2">{['#292724','#ae7e89','#71849b','#7d8b72','#9b7d62','#5e6b63'].map(color=><button key={color} onClick={()=>updateAppBeauty({accent:color})} className="w-8 h-8 rounded-full border-2 border-white shadow" style={{background:color}} />)}</div></div>
+                <div><div className="flex justify-between text-[8px] text-[#999]"><span>圆角</span><span>{current.radius}px</span></div><input type="range" min="0" max="32" value={current.radius} onChange={e=>updateAppBeauty({radius:Number(e.target.value)})} className="w-full" /></div>
+                <div><div className="flex justify-between text-[8px] text-[#999]"><span>文字比例</span><span>{current.fontScale.toFixed(2)}×</span></div><input type="range" min=".9" max="1.15" step=".05" value={current.fontScale} onChange={e=>updateAppBeauty({fontScale:Number(e.target.value)})} className="w-full" /></div>
+                <button onClick={()=>{ const next={...appBeauty}; delete next[selectedApp]; setAppBeauty(next); update('appBeauty',next); notify('该应用美化已恢复默认'); }} className="w-full py-2.5 rounded-xl bg-[#f5f5f5] text-[#777] text-xs">恢复这个应用默认</button>
+              </div>;
+            })()}
           </>
         )}
 
