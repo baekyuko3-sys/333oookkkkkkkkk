@@ -1666,6 +1666,41 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               )}
 
               {character && (
+                <div className="rounded-2xl bg-[#f7f7f8] p-3.5 space-y-3">
+                  <div className="text-[10px] text-[#888]">你们的关系</div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      ['new-friend', '新朋友'],
+                      ['old-friend', '老朋友'],
+                      ['readded', '重新加回'],
+                    ].map(([id, label]) => (
+                      <button key={id} type="button" onClick={() => setNewChatRelationship(id as any)}
+                        className={`py-2 rounded-xl border text-[10px] ${newChatRelationship === id ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white border-[#e3e3e4] text-[#666]'}`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {newChatRelationship === 'readded' && (
+                    <div>
+                      <div className="text-[9px] text-[#aaa] mb-1">重新联系的原因</div>
+                      <select value={readdedReason} onChange={e => setReaddedReason(e.target.value as any)}
+                        className="w-full p-2 rounded-xl bg-white border border-[#e8e8e9] outline-none text-[10px] text-[#666]">
+                        <option value="deleted">之前删除过</option>
+                        <option value="blocked">之前拉黑过</option>
+                        <option value="mutual-delete">之前互相删除</option>
+                      </select>
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-[9px] text-[#aaa] mb-1">关系背景 / 相识经过</div>
+                    <textarea value={relationshipContext} onChange={e => setRelationshipContext(e.target.value)}
+                      placeholder="例如：我们认识很多年了，最近重新联系。"
+                      className="w-full h-16 p-2.5 rounded-xl bg-white border border-[#e8e8e9] outline-none resize-none text-[10px] text-[#555]" />
+                  </div>
+                </div>
+              )}
+
+              {character && (
                 <button onClick={() => {
                   const relationship = newChatRelationship;
                   const context = relationshipContext.trim();
