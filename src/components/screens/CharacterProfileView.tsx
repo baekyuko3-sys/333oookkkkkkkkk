@@ -244,14 +244,9 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
 
   const openDeleteDialog = () => {
     if (!selected) return;
-    const embeddedWorldBooks = selected.embeddedWorldBooks?.length
-      ? selected.embeddedWorldBooks
-      : (selected.embeddedWorldBook ? [selected.embeddedWorldBook] : []);
     setDeleteWorldBooks(false);
     setDeleteChatHistory(false);
     setDeleteDialogOpen(true);
-    // Keep the first render deterministic even when the card has no embedded books.
-    void embeddedWorldBooks;
   };
 
   const confirmDelete = () => {
