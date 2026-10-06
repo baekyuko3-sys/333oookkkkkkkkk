@@ -490,7 +490,7 @@ function isLocalAiBaseUrl(baseUrl: string): boolean {
   }
 }
 
-async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 10000): Promise<Response> {
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 60000): Promise<Response> {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -732,7 +732,7 @@ export async function listOpenAiCompatibleModels(
         Accept: 'application/json',
         Authorization: 'Bearer ' + settings.apiKey.trim(),
       },
-    }, 8000);
+    }, 15000);
   } catch (error) {
     directError = error;
   }
