@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, BookOpen, Download, Plus, Trash2, ToggleLeft, ToggleRight, Settings2, ChevronDown, ChevronUp } from 'lucide-react';
 import { ScreenType, WorldBook, WorldBookEntry } from '../../types';
 import { usePersistentState } from '../../store/usePersistentState';
@@ -54,6 +54,19 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
 
   const book = books.find(item => item.id === selectedBookId) || books[0] || null;
   const selectedEntry = book?.entries.find(item => item.id === selectedEntryId) || book?.entries[0] || null;
+
+  useEffect(() => {
+    if (!books.length) {
+      setSelectedBookId('');
+      setSelectedEntryId('');
+      return;
+    }
+    const activeBook = books.find(item => item.id === selectedBookId) || books[0];
+    if (activeBook.id !== selectedBookId) setSelectedBookId(activeBook.id);
+    const activeEntry = activeBook.entries.find(item => item.id === selectedEntryId) || activeBook.entries[0];
+    const nextEntryId = activeEntry?.id || '';
+    if (nextEntryId !== selectedEntryId) setSelectedEntryId(nextEntryId);
+  }, [books, selectedBookId, selectedEntryId]);
 
   const filteredEntries = useMemo(() => {
     if (!book) return [];
@@ -176,7 +189,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
         </button>
       </header>
 
-      <div className="relative z-10 flex-1 overflow-hidden grid grid-rows-[auto_1fr]">
+      <div className="relative z-10 flex-1 min-h-0 overflow-hidden grid grid-rows-[auto_auto_minmax(0,1fr)]">
         <div className="px-4 pt-3 pb-2">
           <div className="flex items-center justify-between mb-2">
             <div>
@@ -312,8 +325,11 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
             <input ref={importRef} type="file" accept=".json,.yaml,.yml" className="hidden" onChange={e => importBook(e.target.files?.[0])} />
           </div>
 
-          <div className="min-h-0 grid grid-cols-[112px_1fr] gap-2">
-            <div className="min-h-0 overflow-y-auto no-scrollbar space-y-1.5">
+          <div className="min-h-0 grid grid-cols-[116px_minmax(0,1fr)] gap-2">
+            <div className="min-h-0 overflow-y-auto no-scrollbar space-y-1.5 pr-0.5">
+              <div className="sticky top-0 z-10 px-2 py-1.5 rounded-xl bg-[#f7f4ee]/95 backdrop-blur text-[8px] font-mono tracking-[1.2px] text-[#8b847d] border border-[rgba(40,36,31,.08)]">
+                条目 · {filteredEntries.length}
+              </div>
               {filteredEntries.map(entry => (
                 <button
                   key={entry.id}
@@ -328,6 +344,11 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
                   <div className="mt-1 text-[8px] font-mono opacity-70">{entry.priority} · {entry.keywords.length} key</div>
                 </button>
               ))}
+              {filteredEntries.length === 0 && (
+                <div className="px-2 py-4 text-center text-[8px] leading-relaxed text-[#9a9289]">
+                  {book ? (book.entries.length ? '没有匹配的条目' : '这本世界书还没有条目') : '请先创建或导入一本世界书'}
+                </div>
+              )}
               <button onClick={addEntry} className="w-full p-2.5 rounded-xl border border-dashed border-[#8b7560]/40 text-[10px] text-[#8b7560]">
                 ＋ 新条目
               </button>
@@ -336,6 +357,16 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
             <div className="min-h-0 overflow-y-auto no-scrollbar">
               {selectedEntry ? (
                 <div className="rounded-2xl bg-[#ebe7df] border border-[rgba(40,36,31,.12)] p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2 pb-1">
+                    <div className="min-w-0">
+                      <div className="text-[8px] font-mono tracking-[1.2px] text-[#8b8782]">WORLD BOOK ENTRY</div>
+                      <div className="mt-0.5 text-[9px] text-[#6d665f] truncate">{book?.name || '世界书'} · {selectedEntry.enabled ? '已启用' : '已停用'}</div>
+                    </div>
+                    <button
+                      onClick={() => patchEntry({ enabled: !selectedEntry.enabled })}
+                      className={'shrink-0 px-2 py-1 rounded-full text-[8px] border ' + (selectedEntry.enabled ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/60 text-[#777] border-[#d8d1c8]')}
+                    >{selectedEntry.enabled ? '启用中' : '已停用'}</button>
+                  </div>
                   <input
                     value={selectedEntry.name}
                     onChange={e => patchEntry({ name: e.target.value })}
