@@ -919,7 +919,12 @@ export function LineConversationView({
           temperature: Number(presetTemp) || 0.85,
           onDelta: delta => {
             streamedText += delta;
-            setMessages(prev => prev.map(m => m.id === replyMsgId ? { ...m, text: streamedText, senderName: character.name } : m));
+            const clean = streamedText.trim();
+            if (!clean) return;
+            setMessages(prev => {
+              if (prev.some(m => m.id === replyMsgId)) return prev.map(m => m.id === replyMsgId ? { ...m, text: clean, senderName: character.name } : m);
+              return [...prev, { id: replyMsgId, sender: 'other', senderName: character.name, text: clean, time: '刚刚', type: 'ai-reply', showThinking: false }];
+            });
           },
         });
         const groupReplyText = String(result?.text || streamedText || '').trim();
@@ -942,7 +947,11 @@ export function LineConversationView({
       } catch (error) {
         const message = error instanceof Error ? error.message : '群聊 AI 请求失败';
         // Keep the error path as normal source lines; never embed literal escape text here.
-        setMessages(prev => prev.map(m => m.type === 'ai-reply' && m.sender === 'other' && !String(m.text || '').trim() ? { ...m, status: 'failed', error: message, text: `回复失败：${message}` } : m));
+        setMessages(prev => {
+          const hasEmpty = prev.some(m => m.type === 'ai-reply' && m.sender === 'other' && !String(m.text || '').trim());
+          if (hasEmpty) return prev.map(m => m.type === 'ai-reply' && m.sender === 'other' && !String(m.text || '').trim() ? { ...m, status: 'failed', error: message, text: `回复失败：${message}` } : m);
+          return [...prev, { id: Date.now() + 2, sender: 'other', senderName: 'AI', text: `回复失败：${message}`, time: '刚刚', type: 'ai-reply', status: 'failed', error: message }];
+        });
         showToast(message.length > 72 ? message.slice(0, 72) + '…' : message);
       } finally {
         setIsTyping(false);
@@ -1607,15 +1616,7 @@ export function LineConversationView({
     const settings = conversationAiSettings();
 
     setIsTyping(true);
-    setMessages(prev => [...prev, {
-      id: continuationId,
-      sender: 'other',
-      type: 'ai-reply',
-      text: '',
-      time: '刚刚',
-      status: 'sending',
-      showThinking: false,
-    }]);
+    // 不预创建空白 AI 气泡；收到真实文本后才创建。
 
     let streamedText = '';
     try {
@@ -1640,20 +1641,21 @@ export function LineConversationView({
         temperature: Number(presetTemp) || 0.85,
         onDelta: delta => {
           streamedText += delta;
-          setMessages(prev => prev.map(m =>
-            m.id === continuationId
-              ? { ...m, text: streamedText, status: 'sending' }
-              : m
-          ));
+          const clean = streamedText.trim();
+          if (!clean) return;
+          setMessages(prev => {
+            if (prev.some(m => m.id === continuationId)) return prev.map(m => m.id === continuationId ? { ...m, text: clean, status: 'sending' } : m);
+            return [...prev, { id: continuationId, sender: 'other', type: 'ai-reply', text: clean, time: '刚刚', status: 'sending', showThinking: false }];
+          });
         },
       });
 
-      const finalText = result.text || streamedText;
-      setMessages(prev => prev.map(m =>
-        m.id === continuationId
-          ? { ...m, text: finalText, status: 'delivered', aiModel: result.model }
-          : m
-      ));
+      const finalText = String(result.text || streamedText || '').trim();
+      if (!finalText) throw new Error('角色没有返回任何内容，请检查 API、模型或网络连接。');
+      setMessages(prev => {
+        if (prev.some(m => m.id === continuationId)) return prev.map(m => m.id === continuationId ? { ...m, text: finalText, status: 'delivered', aiModel: result.model } : m);
+        return [...prev, { id: continuationId, sender: 'other', type: 'ai-reply', text: finalText, time: '刚刚', status: 'delivered', aiModel: result.model }];
+      });
       appendLineMessage(conversationStorageId, {
         id: continuationId,
         sender: 'other',
@@ -1664,11 +1666,10 @@ export function LineConversationView({
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : '继续生成失败';
-      setMessages(prev => prev.map(m =>
-        m.id === continuationId
-          ? { ...m, status: 'failed', error: message, text: streamedText }
-          : m
-      ));
+      setMessages(prev => {
+        if (prev.some(m => m.id === continuationId)) return prev.map(m => m.id === continuationId ? { ...m, status: 'failed', error: message, text: `回复失败：${message}` } : m);
+        return [...prev, { id: continuationId, sender: 'other', type: 'ai-reply', text: `回复失败：${message}`, time: '刚刚', status: 'failed', error: message }];
+      });
       markLineMessageFailed(conversationStorageId, continuationId, message);
       showToast(message.length > 72 ? message.slice(0, 72) + '…' : message);
     } finally {
@@ -1845,14 +1846,7 @@ export function LineConversationView({
 
           setIsTyping(true);
           const replyMsgId = Date.now() + 1;
-          setMessages(prev => [...prev, {
-            id: replyMsgId,
-            sender: 'other',
-            type: 'ai-reply',
-            text: '',
-            time: '刚刚',
-            showThinking: false,
-          }]);
+          // 图片理解不预创建空白 AI 气泡。
 
           let streamed = '';
           try {
@@ -2934,7 +2928,7 @@ export function LineConversationView({
                 <span className="text-[10px] text-[#999]">{characterProfile.nickname.slice(0, 1)}</span>
               )}
             </div>
-            <div className="rounded-[18px] bg-[#f5f5f6] px-3.5 py-2.5 flex items-center gap-1 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+            <div className="px-1 py-1 flex items-center gap-1">
               {[0, 1, 2].map((dot) => (
                 <span key={dot} className="w-1.5 h-1.5 rounded-full bg-[#b8b8bb] animate-bounce" style={{ animationDelay: `${dot * 140}ms`, animationDuration: '900ms' }} />
               ))}
