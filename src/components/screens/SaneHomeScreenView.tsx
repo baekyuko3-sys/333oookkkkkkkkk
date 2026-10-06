@@ -107,6 +107,16 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   }, []);
 
   useEffect(() => {
+    const openDesktopEditor = (event: Event) => {
+      const page = (event as CustomEvent<{ page?: 1 | 2 }>).detail?.page;
+      if (page === 1 || page === 2) setCurrentPage(page);
+      setDesktopEditing(true);
+    };
+    window.addEventListener('sane333:open-desktop-editor', openDesktopEditor);
+    return () => window.removeEventListener('sane333:open-desktop-editor', openDesktopEditor);
+  }, []);
+
+  useEffect(() => {
     const syncAppearance = () => {
       const next = readAppearance();
       setAppearance(next);
