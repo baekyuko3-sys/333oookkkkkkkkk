@@ -258,9 +258,9 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
   const handleImport = async (file?: File) => {
     if (!file) return;
     try {
-      const normalizedParsed = await parseCharacterFile(file);
+      const parsed = await parseCharacterFile(file);
       const normalizedParsed = {
-        ...normalizedParsed,
+        ...parsed,
         avatar: await compressCharacterAvatar(normalizedParsed.avatar || ''),
       };
       setCharacters(prev => {
