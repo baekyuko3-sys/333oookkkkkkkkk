@@ -65,6 +65,7 @@ interface LineConversationViewProps {
   isGroup?: boolean;
   isPinned?: boolean;
   isMuted?: boolean;
+  relationshipContext?: string;
   onTogglePin?: () => void;
   onToggleMute?: () => void;
   onConversationActivity?: (activity: { preview: string; time: string }) => void;
@@ -81,6 +82,7 @@ export function LineConversationView({
   isGroup = false,
   isPinned = false,
   isMuted = false,
+  relationshipContext = '',
   onTogglePin,
   onToggleMute,
   onConversationActivity,
@@ -929,7 +931,7 @@ export function LineConversationView({
         messages: [...messages, newMsg],
         userMessage: userText,
         isGroup,
-        authorNote: authorsNote,
+        authorNote: [authorsNote, relationshipContext.trim() ? '【你们过去的关系背景】\n' + relationshipContext.trim() : ''].filter(Boolean).join('\n'),
         stylePreset: activeCotPreset?.title || selectedPreset,
         temperature: Number(presetTemp) || 0.85,
         onDelta: (delta) => {
