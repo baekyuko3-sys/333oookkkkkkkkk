@@ -685,7 +685,7 @@ export async function generateCreativeText(input: CreativeTextInput): Promise<st
           { role: 'user', content: input.userPrompt },
         ],
       }),
-    });
+    }, input.timeoutMs ?? 30000);
     if (!response.ok) throw new Error('AI_OPENAI_' + response.status + ': ' + await readError(response));
     if (input.settings.streaming) return parseSseResponse(response, extractOpenAiText, input.onDelta);
     const data = await response.json();
