@@ -793,6 +793,10 @@ export async function listOpenAiCompatibleModels(
     }
   }
 
+  if (!response) {
+    throw new Error('AI_MODELS_NETWORK: ' + (directError instanceof Error ? directError.message : '无法连接模型接口'));
+  }
+
   if (!response.ok) {
     throw new Error('AI_MODELS_' + response.status + ': ' + await readError(response));
   }
