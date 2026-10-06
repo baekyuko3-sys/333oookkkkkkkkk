@@ -848,6 +848,7 @@ export function LineConversationView({
       sender: 'me',
       senderName: currentUserNameFallback() || activePersona?.name || '我',
       text: userText,
+      content: userText,
       time: '刚刚',
       isRead: false,
     };
@@ -916,10 +917,12 @@ export function LineConversationView({
             setMessages(prev => prev.map(m => m.id === replyMsgId ? { ...m, text: streamedText, senderName: character.name } : m));
           },
         });
-        setMessages(prev => prev.map(m => m.id === replyMsgId ? { ...m, text: result.text, senderName: character.name, aiModel: result.model, matchedWorldbookEntries: result.matchedWorldbookEntries } : m));
+        const groupReplyText = String(result?.text || streamedText || '').trim();
+        if (!groupReplyText) throw new Error(`${character.name} 没有返回任何内容，请检查 API、模型或网络连接。`);
+        setMessages(prev => prev.map(m => m.id === replyMsgId ? { ...m, text: groupReplyText, senderName: character.name, aiModel: result.model, matchedWorldbookEntries: result.matchedWorldbookEntries, status: 'delivered' } : m));
         // 角色真正回复后，用户刚才的消息才变成已读。
         setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isRead: true } : m));
-        workingMessages = [...workingMessages, { id: replyMsgId, sender: 'other', senderName: character.name, text: result.text }];
+        workingMessages = [...workingMessages, { id: replyMsgId, sender: 'other', senderName: character.name, text: String(result?.text || '').trim() }];
         const member = responders[index].member;
         updateLineGroupMember(activeGroup?.id || '', member.id, {
           online: true,
@@ -934,6 +937,7 @@ export function LineConversationView({
       } catch (error) {
         const message = error instanceof Error ? error.message : '群聊 AI 请求失败';
         // Keep the error path as normal source lines; never embed literal escape text here.
+        setMessages(prev => prev.map(m => m.type === 'ai-reply' && m.sender === 'other' && !String(m.text || '').trim() ? { ...m, status: 'failed', error: message, text: `回复失败：${message}` } : m));
         showToast(message.length > 72 ? message.slice(0, 72) + '…' : message);
       } finally {
         setIsTyping(false);
@@ -987,13 +991,18 @@ export function LineConversationView({
         },
       });
 
+      const finalReplyText = String(result?.text || streamedText || '').trim();
+      if (!finalReplyText) {
+        throw new Error('AI 没有返回任何内容，请检查 API、模型或网络连接。');
+      }
+
       // 非流式供应商或异常情况下，确保最终正文完整写入。
       setMessages((prev) =>
         prev.map((m) =>
           m.id === replyMsgId
             ? {
                 ...m,
-                text: result.text,
+                text: finalReplyText,
                 time: '刚刚',
                 type: 'ai-reply',
                 status: 'delivered',
@@ -1077,7 +1086,7 @@ export function LineConversationView({
       const message = error instanceof Error ? error.message : 'AI 请求失败';
       setMessages((prev) => prev.map(m =>
         m.id === replyMsgId
-          ? { ...m, status: 'failed', error: message, text: m.text || '发送失败，可重试' }
+          ? { ...m, status: 'failed', error: message, text: m.text || `发送失败：${message}` }
           : m
       ));
       markLineMessageFailed(conversationStorageId, replyMsgId, message);
