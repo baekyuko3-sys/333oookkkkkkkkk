@@ -8,7 +8,7 @@ export type MemeAction =
   | { type: 'inspect'; path?: string }
   | { type: 'search'; query: string }
   | { type: 'read'; path: string }
-  | { type: 'propose'; operation: 'create' | 'update' | 'delete'; path: string; content?: string; reason?: string }
+  | { type: 'propose'; operation: 'create' | 'update' | 'delete'; path: string; content?: string; reason?: string; risk?: 'low' | 'medium' | 'high' }
   | { type: 'message'; text: string }
   | { type: 'done'; text: string };
 
@@ -207,7 +207,7 @@ ${toolEvidence.slice(-30000)}
 export async function runMemeAgent(options: AgentOptions, userRequest: string, validationContext = '') {
   const maxRounds = options.maxRounds ?? 12;
   const maxValidationRounds = options.maxValidationRounds ?? 2;
-  const history: any[] = [
+  const history: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     { role: 'system', content: system(options.project, options.codingMode) },
     ...(options.conversation || []).map(message => ({ role: message.role, content: message.content })),
     { role: 'user', content: userRequest },
