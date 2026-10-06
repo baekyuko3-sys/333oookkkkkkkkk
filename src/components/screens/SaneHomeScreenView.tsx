@@ -24,62 +24,40 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   const [worldUnread, setWorldUnread] = useState(0);
 
   type DesktopItem = { id: string; x: number; y: number };
-
-  const PAGE2_LAYOUT_KEY = 'sane333:home-page2-layout';
-  const defaultPage2Layout: DesktopItem[] = [
-    { id: 'widget-threads', x: 20, y: 300 },
-    { id: 'app-threads', x: 22, y: 515 },
-    { id: 'app-npc', x: 104, y: 515 },
-    { id: 'app-group-presets', x: 186, y: 515 },
-    { id: 'app-spy-phone', x: 268, y: 515 },
-    { id: 'app-memory', x: 104, y: 590 },
-    { id: 'app-studio', x: 186, y: 590 },
+  const defaultPage1Layout: DesktopItem[] = [
+    { id: 'widget-date', x: 26, y: 148 }, { id: 'widget-photo', x: 326, y: 181 },
+    { id: 'widget-weather', x: 20, y: 306 }, { id: 'widget-note', x: 188, y: 306 }, { id: 'widget-music', x: 20, y: 424 },
+    { id: 'app-line', x: 20, y: 565 }, { id: 'app-moments', x: 102, y: 565 }, { id: 'app-music', x: 184, y: 565 }, { id: 'app-offline-story', x: 266, y: 565 },
   ];
-
-  const readPage2Layout = (): DesktopItem[] => {
-    try {
-      const raw = window.localStorage.getItem(PAGE2_LAYOUT_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      if (!Array.isArray(parsed)) return defaultPage2Layout;
-      return defaultPage2Layout.map(item => {
-        const saved = parsed.find((entry: DesktopItem) => entry?.id === item.id);
-        return saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)
-          ? { ...item, x: saved.x, y: saved.y }
-          : item;
-      });
-    } catch {
-      return defaultPage2Layout;
-    }
+  const defaultPage2Layout: DesktopItem[] = [
+    { id: 'widget-threads', x: 20, y: 300 }, { id: 'app-threads', x: 22, y: 515 }, { id: 'app-npc', x: 104, y: 515 },
+    { id: 'app-group-presets', x: 186, y: 515 }, { id: 'app-spy-phone', x: 268, y: 515 }, { id: 'app-memory', x: 104, y: 590 }, { id: 'app-studio', x: 186, y: 590 },
+  ];
+  const [desktopLayouts, setDesktopLayouts] = useState(() => readAppearance().desktopLayouts || { page1: {}, page2: {} });
+  const [desktopEditing, setDesktopEditing] = useState(false);
+  const [draggingDesktopItem, setDraggingDesktopItem] = useState<string | null>(null);
+  const getDefaultLayout = (page: 1 | 2) => page === 1 ? defaultPage1Layout : defaultPage2Layout;
+  const getLayout = (page: 1 | 2): DesktopItem[] => getDefaultLayout(page).map(item => ({ ...item, ...(desktopLayouts[page === 1 ? 'page1' : 'page2'][item.id] || {}) }));
+  const saveDesktopLayout = (page: 1 | 2, next: DesktopItem[]) => {
+    const key = page === 1 ? 'page1' : 'page2';
+    const saved = Object.fromEntries(next.map(item => [item.id, { x: item.x, y: item.y }]));
+    const nextLayouts = { ...desktopLayouts, [key]: saved };
+    setDesktopLayouts(nextLayouts);
+    saveAppearance({ desktopLayouts: nextLayouts });
   };
-
-  const [page2Layout, setPage2Layout] = useState<DesktopItem[]>(() => readPage2Layout());
-  const [page2Editing, setPage2Editing] = useState(false);
-  const [draggingPage2Item, setDraggingPage2Item] = useState<string | null>(null);
-
-  const savePage2Layout = (next: DesktopItem[]) => {
-    setPage2Layout(next);
-    window.localStorage.setItem(PAGE2_LAYOUT_KEY, JSON.stringify(next));
-  };
-
-  const movePage2Item = (id: string, clientX: number, clientY: number) => {
+  const moveDesktopItem = (page: 1 | 2, id: string, clientX: number, clientY: number) => {
     const phone = document.querySelector('[data-sane333-phone]') as HTMLElement | null;
     if (!phone) return;
     const rect = phone.getBoundingClientRect();
     const isApp = id.startsWith('app-');
-    const width = isApp ? 60 : 320;
-    const height = isApp ? 72 : 96;
+    const width = isApp ? 60 : id === 'widget-photo' ? 84 : id === 'widget-music' || id === 'widget-threads' ? 320 : 155;
+    const height = isApp ? 72 : id === 'widget-date' ? 105 : id === 'widget-photo' ? 106 : id === 'widget-music' || id === 'widget-threads' ? 96 : 105;
     const x = Math.max(12, Math.min(rect.width - width - 12, clientX - rect.left - width / 2));
-    const y = Math.max(80, Math.min(rect.height - 155 - height, clientY - rect.top - height / 2));
-    const snap = isApp ? 2 : 4;
-    savePage2Layout(page2Layout.map(item => item.id === id
-      ? { ...item, x: Math.round(x / snap) * snap, y: Math.round(y / snap) * snap }
-      : item));
+    const y = Math.max(120, Math.min(rect.height - 155 - height, clientY - rect.top - height / 2));
+    saveDesktopLayout(page, getLayout(page).map(item => item.id === id ? { ...item, x: Math.round(x / 2) * 2, y: Math.round(y / 2) * 2 } : item));
   };
-
-  const page2Item = (id: string) =>
-    page2Layout.find(item => item.id === id) || defaultPage2Layout.find(item => item.id === id)!;
-
-  const resetPage2Layout = () => savePage2Layout(defaultPage2Layout);
+  const itemPosition = (page: 1 | 2, id: string) => getLayout(page).find(item => item.id === id) || getDefaultLayout(page).find(item => item.id === id)!;
+  const resetDesktopLayout = (page: 1 | 2) => saveDesktopLayout(page, getDefaultLayout(page));
 
   useEffect(() => {
     const updateTime = () => {
@@ -118,6 +96,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
       const next = readAppearance();
       setAppearance(next);
       setCurrentGreeting(next.greeting);
+      setDesktopLayouts(next.desktopLayouts || { page1: {}, page2: {} });
     };
     window.addEventListener('sane333:appearance-changed', syncAppearance);
     return () => window.removeEventListener('sane333:appearance-changed', syncAppearance);
