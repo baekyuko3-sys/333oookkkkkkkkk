@@ -258,29 +258,29 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
   const handleImport = async (file?: File) => {
     if (!file) return;
     try {
-      const parsed = await parseCharacterFile(file);
+      const normalizedParsed = await parseCharacterFile(file);
       const normalizedParsed = {
-        ...parsed,
-        avatar: await compressCharacterAvatar(parsed.avatar || ''),
+        ...normalizedParsed,
+        avatar: await compressCharacterAvatar(normalizedParsed.avatar || ''),
       };
       setCharacters(prev => {
-        const existing = prev.findIndex(item => item.id === parsed.id);
-        const groupId = parsed.groupId || (selectedGroupId !== 'all' ? selectedGroupId : null);
-        const nextCharacter = { ...parsed, groupId };
+        const existing = prev.findIndex(item => item.id === normalizedParsed.id);
+        const groupId = normalizedParsed.groupId || (selectedGroupId !== 'all' ? selectedGroupId : null);
+        const nextCharacter = { ...normalizedParsed, groupId };
         if (existing >= 0) {
           const old = prev[existing];
-          return prev.map(item => item.id === parsed.id ? { ...nextCharacter, groupId: groupId || old.groupId || null } : item);
+          return prev.map(item => item.id === normalizedParsed.id ? { ...nextCharacter, groupId: groupId || old.groupId || null } : item);
         }
         return [nextCharacter, ...prev];
       });
-      const embeddedWorldBooks = parsed.embeddedWorldBooks?.length
-        ? parsed.embeddedWorldBooks
-        : (parsed.embeddedWorldBook ? [parsed.embeddedWorldBook] : []);
+      const embeddedWorldBooks = normalizedParsed.embeddedWorldBooks?.length
+        ? normalizedParsed.embeddedWorldBooks
+        : (normalizedParsed.embeddedWorldBook ? [normalizedParsed.embeddedWorldBook] : []);
       if (embeddedWorldBooks.length) {
         const importedBooks = embeddedWorldBooks.map(book => ({
           ...book,
-          sourceCharacterId: parsed.id,
-          sourceCharacterName: parsed.name,
+          sourceCharacterId: normalizedParsed.id,
+          sourceCharacterName: normalizedParsed.name,
           sourceType: 'character-card' as const,
         }));
         setWorldBooks(prev => [
@@ -288,28 +288,28 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
           ...prev.filter(book => !embeddedWorldBooks.some(imported => imported.id === book.id)),
         ]);
         setCharacters(prev => prev.map(item =>
-          item.id === parsed.id
+          item.id === normalizedParsed.id
             ? { ...item, worldBookIds: Array.from(new Set([...(item.worldBookIds || []), ...importedBooks.map(book => book.id)])) }
             : item
         ));
       }
-      setSelectedId(parsed.id);
+      setSelectedId(normalizedParsed.id);
       setIsEditing(false);
       setImportConfirmation({
-        name: parsed.name,
-        avatar: parsed.avatar || '',
-        sourceFormat: parsed.sourceFormat.toUpperCase(),
-        creator: parsed.creator || '未填写',
-        version: parsed.variantLabel || parsed.characterVersion || '未填写',
-        firstMessage: parsed.firstMessage || '',
-        alternateGreetings: parsed.alternateGreetings || [],
+        name: normalizedParsed.name,
+        avatar: normalizedParsed.avatar || '',
+        sourceFormat: normalizedParsed.sourceFormat.toUpperCase(),
+        creator: normalizedParsed.creator || '未填写',
+        version: normalizedParsed.variantLabel || normalizedParsed.characterVersion || '未填写',
+        firstMessage: normalizedParsed.firstMessage || '',
+        alternateGreetings: normalizedParsed.alternateGreetings || [],
         worldBookCount: embeddedWorldBooks.length,
-        description: parsed.description || '',
+        description: normalizedParsed.description || '',
       });
       showNotice(
         embeddedWorldBooks.length
-          ? `已导入「${parsed.name}」 · 同步导入 ${embeddedWorldBooks.length} 本世界书`
-          : `已导入「${parsed.name}」 · ${parsed.sourceFormat.toUpperCase()}`,
+          ? `已导入「${normalizedParsed.name}」 · 同步导入 ${embeddedWorldBooks.length} 本世界书`
+          : `已导入「${normalizedParsed.name}」 · ${normalizedParsed.sourceFormat.toUpperCase()}`,
       );
     } catch (error) {
       showNotice(error instanceof Error ? error.message : '角色卡解析失败');
