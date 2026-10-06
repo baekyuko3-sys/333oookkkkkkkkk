@@ -27,6 +27,7 @@ export interface ImportedCharacter {
   extensions?: Record<string, unknown>;
   languageProfile?: import('../types').CharacterLanguageProfile;
   embeddedWorldBook?: WorldBook;
+  embeddedWorldBooks?: WorldBook[];
   groupId?: string | null;
   sourceFormat: 'json' | 'yaml' | 'png' | 'manual';
   importedAt: string;
@@ -45,6 +46,31 @@ function getCardPayload(raw: any): any {
   if (raw?.data && typeof raw.data === 'object') return raw.data;
   if (raw?.character && typeof raw.character === 'object') return raw.character;
   return raw || {};
+}
+
+function extractEmbeddedWorldBooks(data: any): WorldBook[] {
+  const candidates: any[] = [];
+  if (data?.character_book && typeof data.character_book === 'object') candidates.push(data.character_book);
+  const extensions = data?.extensions && typeof data.extensions === 'object' ? data.extensions : {};
+  if (extensions?.character_book && typeof extensions.character_book === 'object') candidates.push(extensions.character_book);
+  if (Array.isArray(extensions?.character_books)) candidates.push(...extensions.character_books.filter((book: unknown) => book && typeof book === 'object'));
+
+  const books: WorldBook[] = [];
+  const seen = new Set<string>();
+  for (const candidate of candidates) {
+    try {
+      const imported = importWorldBooks(JSON.stringify(candidate));
+      for (const book of imported) {
+        const fingerprint = JSON.stringify({ name: book.name, entries: book.entries });
+        if (seen.has(fingerprint)) continue;
+        seen.add(fingerprint);
+        books.push(book);
+      }
+    } catch {
+      // Ignore malformed optional lorebook blocks while preserving the character card.
+    }
+  }
+  return books;
 }
 
 function normalizeCharacter(raw: any, sourceFormat: ImportedCharacter['sourceFormat']): ImportedCharacter {
@@ -78,9 +104,8 @@ function normalizeCharacter(raw: any, sourceFormat: ImportedCharacter['sourceFor
       cleanString(data.character_version) || cleanString(data.characterVersion),
     extensions: data.extensions && typeof data.extensions === 'object' ? data.extensions : undefined,
     languageProfile: data.languageProfile && typeof data.languageProfile === 'object' ? data.languageProfile : undefined,
-    embeddedWorldBook: data.character_book && typeof data.character_book === 'object'
-      ? (() => { try { return importWorldBooks(JSON.stringify(data.character_book))[0]; } catch { return undefined; } })()
-      : undefined,
+    embeddedWorldBook: extractEmbeddedWorldBooks(data)[0],
+    embeddedWorldBooks: extractEmbeddedWorldBooks(data),
     groupId: cleanString(data.groupId) || cleanString(data.group_id) || null,
     sourceFormat,
     importedAt: now,
