@@ -50,8 +50,11 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [notice, setNotice] = useState('');
   const [manageBooks, setManageBooks] = useState(false);
-  const [bookInfoOpen, setBookInfoOpen] = useState(true);
+  const [bookInfoOpen, setBookInfoOpen] = useState(false);
   const [activeNowText, setActiveNowText] = useState('');
+  const [activeNowOpen, setActiveNowOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [globalWorldBookEnabled, setGlobalWorldBookEnabled] = usePersistentState<boolean>('phone:worldbook:global-enabled', true);
 
   const book = books.find(item => item.id === selectedBookId) || books[0] || null;
   const selectedEntry = book?.entries.find(item => item.id === selectedEntryId) || book?.entries[0] || null;
@@ -190,8 +193,8 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <div className="text-[8px] font-mono tracking-[2px] text-[#817a72] uppercase">LOREBOOK ARCHIVE · CONTEXT RULES</div>
-            <h2 className="font-serif font-bold text-base tracking-tight text-[#242323]">世界书 · Lorebook</h2>
+            <div className="text-[8px] font-mono tracking-[2px] text-[#817a72] uppercase">LOREBOOK · CONTEXT</div>
+            <h2 className="font-serif font-bold text-base tracking-tight text-[#242323]">世界书</h2>
           </div>
         </div>
         <button onClick={addBook} className="w-8 h-8 rounded-full bg-[#292724] text-white grid place-items-center">
@@ -203,15 +206,24 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
         <div className="px-4 pt-3 pb-2">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <div className="text-[8px] tracking-[1.8px] font-mono text-[#8b847d]">LOREBOOK ARCHIVE</div>
+              <div className="text-[8px] tracking-[1.8px] font-mono text-[#8b847d]">WORLD BOOKS</div>
               <div className="mt-1 text-sm font-serif font-bold text-[#302d29]">我的世界书</div>
             </div>
-            <button
-              onClick={() => setManageBooks(value => !value)}
-              className={`px-3 py-1.5 rounded-full border text-[9px] inline-flex items-center gap-1.5 ${manageBooks ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/65 text-[#655f59] border-[rgba(40,36,31,.12)]'}`}
-            >
-              <Settings2 className="w-3 h-3" />{manageBooks ? '完成管理' : '管理'}
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setGlobalWorldBookEnabled(value => !value)}
+                className={`px-2.5 py-1.5 rounded-full border text-[8px] inline-flex items-center gap-1.5 ${globalWorldBookEnabled ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/65 text-[#777] border-[rgba(40,36,31,.12)]'}`}
+              >
+                {globalWorldBookEnabled ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
+                全局 {globalWorldBookEnabled ? '启用' : '停用'}
+              </button>
+              <button
+                onClick={() => setManageBooks(value => !value)}
+                className={`px-2.5 py-1.5 rounded-full border text-[8px] inline-flex items-center gap-1.5 ${manageBooks ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/65 text-[#655f59] border-[rgba(40,36,31,.12)]'}`}
+              >
+                <Settings2 className="w-3 h-3" />{manageBooks ? '完成' : '管理'}
+              </button>
+            </div>
           </div>
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
             {books.map(item => (
@@ -256,7 +268,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
             onClick={() => setBookInfoOpen(value => !value)}
             className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/55 border border-[rgba(40,36,31,.1)] text-[9px] text-[#6d665f]"
           >
-            <span className="inline-flex items-center gap-1.5"><BookOpen className="w-3 h-3" />世界书信息</span>
+            <span className="inline-flex items-center gap-1.5"><BookOpen className="w-3 h-3" />全局设置与世界书信息</span>
             {bookInfoOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
           </button>
           {bookInfoOpen && (
@@ -299,15 +311,21 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
         </div>
 
         <div className="min-h-0 px-4 pb-4 grid grid-rows-[auto_auto_1fr] gap-2">
-          <div className="rounded-2xl bg-[#292724] text-white p-3">
-            <div className="flex items-center justify-between">
+          <div className="rounded-2xl bg-[#292724] text-white overflow-hidden">
+            <button onClick={() => setActiveNowOpen(value => !value)} className="w-full p-3 flex items-center justify-between text-left">
               <div>
-                <div className="text-[8px] font-mono tracking-[1.5px] text-white/45">WORLD BOOK · ACTIVE NOW</div>
-                <div className="mt-1 text-[12px] font-serif font-bold">{enabledCount} / {book?.entries.length || 0} 条目已启用</div>
+                <div className="text-[8px] font-mono tracking-[1.5px] text-white/45">WORLD BOOK · STATUS</div>
+                <div className="mt-1 text-[12px] font-serif font-bold">{globalWorldBookEnabled ? `${enabledCount} / ${book?.entries.length || 0} 条目参与检索` : '全局世界书已停用'}</div>
               </div>
-              <button onClick={() => { const next = window.prompt('输入一段文字测试世界书触发'); if (next !== null) setActiveNowText(next); }} className="px-2.5 py-1.5 rounded-full bg-white/10 text-[8px]">测试触发</button>
-            </div>
-            {activeNowText ? <div className="mt-2"><div className="text-[8px] text-white/45 truncate">SCAN · {activeNowText}</div><div className="mt-2 flex flex-wrap gap-1.5">{matchingEntries.length ? matchingEntries.map(entry => <button key={entry.id} onClick={() => setSelectedEntryId(entry.id)} className="px-2 py-1 rounded-full bg-white/10 text-[8px]">● {entry.name}</button>) : <span className="text-[8px] text-white/45">当前没有命中已启用条目</span>}</div></div> : <div className="mt-1 text-[8px] text-white/45">已启用条目才会参与 AI 检索。</div>}
+              {activeNowOpen ? <ChevronUp className="w-3.5 h-3.5 text-white/50" /> : <ChevronDown className="w-3.5 h-3.5 text-white/50" />}
+            </button>
+            {activeNowOpen && <div className="px-3 pb-3">
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/10">
+                <div className="text-[8px] text-white/45">用于检查当前文字会命中哪些条目</div>
+                <button onClick={() => { const next = window.prompt('输入一段文字测试世界书触发'); if (next !== null) setActiveNowText(next); }} className="px-2.5 py-1.5 rounded-full bg-white/10 text-[8px]">测试触发</button>
+              </div>
+              {activeNowText ? <div className="mt-2"><div className="text-[8px] text-white/45 truncate">SCAN · {activeNowText}</div><div className="mt-2 flex flex-wrap gap-1.5">{matchingEntries.length ? matchingEntries.map(entry => <button key={entry.id} onClick={() => setSelectedEntryId(entry.id)} className="px-2 py-1 rounded-full bg-white/10 text-[8px]">● {entry.name}</button>) : <span className="text-[8px] text-white/45">当前没有命中已启用条目</span>}</div></div> : null}
+            </div>}
           </div>
 
           <div className="min-h-0 px-4 pb-4 grid grid-rows-[auto_1fr] gap-2">
@@ -458,8 +476,12 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
                       <input type="number" value={selectedEntry.depth} onChange={e => patchEntry({ depth: Number(e.target.value) || 0 })} className="w-full mt-1 bg-transparent outline-none font-mono text-xs" />
                     </label>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-white/50 border border-black/5 space-y-2">
-                    <div className="text-[8px] font-mono tracking-[1.2px] text-[#8b8782]">ADVANCED TRIGGERS</div>
+                  <div className="rounded-xl bg-white/50 border border-black/5 overflow-hidden">
+                    <button onClick={() => setAdvancedOpen(value => !value)} className="w-full p-2.5 flex items-center justify-between text-left">
+                      <span className="text-[8px] font-mono tracking-[1.2px] text-[#8b8782]">高级触发与递归设置</span>
+                      {advancedOpen ? <ChevronUp className="w-3 h-3 text-[#8b8782]" /> : <ChevronDown className="w-3 h-3 text-[#8b8782]" />}
+                    </button>
+                    {advancedOpen && <div className="px-2.5 pb-2.5 space-y-2">
                     <label className="text-[9px] block">
                       Secondary Keys
                       <input
@@ -574,6 +596,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
                       <span>Exclude Recursion · 不被递归触发</span>
                       <input type="checkbox" checked={Boolean(selectedEntry.excludeRecursion)} onChange={e => patchEntry({ excludeRecursion: e.target.checked })} />
                     </label>
+                    </div>}
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
