@@ -150,6 +150,7 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
         '地点：' + event.location,
         '主题：' + event.theme,
         '邀约信：' + event.letter,
+        event.openingGreeting ? '【本次选择的角色卡开场白】\n' + event.openingGreeting : '【本次开场白】不使用角色卡开场白，只依据当前场景开始。',
         '',
         '请写出这一幕的正式开场。让角色先出现，并给用户留下明确的可回应空间。',
       ].join('\n');
@@ -367,6 +368,27 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
                 {characters.map(character => <option key={character.id} value={character.id}>{character.name}</option>)}
               </select>
             </label>
+            {(() => {
+              const character = characters.find(item => item.id === selected.characterId);
+              const greetings = character ? [character.firstMessage, ...character.alternateGreetings].filter(Boolean) : [];
+              if (!character || !greetings.length) return null;
+              const current = selected.openingGreeting || '';
+              return (
+                <div className="rounded-2xl bg-white/60 border border-[rgba(40,36,31,.08)] p-3">
+                  <div className="text-[9px] text-[#7e7770]">角色卡开场白 · 选择这次故事的起点</div>
+                  <div className="mt-2 space-y-1.5 max-h-[210px] overflow-y-auto">
+                    <button onClick={() => patchEvent({ openingGreeting: undefined })} className={`w-full text-left rounded-xl p-2.5 border text-[9px] ${!current ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/70 border-[rgba(40,36,31,.1)] text-[#666]'}`}>不使用开场白</button>
+                    {greetings.map((greeting, index) => (
+                      <button key={index} onClick={() => patchEvent({ openingGreeting: greeting })} className={`w-full text-left rounded-xl p-2.5 border text-[9px] leading-5 ${current === greeting ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/70 border-[rgba(40,36,31,.1)] text-[#666]'}`}>
+                        <span className="font-mono opacity-60">OPENING {index + 1}</span>
+                        <div className="mt-1 whitespace-pre-wrap">{greeting}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             {(['title', 'location', 'time', 'theme', 'letter'] as const).map(key => (
               <label key={key} className="block text-[9px] text-[#7e7770]">
                 {key === 'title' ? '剧情标题' : key === 'location' ? '地点' : key === 'time' ? '时间' : key === 'theme' ? '主题' : '邀约 / 开场文字'}
