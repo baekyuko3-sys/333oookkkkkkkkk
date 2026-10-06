@@ -184,25 +184,25 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '语言要像真实聊天软件中的人类消息：自然、克制、有上下文，可分成多条短句，但不要写成说明书。',
     input.stylePreset ? '【当前 LINE 预设】' + input.stylePreset + '。保持该预设的节奏与情感强度，但不要让预设覆盖角色卡、长期记忆、关系或世界书。' : '',
     buildLineHumanBehaviorPrompt(),
-    character?.languageProfile ? [
+    input.character?.languageProfile ? [
       '【角色个人语言指纹】',
-      '角色语言：' + character.languageProfile.language,
-      '双语模式：' + character.languageProfile.bilingualMode,
-      '双语布局：' + character.languageProfile.bilingualLayout,
-      '双语顺序：' + character.languageProfile.bilingualTranslationDirection,
-      '标点习惯：' + character.languageProfile.punctuationStyle,
-      '句子长度：' + character.languageProfile.sentenceLength,
-      '换行习惯：' + character.languageProfile.lineBreakStyle,
-      '口语程度：' + character.languageProfile.colloquialLevel,
-      '语气词：' + (character.languageProfile.fillerWords || []).join('、'),
-      'Emoji：' + character.languageProfile.emojiStyle,
-      '大小写：' + character.languageProfile.capitalizationStyle,
-      '数字习惯：' + character.languageProfile.numberStyle,
-      '是否偏好空格：' + (character.languageProfile.preferredSpaces ? '是' : '否'),
-      '语言示例：' + (character.languageProfile.examples || []).join(' / '),
+      '角色语言：' + input.character!.languageProfile.language,
+      '双语模式：' + input.character!.languageProfile.bilingualMode,
+      '双语布局：' + input.character!.languageProfile.bilingualLayout,
+      '双语顺序：' + input.character!.languageProfile.bilingualTranslationDirection,
+      '标点习惯：' + input.character!.languageProfile.punctuationStyle,
+      '句子长度：' + input.character!.languageProfile.sentenceLength,
+      '换行习惯：' + input.character!.languageProfile.lineBreakStyle,
+      '口语程度：' + input.character!.languageProfile.colloquialLevel,
+      '语气词：' + (input.character!.languageProfile.fillerWords || []).join('、'),
+      'Emoji：' + input.character!.languageProfile.emojiStyle,
+      '大小写：' + input.character!.languageProfile.capitalizationStyle,
+      '数字习惯：' + input.character!.languageProfile.numberStyle,
+      '是否偏好空格：' + (input.character!.languageProfile.preferredSpaces ? '是' : '否'),
+      '语言示例：' + (input.character!.languageProfile.examples || []).join(' / '),
       '保持稳定，但不要机械复制每条消息的格式。',
       '非普通话且双语开启时，在同一次角色发言中提供原文与中文翻译，不要生成两条独立消息。',
-      character.languageProfile.bilingualLayout === 'below-bubble' ? '译文属于同一消息，应显示在原气泡下方。' : '原文与译文属于同一个气泡。'
+      input.character!.languageProfile.bilingualLayout === 'below-bubble' ? '译文属于同一消息，应显示在原气泡下方。' : '原文与译文属于同一个气泡。'
     ].join('\\n') : '',
     '除非角色卡明确要求，否则不要每轮都过度煽情或重复昵称。',
     input.isGroup ? '这是群聊：回复可以体现群聊语境，但不要替其他成员完成完整对话。' : '这是私聊：只扮演当前角色。',
@@ -249,7 +249,7 @@ function findRelevantHistory(input: AiReplyInput, recentIds: Set<string>): AiRep
       message.type !== 'system-nudge' &&
       !message.isRecalled &&
       !message.isRecalledByOther &&
-      !recentIds.has(String(message as any).id)
+      !recentIds.has(String((message as any).id))
     )
     .map((message, index) => {
       const text = String(message.text || message.transcript || '').toLowerCase();
