@@ -27,6 +27,7 @@ interface LineChatItem {
   chatLabel?: string;
   relationship?: 'new-friend' | 'old-friend' | 'readded';
   readdedReason?: 'deleted' | 'blocked' | 'mutual-delete';
+  relationshipContext?: string;
   groupId?: string;
   time: string;
   preview: string;
@@ -207,6 +208,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [addCharacterChatFriend, setAddCharacterChatFriend] = useState<LineFriend | null>(null);
   const [newChatRelationship, setNewChatRelationship] = useState<'new-friend' | 'old-friend' | 'readded'>('new-friend');
   const [readdedReason, setReaddedReason] = useState<'deleted' | 'blocked' | 'mutual-delete'>('deleted');
+  const [relationshipContext, setRelationshipContext] = useState('');
   const [postDetail, setPostDetail] = useState<any | null>(null);
   const [showMyProfilePage, setShowMyProfilePage] = useState(false);
   const [newPostImage, setNewPostImage] = useState('');
@@ -401,6 +403,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               )
             );
           }}
+          relationshipContext={activeItem.relationshipContext}
           onToggleMute={() => {
             setChatItems((prev) =>
               prev.map((c) =>
@@ -1041,6 +1044,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                       if (friendProfile.characterId) {
                         setNewChatRelationship('new-friend');
                         setReaddedReason('deleted');
+                        setRelationshipContext('');
                         setAddCharacterChatFriend(friendProfile);
                       } else {
                         showToast('这是普通联系人，请先保存为聊天联系人');
@@ -1434,22 +1438,40 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                   <div className={`mt-1 text-[9px] leading-relaxed ${newChatRelationship === 'readded' ? 'text-white/65' : 'text-[#999]'}`}>你们之前已经是好友，后来删除、拉黑或互删，现在重新加回。</div>
                 </button>
                 {newChatRelationship === 'readded' && (
-                  <div className="col-span-2 rounded-2xl bg-[#f7f7f8] p-3.5">
-                    <div className="text-[10px] text-[#888] mb-2">是哪一种“加回来”？</div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {([
-                        ['deleted', '被删除过'],
-                        ['blocked', '被拉黑过'],
-                        ['mutual-delete', '互删后'],
-                      ] as const).map(([value, label]) => (
-                        <button
-                          key={value}
-                          onClick={() => setReaddedReason(value)}
-                          className={`py-2 rounded-xl text-[10px] border ${readdedReason === value ? 'bg-white border-[#292724] text-[#222] font-semibold' : 'bg-transparent border-[#ddd] text-[#888]'}`}
-                        >
-                          {label}
-                        </button>
-                      ))}
+                  <div className="col-span-2 rounded-2xl bg-[#f7f7f8] p-3.5 space-y-3">
+                    <div>
+                      <div className="text-[10px] text-[#888] mb-2">是哪一种“加回来”？</div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {([
+                          ['deleted', '被删除过'],
+                          ['blocked', '被拉黑过'],
+                          ['mutual-delete', '互删后'],
+                        ] as const).map(([value, label]) => (
+                          <button
+                            key={value}
+                            onClick={() => setReaddedReason(value)}
+                            className={`py-2 rounded-xl text-[10px] border ${readdedReason === value ? 'bg-white border-[#292724] text-[#222] font-semibold' : 'bg-transparent border-[#ddd] text-[#888]'}`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-[#888] mb-1.5">补充一点背景（可不填）</div>
+                      <textarea
+                        value={relationshipContext}
+                        onChange={(e) => setRelationshipContext(e.target.value)}
+                        placeholder={
+                          readdedReason === 'mutual-delete'
+                            ? '例如：当时因为误会互删，后来重新联系。留空也可以。'
+                            : readdedReason === 'blocked'
+                              ? '例如：以前闹过矛盾，后来解除拉黑。留空也可以。'
+                              : '例如：之前因为某件事删除了对方，后来又重新加回。留空也可以。'
+                        }
+                        className="w-full min-h-[64px] resize-none rounded-xl border border-[#e3e3e4] bg-white px-3 py-2 text-[10px] leading-5 text-[#444] outline-none placeholder:text-[#b8b8b8]"
+                      />
+                      <div className="mt-1 text-[9px] text-[#aaa]">这是给角色 AI 理解你们过去关系用的，可完全不填写。</div>
                     </div>
                   </div>
                 )}
@@ -1476,6 +1498,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                   chatLabel: relationshipLabel,
                   relationship: newChatRelationship,
                   readdedReason: isReadded ? readdedReason : undefined,
+                  relationshipContext: relationshipContext.trim() || undefined,
                   time: '刚刚',
                   preview: isOldFriend ? '好久不见，聊聊近况吧。' : isReadded ? `重新加回 · ${readdedLabel}` : '你们刚刚成为好友.',
                   unread: 0,
@@ -1493,6 +1516,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                 ));
                 setAddCharacterChatFriend(null);
                 setFriendProfile(null);
+                setRelationshipContext('');
                 setActiveChatId(chatId);
                 showToast(isOldFriend ? `已建立与 ${friend.name} 的旧友聊天` : isReadded ? `已建立与 ${friend.name} 的加回好友聊天 · ${readdedLabel}` : `已建立与 ${friend.name} 的新好友聊天`);
               }}
