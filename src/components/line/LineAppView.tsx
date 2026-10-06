@@ -241,6 +241,12 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
     avatar: '',
   });
   const [profileDraft, setProfileDraft] = useState<LineUserProfile>(currentUser);
+  const [userPersonas, setUserPersonas] = usePersistentState<any[]>('line:user-personas', []);
+  const [activePersonaId, setActivePersonaId] = usePersistentState<string | null>('line:active-persona', null);
+  const [personaEditorOpen, setPersonaEditorOpen] = useState(false);
+  const [personaDraft, setPersonaDraft] = useState<any>({ name: '', age: '', profession: '', setting: '', avatar: '' });
+  const activePersona = userPersonas.find((p) => p.id === activePersonaId) || userPersonas[0] || null;
+  const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
 
   const [masks, setMasks] = usePersistentState<Array<{ name: string; id: string; desc: string }>>('line:masks', []);
   // Chat Data with Pin, Mute, Draft, and Group capabilities
@@ -443,6 +449,16 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPersonaSwitchOpen(true)}
+                className="h-[35px] px-3 border border-[#e7e7e8] rounded-full flex items-center gap-1.5 text-[10px] text-[#555] hover:bg-[#f7f7f7] cursor-pointer max-w-[150px]"
+                title="切换聊天使用的人设"
+              >
+                <span className="w-5 h-5 rounded-full overflow-hidden bg-[#f1f1f2] flex items-center justify-center shrink-0">
+                  {activePersona?.avatar ? <img src={activePersona.avatar} className="w-full h-full object-cover" /> : <span>◎</span>}
+                </span>
+                <span className="truncate">{activePersona?.name || '当前人设'}</span>
+              </button>
               <button
                 onClick={() => {
                   setSelectedGroupFriends([]);
@@ -845,6 +861,39 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
             </div>
           </div>
 
+          {/* User Personas */}
+          <div className="mx-4 my-3 p-4 bg-[#fafafa] rounded-[16px] border border-[#eeeeef]">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[13px] font-semibold text-[#333]">我的人设</div>
+                <div className="text-[9px] text-[#aaa] mt-1">和不同角色聊天时，可以切换不同的“我”</div>
+              </div>
+              <button
+                onClick={() => {
+                  setPersonaDraft({ name: '', age: '', profession: '', setting: '', avatar: '' });
+                  setPersonaEditorOpen(true);
+                }}
+                className="px-3 py-1.5 rounded-full bg-[#292724] text-white text-[10px]"
+              >＋ 新建</button>
+            </div>
+            <div className="mt-3 space-y-2">
+              {userPersonas.length === 0 ? (
+                <div className="text-[10px] text-[#aaa] py-3 text-center">还没有人设。先创建一个你的聊天身份。</div>
+              ) : userPersonas.map((persona) => (
+                <div key={persona.id} className="flex items-center gap-3 p-2.5 bg-white rounded-[12px] border border-[#eeeeef]">
+                  <div className="w-9 h-9 rounded-full overflow-hidden bg-[#f1f1f2] flex items-center justify-center shrink-0">
+                    {persona.avatar ? <img src={persona.avatar} className="w-full h-full object-cover" /> : <span className="text-xs">{persona.name?.[0] || '◎'}</span>}
+                  </div>
+                  <button onClick={() => setActivePersonaId(persona.id)} className="min-w-0 flex-1 text-left">
+                    <div className="text-[11px] font-semibold text-[#333] truncate">{persona.name || '未命名人设'} {persona.id === activePersonaId && <span className="text-[#ae7e89]">· 当前</span>}</div>
+                    <div className="text-[9px] text-[#aaa] truncate">{[persona.age, persona.profession].filter(Boolean).join(' · ') || '未填写基本信息'}</div>
+                  </button>
+                  <button onClick={() => { setPersonaDraft(persona); setPersonaEditorOpen(true); }} className="text-[10px] text-[#999] px-2">编辑</button>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Settings Rows with Real Drawer Connections */}
           <div className="divide-y divide-[#f1f1f1]">
             <div
@@ -900,6 +949,48 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               <span className="text-[13px] text-[#444]" >{tx('系统通用设置', 'システム設定')}</span>
               <span className="ml-auto text-[#ccc] text-lg">›</span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {personaEditorOpen && (
+        <div className="absolute inset-0 z-[80] bg-black/25 flex items-end">
+          <div className="w-full bg-white rounded-t-[22px] p-5 pb-7 space-y-3">
+            <div className="flex items-center justify-between"><div className="font-semibold text-sm">编辑我的人设</div><button onClick={() => setPersonaEditorOpen(false)} className="text-[#aaa]">×</button></div>
+            {[
+              ['name','名字'],
+              ['age','年龄'],
+              ['profession','职业'],
+              ['setting','设定'],
+              ['avatar','头像 URL'],
+            ].map(([key,label]) => (
+              <div key={key}>
+                <div className="text-[9px] text-[#aaa] mb-1">{label}</div>
+                <input value={personaDraft[key] || ''} onChange={(e) => setPersonaDraft((p:any) => ({...p,[key]:e.target.value}))} placeholder={key === 'setting' ? '你的性格、背景、与你聊天时的身份……' : ''} className="w-full h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-xs outline-none" />
+              </div>
+            ))}
+            <button onClick={() => {
+              const persona = { ...personaDraft, id: personaDraft.id || crypto.randomUUID() };
+              setUserPersonas(prev => prev.some(p => p.id === persona.id) ? prev.map(p => p.id === persona.id ? persona : p) : [persona, ...prev]);
+              setActivePersonaId(persona.id);
+              setPersonaEditorOpen(false);
+            }} className="w-full py-2.5 rounded-[12px] bg-[#292724] text-white text-xs">保存并作为当前人设</button>
+          </div>
+        </div>
+      )}
+
+      {personaSwitchOpen && (
+        <div className="absolute inset-0 z-[75] bg-black/20 flex items-end" onClick={() => setPersonaSwitchOpen(false)}>
+          <div className="w-full bg-white rounded-t-[22px] p-5 pb-7 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between"><div className="font-semibold text-sm">选择聊天人设</div><button onClick={() => setPersonaSwitchOpen(false)} className="text-[#aaa]">×</button></div>
+            {userPersonas.map(persona => (
+              <button key={persona.id} onClick={() => { setActivePersonaId(persona.id); setPersonaSwitchOpen(false); }} className="w-full flex items-center gap-3 p-3 rounded-[14px] border border-[#eeeeef] text-left">
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-[#f1f1f2] flex items-center justify-center">{persona.avatar ? <img src={persona.avatar} className="w-full h-full object-cover" /> : <span>{persona.name?.[0] || '◎'}</span>}</div>
+                <div className="min-w-0 flex-1"><div className="text-xs font-semibold">{persona.name || '未命名人设'}</div><div className="text-[9px] text-[#aaa] truncate">{persona.setting || '暂无设定'}</div></div>
+                {persona.id === activePersonaId && <span className="text-[#ae7e89] text-xs">✓</span>}
+              </button>
+            ))}
+            {userPersonas.length === 0 && <div className="text-[10px] text-[#aaa] text-center py-5">请先在 ME 创建人设。</div>}
           </div>
         </div>
       )}
