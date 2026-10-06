@@ -26,6 +26,15 @@ interface CharacterProfileViewProps {
   onNavigate: (screen: ScreenType) => void;
 }
 
+function readImageFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('图片读取失败'));
+    reader.readAsDataURL(file);
+  });
+}
+
 function downloadText(filename: string, content: string) {
   const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -38,6 +47,7 @@ function downloadText(filename: string, content: string) {
 
 export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const avatarFileRef = useRef<HTMLInputElement>(null);
   const [characters, setCharacters] = usePersistentState<ImportedCharacter[]>('phone:characters', []);
   const [worldBooks, setWorldBooks] = usePersistentState<WorldBook[]>('phone:worldbooks', []);
   const [groups, setGroups] = usePersistentState<Array<{ id: string; name: string }>>('phone:character-groups', []);
@@ -534,6 +544,7 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                   </div>
                   <div className="flex gap-3.5 items-center">
                     <div className="w-20 h-24 rounded-xl overflow-hidden bg-[#ded7cc] border border-black/10 shrink-0 grid place-items-center">
+
                       {selected.avatar ? (
                         <img src={selected.avatar} alt={selected.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
@@ -551,6 +562,49 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                         VERSION · {selected.variantLabel || selected.characterVersion || 'unspecified'}
                       </div>
                     </div>
+                  </div>
+
+                  <input
+                    ref={avatarFileRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file || !selected) return;
+                      try {
+                        const avatar = await readImageFileAsDataUrl(file);
+                        patchSelected({ avatar });
+                        showNotice('角色头像已更新');
+                      } catch {
+                        showNotice('头像读取失败');
+                      } finally {
+                        e.currentTarget.value = '';
+                      }
+                    }}
+                  />
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => avatarFileRef.current?.click()}
+                      className="flex-1 py-2 rounded-xl bg-white/75 border border-[rgba(40,36,31,.12)] text-[9px] text-[#5f5952]"
+                    >上传本地头像</button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!selected) return;
+                        const url = window.prompt('粘贴角色头像图片链接：', selected.avatar || '');
+                        if (url !== null) {
+                          patchSelected({ avatar: url.trim() });
+                          showNotice('角色头像链接已更新');
+                        }
+                      }}
+                      className="flex-1 py-2 rounded-xl bg-white/75 border border-[rgba(40,36,31,.12)] text-[9px] text-[#5f5952]"
+                    >使用图片链接</button>
+                  </div>
+
+                  <div className="mt-2 text-[8px] text-[#8b8782]">
+                    角色头像只来自你上传的图片或你提供的链接；不再自动替换成预设人物图。
                   </div>
 
                   <div className="mt-3 pt-2 border-t border-[rgba(40,36,31,.1)] text-[9px] text-[#8b8782] font-mono">
