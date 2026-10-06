@@ -46,7 +46,7 @@ export interface CharacterInfo {
   unreadCount?: number;
 }
 
-export type CharacterLanguage = 'zh-CN' | 'en' | 'ja' | 'ko' | 'fr' | 'es' | 'de' | 'other';
+export type CharacterLanguage = 'zh-CN' | 'zh-TW' | 'yue' | 'en' | 'ja' | 'ko' | 'fr' | 'es' | 'de' | 'other';
 export type BilingualMode = 'off' | 'auto';
 export type BilingualLayout = 'inside-bubble' | 'below-bubble';
 export type CharacterPunctuationStyle = 'natural' | 'spaces' | 'tight' | 'mixed';
@@ -64,6 +64,7 @@ export interface CharacterLanguageProfile {
   capitalizationStyle: 'standard' | 'lowercase' | 'mixed';
   numberStyle: 'standard' | 'digits' | 'words' | 'mixed';
   preferredSpaces: boolean;
+  messageGrouping?: 'single' | 'double' | 'natural';
   examples?: string[];
 }
 
@@ -77,6 +78,8 @@ export interface CharacterProfile {
   callMe: string;
   selectedLorebook: string;
   bio?: string;
+  onlinePersona?: string;
+  typingHabit?: string;
 }
 
 export interface WorldBookEntry {
