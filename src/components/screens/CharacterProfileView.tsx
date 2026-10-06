@@ -10,13 +10,16 @@ import {
 } from '../../data/characterImport';
 import type { CharacterMemory } from '../../store/characterMemory';
 import type { WorldBook } from '../../types';
-import { getWorldRuntime } from '../../store/worldRuntime';
+import { getWorldRuntime, removeCharacterRuntime } from '../../store/worldRuntime';
 import {
   addCharacterMemoryItem,
   deleteCharacterMemoryItem,
   getCharacterMemory,
   saveCharacterMemory,
+  clearCharacterMemory,
 } from '../../store/characterMemory';
+import { removeLineConversationData } from '../../store/lineRuntime';
+import { removeCharacterOfflineEvents } from '../../store/offlineEvents';
 
 interface CharacterProfileViewProps {
   themeMode?: any;
@@ -46,6 +49,9 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
   const [notice, setNotice] = useState('');
   const [runtimeTick, setRuntimeTick] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteWorldBooks, setDeleteWorldBooks] = useState(false);
+  const [deleteChatHistory, setDeleteChatHistory] = useState(false);
   const visibleCharacters = selectedGroupId === 'all'
     ? characters
     : characters.filter(character => (character.groupId || 'ungrouped') === selectedGroupId);
@@ -236,12 +242,101 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
     }
   };
 
-  const handleDelete = () => {
+  const openDeleteDialog = () => {
     if (!selected) return;
-    setCharacters(prev => prev.filter(item => item.id !== selected.id));
-    setSelectedId(characters.find(item => item.id !== selected.id)?.id || null);
+    const embeddedWorldBooks = selected.embeddedWorldBooks?.length
+      ? selected.embeddedWorldBooks
+      : (selected.embeddedWorldBook ? [selected.embeddedWorldBook] : []);
+    setDeleteWorldBooks(false);
+    setDeleteChatHistory(false);
+    setDeleteDialogOpen(true);
+    // Keep the first render deterministic even when the card has no embedded books.
+    void embeddedWorldBooks;
+  };
+
+  const confirmDelete = () => {
+    if (!selected) return;
+
+    const characterId = selected.id;
+    const characterName = selected.name;
+    const embeddedWorldBooks = selected.embeddedWorldBooks?.length
+      ? selected.embeddedWorldBooks
+      : (selected.embeddedWorldBook ? [selected.embeddedWorldBook] : []);
+    const embeddedWorldBookIds = new Set(embeddedWorldBooks.map(book => book.id));
+
+    // Character-owned runtime data.
+    clearCharacterMemory(characterId);
+    removeCharacterRuntime(characterId);
+    removeCharacterOfflineEvents(characterId);
+    removeLineConversationData(characterId, { removeChatItem: deleteChatHistory });
+
+    // Remove character-specific settings and generated contact data.
+    try {
+      for (const key of [
+        `line:schedule:${characterName}`,
+        `phone:memory-active-character`,
+      ]) {
+        if (key === 'phone:memory-active-character') {
+          if (window.localStorage.getItem(key) === characterId) window.localStorage.removeItem(key);
+        } else {
+          window.localStorage.removeItem(key);
+        }
+      }
+
+      const friendsRaw = window.localStorage.getItem('line:friends-list');
+      if (friendsRaw) {
+        const friends = JSON.parse(friendsRaw);
+        if (Array.isArray(friends)) {
+          window.localStorage.setItem(
+            'line:friends-list',
+            JSON.stringify(friends.filter((friend: any) => friend.characterId !== characterId)),
+          );
+        }
+      }
+
+      const aiProfilesRaw = window.localStorage.getItem('phone:character-ai-profiles');
+      if (aiProfilesRaw) {
+        const profiles = JSON.parse(aiProfilesRaw);
+        if (Array.isArray(profiles)) {
+          window.localStorage.setItem(
+            'phone:character-ai-profiles',
+            JSON.stringify(profiles.filter((profile: any) => profile.characterId !== characterId)),
+          );
+        }
+      }
+
+      const playlistsRaw = window.localStorage.getItem('phone:music-character-playlists');
+      if (playlistsRaw) {
+        const playlists = JSON.parse(playlistsRaw);
+        if (Array.isArray(playlists)) {
+          window.localStorage.setItem(
+            'phone:music-character-playlists',
+            JSON.stringify(playlists.filter((playlist: any) => playlist.characterId !== characterId)),
+          );
+        }
+      }
+    } catch {
+      // Secondary character data cleanup is best-effort.
+    }
+
+    if (deleteWorldBooks && embeddedWorldBookIds.size) {
+      setWorldBooks(prev => prev.filter(book => !embeddedWorldBookIds.has(book.id)));
+    }
+
+    const nextId = characters.find(item => item.id !== characterId)?.id || null;
+    setCharacters(prev => prev.filter(item => item.id !== characterId));
+    setSelectedId(nextId);
     setIsEditing(false);
-    showNotice(`已移除「${selected.name}」`);
+    setDeleteDialogOpen(false);
+
+    const deletedParts = [
+      '角色档案',
+      deleteChatHistory ? '聊天记录' : '聊天记录已保留',
+      deleteWorldBooks
+        ? (embeddedWorldBookIds.size ? '关联世界书' : '无关联世界书')
+        : '世界书已保留',
+    ];
+    showNotice(`已移除「${characterName}」 · ${deletedParts.join(' · ')}`);
   };
 
   return (
@@ -639,7 +734,7 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                     导出 Tavern V2
                   </button>
                   <button
-                    onClick={handleDelete}
+                    onClick={openDeleteDialog}
                     className="py-2.5 rounded-xl bg-[#ebe7df] border border-[rgba(40,36,31,.15)] text-[#9b625b] text-xs font-serif flex items-center justify-center gap-1.5"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -695,6 +790,90 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
       <div className="relative z-10 p-3 text-center text-[9px] text-[#8b8782] font-mono border-t border-[rgba(40,36,31,.1)]">
         {selectedGroupId === 'all' ? 'CHARACTER ARCHIVE · LOCAL ONLY' : 'CHARACTER GROUP · LOCAL ONLY'}
       </div>
+
+      {deleteDialogOpen && selected && (
+        <div className="absolute inset-0 z-[60] bg-black/25 backdrop-blur-[2px] flex items-end justify-center">
+          <div className="w-full rounded-t-[28px] bg-[#f8f5ef] border-t border-white/70 shadow-[0_-16px_50px_rgba(35,30,25,.18)] p-5 pb-7">
+            <div className="w-10 h-1 rounded-full bg-[#c9c2b9] mx-auto mb-4" />
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[8px] tracking-[2px] font-mono text-[#9b625b]">REMOVE CHARACTER CARD</div>
+                <h3 className="mt-1 text-lg font-serif font-bold text-[#242323]">删除「{selected.name || '未命名角色'}」？</h3>
+                <p className="mt-1.5 text-[10px] leading-relaxed text-[#777068] font-serif-sc">
+                  角色专属长期记忆、运行状态、线下剧情数据和角色 AI 设置会随角色一起清理。
+                </p>
+              </div>
+              <button
+                onClick={() => setDeleteDialogOpen(false)}
+                className="w-8 h-8 rounded-full bg-white border border-[#ded7ce] text-[#777068] grid place-items-center"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <div className="rounded-2xl bg-white/75 border border-[#e2dcd3] p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-[11px] font-serif font-bold text-[#302d29]">关联世界书</div>
+                    <div className="mt-0.5 text-[9px] text-[#8b847d]">
+                      {(() => {
+                        const count = selected.embeddedWorldBooks?.length || (selected.embeddedWorldBook ? 1 : 0);
+                        return count ? `这张角色卡带入了 ${count} 本世界书` : '这张角色卡没有检测到内置世界书';
+                      })()}
+                    </div>
+                  </div>
+                  <div className="flex rounded-full bg-[#eee9df] p-0.5">
+                    <button
+                      onClick={() => setDeleteWorldBooks(false)}
+                      className={`px-3 py-1.5 rounded-full text-[9px] ${!deleteWorldBooks ? 'bg-[#292724] text-white' : 'text-[#777068]'}`}
+                    >保留</button>
+                    <button
+                      onClick={() => setDeleteWorldBooks(true)}
+                      className={`px-3 py-1.5 rounded-full text-[9px] ${deleteWorldBooks ? 'bg-[#9b625b] text-white' : 'text-[#777068]'}`}
+                    >删除</button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-white/75 border border-[#e2dcd3] p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-[11px] font-serif font-bold text-[#302d29]">LINE 聊天记录</div>
+                    <div className="mt-0.5 text-[9px] text-[#8b847d]">
+                      {deleteChatHistory ? '聊天记录和联系人入口都会删除' : '聊天记录保留，并作为已归档聊天保存'}
+                    </div>
+                  </div>
+                  <div className="flex rounded-full bg-[#eee9df] p-0.5">
+                    <button
+                      onClick={() => setDeleteChatHistory(false)}
+                      className={`px-3 py-1.5 rounded-full text-[9px] ${!deleteChatHistory ? 'bg-[#292724] text-white' : 'text-[#777068]'}`}
+                    >保留</button>
+                    <button
+                      onClick={() => setDeleteChatHistory(true)}
+                      className={`px-3 py-1.5 rounded-full text-[9px] ${deleteChatHistory ? 'bg-[#9b625b] text-white' : 'text-[#777068]'}`}
+                    >删除</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2.5">
+              <button
+                onClick={() => setDeleteDialogOpen(false)}
+                className="py-3 rounded-xl bg-white border border-[#ddd6cd] text-[#625c55] text-xs font-serif"
+              >取消</button>
+              <button
+                onClick={confirmDelete}
+                className="py-3 rounded-xl bg-[#292724] text-white text-xs font-serif flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                确认删除角色
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {notice && (
         <div className="absolute z-50 left-1/2 -translate-x-1/2 bottom-16 bg-[#292724] text-white px-3.5 py-2 rounded-full text-[10px] shadow-lg">
