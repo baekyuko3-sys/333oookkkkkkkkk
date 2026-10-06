@@ -39,7 +39,7 @@ function downloadText(filename: string, content: string) {
 export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [characters, setCharacters] = usePersistentState<ImportedCharacter[]>('phone:characters', []);
-  const [worldBooks] = usePersistentState<WorldBook[]>('phone:worldbooks', []);
+  const [worldBooks, setWorldBooks] = usePersistentState<WorldBook[]>('phone:worldbooks', []);
   const [groups, setGroups] = usePersistentState<Array<{ id: string; name: string }>>('phone:character-groups', []);
   const [selectedGroupId, setSelectedGroupId] = useState('all');
   const [selectedId, setSelectedId] = usePersistentState<string | null>(
