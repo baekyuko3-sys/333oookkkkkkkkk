@@ -224,7 +224,12 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
         : (parsed.embeddedWorldBook ? [parsed.embeddedWorldBook] : []);
       if (embeddedWorldBooks.length) {
         setWorldBooks(prev => [
-          ...embeddedWorldBooks,
+          ...embeddedWorldBooks.map(book => ({
+            ...book,
+            sourceCharacterId: parsed.id,
+            sourceCharacterName: parsed.name,
+            sourceType: 'character-card' as const,
+          })),
           ...prev.filter(book => !embeddedWorldBooks.some(imported => imported.id === book.id)),
         ]);
       }
