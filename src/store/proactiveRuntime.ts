@@ -269,6 +269,7 @@ export async function runProactiveCatchup() {
 
       const kind = candidate.item.kind || 'message';
       if (kind === 'moment') {
+    if (!isMomentsCharacterAllowed(character.id)) return null;
         const text = await generateLifeText(character, candidate.item, 'moment');
         if (!text.trim()) continue;
         const rawPosts = window.localStorage.getItem('line:moments-posts');
@@ -342,4 +343,18 @@ export async function runProactiveCatchup() {
     running = false;
     if (dirty) saveLocal('phone:proactive-state', state);
   }
+}function isMomentsCharacterAllowed(characterId: string): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    const raw = window.localStorage.getItem('line:moments-settings');
+    if (!raw) return true;
+    const settings = JSON.parse(raw) as { enabledCharacterIds?: string[]; allowCharacterAutoPost?: boolean };
+    if (settings.allowCharacterAutoPost === false) return false;
+    const ids = Array.isArray(settings.enabledCharacterIds) ? settings.enabledCharacterIds : [];
+    return ids.length === 0 || ids.includes(characterId);
+  } catch {
+    return true;
+  }
 }
+
+
