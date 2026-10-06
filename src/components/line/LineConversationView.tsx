@@ -196,6 +196,8 @@ export function LineConversationView({
   const [showPlusSheet, setShowPlusSheet] = useState(false);
   const [subSheetType, setSubSheetType] = useState<'image' | 'video' | 'file' | null>(null);
   const [showVoiceSheet, setShowVoiceSheet] = useState(false);
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | number | null>(null);
+  const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const [showStickerSheet, setShowStickerSheet] = useState(false);
   const [showCreator, setShowCreator] = useState(false);
   const [showTogetherMusic, setShowTogetherMusic] = useState(false);
@@ -1771,6 +1773,23 @@ export function LineConversationView({
         if (!mediaUrl) return;
 
         void putMedia(mediaUrl).then(async mediaRef => {
+          let voiceDuration = '语音';
+          if (type === 'voice') {
+            try {
+              const probe = new Audio(mediaUrl);
+              const seconds = await new Promise<number>((resolve, reject) => {
+                probe.onloadedmetadata = () => resolve(probe.duration);
+                probe.onerror = () => reject(new Error('VOICE_DURATION_UNAVAILABLE'));
+              });
+              if (Number.isFinite(seconds) && seconds > 0) {
+                const total = Math.round(seconds);
+                voiceDuration = `0:${total < 10 ? '0' : ''}${total}`;
+              }
+            } catch {
+              // Keep the real audio message even if duration metadata is unavailable.
+            }
+          }
+
           const newMsg = {
             id: Date.now(),
             sender: 'me',
@@ -1779,7 +1798,7 @@ export function LineConversationView({
             fileName: file.name,
             mediaRef,
             transcript: type === 'voice' ? '（本地语音消息）' : undefined,
-            duration: type === 'voice' ? '语音' : undefined,
+            duration: type === 'voice' ? voiceDuration : undefined,
             time: '刚刚',
           };
 
@@ -2688,10 +2707,26 @@ export function LineConversationView({
                     className="space-y-1.5"
                   >
                     <div
-                      onClick={() =>
-                        setShowTranscriptMap((prev) => ({ ...prev, [msg.id]: !prev[msg.id] }))
-                      }
-                      className="min-w-[145px] py-2 px-3 bg-[#f5f5f6] hover:bg-[#eeeff1] rounded-[16px] flex items-center gap-2.5 cursor-pointer shadow-2xs transition-colors"
+                      onClick={async () => {
+                        const source = msg.audioUrl || (msg.mediaRef ? mediaCache[msg.mediaRef] : '');
+                        if (!source) return;
+                        try {
+                          if (voiceAudioRef.current) {
+                            voiceAudioRef.current.pause();
+                            voiceAudioRef.current.currentTime = 0;
+                          }
+                          const audio = new Audio(source);
+                          voiceAudioRef.current = audio;
+                          setPlayingVoiceId(msg.id);
+                          audio.onended = () => setPlayingVoiceId(null);
+                          audio.onerror = () => setPlayingVoiceId(null);
+                          await audio.play();
+                        } catch {
+                          setPlayingVoiceId(null);
+                        }
+                      }}
+                      className={`min-w-[145px] py-2 px-3 rounded-[16px] flex items-center gap-2.5 cursor-pointer shadow-2xs transition-colors ${playingVoiceId === msg.id ? 'bg-[#eadde1]' : 'bg-[#f5f5f6] hover:bg-[#eeeff1]'}`}
+                      title="播放真实语音"
                     >
                       <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-[#555]">
                         <Volume2 className="w-3.5 h-3.5" />
@@ -2705,16 +2740,12 @@ export function LineConversationView({
                           />
                         ))}
                       </div>
-                      <span className="text-[10px] text-[#999]">{msg.duration}</span>
+                      <span className="text-[10px] text-[#999]">{msg.duration || '语音'}</span>
                     </div>
 
-                    {(msg.audioUrl || (msg.mediaRef && mediaCache[msg.mediaRef])) && (
-                      <audio controls preload="none" src={msg.audioUrl || mediaCache[msg.mediaRef]} className="w-[190px] h-8 mt-1" />
-                    )}
-                    {showTranscriptMap[msg.id] && (
-                      <div className="p-2.5 rounded-[9px] bg-[#fafafa] border border-[#f0f0f1] text-[#888] text-[10px] leading-relaxed animate-in fade-in">
-                        语音转文字：<br />
-                        {msg.transcript || '未提供转写'}
+                    {msg.transcript && !String(msg.transcript).startsWith('（') && (
+                      <div className="px-2.5 text-[9px] text-[#aaa] leading-relaxed">
+                        语音转文字：{msg.transcript}
                       </div>
                     )}
                   </div>
