@@ -893,7 +893,7 @@ export function LineConversationView({
         const memberProfile = getCharacterProfile(character.name, character.id);
         const memberMemory = getCharacterMemory(character.id, character.name);
         const replyMsgId = Date.now() + index + 1;
-        setMessages(prev => [...prev, { id: replyMsgId, sender: 'other', senderName: character.name, text: '', time: '刚刚', type: 'ai-reply', showThinking: false }]);
+        setMessages(prev => prev);
         let streamedText = '';
         const result = await generateCharacterReply({
           settings: conversationAiSettings(),
