@@ -58,6 +58,21 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   };
   const itemPosition = (page: 1 | 2, id: string) => getLayout(page).find(item => item.id === id) || getDefaultLayout(page).find(item => item.id === id)!;
   const resetDesktopLayout = (page: 1 | 2) => saveDesktopLayout(page, getDefaultLayout(page));
+  const page2Layout = getLayout(2);
+  const page2Editing = desktopEditing;
+  const setPage2Editing = setDesktopEditing;
+  const draggingPage2Item = draggingDesktopItem;
+  const setDraggingPage2Item = setDraggingDesktopItem;
+  const movePage2Item = (id: string, x: number, y: number) => moveDesktopItem(2, id, x, y);
+  const resetPage2Layout = () => resetDesktopLayout(2);
+  const beginDesktopDrag = (page: 1 | 2, id: string, event: React.PointerEvent) => {
+    if (!desktopEditing) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDraggingDesktopItem(id);
+  };
+  const continueDesktopDrag = (page: 1 | 2, id: string, event: React.PointerEvent) => {
+    if (desktopEditing && draggingDesktopItem === id) moveDesktopItem(page, id, event.clientX, event.clientY);
+  };
 
   useEffect(() => {
     const updateTime = () => {
@@ -198,7 +213,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
         <div className="animate-in fade-in duration-300">
           
           {/* Date & Literary Section */}
-          <div className="absolute z-10 top-[148px] left-[26px]">
+          <div className={`absolute z-10 ${desktopEditing ? "ring-1 ring-[#b7a59a]/45 rounded-xl cursor-grab active:cursor-grabbing touch-none" : ""}`} style={{ left: itemPosition(1, "widget-date").x, top: itemPosition(1, "widget-date").y }} onPointerDown={e=>beginDesktopDrag(1,"widget-date",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-date",e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)}>
             <div className="font-serif text-[55px] leading-[0.9] font-normal tracking-[-3px] text-[var(--ink)]">
               {currentDateNumber}
             </div>
@@ -219,8 +234,8 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
 
           {/* Film Photo Polaroid pinned diagonally (Click to Flip!) */}
           <div 
-            onClick={() => setIsPhotoFlipped(!isPhotoFlipped)}
-            className="absolute z-10 right-[17px] top-[181px] w-[84px] h-[106px] rotate-[4deg] p-[5px_5px_15px] bg-[var(--paper,#eee9df)] shadow-[0_7px_18px_rgba(45,37,30,.09)] opacity-90 cursor-pointer hover:rotate-0 hover:scale-105 transition-all group"
+            onClick={() => { if (!desktopEditing) setIsPhotoFlipped(!isPhotoFlipped); }}
+            className={`absolute z-10 w-[84px] h-[106px] ${desktopEditing ? "ring-1 ring-[#b7a59a]/45 cursor-grab active:cursor-grabbing touch-none" : ""}`} style={{ left: itemPosition(1, "widget-photo").x, top: itemPosition(1, "widget-photo").y }} onPointerDown={e=>beginDesktopDrag(1,"widget-photo",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-photo",e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)} rotate-[4deg] p-[5px_5px_15px] bg-[var(--paper,#eee9df)] shadow-[0_7px_18px_rgba(45,37,30,.09)] opacity-90 cursor-pointer hover:rotate-0 hover:scale-105 transition-all group"
             title="点击翻转拍立得相纸"
           >
             {isPhotoFlipped ? (
@@ -259,7 +274,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
           </div>
 
           {/* Widgets (Weather, Note & Music Player) */}
-          <div className="absolute z-10 top-[306px] left-[20px] right-[20px] grid grid-cols-2 gap-[13px]">
+          <div className={`absolute z-10 ${desktopEditing ? "ring-1 ring-[#b7a59a]/45 rounded-[21px] cursor-grab active:cursor-grabbing touch-none" : ""}`} style={{ left: itemPosition(1, "widget-weather").x, top: itemPosition(1, "widget-weather").y, width: 320 }} onPointerDown={e=>beginDesktopDrag(1,"widget-weather",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-weather",e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)}><div className="grid grid-cols-2 gap-[13px]">
             
             {/* Weather Card */}
             <button 
@@ -347,50 +362,16 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
 
           </div>
 
-          {/* Page 1 Apps: LINE, IG, 音乐, 线下剧情 */}
-          <section className="absolute z-10 left-[20px] right-[20px] top-[565px] flex gap-[12px]">
-            <button 
-              onClick={() => onNavigate('chat')}
-              className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
-            >
-              <div className="w-[64px] h-[64px] rounded-[21px] bg-[#36332f] text-[#eee] border-transparent shadow-[0_6px_18px_rgba(52,43,34,.055)] grid place-items-center group-hover:scale-105 transition-transform relative">
-                {renderAppIcon('line', 'chat')}
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#9b625b] text-white text-[9px] font-bold flex items-center justify-center">
-                  {worldUnread > 99 ? '99+' : worldUnread}
-                </span>
-              </div>
-              <span className="font-medium">LINE</span>
-            </button>
-
-            <button 
-              onClick={() => onNavigate('moments')}
-              className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
-            >
-              <div className="w-[64px] h-[64px] rounded-[21px] bg-[#9b8068] text-white border-transparent shadow-[0_6px_18px_rgba(52,43,34,.055)] grid place-items-center group-hover:scale-105 transition-transform">
-                {renderAppIcon('moments', 'ig')}
-              </div>
-              <span className="font-medium">IG</span>
-            </button>
-
-            <button 
-              onClick={() => onNavigate('music')}
-              className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
-            >
-              <div className="w-[64px] h-[64px] rounded-[21px] bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))] backdrop-blur-xl shadow-[0_6px_18px_rgba(52,43,34,.055)] grid place-items-center group-hover:scale-105 transition-transform">
-                {renderAppIcon('music', 'music')}
-              </div>
-              <span className="font-medium">音乐</span>
-            </button>
-
-            <button 
-              onClick={() => onNavigate('offline-story')}
-              className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
-            >
-              <div className="w-[64px] h-[64px] rounded-[21px] bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))] backdrop-blur-xl shadow-[0_6px_18px_rgba(52,43,34,.055)] grid place-items-center group-hover:scale-105 transition-transform">
-                {renderAppIcon('offline-story', 'book')}
-              </div>
-              <span className="font-medium">线下剧情</span>
-            </button>
+          {/* Page 1 Apps */}
+          <section className="absolute z-10 inset-0 pointer-events-none">
+            {[
+              ['line','LINE','chat','bg-[#36332f] text-[#eee]','chat'],
+              ['moments','IG','ig','bg-[#9b8068] text-white','moments'],
+              ['music','音乐','music','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','music'],
+              ['offline-story','线下剧情','book','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','offline-story'],
+            ].map(([id,label,symbol,iconClass,screen]) => { const pos=itemPosition(1,'app-'+id); return <button key={id} onClick={()=>{if(!desktopEditing) onNavigate(screen as ScreenType)}} onPointerDown={e=>beginDesktopDrag(1,'app-'+id,e)} onPointerMove={e=>continueDesktopDrag(1,'app-'+id,e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)} className={`absolute pointer-events-auto flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] select-none touch-none ${desktopEditing?'cursor-grab active:cursor-grabbing':''}`} style={{left:pos.x,top:pos.y}}>
+                <div className={`w-[64px] h-[64px] rounded-[21px] shadow-[0_6px_18px_rgba(52,43,34,.055)] grid place-items-center ${iconClass}`}>{renderAppIcon(id,symbol,'w-6 h-6')}{id==='line'&&worldUnread>0&&<span className="absolute -top-1 right-[-2px] w-4 h-4 rounded-full bg-[#9b625b] text-white text-[9px] font-bold flex items-center justify-center">{worldUnread>99?'99+':worldUnread}</span>}</div><span className="font-medium">{label}</span>
+              </button>; })}
           </section>
 
         </div>
