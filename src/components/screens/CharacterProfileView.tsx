@@ -750,15 +750,23 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                             bilingualTranslationDirection: 'original-first', punctuationStyle: 'natural',
                             sentenceLength: 'natural', lineBreakStyle: 'natural', colloquialLevel: 'natural',
                             fillerWords: [], emojiStyle: 'light', capitalizationStyle: 'standard',
-                            numberStyle: 'standard', preferredSpaces: false, examples: []
+                            numberStyle: 'standard', preferredSpaces: false, messageGrouping: 'natural', examples: []
                           };
                           const updateLanguage = (patch: Partial<typeof profile>) =>
                             patchSelected({ languageProfile: { ...profile, ...patch } } as Partial<ImportedCharacter>);
                           return <>
+                            <div className="grid grid-cols-1 gap-2 mb-2">
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">ONLINE PERSONA · 线上人设</span>
+                                <textarea value={selected.onlinePersona || ''} onChange={e => patchSelected({ onlinePersona: e.target.value } as Partial<ImportedCharacter>)} placeholder="这个角色在线上聊天时呈现出来的身份、气质、状态……" className="w-full mt-1 min-h-[58px] bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none resize-none" />
+                              </label>
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">TYPING HABIT · 打字习惯</span>
+                                <textarea value={selected.typingHabit || ''} onChange={e => patchSelected({ typingHabit: e.target.value } as Partial<ImportedCharacter>)} placeholder="例如：少用标点；一句一句发；偶尔用“…”；不喜欢句号……" className="w-full mt-1 min-h-[58px] bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none resize-none" />
+                              </label>
+                            </div>
                             <div className="grid grid-cols-2 gap-2">
                               <label><span className="text-[8px] font-mono text-[#8b8782]">LANGUAGE</span>
                                 <select value={profile.language} onChange={e => updateLanguage({ language: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
-                                  <option value="zh-CN">普通话 / 中文</option><option value="en">English</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="fr">Français</option><option value="es">Español</option><option value="de">Deutsch</option><option value="other">其他</option>
+                                  <option value="zh-CN">简体中文</option><option value="zh-TW">繁體中文</option><option value="yue">粤语</option><option value="en">English</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="fr">Français</option><option value="es">Español</option><option value="de">Deutsch</option><option value="other">其他</option>
                                 </select>
                               </label>
                               <label><span className="text-[8px] font-mono text-[#8b8782]">BILINGUAL</span>
@@ -788,6 +796,11 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                               <label><span className="text-[8px] font-mono text-[#8b8782]">SENTENCE</span>
                                 <select value={profile.sentenceLength} onChange={e => updateLanguage({ sentenceLength: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
                                   <option value="short">短句</option><option value="natural">自然</option><option value="long">偏长</option><option value="mixed">长短混合</option>
+                                </select>
+                              </label>
+                              <label><span className="text-[8px] font-mono text-[#8b8782]">MESSAGE GROUPING · 消息分组</span>
+                                <select value={profile.messageGrouping || 'natural'} onChange={e => updateLanguage({ messageGrouping: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
+                                  <option value="single">一句一句发</option><option value="double">两句一起发</option><option value="natural">自然决定</option>
                                 </select>
                               </label>
                               <label><span className="text-[8px] font-mono text-[#8b8782]">LINE BREAKS</span>
