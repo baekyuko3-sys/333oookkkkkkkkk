@@ -615,6 +615,9 @@ export function LineConversationView({
   const [scheduleList, setScheduleList] = usePersistentState<any[]>(`line:schedule:${conversationStorageId}`, []);
   const [newScheduleTime, setNewScheduleTime] = useState('21:00');
   const [newScheduleTitle, setNewScheduleTitle] = useState('');
+  const [newScheduleKind, setNewScheduleKind] = useState<'message' | 'moment' | 'offline-invite'>('message');
+  const [newScheduleLocation, setNewScheduleLocation] = useState('');
+  const [newScheduleTheme, setNewScheduleTheme] = useState('');
   const [showAddScheduleRow, setShowAddScheduleRow] = useState(false);
 
   // 录音模拟
@@ -1953,9 +1956,12 @@ export function LineConversationView({
     }
     setScheduleList((prev) => [
       ...prev,
-      { id: String(Date.now()), time: newScheduleTime, title: newScheduleTitle.trim() },
+      { id: String(Date.now()), time: newScheduleTime, title: newScheduleTitle.trim(), kind: newScheduleKind, location: newScheduleLocation.trim(), theme: newScheduleTheme.trim() },
     ]);
     setNewScheduleTitle('');
+    setNewScheduleLocation('');
+    setNewScheduleTheme('');
+    setNewScheduleKind('message');
     setShowAddScheduleRow(false);
     showToast('已添加新日程');
   };
@@ -4798,6 +4804,39 @@ export function LineConversationView({
                     placeholder="输入日程活动，如：在便利店等雨停..."
                     className="flex-1 p-1.5 bg-white border border-[#ddd] rounded-md text-xs"
                   />
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {([
+                    ['message', '主动聊天'],
+                    ['moment', '发朋友圈'],
+                    ['offline-invite', '线下邀约'],
+                  ] as const).map(([kind, label]) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      onClick={() => setNewScheduleKind(kind)}
+                      className={`py-1.5 rounded-lg border text-[9px] ${newScheduleKind === kind ? 'bg-[#f3dfe4] border-[#d4aab5] text-[#8f5968]' : 'bg-white border-[#e5e5e6] text-[#777]'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {newScheduleKind === 'offline-invite' && (
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <input
+                      value={newScheduleLocation}
+                      onChange={(e) => setNewScheduleLocation(e.target.value)}
+                      placeholder="见面地点（可选）"
+                      className="p-1.5 bg-white border border-[#ddd] rounded-md text-[10px]"
+                    />
+                    <input
+                      value={newScheduleTheme}
+                      onChange={(e) => setNewScheduleTheme(e.target.value)}
+                      placeholder="见面主题（可选）"
+                      className="p-1.5 bg-white border border-[#ddd] rounded-md text-[10px]"
+                    />
+                  </div>
+                )}
                   <button
                     onClick={handleAddScheduleItem}
                     className="px-3 py-1.5 bg-[#d4aab5] text-white rounded-md font-medium text-xs cursor-pointer"
@@ -4815,7 +4854,9 @@ export function LineConversationView({
                     <span className="font-mono text-xs font-semibold text-[#ae7e89] w-12">
                       {item.time}
                     </span>
-                    <span className="text-xs text-[#333]">{item.title}</span>
+                    <span className="text-xs text-[#333]">
+                      {item.kind === 'moment' ? '◌' : item.kind === 'offline-invite' ? '💌' : '•'} {item.title}
+                    </span>
                   </div>
                   <button
                     onClick={() => {
