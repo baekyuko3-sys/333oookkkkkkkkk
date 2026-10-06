@@ -23,6 +23,64 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   const [archiveCap, setArchiveCap] = useState('PRIVATE ARCHIVE');
   const [worldUnread, setWorldUnread] = useState(0);
 
+  type DesktopItem = { id: string; x: number; y: number };
+
+  const PAGE2_LAYOUT_KEY = 'sane333:home-page2-layout';
+  const defaultPage2Layout: DesktopItem[] = [
+    { id: 'widget-threads', x: 20, y: 300 },
+    { id: 'app-threads', x: 22, y: 515 },
+    { id: 'app-npc', x: 104, y: 515 },
+    { id: 'app-group-presets', x: 186, y: 515 },
+    { id: 'app-spy-phone', x: 268, y: 515 },
+    { id: 'app-memory', x: 104, y: 590 },
+    { id: 'app-studio', x: 186, y: 590 },
+  ];
+
+  const readPage2Layout = (): DesktopItem[] => {
+    try {
+      const raw = window.localStorage.getItem(PAGE2_LAYOUT_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (!Array.isArray(parsed)) return defaultPage2Layout;
+      return defaultPage2Layout.map(item => {
+        const saved = parsed.find((entry: DesktopItem) => entry?.id === item.id);
+        return saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)
+          ? { ...item, x: saved.x, y: saved.y }
+          : item;
+      });
+    } catch {
+      return defaultPage2Layout;
+    }
+  };
+
+  const [page2Layout, setPage2Layout] = useState<DesktopItem[]>(() => readPage2Layout());
+  const [page2Editing, setPage2Editing] = useState(false);
+  const [draggingPage2Item, setDraggingPage2Item] = useState<string | null>(null);
+
+  const savePage2Layout = (next: DesktopItem[]) => {
+    setPage2Layout(next);
+    window.localStorage.setItem(PAGE2_LAYOUT_KEY, JSON.stringify(next));
+  };
+
+  const movePage2Item = (id: string, clientX: number, clientY: number) => {
+    const phone = document.querySelector('[data-sane333-phone]') as HTMLElement | null;
+    if (!phone) return;
+    const rect = phone.getBoundingClientRect();
+    const isApp = id.startsWith('app-');
+    const width = isApp ? 60 : 320;
+    const height = isApp ? 72 : 96;
+    const x = Math.max(12, Math.min(rect.width - width - 12, clientX - rect.left - width / 2));
+    const y = Math.max(80, Math.min(rect.height - 155 - height, clientY - rect.top - height / 2));
+    const snap = isApp ? 2 : 4;
+    savePage2Layout(page2Layout.map(item => item.id === id
+      ? { ...item, x: Math.round(x / snap) * snap, y: Math.round(y / snap) * snap }
+      : item));
+  };
+
+  const page2Item = (id: string) =>
+    page2Layout.find(item => item.id === id) || defaultPage2Layout.find(item => item.id === id)!;
+
+  const resetPage2Layout = () => savePage2Layout(defaultPage2Layout);
+
   useEffect(() => {
     const updateTime = () => {
       const d = new Date();
@@ -360,189 +418,129 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
       )}
 
       {/* ========================================================================= */}
-      {/* PAGE 2: 深度扩展页 (Threads + 查手机)
-          与第一页风格统一，极简克制，充实而充满叙事张力！
-      */}
+      {/* PAGE 2: 自由桌面 */}
+      {/* ========================================================================= */}
       {currentPage === 2 && (
-        <div className="animate-in fade-in duration-300">
-          
-          {/* Page 2 Literary Mood Section */}
-          <div className="absolute z-10 top-[148px] left-[26px]">
-            <div className="font-serif text-[42px] leading-[0.95] font-normal tracking-[-1.5px] text-[var(--ink)]">
-              深夜
+        <div className="absolute inset-0 animate-in fade-in duration-300">
+          <div className="absolute z-10 top-[70px] left-[25px] right-[25px] flex items-end justify-between">
+            <div>
+              <div className="text-[9px] text-[#8b8782] tracking-[2px] font-mono">PAGE 02 · PRIVATE DESKTOP</div>
+              <div className="mt-1 text-[22px] font-serif text-[var(--ink)]">深夜</div>
             </div>
-            <div className="text-[10px] text-[#8b8782] tracking-[2px] mt-2.5 font-mono">
-              PRIVATE LOG
-            </div>
-            <div className="mt-4 font-serif-sc text-[12.5px] leading-[1.75] text-[var(--sub,#68625b)] max-w-[205px]">
-              “那些不曾发给任何人的草稿，<br />和只对你开放的抽屉。”
-            </div>
-          </div>
-
-          {/* Page 2 Polaroid: London Night Rain */}
-          <div 
-            onClick={() => setIsPhotoFlippedP2(!isPhotoFlippedP2)}
-            className="absolute z-10 right-[17px] top-[181px] w-[84px] h-[106px] -rotate-[3deg] p-[5px_5px_15px] bg-[var(--paper,#eee9df)] shadow-[0_7px_18px_rgba(45,37,30,.09)] opacity-90 cursor-pointer hover:rotate-0 hover:scale-105 transition-all group"
-            title="点击翻转伦敦雨夜拍立得"
-          >
-            {isPhotoFlippedP2 ? (
-              <div className="h-[82px] p-1.5 bg-[#fbf9f5] border border-neutral-200/80 rounded flex flex-col justify-between text-left">
-                <span className="text-[6px] font-mono text-[#8b8782]">DRAFT</span>
-                <p className="font-handwriting text-[8px] leading-tight text-[#8b7560]">
-                  PRIVATE LOG.<br />
-                  暂无私人草稿。
-                </p>
-                <span className="font-handwriting text-[7px] text-[#9b625b] text-right">
-                  private.
-                </span>
-              </div>
-            ) : (
-              <div 
-                className="h-[82px] relative overflow-hidden filter contrast-[0.92] saturate-[0.68]"
-                style={{
-                  background: `
-                    radial-gradient(circle at 70% 28%, rgba(200,185,160,.6), transparent 25%),
-                    linear-gradient(135deg, #3d3732, #6e645a 50%, #2f2a26)
-                  `
-                }}
+            <div className="flex gap-1.5">
+              {page2Editing && (
+                <button onClick={resetPage2Layout} className="px-2.5 h-8 rounded-full bg-white/75 border border-black/5 text-[9px] font-mono text-[#777]">
+                  重置
+                </button>
+              )}
+              <button
+                onClick={() => setPage2Editing(value => !value)}
+                className={`px-3 h-8 rounded-full border text-[9px] font-mono transition-all ${
+                  page2Editing ? 'bg-[#242220] text-white border-[#242220]' : 'bg-white/75 text-[#555] border-black/5'
+                }`}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-black/40" />
-                <span className="absolute left-[6px] top-[6px] text-white/85 text-[7px] tracking-[0.9px] font-mono">
-                  PRIVATE ARCHIVE
-                </span>
-                <b className="absolute right-[6px] bottom-[5px] text-white font-serif text-[11px] font-normal">
-                  23:45
-                </b>
-              </div>
-            )}
-            <div className="absolute left-[5px] bottom-[3px] text-[7px] tracking-[0.8px] text-[#6f685f] whitespace-nowrap font-mono">
-              {isPhotoFlippedP2 ? 'CLICK FLIP' : 'NO PHOTO YET'}
+                {page2Editing ? '完成' : '整理桌面'}
+              </button>
             </div>
           </div>
 
-          {/* Page 2 Middle Feature Preview Cards */}
-          <div className="absolute z-10 top-[306px] left-[20px] right-[20px] space-y-[11px]">
-            
-            {/* Widget 1: Threads Live Draft Preview */}
-            <div 
-              onClick={() => onNavigate('threads')}
-              className="border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[14px_16px] shadow-[0_6px_22px_rgba(40,35,30,.045)] cursor-pointer active:scale-98 transition-all hover:bg-white/90 group"
-            >
-              <div className="flex items-center justify-between text-[9px] font-mono text-[#8b8782] mb-1.5">
-                <span className="flex items-center gap-1.5 text-[#1a1a1a] font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#1a1a1a]" />
-                  THREADS · PRIVATE
-                </span>
-                <span>14分钟前发布</span>
-              </div>
-              <p className="font-serif-sc text-[12px] leading-relaxed text-[var(--ink)] line-clamp-2">
-                暂无动态。导入角色后，Threads 会在这里显示内容。
-              </p>
-              <div className="mt-2 pt-1.5 border-t border-[rgba(0,0,0,0.05)] flex items-center justify-between text-[9px] font-mono text-[#8b7560]">
-                <span>点击进入 Threads 查阅互动</span>
-                <span className="group-hover:translate-x-1 transition-transform">→</span>
-              </div>
+          {page2Editing && (
+            <div className="absolute z-10 top-[120px] left-[25px] right-[25px] text-[8px] font-mono text-[#999]">
+              拖动 App / 小组件 · 自动保存位置
             </div>
+          )}
 
-            {/* Widget 2: Spy Phone Monitor Status Card */}
-            <div 
-              onClick={() => onNavigate('spy-phone')}
-              className="border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[14px_16px] shadow-[0_6px_22px_rgba(40,35,30,.045)] cursor-pointer active:scale-98 transition-all hover:bg-white/90 group"
-            >
-              <div className="flex items-center justify-between text-[9px] font-mono text-[#8b8782] mb-1.5">
-                <span className="flex items-center gap-1.5 text-[#9b625b] font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#9b625b] animate-ping" />
-                  查手机 · 窥探监控已就绪
-                </span>
-                <span>暂无设备数据</span>
-              </div>
-              <div className="text-[11.5px] font-sans text-[#333] space-y-0.5">
-                <p className="truncate text-[var(--ink)]">
-                  暂无可查看的聊天记录
+          {(() => {
+            const item = page2Item('widget-threads');
+            return (
+              <div
+                className={`absolute z-10 w-[320px] h-[96px] rounded-[20px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl p-[14px_16px] shadow-[0_6px_22px_rgba(40,35,30,.045)] ${
+                  page2Editing ? 'ring-1 ring-[#b7a59a]/45 cursor-grab active:cursor-grabbing touch-none' : 'cursor-pointer'
+                }`}
+                style={{ left: item.x, top: item.y }}
+                onPointerDown={(event) => {
+                  if (!page2Editing) {
+                    onNavigate('threads');
+                    return;
+                  }
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  setDraggingPage2Item('widget-threads');
+                }}
+                onPointerMove={(event) => {
+                  if (draggingPage2Item === 'widget-threads') movePage2Item('widget-threads', event.clientX, event.clientY);
+                }}
+                onPointerUp={() => setDraggingPage2Item(null)}
+                onPointerCancel={() => setDraggingPage2Item(null)}
+              >
+                <div className="flex items-center justify-between text-[9px] font-mono text-[#8b8782] mb-1.5">
+                  <span className="flex items-center gap-1.5 text-[#1a1a1a] font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#1a1a1a]" />THREADS · PRIVATE
+                  </span>
+                  <span>PRIVATE DESKTOP</span>
+                </div>
+                <p className="font-serif-sc text-[12px] leading-relaxed text-[var(--ink)] line-clamp-2">
+                  暂无动态。导入角色后，Threads 会在这里显示内容。
                 </p>
-                <p className="truncate text-[#8b7560] font-medium">
-                  暂无角色聊天数据
-                </p>
+                <div className="mt-2 text-[9px] font-mono text-[#8b7560]">点击进入 Threads 查阅互动 →</div>
               </div>
-              <div className="mt-2 pt-1.5 border-t border-[rgba(0,0,0,0.05)] flex items-center justify-between text-[9px] font-mono text-[#9b625b]">
-                <span>等待角色与聊天数据</span>
-                <span className="group-hover:translate-x-1 transition-transform">→</span>
-              </div>
+            );
+          })()}
+
+          {[
+            ['threads', 'Threads', 'threads', 'bg-[#1a1a1a] text-white', '3'],
+            ['npc', 'NPC', 'npc', 'bg-[#ebe2dc] text-[#5f554f] border border-black/5', ''],
+            ['group-presets', '预设', 'group-presets', 'bg-[#f0ebe5] text-[#63584f] border border-black/5', ''],
+            ['spy-phone', '查手机', 'spy-phone', 'bg-[#9b625b] text-white', ''],
+            ['memory', 'Memory', 'memory', 'bg-[#292724] text-white', ''],
+            ['studio', 'STUDIO', 'studio', 'bg-[#242220] text-white', ''],
+          ].map(([id, label, symbol, iconClass, badge]) => {
+            const item = page2Item('app-' + id);
+            const screen = id === 'studio' ? 'project-studio' : id;
+            return (
+              <button
+                key={id}
+                onPointerDown={(event) => {
+                  if (!page2Editing) {
+                    onNavigate(screen as ScreenType);
+                    return;
+                  }
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  setDraggingPage2Item('app-' + id);
+                }}
+                onPointerMove={(event) => {
+                  if (draggingPage2Item === 'app-' + id) movePage2Item('app-' + id, event.clientX, event.clientY);
+                }}
+                onPointerUp={() => setDraggingPage2Item(null)}
+                onPointerCancel={() => setDraggingPage2Item(null)}
+                className={`absolute z-10 w-[60px] flex flex-col items-center gap-2 text-[9px] tracking-[0.25px] text-[var(--sub,#68625b)] select-none touch-none ${
+                  page2Editing ? 'cursor-grab active:cursor-grabbing' : ''
+                }`}
+                style={{ left: item.x, top: item.y }}
+              >
+                <div className={`relative w-[60px] h-[60px] rounded-[18px] shadow-[0_6px_18px_rgba(52,43,34,.07)] grid place-items-center transition-transform ${
+                  page2Editing && draggingPage2Item === 'app-' + id ? 'scale-110' : ''
+                } ${iconClass}`}>
+                  {appearance.appIcons[id]
+                    ? renderAppIcon(id, symbol, 'w-[25px] h-[25px]')
+                    : id === 'npc'
+                      ? <span className="text-[20px] font-serif">人</span>
+                      : id === 'group-presets'
+                        ? <span className="text-[18px] font-serif">预</span>
+                        : id === 'memory'
+                          ? <span className="font-serif text-[20px]">M</span>
+                          : renderAppIcon(id, symbol, 'w-[25px] h-[25px]')}
+                  {badge && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#9b625b] text-white text-[8px] font-bold flex items-center justify-center">{badge}</span>}
+                </div>
+                <span className="font-semibold tracking-tight text-[var(--ink)] whitespace-nowrap">{label}</span>
+              </button>
+            );
+          })}
+
+          {page2Editing && (
+            <div className="absolute z-10 left-[25px] right-[25px] bottom-[132px] text-center text-[8px] font-mono text-[#999] pointer-events-none">
+              桌面布局自动保存 · App 统一 60px
             </div>
-
-          </div>
-
-          {/* Page 2 Apps: The Requested 2 Apps (Threads + 查手机) */}
-          <section className="absolute z-10 left-[18px] right-[16px] top-[565px] flex gap-[4px]">
-            
-            {/* App 1: Threads */}
-            <button 
-              onClick={() => onNavigate('threads')}
-              className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
-            >
-              <div className="w-[54px] h-[54px] rounded-[21px] bg-[#1a1a1a] text-white border-transparent shadow-[0_6px_18px_rgba(52,43,34,.07)] grid place-items-center group-hover:scale-105 transition-transform relative">
-                {renderAppIcon('threads', 'threads')}
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#9b625b] text-white text-[9px] font-bold flex items-center justify-center">
-                  3
-                </span>
-              </div>
-              <span className="font-semibold tracking-tight text-[var(--ink)]">Threads</span>
-            </button>
-
-            {/* App 2: NPC 人物池 */}
-            <button
-              onClick={() => onNavigate('npc')}
-              className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
-            >
-              <div className="w-[54px] h-[54px] rounded-[21px] bg-[#ebe2dc] text-[#5f554f] border border-[rgba(40,36,31,.08)] shadow-[0_6px_18px_rgba(52,43,34,.07)] grid place-items-center group-hover:scale-105 transition-transform relative">
-                {appearance.appIcons.npc ? renderAppIcon('npc', 'card') : <span className="text-[19px] font-serif">人</span>}
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#caa9ad] border border-white" />
-              </div>
-              <span className="font-semibold tracking-tight text-[var(--ink)]">NPC</span>
-            </button>
-
-            {/* App 3: 预设 */}
-            <button
-              onClick={() => onNavigate('group-presets')}
-              className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
-            >
-              <div className="w-[54px] h-[54px] rounded-[21px] bg-[#f0ebe5] text-[#63584f] border border-[rgba(40,36,31,.08)] shadow-[0_6px_18px_rgba(52,43,34,.07)] grid place-items-center group-hover:scale-105 transition-transform relative">
-                {appearance.appIcons['group-presets'] ? renderAppIcon('group-presets', 'card') : <span className="text-[18px] font-serif">预</span>}
-              </div>
-              <span className="font-semibold tracking-tight text-[var(--ink)]">预设</span>
-            </button>
-
-            {/* App 4: 查手机 */}
-            <button 
-              onClick={() => onNavigate('spy-phone')}
-              className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
-            >
-              <div className="w-[54px] h-[54px] rounded-[21px] bg-[#9b625b] text-white border-transparent shadow-[0_6px_18px_rgba(52,43,34,.07)] grid place-items-center group-hover:scale-105 transition-transform relative">
-                {renderAppIcon('spy-phone', 'spy')}
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-white" />
-              </div>
-              <span className="font-semibold tracking-tight text-[var(--ink)]">查手机</span>
-            </button>
-
-
-            <button onClick={() => onNavigate('memory')} className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group">
-              <div className="w-[54px] h-[54px] rounded-[18px] bg-[#292724] text-white grid place-items-center group-hover:scale-105 transition-transform">{appearance.appIcons.memory ? renderAppIcon('memory', 'card') : <span className="font-serif text-[20px]">M</span>}</div>
-              <span className="font-semibold tracking-tight text-[var(--ink)]">Memory</span>
-            </button>
-
-            {/* App 6: STUDIO · Meme Workshop */}
-            <button
-              onClick={() => onNavigate('project-studio')}
-              className="flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] active:scale-95 transition-transform group"
-              title="打开 STUDIO · Meme Workshop"
-            >
-              <div className="w-[54px] h-[54px] rounded-[18px] bg-[#242220] text-white grid place-items-center group-hover:scale-105 transition-transform shadow-[0_7px_18px_rgba(38,34,30,.10)]">
-                {renderAppIcon('studio', 'studio')}
-              </div>
-              <span className="font-semibold tracking-tight text-[var(--ink)]">STUDIO</span>
-            </button>
-          </section>
-
+          )}
         </div>
       )}
 
