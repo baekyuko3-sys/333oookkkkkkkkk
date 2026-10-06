@@ -252,7 +252,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     const request = prompt.trim();
     setPrompt('');
     setMessage('你：' + request);
-    setConversation(previous => [...previous, { role: 'user', content: request }].slice(-24));
+    setConversation(previous => [...previous, { role: 'user' as const, content: request }].slice(-24));
     setAiBusy(true);
     setAgentRunning(true);
     const task: StudioTask = { id:'task-'+Date.now(), title:request.slice(0,50), request, status:'working', steps:[{id:'inspect',title:'Inspect project',status:'working'},{id:'plan',title:'Plan changes',status:'todo'},{id:'review',title:'Review Changes',status:'todo'},{id:'apply',title:'Apply approved changes',status:'todo'}],createdAt:Date.now(),updatedAt:Date.now() };
@@ -321,7 +321,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       }, request);
       if (result.text) {
         setMessage(result.text);
-        setConversation(previous => [...previous, { role: 'assistant', content: result.text }].slice(-24));
+        setConversation(previous => [...previous, { role: 'assistant' as const, content: result.text }].slice(-24));
       }
       log('agent', 'Finished current pass');
       setCurrentTask(v => v ? {...v,status:'review',updatedAt:Date.now(),steps:v.steps.map((step,i)=>({...step,status:i<2?'done':i===2?'working':'todo'} as any))} : v);
@@ -337,12 +337,12 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         });
         const reply = fallback || '你好，有什么可以帮到你？';
         setMessage(reply);
-        setConversation(previous => [...previous, { role: 'assistant', content: reply }].slice(-24));
+        setConversation(previous => [...previous, { role: 'assistant' as const, content: reply }].slice(-24));
         log('agent', 'Meme Agent fallback → normal model chat');
       } catch (fallbackError) {
         const failure = error instanceof Error ? error.message : fallbackError instanceof Error ? fallbackError.message : 'Meme 请求失败';
       setMessage(failure);
-      setConversation(previous => [...previous, { role: 'assistant', content: failure }].slice(-24));
+      setConversation(previous => [...previous, { role: 'assistant' as const, content: failure }].slice(-24));
       }
     } finally {
       setAiBusy(false);
