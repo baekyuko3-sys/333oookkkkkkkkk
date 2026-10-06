@@ -39,7 +39,7 @@ function downloadText(filename: string, content: string) {
 export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [characters, setCharacters] = usePersistentState<ImportedCharacter[]>('phone:characters', []);
-  const [, setWorldBooks] = usePersistentState<WorldBook[]>('phone:worldbooks', []);
+  const [worldBooks] = usePersistentState<WorldBook[]>('phone:worldbooks', []);
   const [groups, setGroups] = usePersistentState<Array<{ id: string; name: string }>>('phone:character-groups', []);
   const [selectedGroupId, setSelectedGroupId] = useState('all');
   const [selectedId, setSelectedId] = usePersistentState<string | null>(
@@ -52,6 +52,7 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteWorldBooks, setDeleteWorldBooks] = useState(false);
   const [deleteChatHistory, setDeleteChatHistory] = useState(false);
+  const [worldBookPickerOpen, setWorldBookPickerOpen] = useState(false);
   const visibleCharacters = selectedGroupId === 'all'
     ? characters
     : characters.filter(character => (character.groupId || 'ungrouped') === selectedGroupId);
@@ -223,15 +224,21 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
         ? parsed.embeddedWorldBooks
         : (parsed.embeddedWorldBook ? [parsed.embeddedWorldBook] : []);
       if (embeddedWorldBooks.length) {
+        const importedBooks = embeddedWorldBooks.map(book => ({
+          ...book,
+          sourceCharacterId: parsed.id,
+          sourceCharacterName: parsed.name,
+          sourceType: 'character-card' as const,
+        }));
         setWorldBooks(prev => [
-          ...embeddedWorldBooks.map(book => ({
-            ...book,
-            sourceCharacterId: parsed.id,
-            sourceCharacterName: parsed.name,
-            sourceType: 'character-card' as const,
-          })),
+          ...importedBooks,
           ...prev.filter(book => !embeddedWorldBooks.some(imported => imported.id === book.id)),
         ]);
+        setCharacters(prev => prev.map(item =>
+          item.id === parsed.id
+            ? { ...item, worldBookIds: Array.from(new Set([...(item.worldBookIds || []), ...importedBooks.map(book => book.id)])) }
+            : item
+        ));
       }
       setSelectedId(parsed.id);
       setIsEditing(false);
@@ -740,6 +747,59 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                     <Trash2 className="w-3.5 h-3.5" />
                     移除角色
                   </button>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white/60 border border-[rgba(40,36,31,.1)]">
+                  <button
+                    onClick={() => setWorldBookPickerOpen(value => !value)}
+                    className="w-full flex items-center justify-between text-left"
+                  >
+                    <div>
+                      <div className="text-[8px] tracking-[1.5px] font-mono text-[#8b8782]">CHARACTER LOREBOOKS</div>
+                      <div className="mt-1 text-[11px] font-serif font-bold text-[#302d29]">
+                        专属世界书 · {(selected?.worldBookIds || []).length} 本已选择
+                      </div>
+                      <div className="mt-0.5 text-[9px] text-[#8b847d]">
+                        像酒馆一样，为这个角色勾选要使用的世界书
+                      </div>
+                    </div>
+                    <span className="text-[9px] text-[#8b847d]">{worldBookPickerOpen ? '收起' : '选择'}</span>
+                  </button>
+                  {worldBookPickerOpen && (
+                    <div className="mt-3 space-y-1.5 max-h-[240px] overflow-y-auto">
+                      {worldBooks.length === 0 && (
+                        <div className="py-4 text-center text-[9px] text-[#8b847d]">还没有世界书</div>
+                      )}
+                      {worldBooks.map(book => {
+                        const selectedIds = selected?.worldBookIds || [];
+                        const checked = selectedIds.includes(book.id);
+                        const toggle = () => {
+                          if (!selected) return;
+                          const next = checked
+                            ? selectedIds.filter(id => id !== book.id)
+                            : [...selectedIds, book.id];
+                          patchSelected({ worldBookIds: next });
+                        };
+                        return (
+                          <button
+                            key={book.id}
+                            onClick={toggle}
+                            className={`w-full flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all ${checked ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/65 text-[#4f4943] border-[rgba(40,36,31,.1)]'}`}
+                          >
+                            <span className={`w-4 h-4 rounded-md border grid place-items-center shrink-0 ${checked ? 'bg-white text-[#292724] border-white' : 'border-[#bdb5ab]'}`}>
+                              {checked ? '✓' : ''}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-[10px] font-serif font-bold truncate">{book.name || '未命名世界书'}</span>
+                              <span className={`block mt-0.5 text-[8px] truncate ${checked ? 'text-white/60' : 'text-[#918980]'}`}>
+                                {book.entries.length} 条 · {book.sourceType === 'character-card' ? `角色卡 · ${book.sourceCharacterName || '角色'}` : '全局世界书'}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-4 rounded-2xl bg-[#ebe7df] border border-[rgba(40,36,31,.12)]">
