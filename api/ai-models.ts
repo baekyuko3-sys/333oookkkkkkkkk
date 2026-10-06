@@ -136,4 +136,6 @@ async function handleRequest(request: Request) {
   }
 }
 
-export default { fetch: handleRequest };
+export default async function handler(request: Request) {
+  return handleRequest(request);
+}
