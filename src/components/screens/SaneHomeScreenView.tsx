@@ -287,7 +287,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
           </div>
 
           {/* Widgets (Weather, Note & Music Player) */}
-          <div className={`absolute z-10 ${desktopEditing ? "ring-1 ring-[#b7a59a]/45 rounded-[21px] cursor-grab active:cursor-grabbing touch-none" : ""}`} style={{ left: itemPosition(1, "widget-weather").x, top: itemPosition(1, "widget-weather").y, width: 320 }} onPointerDown={e=>beginDesktopDrag(1,"widget-weather",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-weather",e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)}><div className="grid grid-cols-2 gap-[13px]">
+          <div className="absolute z-10 left-[20px] top-[306px] w-[320px] grid grid-cols-2 gap-[13px] pointer-events-none">
             
             {/* Weather Card */}
             <button 
