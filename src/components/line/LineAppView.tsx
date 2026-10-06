@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { usePersistentState } from '../../store/usePersistentState';
 import type { ImportedCharacter } from '../../data/characterImport';
 import { ScreenType } from '../../types';
@@ -205,6 +205,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [channelBusy, setChannelBusy] = useState<'chat-models' | 'chat-test' | 'moments-models' | 'moments-test' | null>(null);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [friendProfile, setFriendProfile] = useState<LineFriend | null>(null);
+  const [friendSettingsOpen, setFriendSettingsOpen] = useState(false);
+  const [friendEditing, setFriendEditing] = useState(false);
   const [addCharacterChatFriend, setAddCharacterChatFriend] = useState<LineFriend | null>(null);
   const [newChatRelationship, setNewChatRelationship] = useState<'new-friend' | 'old-friend' | 'readded'>('new-friend');
   const [readdedReason, setReaddedReason] = useState<'deleted' | 'blocked' | 'mutual-delete'>('deleted');
@@ -225,7 +227,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [isRefreshingMoments, setIsRefreshingMoments] = useState(false);
 
   // User / Mask State
-  const [importedCharacters] = usePersistentState<ImportedCharacter[]>('phone:characters', []);
+  const [importedCharacters, setImportedCharacters] = usePersistentState<ImportedCharacter[]>('phone:characters', []);
 
   const [currentUser, setCurrentUser] = usePersistentState<LineUserProfile>('line:current-user', {
     name: '',
