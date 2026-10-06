@@ -1160,6 +1160,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                           ['description', '角色简介', character.description],
                           ['personality', '性格', character.personality],
                           ['scenario', '当前场景', character.scenario],
+                          ['onlinePersona', '线上人设', character.onlinePersona],
+                          ['typingHabit', '打字习惯', character.typingHabit],
                         ].map(([key, label, value]) => (
                           <div key={key} className="pt-3">
                             <div className="text-[10px] text-[#999] mb-1.5">{label}</div>
