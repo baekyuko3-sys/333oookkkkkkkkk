@@ -4,7 +4,7 @@ import { PhoneSimulator } from './components/PhoneSimulator';
 import { cleanupOldDemoData } from './store/blankPhoneMigration';
 
 export default function App() {
-  const release = '2026.10.06-worldbook-picker-v2';
+  const release = '2026.10.06-line-openings-v1';
   const [themeMode, setThemeMode] = useState<ThemeMode>('nordic-light');
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
   const [showUpdate, setShowUpdate] = useState(false);
@@ -55,10 +55,11 @@ export default function App() {
             <button onClick={() => setShowUpdate(false)} className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center"><span className="text-lg">×</span></button>
           </div>
           <div className="mt-5 space-y-3 text-[11px] leading-5 text-black/65">
-            <div><b className="text-black/80">世界书 · 角色绑定</b><br/>现在可以在角色档案里自己勾选这个角色要使用的世界书。每个角色可以选择不同的世界书组合，AI 只会读取已勾选的内容。</div>
-            <div><b className="text-black/80">角色卡世界书</b><br/>增强酒馆角色卡的内置世界书识别与导入，并自动记录世界书来自哪个角色。</div>
-            <div><b className="text-black/80">世界书管理</b><br/>世界书页面加入管理、删除、启用/停用和可折叠的信息区，角色卡导入的世界书也更容易区分。</div>
-            <div><b className="text-black/80">LINE</b><br/>好友关系新增“重新加回”：被删除、被拉黑、互删后重新加回，并修复过期聊天入口导致的白屏风险。</div>
+            <div><b className="text-black/80">LINE · 聊天修复</b><br/>修复添加角色后进入聊天时可能打不开的问题，并继续保护过期聊天入口。</div>
+            <div><b className="text-black/80">ABOUT · 角色设定</b><br/>ABOUT 与角色设定合并成一个可折叠区域，页面更干净。</div>
+            <div><b className="text-black/80">角色卡 · 开场白</b><br/>导入酒馆角色卡时保留 first message 与所有 alternate greetings。</div>
+            <div><b className="text-black/80">LINE · 开场背景</b><br/>添加聊天时可以选择“不读取”或把某个开场白作为前情提要，不会自动冒充角色发消息。</div>
+            <div><b className="text-black/80">线下剧情 · Story Openings</b><br/>每次线下剧情都可以从角色卡任意一个开场白开始，也可以完全不使用。</div>
           </div>
           <div className="mt-5 flex items-center justify-between text-[8px] font-mono text-black/30">
             <span>release {release}</span>
