@@ -35,6 +35,34 @@ function readImageFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
+async function compressCharacterAvatar(avatar: string): Promise<string> {
+  if (!avatar || !avatar.startsWith('data:image/')) return avatar;
+  // PNG character cards can carry very large embedded avatars. Storing that raw
+  // base64 in localStorage can silently exceed the browser quota, which makes the
+  // whole character list disappear after leaving this screen.
+  try {
+    const image = new Image();
+    image.decoding = 'async';
+    image.src = avatar;
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error('角色头像读取失败'));
+    });
+
+    const maxSize = 512;
+    const scale = Math.min(1, maxSize / Math.max(image.naturalWidth || 1, image.naturalHeight || 1));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round((image.naturalWidth || maxSize) * scale));
+    canvas.height = Math.max(1, Math.round((image.naturalHeight || maxSize) * scale));
+    const context = canvas.getContext('2d');
+    if (!context) return avatar;
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/webp', 0.82);
+  } catch {
+    return avatar;
+  }
+}
+
 function downloadText(filename: string, content: string) {
   const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -231,6 +259,10 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
     if (!file) return;
     try {
       const parsed = await parseCharacterFile(file);
+      const normalizedParsed = {
+        ...parsed,
+        avatar: await compressCharacterAvatar(parsed.avatar || ''),
+      };
       setCharacters(prev => {
         const existing = prev.findIndex(item => item.id === parsed.id);
         const groupId = parsed.groupId || (selectedGroupId !== 'all' ? selectedGroupId : null);
