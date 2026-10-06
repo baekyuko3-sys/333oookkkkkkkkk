@@ -108,12 +108,12 @@ export function LineConversationView({
   onConversationActivity,
 }: LineConversationViewProps) {
   // Input & Messages
+  const conversationStorageId = conversationId || characterId || contactName;
   const [inputText, setInputText] = useState(initialDraft);
   const [selectedOpeningContext, setSelectedOpeningContext] = usePersistentState<string>(`line:opening-context:${conversationStorageId}`, openingContext || '');
   const [lineLocale] = usePersistentState<'zh-CN' | 'ja-JP'>('line:locale', 'zh-CN');
   const ja = lineLocale === 'ja-JP';
   const tx = (zh: string, jp: string) => ja ? jp : zh;
-  const conversationStorageId = conversationId || characterId || contactName;
   const hasImportedCharacter = hasImportedCharacterInStorage(contactName, characterId);
   const [messages, setMessages] = usePersistentState<any[]>(
     `line:conversation:${conversationStorageId}`,
