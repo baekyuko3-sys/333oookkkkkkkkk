@@ -45,7 +45,7 @@ interface LineFriend {
   note: string;
   online: boolean;
   pinyin: string;
-  relationship?: 'new-friend' | 'old-friend';
+  relationship?: 'new-friend' | 'old-friend' | 'readded';
 }
 
 interface LineUserProfile {
