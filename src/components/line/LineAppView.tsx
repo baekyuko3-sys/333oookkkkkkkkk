@@ -1467,301 +1467,100 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
         </div>
       )}
 
-      {addCharacterChatFriend && (
-        <div
-          onClick={() => setAddCharacterChatFriend(null)}
-          className="absolute inset-0 bg-black/25 z-[80] flex items-end animate-in fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full bg-white rounded-t-[26px] p-5 pb-8 space-y-5 animate-in slide-in-from-bottom"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="text-[8px] tracking-[1.8px] font-mono text-[#aaa]">NEW LINE CHAT</div>
-                <div className="mt-1 text-[18px] font-semibold text-[#202124]">添加与 {addCharacterChatFriend.name} 的聊天</div>
-                <div className="mt-1 text-[10px] text-[#999]">角色卡已经是好友，但聊天需要你主动建立。</div>
+      {addCharacterChatFriend && (() => {
+        const character = addCharacterChatFriend.characterId ? importedCharacters.find(item => item.id === addCharacterChatFriend.characterId) : null;
+        const greetings = character ? [character.firstMessage, ...character.alternateGreetings].filter(Boolean) : [];
+        return (
+          <div onClick={() => setAddCharacterChatFriend(null)} className="absolute inset-0 bg-black/25 z-[80] flex items-end animate-in fade-in">
+            <div onClick={e => e.stopPropagation()} className="w-full bg-white rounded-t-[26px] p-5 pb-8 space-y-4 animate-in slide-in-from-bottom max-h-[88%] overflow-y-auto">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="text-[8px] tracking-[1.8px] font-mono text-[#aaa]">ADD FRIEND</div>
+                  <div className="mt-1 text-[18px] font-semibold text-[#202124]">添加好友</div>
+                  <div className="mt-1 text-[10px] text-[#999]">只能搜索已经导入的角色名字；也可以从推荐列表直接添加。</div>
+                </div>
+                <button onClick={() => setAddCharacterChatFriend(null)} className="text-xl text-[#aaa]">×</button>
               </div>
-              <button onClick={() => setAddCharacterChatFriend(null)} className="text-xl text-[#aaa]">×</button>
-            </div>
 
-            <div>
-              <div className="text-[10px] text-[#888] mb-2">你们是什么关系？</div>
-              <div className="grid grid-cols-2 gap-2.5">
-                <button
-                  onClick={() => setNewChatRelationship('new-friend')}
-                  className={`rounded-2xl border p-3.5 text-left transition-colors ${newChatRelationship === 'new-friend' ? 'border-[#292724] bg-[#292724] text-white' : 'border-[#e5e5e6] bg-[#fafafa] text-[#333]'}`}
-                >
-                  <div className="text-sm font-semibold">新加的好友</div>
-                  <div className={`mt-1 text-[9px] leading-relaxed ${newChatRelationship === 'new-friend' ? 'text-white/65' : 'text-[#999]'}`}>刚认识、刚通过好友申请。</div>
-                </button>
-                <button
-                  onClick={() => setNewChatRelationship('old-friend')}
-                  className={`rounded-2xl border p-3.5 text-left transition-colors ${newChatRelationship === 'old-friend' ? 'border-[#292724] bg-[#292724] text-white' : 'border-[#e5e5e6] bg-[#fafafa] text-[#333]'}`}
-                >
-                  <div className="text-sm font-semibold">以前的旧友</div>
-                  <div className={`mt-1 text-[9px] leading-relaxed ${newChatRelationship === 'old-friend' ? 'text-white/65' : 'text-[#999]'}`}>你们早就认识，重新开始聊天。</div>
-                </button>
-                <button
-                  onClick={() => setNewChatRelationship('readded')}
-                  className={`col-span-2 rounded-2xl border p-3.5 text-left transition-colors ${newChatRelationship === 'readded' ? 'border-[#292724] bg-[#292724] text-white' : 'border-[#e5e5e6] bg-[#fafafa] text-[#333]'}`}
-                >
-                  <div className="text-sm font-semibold">重新加回的好友</div>
-                  <div className={`mt-1 text-[9px] leading-relaxed ${newChatRelationship === 'readded' ? 'text-white/65' : 'text-[#999]'}`}>你们之前已经是好友，后来删除、拉黑或互删，现在重新加回。</div>
-                </button>
-                {newChatRelationship === 'readded' && (
-                  <div className="col-span-2 rounded-2xl bg-[#f7f7f8] p-3.5 space-y-3">
-                    <div>
-                      <div className="text-[10px] text-[#888] mb-2">是哪一种“加回来”？</div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {([
-                          ['deleted', '被删除过'],
-                          ['blocked', '被拉黑过'],
-                          ['mutual-delete', '互删后'],
-                        ] as const).map(([value, label]) => (
-                          <button
-                            key={value}
-                            onClick={() => setReaddedReason(value)}
-                            className={`py-2 rounded-xl text-[10px] border ${readdedReason === value ? 'bg-white border-[#292724] text-[#222] font-semibold' : 'bg-transparent border-[#ddd] text-[#888]'}`}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-[#888] mb-1.5">补充一点背景（可不填）</div>
-                      <textarea
-                        value={relationshipContext}
-                        onChange={(e) => setRelationshipContext(e.target.value)}
-                        placeholder={
-                          readdedReason === 'mutual-delete'
-                            ? '例如：当时因为误会互删，后来重新联系。留空也可以。'
-                            : readdedReason === 'blocked'
-                              ? '例如：以前闹过矛盾，后来解除拉黑。留空也可以。'
-                              : '例如：之前因为某件事删除了对方，后来又重新加回。留空也可以。'
-                        }
-                        className="w-full min-h-[64px] resize-none rounded-xl border border-[#e3e3e4] bg-white px-3 py-2 text-[10px] leading-5 text-[#444] outline-none placeholder:text-[#b8b8b8]"
-                      />
-                      <div className="mt-1 text-[9px] text-[#aaa]">这是给角色 AI 理解你们过去关系用的，可完全不填写。</div>
-                    </div>
-                  </div>
-                )}
+              <div className="h-[40px] bg-[#f6f6f7] rounded-[11px] flex items-center px-3.5">
+                <Search className="w-4 h-4 text-[#aaa] mr-2" />
+                <input value={friendSearchQuery} onChange={e => setFriendSearchQuery(e.target.value)} placeholder="搜索角色名字" className="w-full bg-transparent outline-none text-xs text-[#555]" />
               </div>
-            </div>
 
-            {(() => {
-              const character = addCharacterChatFriend.characterId
-                ? importedCharacters.find(item => item.id === addCharacterChatFriend.characterId)
-                : null;
-              const greetings = character
-                ? [character.firstMessage, ...character.alternateGreetings].filter(Boolean)
-                : [];
-              if (!greetings.length) return null;
-              return (
-                <div className="rounded-2xl bg-[#f7f7f8] p-3.5 space-y-2.5">
-                  <div>
-                    <div className="text-[10px] text-[#888]">角色卡开场白</div>
-                    <div className="mt-1 text-[9px] text-[#aaa]">LINE 不会自动把它发成消息。你可以让它成为前情提要，也可以完全忽略。</div>
-                  </div>
-                  <div className="flex gap-2 overflow-x-auto no-scrollbar pb-0.5">
-                    <button onClick={() => setOpeningMode('none')} className={`shrink-0 px-3 py-2 rounded-xl border text-[9px] ${openingMode === 'none' ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white border-[#e3e3e4] text-[#666]'}`}>不读取</button>
-                    {greetings.map((greeting, index) => (
-                      <button key={index} onClick={() => { setOpeningMode('context'); setOpeningGreetingIndex(index); }} className={`shrink-0 px-3 py-2 rounded-xl border text-[9px] ${openingMode === 'context' && openingGreetingIndex === index ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white border-[#e3e3e4] text-[#666]'}`}>开场 {index + 1}</button>
+              {friendSearchQuery.trim() ? (() => {
+                const q = friendSearchQuery.trim().toLowerCase();
+                const matches = importedCharacters.filter(ch => ch.name.toLowerCase().includes(q) && !friendsList.some(friend => friend.characterId === ch.id));
+                return matches.length ? (
+                  <div className="space-y-2">
+                    <div className="text-[10px] text-[#888]">搜索结果 · {matches.length}</div>
+                    {matches.map(ch => (
+                      <button key={ch.id} onClick={() => {
+                        const friend: LineFriend = { name: ch.name, characterId: ch.id, note: '角色卡联系人', online: true, pinyin: ch.name[0] || '' };
+                        setFriendsList(prev => [friend, ...prev]);
+                        setFriendSearchQuery('');
+                        setAddCharacterChatFriend(null);
+                        showToast(`已添加「${ch.name}」为好友`);
+                      }} className="w-full flex items-center gap-3 p-3 rounded-xl border border-[#ededee] text-left">
+                        <div className="w-10 h-10 rounded-full overflow-hidden bg-[#f1f1f2] shrink-0">{ch.avatar ? <img src={ch.avatar} alt={ch.name} className="w-full h-full object-cover" /> : <div className="w-full h-full grid place-items-center text-[10px] text-[#aaa]">{ch.name.slice(0,1) || '?'}</div>}</div>
+                        <div className="flex-1 min-w-0"><div className="text-[12px] font-medium text-[#333]">{ch.name}</div><div className="text-[9px] text-[#aaa]">{ch.variantLabel || '角色卡'}</div></div>
+                        <span className="text-[9px] text-[#ae7e89]">匹配 · 添加</span>
+                      </button>
                     ))}
                   </div>
-                  {openingMode === 'context' && <div className="max-h-[82px] overflow-y-auto rounded-xl bg-white px-3 py-2 text-[9px] leading-5 text-[#666] whitespace-pre-wrap">{greetings[openingGreetingIndex] || greetings[0]}</div>}
-                </div>
-              );
-            })()}
-
-            <button
-              onClick={() => {
-                const friend = addCharacterChatFriend;
-                if (!friend.characterId) return;
-                const character = importedCharacters.find(item => item.id === friend.characterId);
-                const chatId = `line_chat_${friend.characterId}_${Date.now().toString(36)}`;
-                const isOldFriend = newChatRelationship === 'old-friend';
-                const isReadded = newChatRelationship === 'readded';
-                const relationshipLabel = isOldFriend ? '旧友' : isReadded ? '加回好友' : '新好友';
-                const readdedLabel = isReadded
-                  ? ({ deleted: '被删除后加回', blocked: '被拉黑后加回', 'mutual-delete': '互删后加回' } as const)[readdedReason]
-                  : '';
-                const newChat: LineChatItem = {
-                  id: chatId,
-                  characterId: friend.characterId,
-                  name: friend.name,
-                  variantLabel: friend.variantLabel || character?.variantLabel || character?.characterVersion || '默认版本',
-                  chatLabel: relationshipLabel,
-                  relationship: newChatRelationship,
-                  readdedReason: isReadded ? readdedReason : undefined,
-                  relationshipContext: relationshipContext.trim() || undefined,
-                  openingMode,
-                  openingGreeting: openingMode === 'context'
-                    ? [character?.firstMessage, ...(character?.alternateGreetings || [])].filter(Boolean)[openingGreetingIndex]
-                    : undefined,
-                  time: '刚刚',
-                  preview: isOldFriend ? '好久不见，聊聊近况吧。' : isReadded ? `重新加回 · ${readdedLabel}` : '你们刚刚成为好友.',
-                  unread: 0,
-                  isPinned: false,
-                  isMuted: false,
-                  draft: '',
-                  isGroup: false,
-                };
-
-                setChatItems(prev => [newChat, ...prev.filter(item => item.characterId !== friend.characterId)]);
-                setFriendsList(prev => prev.map(item =>
-                  item.characterId === friend.characterId
-                    ? { ...item, relationship: newChatRelationship }
-                    : item
-                ));
-                setAddCharacterChatFriend(null);
-                setFriendProfile(null);
-                setRelationshipContext('');
-                setOpeningMode('none');
-                setOpeningGreetingIndex(0);
-                setActiveChatId(chatId);
-                showToast(isOldFriend ? `已建立与 ${friend.name} 的旧友聊天` : isReadded ? `已建立与 ${friend.name} 的加回好友聊天 · ${readdedLabel}` : `已建立与 ${friend.name} 的新好友聊天`);
-              }}
-              className="w-full py-3 rounded-2xl bg-[#292724] text-white text-xs font-semibold"
-            >
-              创建聊天并进入
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================
-           MODAL 3: ADD FRIEND (添加好友抽屉)
-      ===================================================== */}
-      {showFriendModal && (
-        <div
-          onClick={() => setShowFriendModal(false)}
-          className="absolute inset-0 bg-black/25 z-50 flex items-end animate-in fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full bg-white rounded-t-[20px] p-5 pb-8 space-y-4 animate-in slide-in-from-bottom"
-          >
-            <div className="flex justify-between items-center">
-              <span className="text-[16px] font-semibold text-[#202124]">添加新好友</span>
-              <button onClick={() => setShowFriendModal(false)} className="text-xl text-[#aaa] cursor-pointer">
-                ×
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div className="h-[40px] bg-[#f6f6f7] rounded-[11px] flex items-center px-3.5 text-xs text-[#555]">
-                <Search className="w-4 h-4 text-[#aaa] mr-2" />
-                <input
-                  type="text"
-                  placeholder="搜索好友 ID / 手机号"
-                  value={friendSearchQuery}
-                  onChange={(e) => setFriendSearchQuery(e.target.value)}
-                  className="w-full bg-transparent outline-none"
-                />
-              </div>
-
-              {friendSearchQuery && (
-                <div className="p-3 bg-[#faf8f9] rounded-[12px] border border-[#f0dee3] flex items-center justify-between text-xs">
-                  <div>
-                    <div className="font-semibold text-[#333]">{friendSearchQuery}</div>
-                    <div className="text-[10px] text-[#aaa]">匹配到用户</div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      const newF = { name: friendSearchQuery, note: '新添加的好友', online: true, pinyin: 'N' };
-                      setFriendsList((prev) => [newF, ...prev]);
-                      setChatItems((prev) => [
-                        { id: `c_${Date.now()}`, name: friendSearchQuery, time: '刚刚', preview: '打个招呼吧', unread: 0, isPinned: false, isMuted: false, draft: '', isGroup: false },
-                        ...prev
-                      ]);
-                      setFriendSearchQuery('');
-                      setShowFriendModal(false);
-                      showToast(`已添加 ${friendSearchQuery} 为好友`);
-                    }}
-                    className="px-3 py-1 bg-[#ae7e89] text-white rounded-full text-xs cursor-pointer"
-                  >
-                    添加好友
-                  </button>
+                ) : <div className="py-5 text-center text-[10px] text-[#aaa]">没有找到符合名字的角色。</div>;
+              })() : (
+                <div className="rounded-2xl bg-[#f7f7f8] p-3.5 space-y-2.5">
+                  <div className="text-[10px] text-[#888]">你可能认识的人</div>
+                  {importedCharacters.filter(ch => !friendsList.some(friend => friend.characterId === ch.id)).map(ch => (
+                    <button key={ch.id} onClick={() => {
+                      const friend: LineFriend = { name: ch.name, characterId: ch.id, note: '角色卡联系人', online: true, pinyin: ch.name[0] || '' };
+                      setFriendsList(prev => [friend, ...prev]);
+                      setAddCharacterChatFriend(null);
+                      showToast(`已添加「${ch.name}」为好友`);
+                    }} className="w-full flex items-center gap-3 p-2.5 rounded-xl bg-white border border-[#ededee] text-left">
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-[#f1f1f2] shrink-0">{ch.avatar ? <img src={ch.avatar} alt={ch.name} className="w-full h-full object-cover" /> : <div className="w-full h-full grid place-items-center text-[10px] text-[#aaa]">{ch.name.slice(0,1) || '?'}</div>}</div>
+                      <div className="flex-1 min-w-0"><div className="text-[12px] font-medium text-[#333]">{ch.name || '未命名角色'}</div><div className="text-[9px] text-[#aaa]">{ch.variantLabel || '角色卡'}</div></div>
+                      <span className="text-[9px] text-[#ae7e89]">添加</span>
+                    </button>
+                  ))}
+                  {!importedCharacters.some(ch => !friendsList.some(friend => friend.characterId === ch.id)) && <div className="py-4 text-center text-[10px] text-[#aaa]">所有角色都已经是好友。</div>}
                 </div>
               )}
 
-              <button
-                onClick={() => {
-                  setShowFriendModal(false);
-                  setShowCreateFriendDrawer(true);
-                }}
-                className="w-full h-[45px] border border-dashed border-[#ddd] rounded-[10px] flex items-center justify-center text-[#888] text-xs cursor-pointer hover:border-[#ae7e89] hover:text-[#ae7e89]"
-              >
-                ＋ 手动创建新的联系人
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              {character && greetings.length > 0 && (
+                <div className="rounded-2xl bg-[#f7f7f8] p-3.5 space-y-2.5">
+                  <div>
+                    <div className="text-[10px] text-[#888]">角色开场白</div>
+                    <div className="mt-1 text-[9px] text-[#aaa]">有几个开场白，就显示几个选择；太多时自动折叠。</div>
+                  </div>
+                  <div className="space-y-1.5">
+                    {(greetings.length > 4 ? greetings.slice(0, 4) : greetings).map((greeting, index) => (
+                      <button key={index} onClick={() => { setOpeningMode('context'); setOpeningGreetingIndex(index); }} className={`w-full text-left px-3 py-2 rounded-xl border text-[9px] ${openingMode === 'context' && openingGreetingIndex === index ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white border-[#e3e3e4] text-[#666]'}`}>
+                        <div className="font-semibold">开场白 {index + 1}</div>
+                        <div className="mt-0.5 line-clamp-2 opacity-70">{greeting}</div>
+                      </button>
+                    ))}
+                    {greetings.length > 4 && <details className="rounded-xl border border-[#e3e3e4] bg-white"><summary className="px-3 py-2 text-[9px] text-[#666] cursor-pointer">展开其余 {greetings.length - 4} 个开场白</summary><div className="p-2 space-y-1.5">{greetings.slice(4).map((greeting, index) => { const realIndex = index + 4; return <button key={realIndex} onClick={() => { setOpeningMode('context'); setOpeningGreetingIndex(realIndex); }} className={`w-full text-left px-3 py-2 rounded-xl border text-[9px] ${openingMode === 'context' && openingGreetingIndex === realIndex ? 'bg-[#292724] text-white border-[#292724]' : 'bg-[#fafafa] border-[#e3e3e4] text-[#666]'}`}><div className="font-semibold">开场白 {realIndex + 1}</div><div className="mt-0.5 line-clamp-2 opacity-70">{greeting}</div></button>; })}</div></details>}
+                    <button onClick={() => setOpeningMode('none')} className={`w-full text-left px-3 py-2 rounded-xl border text-[9px] ${openingMode === 'none' ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white border-[#e3e3e4] text-[#666]'}`}>不选择开场白</button>
+                  </div>
+                </div>
+              )}
 
-      {/* 手动创建联系人抽屉 */}
-      {showCreateFriendDrawer && (
-        <div
-          onClick={() => setShowCreateFriendDrawer(false)}
-          className="absolute inset-0 bg-black/25 z-55 flex items-end animate-in fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full bg-white rounded-t-[20px] p-5 pb-8 space-y-4 animate-in slide-in-from-bottom"
-          >
-            <div className="flex justify-between items-center">
-              <span className="font-semibold text-sm text-[#222]">新建联系人</span>
-              <button onClick={() => setShowCreateFriendDrawer(false)} className="text-xl text-[#aaa]">×</button>
+              {character && (
+                <button onClick={() => {
+                  const relationship = newChatRelationship;
+                  const context = relationshipContext.trim();
+                  const greeting = greetings[openingGreetingIndex] || '';
+                  const item = { ...addCharacterChatFriend, relationshipContext: context, openingMode, openingGreeting: openingMode === 'context' ? greeting : '' };
+                  setFriendsList(prev => prev.some(friend => friend.characterId === character.id) ? prev : [{ ...addCharacterChatFriend, characterId: character.id, note: '角色卡联系人', online: true }, ...prev]);
+                  setChatItems(prev => prev.some(chat => chat.characterId === character.id) ? prev : [{ id: `c_${Date.now()}`, name: character.name, characterId: character.id, time: '刚刚', preview: '打个招呼吧', unread: 0, isPinned: false, isMuted: false, draft: '', isGroup: false, relationshipContext: context, openingMode, openingGreeting: openingMode === 'context' ? greeting : '', relationship }, ...prev]);
+                  setAddCharacterChatFriend(null); setFriendSearchQuery(''); showToast(`已添加「${character.name}」并建立聊天`);
+                }} className="w-full py-3 rounded-2xl bg-[#292724] text-white text-xs font-semibold">添加为好友并进入聊天</button>
+              )}
             </div>
-            <div className="space-y-3">
-              <div>
-                <span className="text-[11px] text-[#666]">联系人姓名</span>
-                <input
-                  type="text"
-                  placeholder="输入朋友名字..."
-                  value={newFriendName}
-                  onChange={(e) => setNewFriendName(e.target.value)}
-                  className="w-full mt-1 p-2.5 bg-[#f6f6f7] rounded-[10px] text-xs outline-none"
-                />
-              </div>
-              <div>
-                <span className="text-[11px] text-[#666]">备注信息 / 标签</span>
-                <input
-                  type="text"
-                  placeholder="如：咖啡馆初遇、大学好友..."
-                  value={newFriendNote}
-                  onChange={(e) => setNewFriendNote(e.target.value)}
-                  className="w-full mt-1 p-2.5 bg-[#f6f6f7] rounded-[10px] text-xs outline-none"
-                />
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                if (!newFriendName.trim()) {
-                  showToast('请输入好友名字');
-                  return;
-                }
-                const name = newFriendName.trim();
-                const note = newFriendNote.trim() || '珍视的好友';
-                setFriendsList((prev) => [{ name, note, online: true, pinyin: name[0] }, ...prev]);
-                setChatItems((prev) => [
-                  { id: `c_${Date.now()}`, name, time: '刚刚', preview: '打个招呼吧', unread: 0, isPinned: false, isMuted: false, draft: '', isGroup: false },
-                  ...prev,
-                ]);
-                setNewFriendName('');
-                setNewFriendNote('');
-                setShowCreateFriendDrawer(false);
-                showToast(`已添加联系人 ${name}`);
-              }}
-              className="w-full py-2.5 bg-[#d4aab5] text-white rounded-[12px] text-xs font-semibold cursor-pointer"
-            >
-              保存联系人
-            </button>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* =====================================================
            MODAL 4: POST TO MOMENTS (发朋友圈抽屉)
