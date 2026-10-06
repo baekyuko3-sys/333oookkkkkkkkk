@@ -51,6 +51,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
   const [notice, setNotice] = useState('');
   const [manageBooks, setManageBooks] = useState(false);
   const [bookInfoOpen, setBookInfoOpen] = useState(true);
+  const [activeNowText, setActiveNowText] = useState('');
 
   const book = books.find(item => item.id === selectedBookId) || books[0] || null;
   const selectedEntry = book?.entries.find(item => item.id === selectedEntryId) || book?.entries[0] || null;
@@ -79,6 +80,15 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
       (categoryFilter === 'all' || (book.category || '未分类') === categoryFilter)
     );
   }, [book, search, categoryFilter]);
+
+  const enabledCount = book?.entries.filter(entry => entry.enabled).length || 0;
+
+  const matchingEntries = useMemo(() => {
+    if (!book) return [];
+    const text = activeNowText.trim().toLowerCase();
+    if (!text) return [];
+    return book.entries.filter(entry => entry.enabled && (Boolean(entry.constant) || entry.keywords.some(keyword => keyword.trim() && text.includes(keyword.trim().toLowerCase()))));
+  }, [book, activeNowText]);
 
   const showNotice = (message: string) => {
     setNotice(message);
@@ -288,7 +298,19 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
           )}
         </div>
 
-        <div className="min-h-0 px-4 pb-4 grid grid-rows-[auto_1fr] gap-2">
+        <div className="min-h-0 px-4 pb-4 grid grid-rows-[auto_auto_1fr] gap-2">
+          <div className="rounded-2xl bg-[#292724] text-white p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[8px] font-mono tracking-[1.5px] text-white/45">WORLD BOOK · ACTIVE NOW</div>
+                <div className="mt-1 text-[12px] font-serif font-bold">{enabledCount} / {book?.entries.length || 0} 条目已启用</div>
+              </div>
+              <button onClick={() => { const next = window.prompt('输入一段文字测试世界书触发'); if (next !== null) setActiveNowText(next); }} className="px-2.5 py-1.5 rounded-full bg-white/10 text-[8px]">测试触发</button>
+            </div>
+            {activeNowText ? <div className="mt-2"><div className="text-[8px] text-white/45 truncate">SCAN · {activeNowText}</div><div className="mt-2 flex flex-wrap gap-1.5">{matchingEntries.length ? matchingEntries.map(entry => <button key={entry.id} onClick={() => setSelectedEntryId(entry.id)} className="px-2 py-1 rounded-full bg-white/10 text-[8px]">● {entry.name}</button>) : <span className="text-[8px] text-white/45">当前没有命中已启用条目</span>}</div></div> : <div className="mt-1 text-[8px] text-white/45">已启用条目才会参与 AI 检索。</div>}
+          </div>
+
+          <div className="min-h-0 px-4 pb-4 grid grid-rows-[auto_1fr] gap-2">
           <div className="flex gap-2 items-center">
             <select
               value={categoryFilter}
