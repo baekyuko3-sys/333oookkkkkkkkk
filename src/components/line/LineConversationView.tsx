@@ -33,6 +33,15 @@ import {
   FileDown, MessageCircle, Heart, Music2
 } from 'lucide-react';
 
+function readImageFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('图片读取失败'));
+    reader.readAsDataURL(file);
+  });
+}
+
 function splitLineChatText(text: string): string[] {
   const normalized = text.replace(/\r\n/g, '\n').trim();
   if (!normalized) return [''];
@@ -396,6 +405,7 @@ export function LineConversationView({
   const [userPersonas, setUserPersonas] = usePersistentState<any[]>('line:user-personas', []);
   const [activePersonaId, setActivePersonaId] = usePersistentState<string | null>('line:active-persona', null);
   const [showMyAvatar, setShowMyAvatar] = usePersistentState<boolean>(`line:show-my-avatar:${conversationStorageId}`, true);
+  const myAvatarFileRef = useRef<HTMLInputElement>(null);
   const activePersona = userPersonas.find(p => p.id === activePersonaId) || {
     id: '',
     name: '',
@@ -412,6 +422,7 @@ export function LineConversationView({
     gender: '女',
     traits: '',
     background: '',
+    avatar: '',
   });
 
   // 美化管理器与自定义 CSS 编辑器 (Custom CSS Manager)
@@ -3451,11 +3462,11 @@ export function LineConversationView({
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <div className="w-11 h-11 rounded-full overflow-hidden border border-[#eee] shrink-0">
-                          <img
-                            src={persona.avatar}
-                            alt={persona.name}
-                            className="w-full h-full object-cover"
-                          />
+                          {persona.avatar ? (
+                            <img src={persona.avatar} alt={persona.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          ) : (
+                            <span className="text-[10px] text-[#aaa]">头像</span>
+                          )}
                         </div>
                         <div>
                           <div className="flex items-center gap-1.5">
@@ -3487,6 +3498,30 @@ export function LineConversationView({
                       <span className="font-medium text-[#444]">背景渊源：</span>
                       {persona.background}
                     </div>
+                    <div className="mt-2 flex gap-2">
+                      <input id={`persona-avatar-${persona.id}`} type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          const avatar = await readImageFileAsDataUrl(file);
+                          setUserPersonas(prev => prev.map(item => item.id === persona.id ? { ...item, avatar } : item));
+                          showToast(`已更新「${persona.name}」的头像`);
+                        } catch {
+                          showToast('头像读取失败');
+                        } finally {
+                          e.currentTarget.value = '';
+                        }
+                      }} />
+                      <button type="button" onClick={(e) => { e.stopPropagation(); document.getElementById(`persona-avatar-${persona.id}`)?.click(); }} className="flex-1 py-1.5 rounded-[9px] bg-[#fafafa] border border-[#e8e8e9] text-[9px] text-[#666]">上传头像</button>
+                      <button type="button" onClick={(e) => {
+                        e.stopPropagation();
+                        const url = window.prompt('粘贴头像图片链接：', persona.avatar || '');
+                        if (url !== null) {
+                          setUserPersonas(prev => prev.map(item => item.id === persona.id ? { ...item, avatar: url.trim() } : item));
+                          showToast('头像链接已更新');
+                        }
+                      }} className="flex-1 py-1.5 rounded-[9px] bg-[#fafafa] border border-[#e8e8e9] text-[9px] text-[#666]">图片链接</button>
+                    </div>
                   </div>
                 );
               })}
@@ -3514,6 +3549,47 @@ export function LineConversationView({
           </div>
 
           <div className="p-4 space-y-3 flex-1 overflow-y-auto text-xs">
+            <div className="rounded-[14px] border border-[#ededee] bg-[#fafafa] p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-[#444] font-medium">我的头像</div>
+                  <div className="text-[9px] text-[#999] mt-0.5">上传本地图片，或粘贴你自己的图片链接。</div>
+                </div>
+                <div className="w-12 h-12 rounded-full overflow-hidden border border-[#e5e5e7] bg-white grid place-items-center shrink-0">
+                  {newPersonaData.avatar ? (
+                    <img src={newPersonaData.avatar} alt="我的头像预览" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <span className="text-[10px] text-[#aaa]">头像</span>
+                  )}
+                </div>
+              </div>
+              <input
+                ref={myAvatarFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    const avatar = await readImageFileAsDataUrl(file);
+                    setNewPersonaData(prev => ({ ...prev, avatar }));
+                  } catch {
+                    showToast('头像读取失败');
+                  } finally {
+                    e.currentTarget.value = '';
+                  }
+                }}
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => myAvatarFileRef.current?.click()} className="py-2 rounded-[10px] bg-white border border-[#e4e4e6] text-[10px] text-[#555]">上传本地图片</button>
+                <button type="button" onClick={() => {
+                  const url = window.prompt('粘贴头像图片链接：', newPersonaData.avatar || '');
+                  if (url !== null) setNewPersonaData(prev => ({ ...prev, avatar: url.trim() }));
+                }} className="py-2 rounded-[10px] bg-white border border-[#e4e4e6] text-[10px] text-[#555]">使用图片链接</button>
+              </div>
+            </div>
+
             <div>
               <span className="text-[#666] font-medium">你的名字 / 昵称</span>
               <input
@@ -3560,7 +3636,7 @@ export function LineConversationView({
                 const newP = {
                   id: `p-${Date.now()}`,
                   name: newPersonaData.name.trim(),
-                  avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=200&q=80',
+                  avatar: newPersonaData.avatar.trim(),
                   identity: newPersonaData.identity || '旅人',
                   gender: newPersonaData.gender,
                   traits: newPersonaData.traits || '温和自然',
@@ -3570,7 +3646,7 @@ export function LineConversationView({
                 setUserPersonas([...userPersonas, newP]);
                 setActivePersonaId(newP.id);
                 setShowNewPersonaModal(false);
-                setNewPersonaData({ name: '', identity: '', gender: '女', traits: '', background: '' });
+                setNewPersonaData({ name: '', identity: '', gender: '女', traits: '', background: '', avatar: '' });
                 showToast(`已创建并启用新身份：${newP.name}`);
               }}
               className="w-full py-2.5 bg-[#d4aab5] text-white rounded-[12px] font-semibold text-xs mt-4 cursor-pointer"
