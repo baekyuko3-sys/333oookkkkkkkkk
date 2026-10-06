@@ -76,6 +76,7 @@ function extractEmbeddedWorldBooks(data: any): WorldBook[] {
 function normalizeCharacter(raw: any, sourceFormat: ImportedCharacter['sourceFormat']): ImportedCharacter {
   const data = getCardPayload(raw);
   const now = new Date().toISOString();
+  const embeddedWorldBooks = extractEmbeddedWorldBooks(data);
   const name = cleanString(data.name) || '未命名角色';
   const variantLabel = cleanString(data.variantLabel) || cleanString(data.variant_label) || cleanString(data.lifeStage) || cleanString(data.life_stage) || cleanString(data.timeline) || cleanString(data.characterVersion) || cleanString(data.character_version) || '默认版本';
 
@@ -104,8 +105,8 @@ function normalizeCharacter(raw: any, sourceFormat: ImportedCharacter['sourceFor
       cleanString(data.character_version) || cleanString(data.characterVersion),
     extensions: data.extensions && typeof data.extensions === 'object' ? data.extensions : undefined,
     languageProfile: data.languageProfile && typeof data.languageProfile === 'object' ? data.languageProfile : undefined,
-    embeddedWorldBook: extractEmbeddedWorldBooks(data)[0],
-    embeddedWorldBooks: extractEmbeddedWorldBooks(data),
+    embeddedWorldBook: embeddedWorldBooks[0],
+    embeddedWorldBooks,
     groupId: cleanString(data.groupId) || cleanString(data.group_id) || null,
     sourceFormat,
     importedAt: now,
