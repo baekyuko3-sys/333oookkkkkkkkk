@@ -107,6 +107,16 @@ export function getWorldRuntime(): WorldRuntimeState {
   return readState();
 }
 
+export function removeCharacterRuntime(characterId: string) {
+  if (typeof window === 'undefined' || !characterId) return;
+  const state = readState();
+  delete state.characters[characterId];
+  state.events = state.events.filter(event => event.characterId !== characterId);
+  state.updatedAt = new Date().toISOString();
+  writeState(state);
+  window.dispatchEvent(new CustomEvent('sane333:world-state-changed', { detail: state }));
+}
+
 export function getWorldUnreadCount(): number {
   return Object.values(readState().characters).reduce((sum, character) => sum + character.unread, 0);
 }
