@@ -50,10 +50,25 @@ function getCardPayload(raw: any): any {
 
 function extractEmbeddedWorldBooks(data: any): WorldBook[] {
   const candidates: any[] = [];
-  if (data?.character_book && typeof data.character_book === 'object') candidates.push(data.character_book);
+  const pushBook = (value: unknown) => {
+    if (value && typeof value === 'object') candidates.push(value);
+  };
+  pushBook(data?.character_book);
+  pushBook(data?.characterBook);
+  pushBook(data?.worldbook);
+  pushBook(data?.world_book);
+  pushBook(data?.lorebook);
+  pushBook(data?.lore_book);
   const extensions = data?.extensions && typeof data.extensions === 'object' ? data.extensions : {};
-  if (extensions?.character_book && typeof extensions.character_book === 'object') candidates.push(extensions.character_book);
+  pushBook(extensions?.character_book);
+  pushBook(extensions?.characterBook);
+  pushBook(extensions?.worldbook);
+  pushBook(extensions?.world_book);
+  pushBook(extensions?.lorebook);
+  pushBook(extensions?.lore_book);
   if (Array.isArray(extensions?.character_books)) candidates.push(...extensions.character_books.filter((book: unknown) => book && typeof book === 'object'));
+  if (Array.isArray(extensions?.worldbooks)) candidates.push(...extensions.worldbooks.filter((book: unknown) => book && typeof book === 'object'));
+  if (Array.isArray(extensions?.lorebooks)) candidates.push(...extensions.lorebooks.filter((book: unknown) => book && typeof book === 'object'));
 
   const books: WorldBook[] = [];
   const seen = new Set<string>();
