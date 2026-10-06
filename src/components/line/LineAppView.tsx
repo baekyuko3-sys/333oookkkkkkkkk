@@ -25,6 +25,7 @@ interface LineChatItem {
   characterId?: string;
   variantLabel?: string;
   chatLabel?: string;
+  relationship?: 'new-friend' | 'old-friend';
   groupId?: string;
   time: string;
   preview: string;
@@ -42,6 +43,7 @@ interface LineFriend {
   note: string;
   online: boolean;
   pinyin: string;
+  relationship?: 'new-friend' | 'old-friend';
 }
 
 interface LineUserProfile {
@@ -201,6 +203,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [channelBusy, setChannelBusy] = useState<'chat-models' | 'chat-test' | 'moments-models' | 'moments-test' | null>(null);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [friendProfile, setFriendProfile] = useState<LineFriend | null>(null);
+  const [addCharacterChatFriend, setAddCharacterChatFriend] = useState<LineFriend | null>(null);
+  const [newChatRelationship, setNewChatRelationship] = useState<'new-friend' | 'old-friend'>('new-friend');
   const [postDetail, setPostDetail] = useState<any | null>(null);
   const [showMyProfilePage, setShowMyProfilePage] = useState(false);
   const [newPostImage, setNewPostImage] = useState('');
@@ -281,31 +285,9 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
     };
   }, []);
 
-  // Imported character cards automatically become LINE contacts.
+  // Imported character cards become contacts, not chats.
+  // A chat is created only when the user explicitly chooses “添加聊天”.
   useEffect(() => {
-    if (!importedCharacters.length) return;
-
-    setChatItems(prev => {
-      const existingCharacterIds = new Set(prev.map(item => item.characterId).filter(Boolean));
-      const added = importedCharacters
-        .filter(character => !existingCharacterIds.has(character.id) && !prev.some(item => item.name === character.name && item.id === character.id))
-        .map(character => ({
-          id: character.id,
-          characterId: character.id,
-          name: character.name,
-          variantLabel: character.variantLabel || character.characterVersion || '默认版本',
-          time: '刚刚',
-          preview: character.firstMessage || character.description || '新导入角色，等待你的消息。',
-          unread: 0,
-          isPinned: false,
-          isMuted: false,
-          draft: '',
-          isGroup: false,
-        }));
-
-      return added.length ? [...added, ...prev] : prev;
-    });
-
     setFriendsList(prev => {
       const existingIds = new Set(prev.map(friend => friend.characterId).filter(Boolean));
       const added = importedCharacters
@@ -321,6 +303,16 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
 
       return added.length ? [...added, ...prev] : prev;
     });
+
+    // Remove legacy rows that were created automatically just because a card was imported.
+    // Explicitly created chats use their own generated id and are left untouched.
+    if (importedCharacters.length) {
+      setChatItems(prev => {
+        const importedIds = new Set(importedCharacters.map(character => character.id));
+        const next = prev.filter(item => !(item.characterId && importedIds.has(item.characterId) && item.id === item.characterId));
+        return next.length === prev.length ? prev : next;
+      });
+    }
   }, [importedCharacters]);
 
   // Global Favorites start empty; favorites are created by the user.
@@ -1018,12 +1010,33 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                 </div>
                 <div className="mt-5 text-[12px] leading-7 text-[#555]">{friendProfile.note || character?.description || '还没有个人简介。'}</div>
                 <div className="grid grid-cols-2 gap-2 mt-6">
-                  <button onClick={() => { setFriendProfile(null); setActiveChatId(chat?.id || friendProfile.characterId || friendProfile.name); }} className="h-11 rounded-xl bg-[#292724] text-white text-xs font-semibold">发消息</button>
+                  <button
+                    onClick={() => {
+                      if (chat) {
+                        setFriendProfile(null);
+                        setActiveChatId(chat.id);
+                        return;
+                      }
+                      if (friendProfile.characterId) {
+                        setNewChatRelationship('new-friend');
+                        setAddCharacterChatFriend(friendProfile);
+                      } else {
+                        showToast('这是普通联系人，请先保存为聊天联系人');
+                      }
+                    }}
+                    className="h-11 rounded-xl bg-[#292724] text-white text-xs font-semibold"
+                  >
+                    {chat ? '进入聊天' : '添加聊天'}
+                  </button>
                   <button onClick={() => showToast('好友资料已保存')} className="h-11 rounded-xl border border-[#e4e4e5] text-xs text-[#444]">备注 / 管理</button>
                 </div>
                 <div className="mt-8 pt-5 border-t border-[#f0f0f1]">
                   <div className="text-[9px] tracking-[1.5px] text-[#aaa]">RELATIONSHIP</div>
-                  <div className="mt-2 text-[13px] text-[#444]">{character ? 'AI / 角色联系人 · 已连接聊天世界' : '普通联系人 · 可直接进入聊天'}</div>
+                  <div className="mt-2 text-[13px] text-[#444]">
+                    {chat
+                      ? (chat.relationship === 'old-friend' ? '旧友 · 已建立聊天关系' : '新加好友 · 已建立聊天关系')
+                      : (character ? 'AI / 角色联系人 · 尚未建立聊天' : '普通联系人 · 尚未建立聊天')}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1347,6 +1360,86 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               className="w-full py-2.5 bg-[#d4aab5] text-white rounded-[12px] text-xs font-semibold cursor-pointer"
             >
               完成并进入群聊
+            </button>
+          </div>
+        </div>
+      )}
+
+      {addCharacterChatFriend && (
+        <div
+          onClick={() => setAddCharacterChatFriend(null)}
+          className="absolute inset-0 bg-black/25 z-[80] flex items-end animate-in fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full bg-white rounded-t-[26px] p-5 pb-8 space-y-5 animate-in slide-in-from-bottom"
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="text-[8px] tracking-[1.8px] font-mono text-[#aaa]">NEW LINE CHAT</div>
+                <div className="mt-1 text-[18px] font-semibold text-[#202124]">添加与 {addCharacterChatFriend.name} 的聊天</div>
+                <div className="mt-1 text-[10px] text-[#999]">角色卡已经是好友，但聊天需要你主动建立。</div>
+              </div>
+              <button onClick={() => setAddCharacterChatFriend(null)} className="text-xl text-[#aaa]">×</button>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-[#888] mb-2">你们是什么关系？</div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  onClick={() => setNewChatRelationship('new-friend')}
+                  className={`rounded-2xl border p-3.5 text-left transition-colors ${newChatRelationship === 'new-friend' ? 'border-[#292724] bg-[#292724] text-white' : 'border-[#e5e5e6] bg-[#fafafa] text-[#333]'}`}
+                >
+                  <div className="text-sm font-semibold">新加的好友</div>
+                  <div className={`mt-1 text-[9px] leading-relaxed ${newChatRelationship === 'new-friend' ? 'text-white/65' : 'text-[#999]'}`}>刚认识、刚通过好友申请，从今天开始聊天。</div>
+                </button>
+                <button
+                  onClick={() => setNewChatRelationship('old-friend')}
+                  className={`rounded-2xl border p-3.5 text-left transition-colors ${newChatRelationship === 'old-friend' ? 'border-[#292724] bg-[#292724] text-white' : 'border-[#e5e5e6] bg-[#fafafa] text-[#333]'}`}
+                >
+                  <div className="text-sm font-semibold">以前的旧友</div>
+                  <div className={`mt-1 text-[9px] leading-relaxed ${newChatRelationship === 'old-friend' ? 'text-white/65' : 'text-[#999]'}`}>你们早就认识，聊天可以直接从熟悉的关系开始。</div>
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                const friend = addCharacterChatFriend;
+                if (!friend.characterId) return;
+                const character = importedCharacters.find(item => item.id === friend.characterId);
+                const chatId = `line_chat_${friend.characterId}_${Date.now().toString(36)}`;
+                const isOldFriend = newChatRelationship === 'old-friend';
+                const newChat: LineChatItem = {
+                  id: chatId,
+                  characterId: friend.characterId,
+                  name: friend.name,
+                  variantLabel: friend.variantLabel || character?.variantLabel || character?.characterVersion || '默认版本',
+                  chatLabel: isOldFriend ? '旧友' : '新好友',
+                  relationship: newChatRelationship,
+                  time: '刚刚',
+                  preview: isOldFriend ? '好久不见，聊聊近况吧。' : '你们刚刚成为好友。',
+                  unread: 0,
+                  isPinned: false,
+                  isMuted: false,
+                  draft: '',
+                  isGroup: false,
+                };
+
+                setChatItems(prev => [newChat, ...prev.filter(item => item.characterId !== friend.characterId)]);
+                setFriendsList(prev => prev.map(item =>
+                  item.characterId === friend.characterId
+                    ? { ...item, relationship: newChatRelationship }
+                    : item
+                ));
+                setAddCharacterChatFriend(null);
+                setFriendProfile(null);
+                setActiveChatId(chatId);
+                showToast(isOldFriend ? `已建立与 ${friend.name} 的旧友聊天` : `已建立与 ${friend.name} 的新好友聊天`);
+              }}
+              className="w-full py-3 rounded-2xl bg-[#292724] text-white text-xs font-semibold"
+            >
+              创建聊天并进入
             </button>
           </div>
         </div>
