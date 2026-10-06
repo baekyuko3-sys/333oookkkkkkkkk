@@ -97,12 +97,12 @@ export function PresetResourceManager({
       saveStatusBarAssignment(target as StatusBarTarget, selected.id);
       const targets = (selected.targets || []) as StatusBarTarget[];
       if (!targets.includes(target as StatusBarTarget)) updateSelected({ targets: [...targets, target as StatusBarTarget] });
-      notify(`已指定「${selected.name}」→ ${STATUS_TARGETS.find(x=>x[0]===target)?.[1] || target}`);
+      notify(`已指定「${(selected as StatusBarPreset).name}」→ ${STATUS_TARGETS.find(x=>x[0]===target)?.[1] || target}`);
     } else {
       saveCotAssignment(target as CotPresetTarget, selected.id);
       const targets = (selected.targets || []) as CotPresetTarget[];
       if (!targets.includes(target as CotPresetTarget)) updateSelected({ targets: [...targets, target as CotPresetTarget] });
-      notify(`已指定「${selected.title}」→ ${COT_TARGETS.find(x=>x[0]===target)?.[1] || target}`);
+      notify(`已指定「${(selected as CotPreset).title}」→ ${COT_TARGETS.find(x=>x[0]===target)?.[1] || target}`);
     }
   };
 
