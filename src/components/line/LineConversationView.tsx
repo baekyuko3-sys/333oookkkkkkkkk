@@ -20,7 +20,7 @@ import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
 import { getStatusBarPresets, type StatusBarPreset } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset } from '../../store/cotPresets';
 import { PresetResourceManager } from './PresetResourceManager';
-import { editLineMessage, toggleLineReaction, setLineMessageFavorite, recordLineCall, markLineMessageFailed, clearLineConversation, recallLineMessage, updateLineMessage } from '../../store/lineRuntime';
+import { appendLineMessage, editLineMessage, toggleLineReaction, setLineMessageFavorite, recordLineCall, markLineMessageFailed, clearLineConversation, recallLineMessage, updateLineMessage } from '../../store/lineRuntime';
 import { getLineConversationMessages, markLineConversationRead, saveLineConversationMessages, searchLineMessages, type LineRuntimeMessage } from '../../store/lineRuntime';
 import {
   Video, Settings, Plus, Mic, Send, Smile,
@@ -78,6 +78,7 @@ export function LineConversationView({
   characterId,
   conversationId,
   onBack,
+  onNavigateScreen,
   initialDraft = '',
   isGroup = false,
   isPinned = false,
@@ -291,7 +292,7 @@ export function LineConversationView({
     const dxRaw = event.clientX - start.startX;
     const dy = event.clientY - start.startY;
     if (Math.abs(dxRaw) > 10 || Math.abs(dy) > 10) clearMessageLongPress();
-    if (Math.abs(dy) > Math.abs(dx) + 18) {
+    if (Math.abs(dy) > Math.abs(dxRaw) + 18) {
       messageSwipeRef.current = null;
       setSwipingMessageId(null);
       setSwipeOffset(0);
