@@ -299,15 +299,16 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   // Imported character cards are candidates for adding, not automatically friends.
   // The Add Friend flow must be the only place that creates a friendship.
   useEffect(() => {
-    // Remove legacy auto-created friend rows that were created only because a card
-    // was imported. Explicitly added friends keep their rows.
+    // Migrate the old auto-friend behavior once: those rows were created with
+    // online=false. Real Add Friend rows use online=true.
     if (importedCharacters.length) {
       setFriendsList(prev => {
         const importedIds = new Set(importedCharacters.map(character => character.id));
-        return prev.filter(friend => {
-          if (!friend.characterId || !importedIds.has(friend.characterId)) return true;
-          return friend.relationship !== undefined;
-        });
+        return prev.filter(friend =>
+          !friend.characterId ||
+          !importedIds.has(friend.characterId) ||
+          friend.online !== false
+        );
       });
     }
 
