@@ -339,6 +339,52 @@ export function clearLineConversation(id: string) {
   window.dispatchEvent(new CustomEvent('sane333:line-runtime-changed'));
 }
 
+/**
+ * Remove a character's LINE data.
+ * When removeChatItem=false, the transcript stays accessible as an archived chat,
+ * but it is detached from the deleted character so it can no longer recreate the contact.
+ */
+export function removeLineConversationData(id: string, options: { removeChatItem?: boolean } = {}) {
+  if (typeof window === 'undefined' || !id) return;
+  const removeChatItem = options.removeChatItem !== false;
+
+  window.localStorage.removeItem(conversationKey(id));
+  window.localStorage.removeItem(`line:custom-css:${id}`);
+  window.localStorage.removeItem(`line:wallpaper:${id}`);
+  window.localStorage.removeItem(`line:chat-api-override:${id}`);
+
+  const meta = readJson<Record<string, LineConversationMeta>>(META_KEY, {});
+  delete meta[id];
+  writeJson(META_KEY, meta);
+
+  // Notifications are not part of the transcript, so they are always removed
+  // when the character itself is deleted.
+  writeJson(
+    NOTIFICATION_KEY,
+    getLineNotifications().filter(item => item.characterId !== id && item.conversationId !== id),
+  );
+
+  try {
+    const rawChats = window.localStorage.getItem('line:chat-items');
+    const chats = rawChats ? JSON.parse(rawChats) : [];
+    if (Array.isArray(chats)) {
+      const nextChats = removeChatItem
+        ? chats.filter((item: any) => item.id !== id && item.characterId !== id)
+        : chats.map((item: any) =>
+            item.id === id || item.characterId === id
+              ? { ...item, characterId: undefined, unread: 0, chatLabel: item.chatLabel || '已归档角色' }
+              : item
+          );
+      window.localStorage.setItem('line:chat-items', JSON.stringify(nextChats));
+    }
+  } catch {
+    // Chat-list cleanup is best-effort.
+  }
+
+  window.dispatchEvent(new CustomEvent('sane333:line-runtime-changed'));
+  window.dispatchEvent(new CustomEvent('sane333:line-notifications-changed'));
+}
+
 export function bindLineRuntimeEvents() {
   if (typeof window === 'undefined') return () => {};
   const onProactive = (event: Event) => {
