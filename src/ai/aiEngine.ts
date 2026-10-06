@@ -490,7 +490,7 @@ function isLocalAiBaseUrl(baseUrl: string): boolean {
   }
 }
 
-async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 60000): Promise<Response> {
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 30000): Promise<Response> {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -610,6 +610,7 @@ export interface CreativeTextInput {
   history?: Array<{ role: 'user' | 'assistant'; content: string }>;
   temperature?: number;
   onDelta?: (delta: string) => void;
+  timeoutMs?: number;
 }
 
 export async function generateCreativeText(input: CreativeTextInput): Promise<string> {
