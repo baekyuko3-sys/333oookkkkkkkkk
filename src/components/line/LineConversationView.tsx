@@ -4852,7 +4852,6 @@ export function LineConversationView({
                     保存
                   </button>
                 </div>
-              </div>
             )}
 
             <div className="border border-[#ededee] rounded-[14px] overflow-hidden divide-y divide-[#f1f1f2]">
