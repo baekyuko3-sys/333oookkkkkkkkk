@@ -293,7 +293,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
             <button 
                style={{ transform: `translate(${itemPosition(1, "widget-weather").x - 20}px, ${itemPosition(1, "widget-weather").y - 306}px)` }}
                onPointerDown={e=>beginDesktopDrag(1,"widget-weather",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-weather",e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)}
-              onClick={() => setCityIndex((prev) => (prev + 1) % cities.length)}
+              onClick={() => { if (!desktopEditing) setCityIndex((prev) => (prev + 1) % cities.length); }}
               className="pointer-events-auto relative overflow-hidden min-h-[105px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] text-left cursor-pointer active:scale-98 transition-all group"
               title="点击切换城市天气"
             >
@@ -323,7 +323,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
             <button 
                style={{ transform: `translate(${itemPosition(1, "widget-note").x - 20}px, ${itemPosition(1, "widget-note").y - 306}px)` }}
                onPointerDown={e=>beginDesktopDrag(1,"widget-note",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-note",e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)}
-              onClick={() => onNavigate('notes')}
+              onClick={() => { if (!desktopEditing) onNavigate('notes'); }}
               className="pointer-events-auto relative overflow-hidden min-h-[105px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] text-left cursor-pointer active:scale-98 transition-all"
             >
               <div className="text-[10px] text-[#8b8782] tracking-[1.6px] font-mono">
@@ -349,7 +349,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               className="pointer-events-auto col-span-2 min-h-[84px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] flex items-center gap-3 transition-all"
             >
               <div 
-                onClick={() => onNavigate('music')}
+                onClick={() => { if (!desktopEditing) onNavigate('music'); }}
                 className={`w-[54px] h-[54px] rounded-[13px] shrink-0 grid place-items-center text-white font-serif text-[21px] shadow-[0_5px_13px_rgba(40,32,26,.15)] cursor-pointer hover:scale-105 transition-transform ${
                   isPlaying ? 'animate-[spin_12s_linear_infinite]' : ''
                 }`}
