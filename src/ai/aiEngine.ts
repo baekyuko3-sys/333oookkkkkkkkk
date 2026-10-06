@@ -199,6 +199,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
       '大小写：' + input.character!.languageProfile.capitalizationStyle,
       '数字习惯：' + input.character!.languageProfile.numberStyle,
       '是否偏好空格：' + (input.character!.languageProfile.preferredSpaces ? '是' : '否'),
+      '消息分组：' + ({ single: '尽量一句一句发送，每个短句独立成一条消息。', double: '倾向把相邻两句自然地合并成一条消息，不要一句一句碎发。', natural: '根据语境自然决定一条还是两条，不要机械切分。' }[input.character!.languageProfile.messageGrouping || 'natural']),
       '语言示例：' + (input.character!.languageProfile.examples || []).join(' / '),
       '保持稳定，但不要机械复制每条消息的格式。',
       '非普通话且双语开启时，在同一次角色发言中提供原文与中文翻译，不要生成两条独立消息。',
