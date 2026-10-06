@@ -28,6 +28,8 @@ export interface ImportedCharacter {
   languageProfile?: import('../types').CharacterLanguageProfile;
   embeddedWorldBook?: WorldBook;
   embeddedWorldBooks?: WorldBook[];
+  /** Worldbooks explicitly enabled for this character. Empty/undefined preserves legacy behavior. */
+  worldBookIds?: string[];
   groupId?: string | null;
   sourceFormat: 'json' | 'yaml' | 'png' | 'manual';
   importedAt: string;
