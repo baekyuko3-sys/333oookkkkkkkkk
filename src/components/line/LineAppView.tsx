@@ -1467,6 +1467,35 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
         </div>
       )}
 
+      {showFriendModal && (
+        <div onClick={() => setShowFriendModal(false)} className="absolute inset-0 bg-black/25 z-[79] flex items-end animate-in fade-in">
+          <div onClick={e => e.stopPropagation()} className="w-full bg-white rounded-t-[26px] p-5 pb-8 space-y-4 max-h-[82%] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <div><div className="text-[8px] tracking-[1.8px] font-mono text-[#aaa]">ADD FRIEND</div><div className="mt-1 text-[18px] font-semibold text-[#202124]">添加好友</div></div>
+              <button onClick={() => setShowFriendModal(false)} className="text-xl text-[#aaa]">×</button>
+            </div>
+            <div className="h-[40px] bg-[#f6f6f7] rounded-[11px] flex items-center px-3.5">
+              <Search className="w-4 h-4 text-[#aaa] mr-2" />
+              <input value={friendSearchQuery} onChange={e => setFriendSearchQuery(e.target.value)} placeholder="搜索角色名字" className="w-full bg-transparent outline-none text-xs text-[#555]" />
+            </div>
+            {(() => {
+              const q=friendSearchQuery.trim().toLowerCase();
+              const available=importedCharacters.filter(ch=>!friendsList.some(f=>f.characterId===ch.id));
+              const matches=q ? available.filter(ch=>ch.name.toLowerCase().includes(q)) : available;
+              return <div className="space-y-2">
+                <div className="text-[10px] text-[#888]">{q ? `搜索结果 · ${matches.length}` : '你可能认识的人'}</div>
+                {matches.map(ch=><button key={ch.id} onClick={()=>{setAddCharacterChatFriend({name:ch.name,characterId:ch.id,note:'角色卡联系人',online:true,pinyin:ch.name[0]||''});setShowFriendModal(false);setOpeningMode('none');setOpeningGreetingIndex(0);}} className="w-full flex items-center gap-3 p-3 rounded-xl border border-[#ededee] text-left">
+                  <div className="w-10 h-10 rounded-full overflow-hidden bg-[#f1f1f2] shrink-0">{ch.avatar?<img src={ch.avatar} alt="" className="w-full h-full object-cover"/>:<div className="w-full h-full grid place-items-center text-[10px] text-[#aaa]">{ch.name.slice(0,1)}</div>}</div>
+                  <div className="flex-1 min-w-0"><div className="text-[12px] font-medium text-[#333]">{ch.name||'未命名角色'}</div><div className="text-[9px] text-[#aaa]">{ch.variantLabel||'角色卡'}</div></div>
+                  <span className="text-[9px] text-[#ae7e89]">选择</span>
+                </button>)}
+                {!matches.length && <div className="py-6 text-center text-[10px] text-[#aaa]">{q?'没有找到符合名字的角色。':'所有角色都已经是好友。'}</div>}
+              </div>;
+            })()}
+          </div>
+        </div>
+      )}
+
       {addCharacterChatFriend && (() => {
         const character = addCharacterChatFriend.characterId ? importedCharacters.find(item => item.id === addCharacterChatFriend.characterId) : null;
         const greetings = character ? [character.firstMessage, ...character.alternateGreetings].filter(Boolean) : [];
