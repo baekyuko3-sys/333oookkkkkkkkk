@@ -127,6 +127,8 @@ export function PhoneSimulator({
           style={{
             fontSize: appBeauty.fontScale ? `${appBeauty.fontScale}em` : undefined,
             background: appBeauty.background ? '#f7f4ee' : undefined,
+            ['--app-accent' as any]: appBeauty.accent || '#292724',
+            ['--app-radius' as any]: `${appBeauty.radius ?? 18}px`,
           }}
         >
           {appBeauty.background && (
