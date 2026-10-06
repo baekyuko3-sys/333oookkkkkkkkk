@@ -1023,7 +1023,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
         return (
           <div className="absolute inset-0 z-[70] bg-white animate-in slide-in-from-right">
             <div className="h-full overflow-y-auto no-scrollbar">
-              <div className="h-[190px] bg-[#f0efed] relative">
+              <div className="h-[170px] bg-[#f0efed] relative">
                 <button onClick={() => setFriendProfile(null)} className="absolute top-4 left-4 w-8 h-8 rounded-full bg-white/80 text-[#555] z-10">‹</button>
                 <div className="absolute -bottom-9 left-5 w-[78px] h-[78px] rounded-full border-4 border-white bg-[#f1f1f2] overflow-hidden grid place-items-center shadow-sm">
                   {character?.avatar ? <img src={character.avatar} alt="" className="w-full h-full object-cover" /> : <span className="text-xl text-[#aaa]">{friendProfile.name[0] || '·'}</span>}
@@ -1037,8 +1037,56 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                   </div>
                   {friendProfile.online && <span className="text-[9px] px-2 py-1 rounded-full bg-[#f1f7f2] text-[#719178]">ONLINE</span>}
                 </div>
-                <div className="mt-5 text-[12px] leading-7 text-[#555]">{friendProfile.note || character?.description || '还没有个人简介。'}</div>
-                <div className="grid grid-cols-2 gap-2 mt-6">
+
+                <div className="mt-5 p-4 rounded-2xl bg-[#f7f7f7]">
+                  <div className="text-[9px] tracking-[1.5px] text-[#aaa]">ABOUT</div>
+                  {friendEditing ? (
+                    <textarea
+                      value={friendProfile.note}
+                      onChange={e => setFriendProfile({ ...friendProfile, note: e.target.value })}
+                      className="mt-2 w-full min-h-[72px] bg-white rounded-xl p-3 text-xs leading-5 text-[#555] outline-none border border-[#eee] resize-none"
+                      placeholder="备注 / 个人简介"
+                    />
+                  ) : (
+                    <div className="mt-2 text-[12px] leading-6 text-[#555]">{friendProfile.note || character?.description || '还没有个人简介。'}</div>
+                  )}
+                </div>
+
+                {character && (
+                  <div className="mt-4 border border-[#ededed] rounded-2xl overflow-hidden">
+                    <button
+                      onClick={() => setFriendSettingsOpen(v => !v)}
+                      className="w-full px-4 py-3.5 flex items-center justify-between text-left"
+                    >
+                      <div>
+                        <div className="text-[12px] font-semibold text-[#333]">角色设定</div>
+                        <div className="text-[10px] text-[#aaa] mt-1">可折叠 · 可直接编辑</div>
+                      </div>
+                      <span className="text-[#aaa]">{friendSettingsOpen ? '⌃' : '⌄'}</span>
+                    </button>
+                    {friendSettingsOpen && (
+                      <div className="px-4 pb-4 space-y-3 border-t border-[#f2f2f2]">
+                        {[
+                          ['description', '角色简介', character.description],
+                          ['personality', '性格', character.personality],
+                          ['scenario', '当前场景', character.scenario],
+                        ].map(([key, label, value]) => (
+                          <label key={key} className="block pt-3">
+                            <div className="text-[10px] text-[#999] mb-1.5">{label}</div>
+                            <textarea
+                              value={String(value || '')}
+                              onChange={e => setImportedCharacters(prev => prev.map(item => item.id === character.id ? { ...item, [key]: e.target.value } : item))}
+                              className="w-full min-h-[62px] bg-[#f8f8f8] rounded-xl p-3 text-xs leading-5 text-[#555] outline-none resize-y"
+                            />
+                          </label>
+                        ))}
+                        <div className="text-[10px] text-[#aaa]">修改会直接保存到这个角色卡，不需要额外保存按钮。</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-2 mt-4">
                   <button
                     onClick={() => {
                       if (chat) {
@@ -1059,9 +1107,21 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                   >
                     {chat ? '进入聊天' : '添加聊天'}
                   </button>
-                  <button onClick={() => showToast('好友资料已保存')} className="h-11 rounded-xl border border-[#e4e4e5] text-xs text-[#444]">备注 / 管理</button>
+                  <button
+                    onClick={() => {
+                      if (friendEditing) {
+                        setFriendsList(prev => prev.map(item => item.characterId === friendProfile.characterId ? friendProfile : item));
+                        showToast('好友备注已保存');
+                      }
+                      setFriendEditing(v => !v);
+                    }}
+                    className="h-11 rounded-xl border border-[#e4e4e5] text-xs text-[#444]"
+                  >
+                    {friendEditing ? '完成编辑' : '备注 / 管理'}
+                  </button>
                 </div>
-                <div className="mt-8 pt-5 border-t border-[#f0f0f1]">
+
+                <div className="mt-5 border-t border-[#f0f0f1] pt-4">
                   <div className="text-[9px] tracking-[1.5px] text-[#aaa]">RELATIONSHIP</div>
                   <div className="mt-2 text-[13px] text-[#444]">
                     {chat
