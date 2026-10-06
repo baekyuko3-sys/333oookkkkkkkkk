@@ -103,6 +103,23 @@ export function readStoredAiSettings(characterId?: string, characterName?: strin
   return mergeCharacterAiSettings(base, getCharacterAiProfile(characterId || characterName || '', characterName));
 }
 
+function getApplicableWorldBooks(input: AiReplyInput): WorldBook[] {
+  const books = input.worldbooks || [];
+  const characterId = input.character?.id;
+  const characterName = input.character?.name;
+
+  // Character-card lorebooks are private to their source character.
+  // Manually imported / global books remain available to every character.
+  return books.filter(book => {
+    if (book.sourceType !== 'character-card' && !book.sourceCharacterId) return true;
+    if (!characterId && !characterName) return false;
+    return (
+      book.sourceCharacterId === characterId ||
+      (!book.sourceCharacterId && book.sourceCharacterName === characterName)
+    );
+  });
+}
+
 function buildWorldBookScanResolver(input: AiReplyInput, defaultDepth: number) {
   const messages = input.messages
     .filter(message => !message.isRecalled && !message.isRecalledByOther && message.type !== 'system-nudge');
@@ -123,9 +140,11 @@ function buildWorldBookScanResolver(input: AiReplyInput, defaultDepth: number) {
 export function buildCharacterSystemPrompt(input: AiReplyInput): string {
   const cotTarget = input.cotTarget || (input.isGroup ? 'group' : 'line');
   const cotPreset = getCotForTarget(cotTarget);
+  const applicableWorldBooks = getApplicableWorldBooks(input);
+  const scopedInput = { ...input, worldbooks: applicableWorldBooks };
   const scanDepth = Math.max(1, Math.min(50, Math.max(
     12,
-    ...(input.worldbooks || []).flatMap(book => book.entries.map(entry => Number(entry.scanDepth || 0)))
+    ...applicableWorldBooks.flatMap(book => book.entries.map(entry => Number(entry.scanDepth || 0)))
   )));
   const scannedMessages = input.messages
     .filter(message => !message.isRecalled && !message.isRecalledByOther && message.type !== 'system-nudge')
@@ -135,14 +154,14 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     .join('\n') + '\n' + input.userMessage;
 
   const context = resolveCharacterContext({
-    character: input.character,
-    characterProfile: input.characterProfile,
-    persona: input.persona,
-    memory: input.memory,
-    project: input.project,
-    worldbooks: input.worldbooks,
+    character: scopedInput.character,
+    characterProfile: scopedInput.characterProfile,
+    persona: scopedInput.persona,
+    memory: scopedInput.memory,
+    project: scopedInput.project,
+    worldbooks: applicableWorldBooks,
     userMessage: scannedMessages,
-    worldBookScanForEntry: buildWorldBookScanResolver(input, scanDepth),
+    worldBookScanForEntry: buildWorldBookScanResolver(scopedInput, scanDepth),
   });
 
   return [
