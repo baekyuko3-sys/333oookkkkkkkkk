@@ -25,7 +25,8 @@ interface LineChatItem {
   characterId?: string;
   variantLabel?: string;
   chatLabel?: string;
-  relationship?: 'new-friend' | 'old-friend';
+  relationship?: 'new-friend' | 'old-friend' | 'readded';
+  readdedReason?: 'deleted' | 'blocked' | 'mutual-delete';
   groupId?: string;
   time: string;
   preview: string;
@@ -204,7 +205,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [friendProfile, setFriendProfile] = useState<LineFriend | null>(null);
   const [addCharacterChatFriend, setAddCharacterChatFriend] = useState<LineFriend | null>(null);
-  const [newChatRelationship, setNewChatRelationship] = useState<'new-friend' | 'old-friend'>('new-friend');
+  const [newChatRelationship, setNewChatRelationship] = useState<'new-friend' | 'old-friend' | 'readded'>('new-friend');
+  const [readdedReason, setReaddedReason] = useState<'deleted' | 'blocked' | 'mutual-delete'>('deleted');
   const [postDetail, setPostDetail] = useState<any | null>(null);
   const [showMyProfilePage, setShowMyProfilePage] = useState(false);
   const [newPostImage, setNewPostImage] = useState('');
@@ -340,7 +342,26 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   // If a chat is open, render the detail view
   if (activeChatId) {
     const activeItem = chatItems.find((c) => c.id === activeChatId);
-    if (activeItem?.characterId) markCharacterRead(activeItem.characterId);
+    if (!activeItem) {
+      // A stale chat id can survive a localStorage migration/deletion.
+      // Never render a broken conversation screen for it.
+      queueMicrotask(() => setActiveChatId(null));
+      return (
+        <div className="w-full h-full pt-[30px] bg-white flex items-center justify-center">
+          <div className="text-center px-8">
+            <div className="text-sm font-semibold text-[#333]">聊天已不存在</div>
+            <div className="mt-2 text-xs text-[#aaa]">这个聊天入口已经被移除。</div>
+            <button
+              onClick={() => setActiveChatId(null)}
+              className="mt-5 px-4 py-2 rounded-full bg-[#292724] text-white text-xs"
+            >
+              返回聊天
+            </button>
+          </div>
+        </div>
+      );
+    }
+    if (activeItem.characterId) markCharacterRead(activeItem.characterId);
     const activeChatName = activeItem?.name || activeChatId;
     const activeCharacterId = activeItem?.characterId || undefined;
     const conversationId = activeItem?.id || activeCharacterId || activeItem?.name || activeChatId;
@@ -1019,6 +1040,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                       }
                       if (friendProfile.characterId) {
                         setNewChatRelationship('new-friend');
+                        setReaddedReason('deleted');
                         setAddCharacterChatFriend(friendProfile);
                       } else {
                         showToast('这是普通联系人，请先保存为聊天联系人');
@@ -1034,7 +1056,11 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                   <div className="text-[9px] tracking-[1.5px] text-[#aaa]">RELATIONSHIP</div>
                   <div className="mt-2 text-[13px] text-[#444]">
                     {chat
-                      ? (chat.relationship === 'old-friend' ? '旧友 · 已建立聊天关系' : '新加好友 · 已建立聊天关系')
+                      ? (chat.relationship === 'old-friend'
+                        ? '旧友 · 已建立聊天关系'
+                        : chat.relationship === 'readded'
+                          ? `加回好友 · ${({ deleted: '被删除后', blocked: '被拉黑后', 'mutual-delete': '互删后' } as const)[chat.readdedReason || 'deleted']}加回`
+                          : '新加好友 · 已建立聊天关系')
                       : (character ? 'AI / 角色联系人 · 尚未建立聊天' : '普通联系人 · 尚未建立聊天')}
                   </div>
                 </div>
@@ -1391,15 +1417,42 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                   className={`rounded-2xl border p-3.5 text-left transition-colors ${newChatRelationship === 'new-friend' ? 'border-[#292724] bg-[#292724] text-white' : 'border-[#e5e5e6] bg-[#fafafa] text-[#333]'}`}
                 >
                   <div className="text-sm font-semibold">新加的好友</div>
-                  <div className={`mt-1 text-[9px] leading-relaxed ${newChatRelationship === 'new-friend' ? 'text-white/65' : 'text-[#999]'}`}>刚认识、刚通过好友申请，从今天开始聊天。</div>
+                  <div className={`mt-1 text-[9px] leading-relaxed ${newChatRelationship === 'new-friend' ? 'text-white/65' : 'text-[#999]'}`}>刚认识、刚通过好友申请。</div>
                 </button>
                 <button
                   onClick={() => setNewChatRelationship('old-friend')}
                   className={`rounded-2xl border p-3.5 text-left transition-colors ${newChatRelationship === 'old-friend' ? 'border-[#292724] bg-[#292724] text-white' : 'border-[#e5e5e6] bg-[#fafafa] text-[#333]'}`}
                 >
                   <div className="text-sm font-semibold">以前的旧友</div>
-                  <div className={`mt-1 text-[9px] leading-relaxed ${newChatRelationship === 'old-friend' ? 'text-white/65' : 'text-[#999]'}`}>你们早就认识，聊天可以直接从熟悉的关系开始。</div>
+                  <div className={`mt-1 text-[9px] leading-relaxed ${newChatRelationship === 'old-friend' ? 'text-white/65' : 'text-[#999]'}`}>你们早就认识，重新开始聊天。</div>
                 </button>
+                <button
+                  onClick={() => setNewChatRelationship('readded')}
+                  className={`col-span-2 rounded-2xl border p-3.5 text-left transition-colors ${newChatRelationship === 'readded' ? 'border-[#292724] bg-[#292724] text-white' : 'border-[#e5e5e6] bg-[#fafafa] text-[#333]'}`}
+                >
+                  <div className="text-sm font-semibold">重新加回的好友</div>
+                  <div className={`mt-1 text-[9px] leading-relaxed ${newChatRelationship === 'readded' ? 'text-white/65' : 'text-[#999]'}`}>你们之前已经是好友，后来删除、拉黑或互删，现在重新加回。</div>
+                </button>
+                {newChatRelationship === 'readded' && (
+                  <div className="col-span-2 rounded-2xl bg-[#f7f7f8] p-3.5">
+                    <div className="text-[10px] text-[#888] mb-2">是哪一种“加回来”？</div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        ['deleted', '被删除过'],
+                        ['blocked', '被拉黑过'],
+                        ['mutual-delete', '互删后'],
+                      ] as const).map(([value, label]) => (
+                        <button
+                          key={value}
+                          onClick={() => setReaddedReason(value)}
+                          className={`py-2 rounded-xl text-[10px] border ${readdedReason === value ? 'bg-white border-[#292724] text-[#222] font-semibold' : 'bg-transparent border-[#ddd] text-[#888]'}`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1410,15 +1463,21 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                 const character = importedCharacters.find(item => item.id === friend.characterId);
                 const chatId = `line_chat_${friend.characterId}_${Date.now().toString(36)}`;
                 const isOldFriend = newChatRelationship === 'old-friend';
+                const isReadded = newChatRelationship === 'readded';
+                const relationshipLabel = isOldFriend ? '旧友' : isReadded ? '加回好友' : '新好友';
+                const readdedLabel = isReadded
+                  ? ({ deleted: '被删除后加回', blocked: '被拉黑后加回', 'mutual-delete': '互删后加回' } as const)[readdedReason]
+                  : '';
                 const newChat: LineChatItem = {
                   id: chatId,
                   characterId: friend.characterId,
                   name: friend.name,
                   variantLabel: friend.variantLabel || character?.variantLabel || character?.characterVersion || '默认版本',
-                  chatLabel: isOldFriend ? '旧友' : '新好友',
+                  chatLabel: relationshipLabel,
                   relationship: newChatRelationship,
+                  readdedReason: isReadded ? readdedReason : undefined,
                   time: '刚刚',
-                  preview: isOldFriend ? '好久不见，聊聊近况吧。' : '你们刚刚成为好友。',
+                  preview: isOldFriend ? '好久不见，聊聊近况吧。' : isReadded ? `重新加回 · ${readdedLabel}` : '你们刚刚成为好友.',
                   unread: 0,
                   isPinned: false,
                   isMuted: false,
@@ -1435,7 +1494,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                 setAddCharacterChatFriend(null);
                 setFriendProfile(null);
                 setActiveChatId(chatId);
-                showToast(isOldFriend ? `已建立与 ${friend.name} 的旧友聊天` : `已建立与 ${friend.name} 的新好友聊天`);
+                showToast(isOldFriend ? `已建立与 ${friend.name} 的旧友聊天` : isReadded ? `已建立与 ${friend.name} 的加回好友聊天 · ${readdedLabel}` : `已建立与 ${friend.name} 的新好友聊天`);
               }}
               className="w-full py-3 rounded-2xl bg-[#292724] text-white text-xs font-semibold"
             >
