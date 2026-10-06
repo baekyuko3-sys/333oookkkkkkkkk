@@ -171,7 +171,7 @@ async function generateProactiveMessage(
     '',
     '【最近聊天】',
     '【离线期间 / 当前联系状态】\\n' + offlineContext,
-    recentMessages.map(message => (message.sender === 'other' ? character.name : '用户') + ': ' + (message.text || message.transcript || '[媒体]')).join('\\n'),
+    recentMessages.map(message => (message.sender === 'other' ? character.name : '用户') + ': ' + (message.text || '[媒体]')).join('\\n'),
   ].join('\n');
 
   return generateCreativeText({
