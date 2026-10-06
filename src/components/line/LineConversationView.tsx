@@ -66,6 +66,7 @@ interface LineConversationViewProps {
   isPinned?: boolean;
   isMuted?: boolean;
   relationshipContext?: string;
+  openingContext?: string;
   onTogglePin?: () => void;
   onToggleMute?: () => void;
   onConversationActivity?: (activity: { preview: string; time: string }) => void;
@@ -84,6 +85,7 @@ export function LineConversationView({
   isPinned = false,
   isMuted = false,
   relationshipContext = '',
+  openingContext = '',
   onTogglePin,
   onToggleMute,
   onConversationActivity,
@@ -237,7 +239,7 @@ export function LineConversationView({
 
   useEffect(() => {
     if (!isGroup || !messages.length) return;
-    const myName = currentUserNameFallback() || activePersona?.name || '';
+    const myName = currentUserNameFallback() || '';
     if (!myName.trim()) return;
     const latestMention = [...messages].reverse().find((message) => {
       if (message.sender === 'me' || !message.text) return false;
@@ -247,7 +249,7 @@ export function LineConversationView({
     if (latestMention && String(latestMention.id) !== String(dismissedMentionId)) {
       setMentionAnchorId(latestMention.id);
     }
-  }, [messages, isGroup, dismissedMentionId, activePersona?.name]);
+  }, [messages, isGroup, dismissedMentionId]);
 
   useEffect(() => {
     if (unreadAnchorId !== null || !messages.length) return;
@@ -932,7 +934,11 @@ export function LineConversationView({
         messages: [...messages, newMsg],
         userMessage: userText,
         isGroup,
-        authorNote: [authorsNote, relationshipContext.trim() ? '【你们过去的关系背景】\n' + relationshipContext.trim() : ''].filter(Boolean).join('\n'),
+        authorNote: [
+          authorsNote,
+          relationshipContext.trim() ? '【你们过去的关系背景】\n' + relationshipContext.trim() : '',
+          openingContext.trim() ? '【角色卡开场白 / 前情提要】\n' + openingContext.trim() : '',
+        ].filter(Boolean).join('\n'),
         stylePreset: activeCotPreset?.title || selectedPreset,
         temperature: Number(presetTemp) || 0.85,
         onDelta: (delta) => {
