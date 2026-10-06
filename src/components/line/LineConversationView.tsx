@@ -109,6 +109,7 @@ export function LineConversationView({
 }: LineConversationViewProps) {
   // Input & Messages
   const [inputText, setInputText] = useState(initialDraft);
+  const [selectedOpeningContext, setSelectedOpeningContext] = usePersistentState<string>(`line:opening-context:${conversationStorageId}`, openingContext || '');
   const [lineLocale] = usePersistentState<'zh-CN' | 'ja-JP'>('line:locale', 'zh-CN');
   const ja = lineLocale === 'ja-JP';
   const tx = (zh: string, jp: string) => ja ? jp : zh;
@@ -970,7 +971,7 @@ export function LineConversationView({
         authorNote: [
           authorsNote,
           relationshipContext.trim() ? '【你们过去的关系背景】\n' + relationshipContext.trim() : '',
-          openingContext.trim() ? '【角色卡开场白 / 前情提要】\n' + openingContext.trim() : '',
+          selectedOpeningContext.trim() ? '【角色卡开场白 / 前情提要】\n' + selectedOpeningContext.trim() : '',
         ].filter(Boolean).join('\n'),
         stylePreset: activeCotPreset?.title || selectedPreset,
         temperature: Number(presetTemp) || 0.85,
@@ -4398,14 +4399,14 @@ export function LineConversationView({
             {/* Section 2.4: 角色开场白选择 */}
             {!isGroup && importedCharacter && (() => {
               const greetings = [importedCharacter.firstMessage, ...importedCharacter.alternateGreetings].filter(Boolean);
-              const currentOpening = openingContext || '';
+              const currentOpening = selectedOpeningContext;
               return greetings.length ? (
                 <div className="space-y-1.5">
                   <div className="text-[10px] text-[#aaa] font-medium px-1">角色开场白</div>
                   <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3">
                     <select
                       value={currentOpening}
-                      onChange={() => {}}
+                      onChange={(e) => setSelectedOpeningContext(e.target.value)}
                       className="w-full p-2 bg-[#f8f8fa] border border-[#e8e8e9] rounded-[10px] text-xs text-[#333]"
                     >
                       <option value="">当前聊天已选择的开场白</option>
