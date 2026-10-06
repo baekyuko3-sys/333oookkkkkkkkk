@@ -53,3 +53,8 @@ export function deleteOfflineEvent(id: string) {
 export function getOfflineEvents(): OfflineEvent[] {
   return read();
 }
+
+export function removeCharacterOfflineEvents(characterId: string) {
+  if (!characterId) return;
+  write(read().filter(event => event.characterId !== characterId));
+}
