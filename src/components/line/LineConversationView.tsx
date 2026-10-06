@@ -33,6 +33,14 @@ import {
   FileDown, MessageCircle, Heart, Music2
 } from 'lucide-react';
 
+function splitLineChatText(text: string): string[] {
+  const normalized = text.replace(/\r\n/g, '\n').trim();
+  if (!normalized) return [''];
+  const lines = normalized.split('\n').map((line) => line.trim()).filter(Boolean);
+  if (lines.length > 1 && lines.every((line) => Array.from(line).length <= 28)) return lines;
+  return [normalized];
+}
+
 function currentUserNameFallback(): string {
   if (typeof window === 'undefined') return '';
   try {
@@ -387,6 +395,7 @@ export function LineConversationView({
   const [showPersonaManager, setShowPersonaManager] = useState(false);
   const [userPersonas, setUserPersonas] = usePersistentState<any[]>('line:user-personas', []);
   const [activePersonaId, setActivePersonaId] = usePersistentState<string | null>('line:active-persona', null);
+  const [showMyAvatar, setShowMyAvatar] = usePersistentState<boolean>(`line:show-my-avatar:${conversationStorageId}`, true);
   const activePersona = userPersonas.find(p => p.id === activePersonaId) || {
     id: '',
     name: '',
@@ -2085,17 +2094,9 @@ export function LineConversationView({
             {/* Actions: Search, Audio Call, Video Call, Settings */}
             <div className="flex items-center gap-1">
               <button
-                onClick={() => setShowInChatSearch(!showInChatSearch)}
-                className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#555]"
-                title={tx('搜索聊天记录', 'チャット履歴を検索')}
-              >
-                <Search className="w-4 h-4 stroke-[1.7]" />
-              </button>
-
-              <button
-                onClick={() => { setAudioCallDuration(0); setShowAudioCall(true); recordLineCall(conversationStorageId, { direction: 'outgoing', kind: 'audio', status: 'connected' }); }}
+                onClick={() => showToast(tx('语音通话 · 未开发', '音声通話 · 未開発'))}
                 className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#303033]"
-                title={tx('语音通话', '音声通話')}
+                title={tx('语音通话 · 未开发', '音声通話 · 未開発')}
               >
                 <Phone className="w-4 h-4 stroke-[1.7]" />
               </button>
@@ -2109,9 +2110,9 @@ export function LineConversationView({
               </button>
 
               <button
-                onClick={() => setShowVideoCall(true)}
+                onClick={() => showToast(tx('视频通话 · 未开发', 'ビデオ通話 · 未開発'))}
                 className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#303033]"
-                title={tx('视频通话', 'ビデオ通話')}
+                title={tx('视频通话 · 未开发', 'ビデオ通話 · 未開発')}
               >
                 <Video className="w-4 h-4 stroke-[1.7]" />
               </button>
@@ -2123,19 +2124,6 @@ export function LineConversationView({
               >
                 <UserCheck className="w-4 h-4 text-[#ae7e89]" />
               </button>
-
-              {onNavigateScreen && !isGroup && characterId && (
-                <button
-                  onClick={() => {
-                    try { window.localStorage.setItem('phone:memory-active-character', characterId); } catch {}
-                    onNavigateScreen('memory');
-                  }}
-                  className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#8b7560]"
-                  title="打开这个角色的长期记忆"
-                >
-                  <Brain className="w-4 h-4 stroke-[1.7]" />
-                </button>
-              )}
 
               <button
                 onClick={() => setShowSettings(true)}
@@ -2314,7 +2302,7 @@ export function LineConversationView({
               onPointerUp={(event) => handleMessagePointerUp(event, msg)}
               onPointerCancel={cancelMessageSwipe}
               style={{ touchAction: 'pan-y' }}
-              className="relative flex items-end gap-2 group"
+              className="relative flex items-end gap-2 group mb-1"
             >
               {swipingMessageId === msg.id && swipeOffset < -8 && (
                 <div
@@ -2329,7 +2317,7 @@ export function LineConversationView({
                 </div>
               )}
               <div
-                className="w-full transition-transform duration-75 ease-out"
+                className={`w-full flex items-end gap-2 transition-transform duration-75 ease-out ${isMe ? 'justify-end' : 'justify-start'}`}
                 style={{ transform: swipingMessageId === msg.id ? `translateX(${swipeOffset}px)` : 'translateX(0)' }}
               >
               {/* Multi-select checkbox */}
@@ -2714,27 +2702,34 @@ export function LineConversationView({
                 ) : (
                   /* 常规文本气泡 (支持引用、长按菜单、表情反应) */
                   <div className="relative">
-                    <div
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        setContextMenuMsg(msg);
-                      }}
-                      className={`rounded-[16px] px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap select-text ${
-                        isMe
-                          ? 'bubble-me bg-[#f7eef0] text-[#303034]'
-                          : 'bubble-other bg-[#f5f5f6] text-[#303034]'
-                      }`}
-                    >
+                    <div className={`flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>
                       {/* 引用回复预览 (Quoted message) */}
                       {msg.quote && (
-                        <div className="mb-1.5 pb-1 border-b border-black/10 text-[10.5px] text-[#777] flex items-center gap-1">
-                          <CornerUpLeft className="w-3 h-3 text-[#ae7e89] shrink-0" />
-                          <span className="font-semibold text-[#555]">{msg.quote.sender}:</span>
-                          <span className="truncate">{msg.quote.text}</span>
+                        <div className={`max-w-[240px] rounded-[12px] border px-2.5 py-1.5 text-[9.5px] mb-0.5 ${
+                          isMe
+                            ? 'bg-[#f8eef1] border-[#ead9de] text-[#8b6871]'
+                            : 'bg-[#f7f7f8] border-[#e9e9eb] text-[#777]'
+                        }`}>
+                          <div className="font-medium mb-0.5 truncate">{msg.quote.sender || '消息'}</div>
+                          <div className="truncate opacity-80">{msg.quote.text || '多媒体消息'}</div>
                         </div>
                       )}
-
-                      {msg.text}
+                      {splitLineChatText(String(msg.text || '')).map((part, partIndex) => (
+                        <div
+                          key={`${msg.id}-bubble-${partIndex}`}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            setContextMenuMsg(msg);
+                          }}
+                          className={`max-w-full rounded-[18px] px-3.5 py-2 text-[13px] leading-[1.5] whitespace-pre-wrap select-text shadow-[0_1px_2px_rgba(0,0,0,0.02)] ${
+                            isMe
+                              ? 'bubble-me bg-[#f7eef0] text-[#303034]'
+                              : 'bubble-other bg-[#f5f5f6] text-[#303034]'
+                          }`}
+                        >
+                          {part}
+                        </div>
+                      ))}
                     </div>
 
                     {/* 表情反应小药丸 (Reaction Badge) */}
@@ -2824,6 +2819,20 @@ export function LineConversationView({
                 })()
               )}
 
+              {/* Optional user avatar */}
+              {isMe && showMyAvatar && (
+                <div
+                  className="w-[31px] h-[31px] rounded-full bg-[#f2f2f3] flex items-center justify-center overflow-hidden shrink-0 self-end mb-0.5 border border-white"
+                  title={activePersona.name ? `我的人设：${activePersona.name}` : '我的头像'}
+                >
+                  {activePersona.avatar ? (
+                    <img src={activePersona.avatar} alt={activePersona.name || '我的头像'} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <span className="text-[10px] font-medium text-[#999]">{(activePersona.name || '我').slice(0, 1)}</span>
+                  )}
+                </div>
+              )}
+
               {/* Time for other */}
               {!isMe && !msg.isRecalled && (
                 <span className="text-[9px] text-[#b8b8bb] pb-0.5">
@@ -2837,22 +2846,22 @@ export function LineConversationView({
         })}
         {/* AI 正在生成时，固定显示在消息流最底部，而不是顶栏 */}
         {isTyping && (
-          <div className="flex items-center justify-start px-1 py-1 animate-in fade-in">
-            <span className="text-[10px] text-[#aaa] tracking-[0.5px]">texting....</span>
+          <div className="flex items-end gap-2 px-0.5 py-1.5 animate-in fade-in">
+            <div className="w-[31px] h-[31px] rounded-full bg-[#f2f2f3] flex items-center justify-center overflow-hidden shrink-0 border border-white">
+              {importedCharacter?.avatar ? (
+                <img src={importedCharacter.avatar} alt={characterProfile.nickname} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="text-[10px] text-[#999]">{characterProfile.nickname.slice(0, 1)}</span>
+              )}
+            </div>
+            <div className="rounded-[18px] bg-[#f5f5f6] px-3.5 py-2.5 flex items-center gap-1 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+              {[0, 1, 2].map((dot) => (
+                <span key={dot} className="w-1.5 h-1.5 rounded-full bg-[#b8b8bb] animate-bounce" style={{ animationDelay: `${dot * 140}ms`, animationDuration: '900ms' }} />
+              ))}
+            </div>
           </div>
         )}
         <div ref={messagesEndRef} />
-      </div>
-
-      {/* 底部继续按钮 (酒馆 Continue 机制) */}
-      <div className="px-4 py-1 flex justify-center">
-        <button
-          onClick={handleContinueGenerating}
-          className="px-3 py-1 bg-white/90 hover:bg-white border border-[#ededee] rounded-full text-[10px] text-[#888] hover:text-[#ae7e89] flex items-center gap-1 shadow-2xs backdrop-blur-sm cursor-pointer transition-colors"
-        >
-          <Play className="w-2.5 h-2.5 fill-current" />
-          <span>让角色继续说……</span>
-        </button>
       </div>
 
       {/* 3. RECORDING BAR */}
@@ -3271,7 +3280,7 @@ export function LineConversationView({
                 <div className="w-12 h-12 rounded-[14px] bg-[#f7f7f8] flex items-center justify-center text-[#666] hover:bg-[#f0f0f2]">
                   <Play className="w-5 h-5" />
                 </div>
-                <span>继续生成</span>
+                <span>让角色继续说</span>
               </button>
             </div>
 
@@ -3960,6 +3969,45 @@ export function LineConversationView({
               </div>
             </div>
             
+            {/* Section -0.5: 聊天显示与工具 */}
+            <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3">
+              <div className="font-medium text-[#333]">聊天显示与工具</div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <UserCheck className="w-4 h-4 text-[#ae7e89]" />
+                  <div>
+                    <div className="text-[#333] font-medium">显示我的头像</div>
+                    <div className="text-[10px] text-[#aaa]">显示在我发送的消息右侧</div>
+                  </div>
+                </div>
+                <button type="button" onClick={() => setShowMyAvatar(!showMyAvatar)} className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors ${showMyAvatar ? 'bg-[#d4aab5]' : 'bg-[#ddd]'}`} aria-label="切换我的头像显示">
+                  <span className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${showMyAvatar ? 'left-4.5' : 'left-0.5'}`} />
+                </button>
+              </div>
+              <div onClick={() => setShowInChatSearch(!showInChatSearch)} className="border-t border-[#f2f2f3] pt-2.5 flex items-center justify-between cursor-pointer hover:bg-neutral-50 px-1 py-1 rounded">
+                <div className="flex items-center gap-2 text-[#333]">
+                  <Search className="w-4 h-4 text-[#888]" />
+                  <div>
+                    <div className="font-medium">搜索聊天记录</div>
+                    <div className="text-[10px] text-[#aaa]">在当前对话中查找文字</div>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[#bbb]" />
+              </div>
+              {!isGroup && characterId && (
+                <div onClick={() => { setShowSettings(false); try { window.localStorage.setItem('phone:memory-active-character', characterId); } catch {} onNavigateScreen?.('memory'); }} className="border-t border-[#f2f2f3] pt-2.5 flex items-center justify-between cursor-pointer hover:bg-neutral-50 px-1 py-1 rounded">
+                  <div className="flex items-center gap-2 text-[#333]">
+                    <Brain className="w-4 h-4 text-[#8b7560]" />
+                    <div>
+                      <div className="font-medium">记忆与长期关系</div>
+                      <div className="text-[10px] text-[#aaa]">查看这个角色的长期记忆</div>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-[#bbb]" />
+                </div>
+              )}
+            </div>
+
             {/* Section 0: 思维链预设系统 (Chain of Thought Presets) */}
             <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3">
               <div className="flex items-center justify-between">
