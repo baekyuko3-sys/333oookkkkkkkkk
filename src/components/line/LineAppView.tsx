@@ -1489,7 +1489,13 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
       {showMyProfilePage && (
         <div className="absolute inset-0 z-[70] bg-white animate-in slide-in-from-right">
           <div className="h-full overflow-y-auto no-scrollbar">
-            <div className="h-[220px] bg-[#efeeec] relative">
+            <div className="h-[220px] relative overflow-hidden" style={{ background: currentUser.background ? undefined : '#efeeec' }}>
+              <div className="absolute inset-0" style={{
+                backgroundImage: currentUser.background
+                  ? `linear-gradient(180deg, rgba(0,0,0,.03), rgba(0,0,0,.2)), url(${currentUser.background})`
+                  : 'linear-gradient(135deg, #efeeec, #e5e1de)',
+                backgroundSize: 'cover', backgroundPosition: 'center'
+              }} />
               <button onClick={() => setShowMyProfilePage(false)} className="absolute top-4 left-4 w-8 h-8 rounded-full bg-white/85 text-[#555] z-10">‹</button>
               <div className="absolute -bottom-10 left-5 w-[88px] h-[88px] rounded-full border-4 border-white bg-[#f1f1f2] overflow-hidden shadow-sm grid place-items-center">
                 {currentUser.avatar ? <img src={currentUser.avatar} alt="" className="w-full h-full object-cover" /> : <span className="text-2xl text-[#aaa]">{currentUser.name?.[0] || '·'}</span>}
