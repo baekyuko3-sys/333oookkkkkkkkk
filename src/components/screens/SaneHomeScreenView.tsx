@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { ScreenType } from '../../types';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import { getWorldUnreadCount } from '../../store/worldRuntime';
-import { readAppearance, type AppearanceScheme } from '../../store/appearance';
+import { readAppearance, saveAppearance, type AppearanceScheme } from '../../store/appearance';
 
 interface SaneHomeScreenViewProps {
   onNavigate: (screen: ScreenType) => void;
@@ -65,7 +66,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   const setDraggingPage2Item = setDraggingDesktopItem;
   const movePage2Item = (id: string, x: number, y: number) => moveDesktopItem(2, id, x, y);
   const resetPage2Layout = () => resetDesktopLayout(2);
-  const beginDesktopDrag = (page: 1 | 2, id: string, event: React.PointerEvent) => {
+  const beginDesktopDrag = (page: 1 | 2, id: string, event: ReactPointerEvent) => {
     if (!desktopEditing) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     setDraggingDesktopItem(id);
