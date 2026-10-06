@@ -10,6 +10,12 @@ export interface AppearanceScheme {
   wallpaper: string;
   appIcons: Record<string, string>;
   widget: WidgetConfig;
+  appBeauty: Record<string, {
+    background?: string;
+    accent: string;
+    radius: number;
+    fontScale: number;
+  }>;
   updatedAt: string;
 }
 
@@ -25,6 +31,7 @@ export const DEFAULT_APPEARANCE: AppearanceScheme = {
   subtitle: '这是你的私人设备。\n内容由你自己建立。',
   wallpaper: '',
   appIcons: {},
+  appBeauty: {},
   widget: {
     weatherCity: 'YOUR CITY',
     weatherTemp: '21°',
@@ -61,6 +68,15 @@ function normalizeAppearance(value: Partial<AppearanceScheme>): AppearanceScheme
     subtitle: String(value.subtitle ?? DEFAULT_APPEARANCE.subtitle),
     wallpaper: String(value.wallpaper ?? ''),
     appIcons: value.appIcons && typeof value.appIcons === 'object' ? Object.fromEntries(Object.entries(value.appIcons).map(([key, icon]) => [String(key), String(icon || '')])) : {},
+    appBeauty: value.appBeauty && typeof value.appBeauty === 'object' ? Object.fromEntries(Object.entries(value.appBeauty).map(([key, raw]) => {
+      const item = raw as Partial<{ background: string; accent: string; radius: number; fontScale: number }>;
+      return [String(key), {
+        background: String(item?.background || ''),
+        accent: String(item?.accent || '#292724'),
+        radius: Number.isFinite(Number(item?.radius)) ? Math.max(0, Math.min(36, Number(item.radius))) : 18,
+        fontScale: Number.isFinite(Number(item?.fontScale)) ? Math.max(.9, Math.min(1.15, Number(item.fontScale))) : 1,
+      }];
+    })) : {},
     updatedAt: String(value.updatedAt || new Date().toISOString()),
   };
 }
