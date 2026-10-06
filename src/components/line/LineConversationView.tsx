@@ -404,26 +404,32 @@ export function LineConversationView({
   const [showPersonaManager, setShowPersonaManager] = useState(false);
   const [userPersonas, setUserPersonas] = usePersistentState<any[]>('line:user-personas', []);
   const [activePersonaId, setActivePersonaId] = usePersistentState<string | null>('line:active-persona', null);
+  const [editingPersonaId, setEditingPersonaId] = useState<string | null>(null);
   const [showMyAvatar, setShowMyAvatar] = usePersistentState<boolean>(`line:show-my-avatar:${conversationStorageId}`, true);
   const myAvatarFileRef = useRef<HTMLInputElement>(null);
+  const characterProfileAvatarFileRef = useRef<HTMLInputElement>(null);
+  const characterCoverFileRef = useRef<HTMLInputElement>(null);
   const activePersona = userPersonas.find(p => p.id === activePersonaId) || {
     id: '',
     name: '',
     avatar: '',
+    age: '',
+    profession: '',
+    setting: '',
     identity: '',
-    gender: '',
     traits: '',
     background: '',
   };
   const [showNewPersonaModal, setShowNewPersonaModal] = useState(false);
   const [newPersonaData, setNewPersonaData] = useState({
     name: '',
-    identity: '',
-    gender: '女',
-    traits: '',
-    background: '',
+    age: '',
+    profession: '',
+    setting: '',
     avatar: '',
   });
+  const [appearancePresets, setAppearancePresets] = usePersistentState<any[]>('line:appearance-presets', []);
+  const [appearancePresetName, setAppearancePresetName] = useState('');
 
   // 美化管理器与自定义 CSS 编辑器 (Custom CSS Manager)
   const [showCssManager, setShowCssManager] = useState(false);
@@ -523,9 +529,14 @@ export function LineConversationView({
     getCharacterProfile(contactName, characterId),
   );
 
-  // 酒馆世界书条目库 (Lorebook Entries)
-  const [lorebooks, setLorebooks] = usePersistentState<any[]>(`line:lorebooks:${conversationStorageId}`, []);
+  // 聊天设定使用真正的全局世界书；选择结果按聊天保存。
+  const [selectedWorldBookId, setSelectedWorldBookId] = usePersistentState<string>(`line:selected-worldbook:${conversationStorageId}`, 'all');
   const [showLorebookInspector, setShowLorebookInspector] = useState(false);
+  const activeWorldbooks = selectedWorldBookId === 'all'
+    ? worldbooks
+    : selectedWorldBookId === 'none'
+      ? []
+      : worldbooks.filter(book => book.id === selectedWorldBookId);
 
   // 酒馆思维链预设系统 (Chain of Thought Presets)
   const [showCotPresetModal, setShowCotPresetModal] = useState(false);
@@ -562,6 +573,8 @@ export function LineConversationView({
   // 角色个人主页 (Threads / Twitter / LINE 混合风格)
   const [showCharacterProfile, setShowCharacterProfile] = useState(false);
   const [characterFeedPosts, setCharacterFeedPosts] = usePersistentState<any[]>(`line:character-feed:${conversationStorageId}`, []);
+  const [characterProfileAvatar, setCharacterProfileAvatar] = usePersistentState<string>(`line:profile-avatar:${conversationStorageId}`, '');
+  const [characterCover, setCharacterCover] = usePersistentState<string>(`line:profile-cover:${conversationStorageId}`, '');
 
   // 线下邀约剧情系统 (Offline Meetup System)
   const [showOfflineInviteModal, setShowOfflineInviteModal] = useState(false);
@@ -880,7 +893,7 @@ export function LineConversationView({
           character,
           characterProfile: memberProfile,
           persona: activePersona,
-          worldbooks,
+          activeWorldbooks,
           memory: memberMemory,
           project: projectManifest,
           messages: workingMessages,
@@ -948,7 +961,7 @@ export function LineConversationView({
         character: importedCharacter,
         characterProfile,
         persona: activePersona,
-        worldbooks,
+        activeWorldbooks,
         memory: characterMemory,
         project: projectManifest,
         messages: [...messages, newMsg],
@@ -1594,7 +1607,7 @@ export function LineConversationView({
         character: importedCharacter,
         characterProfile,
         persona: activePersona,
-        worldbooks,
+        activeWorldbooks,
         memory: characterMemory,
         project: projectManifest,
         messages,
@@ -1815,7 +1828,7 @@ export function LineConversationView({
               character: importedCharacter,
               characterProfile,
               persona: activePersona,
-              worldbooks,
+              activeWorldbooks,
               memory: characterMemory,
               project: projectManifest,
               messages: [
@@ -1936,7 +1949,7 @@ export function LineConversationView({
         character: importedCharacter,
         characterProfile,
         persona: activePersona,
-        worldbooks,
+        activeWorldbooks,
         memory: characterMemory,
         project: projectManifest,
         messages: messages.slice(0, targetIndex),
@@ -2085,11 +2098,7 @@ export function LineConversationView({
                         {groupMembers.length}人
                       </button>
                     )}
-                    {!isGroup && (
-                      <span className="text-[9px] text-[#ae7e89] bg-[#faf1f3] px-1 rounded-sm shrink-0">
-                        {characterProfile.relationship}
-                      </span>
-                    )}
+
                   </div>
                   <div className="text-[10px] text-[#aaa] mt-0.5 flex items-center gap-1">
                     <span className={contactOnline ? 'text-[#78927e]' : 'text-[#aaa]'}>
@@ -2363,7 +2372,7 @@ export function LineConversationView({
                     e.stopPropagation();
                     handleMessageAvatarDoubleClick(msg.senderName || characterProfile.nickname);
                   }}
-                  className={`w-[31px] h-[31px] rounded-full bg-[#f2f2f3] flex items-center justify-center overflow-hidden shrink-0 self-start mt-0.5 cursor-pointer hover:opacity-80 active:scale-95 transition-all ${
+                  className={`w-[31px] h-[31px] rounded-full bg-[#f2f2f3] flex items-center justify-center overflow-hidden shrink-0 self-end mb-0.5 cursor-pointer hover:opacity-80 active:scale-95 transition-all ${
                     nudgeAvatar ? 'scale-110 ring-2 ring-[#d4aab5]' : ''
                   }`}
                   title={isGroup ? `单击@${msg.senderName || characterProfile.nickname}，双击拍一拍` : '单击打开状态卡，双击拍一拍'}
@@ -3043,10 +3052,7 @@ export function LineConversationView({
                       setMentionPickerOpen(false);
                       return;
                     }
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
+                    // Enter 只换行；真正发送由右侧发送按钮触发。
                   }}
                   rows={1}
                   placeholder="メッセージを入力…"
@@ -3591,7 +3597,7 @@ export function LineConversationView({
             </div>
 
             <div>
-              <span className="text-[#666] font-medium">你的名字 / 昵称</span>
+              <span className="text-[#666] font-medium">姓名</span>
               <input
                 value={newPersonaData.name}
                 onChange={(e) => setNewPersonaData({ ...newPersonaData, name: e.target.value })}
@@ -3600,31 +3606,16 @@ export function LineConversationView({
               />
             </div>
             <div>
-              <span className="text-[#666] font-medium">身份 / 职业</span>
-              <input
-                value={newPersonaData.identity}
-                onChange={(e) => setNewPersonaData({ ...newPersonaData, identity: e.target.value })}
-                placeholder="例如：法学院研究生"
-                className="w-full p-2 bg-[#fafafa] border border-[#e8e8e9] rounded-md text-xs mt-1"
-              />
+              <span className="text-[#666] font-medium">年龄</span>
+              <input value={newPersonaData.age} onChange={(e) => setNewPersonaData({ ...newPersonaData, age: e.target.value })} placeholder="例如：24" className="w-full p-2 bg-[#fafafa] border border-[#e8e8e9] rounded-md text-xs mt-1" />
             </div>
             <div>
-              <span className="text-[#666] font-medium">性格与偏好特征</span>
-              <input
-                value={newPersonaData.traits}
-                onChange={(e) => setNewPersonaData({ ...newPersonaData, traits: e.target.value })}
-                placeholder="例如：温和沉着、条理清晰、偏爱黑巧"
-                className="w-full p-2 bg-[#fafafa] border border-[#e8e8e9] rounded-md text-xs mt-1"
-              />
+              <span className="text-[#666] font-medium">职业</span>
+              <input value={newPersonaData.profession} onChange={(e) => setNewPersonaData({ ...newPersonaData, profession: e.target.value })} placeholder="例如：摄影师" className="w-full p-2 bg-[#fafafa] border border-[#e8e8e9] rounded-md text-xs mt-1" />
             </div>
             <div>
-              <span className="text-[#666] font-medium">与当前角色的前置渊源</span>
-              <textarea
-                value={newPersonaData.background}
-                onChange={(e) => setNewPersonaData({ ...newPersonaData, background: e.target.value })}
-                placeholder="例如：自小相识，因他搬家多年未见，如今再度重聚……"
-                className="w-full h-24 p-2 bg-[#fafafa] border border-[#e8e8e9] rounded-md text-xs mt-1 leading-relaxed resize-none"
-              />
+              <span className="text-[#666] font-medium">设定</span>
+              <textarea value={newPersonaData.setting} onChange={(e) => setNewPersonaData({ ...newPersonaData, setting: e.target.value })} placeholder="你希望 AI 知道的关于我的设定……" className="w-full h-28 p-2 bg-[#fafafa] border border-[#e8e8e9] rounded-md text-xs mt-1 leading-relaxed resize-none" />
             </div>
 
             <button
@@ -3637,16 +3628,19 @@ export function LineConversationView({
                   id: `p-${Date.now()}`,
                   name: newPersonaData.name.trim(),
                   avatar: newPersonaData.avatar.trim(),
-                  identity: newPersonaData.identity || '旅人',
-                  gender: newPersonaData.gender,
-                  traits: newPersonaData.traits || '温和自然',
-                  background: newPersonaData.background || '彼此相识的朋友',
+                  age: newPersonaData.age.trim(),
+                  profession: newPersonaData.profession.trim(),
+                  setting: newPersonaData.setting.trim(),
+                  identity: newPersonaData.profession.trim(),
+                  gender: '',
+                  traits: '',
+                  background: newPersonaData.setting.trim(),
                   isDefault: false,
                 };
                 setUserPersonas([...userPersonas, newP]);
                 setActivePersonaId(newP.id);
                 setShowNewPersonaModal(false);
-                setNewPersonaData({ name: '', identity: '', gender: '女', traits: '', background: '', avatar: '' });
+                setNewPersonaData({ name: '', age: '', profession: '', setting: '', avatar: '' });
                 showToast(`已创建并启用新身份：${newP.name}`);
               }}
               className="w-full py-2.5 bg-[#d4aab5] text-white rounded-[12px] font-semibold text-xs mt-4 cursor-pointer"
@@ -3693,6 +3687,27 @@ export function LineConversationView({
                     <span className="text-[#666]">{wp.label}</span>
                   </button>
                 ))}
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-[#aaa] font-medium">已保存的美化方案</span>
+                <button onClick={() => {
+                  const name = appearancePresetName.trim() || window.prompt('给当前美化方案起个名字：')?.trim();
+                  if (!name) return;
+                  setAppearancePresets(prev => [...prev.filter(item => item.name !== name), { id: `appearance-${Date.now()}`, name, wallpaper: currentWallpaper, css: customCss }]);
+                  setAppearancePresetName('');
+                  showToast(`已保存美化方案「${name}」`);
+                }} className="px-2.5 py-1 rounded-full bg-[#292724] text-white text-[9px]">保存当前美化</button>
+              </div>
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+                {appearancePresets.length ? appearancePresets.map(preset => (
+                  <div key={preset.id} className="shrink-0 flex items-center gap-1 rounded-full border border-[#e7e2e3] bg-[#faf8f9] pl-2 pr-1 py-1">
+                    <button onClick={() => { setCurrentWallpaper(preset.wallpaper); setCustomCss(preset.css); showToast(`已切换到「${preset.name}」`); }} className="text-[9px] text-[#666]">{preset.name}</button>
+                    <button onClick={() => setAppearancePresets(prev => prev.filter(item => item.id !== preset.id))} className="w-4 h-4 rounded-full text-[#aaa]" aria-label={`删除${preset.name}`}>×</button>
+                  </div>
+                )) : <span className="text-[9px] text-[#aaa]">还没有保存过方案。</span>}
               </div>
             </div>
 
@@ -4376,20 +4391,19 @@ export function LineConversationView({
 
               <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3 space-y-2">
                 <select
-                  value={isGroup ? groupLorebookActive : characterProfile.selectedLorebook}
+                  value={isGroup ? groupLorebookActive : selectedWorldBookId}
                   onChange={(e) => {
                     const val = e.target.value;
-                    if (isGroup) {
-                      setGroupLorebookActive(val);
-                    } else {
-                      setCharacterProfile({ ...characterProfile, selectedLorebook: val });
-                    }
+                    if (isGroup) setGroupLorebookActive(val);
+                    else setSelectedWorldBookId(val);
                   }}
                   className="w-full p-2 bg-[#f8f8fa] border border-[#e8e8e9] rounded-[10px] text-xs outline-none text-[#333]"
                 >
-                  {lorebooks.map((book) => (
-                    <option key={book.id} value={book.title}>
-                      {book.title} ({book.entriesCount}条目)
+                  <option value="all">全部启用世界书</option>
+                  <option value="none">不使用世界书</option>
+                  {worldbooks.filter(book => book.enabled).map((book) => (
+                    <option key={book.id} value={book.id}>
+                      {book.name} ({book.entries.filter(entry => entry.enabled).length} 条目)
                     </option>
                   ))}
                 </select>
@@ -4405,90 +4419,100 @@ export function LineConversationView({
               </div>
             </div>
 
-            {/* Section 2.5: 酒馆状态栏格式与正则表达式配置 (Regex & Status Bar Settings) */}
+            {/* Section 2.5: 酒馆状态栏（默认折叠） */}
             <div className="space-y-1.5">
-              <div className="text-[10px] text-[#aaa] font-medium px-1 flex items-center justify-between">
-                <span className="flex items-center gap-1">
-                  <Sliders className="w-3 h-3 text-[#ae7e89]" />
-                  <span>酒馆状态栏格式与正则表达式配置 (Regex & Template)</span>
-                </span>
-                <span className="text-[10px] text-[#ae7e89]">单独配置</span>
-              </div>
+              <button onClick={() => setShowStatusBarSettings(value => !value)} className="w-full bg-white rounded-[14px] border border-[#f0f0f1] p-3 flex items-center justify-between text-left">
+                <span className="flex items-center gap-1.5 text-[10px] text-[#555] font-medium"><Sliders className="w-3 h-3 text-[#ae7e89]" />酒馆状态栏</span>
+                <span className="text-[9px] text-[#aaa]">{showStatusBarSettings ? '收起' : '展开设置'}</span>
+              </button>
+              {showStatusBarSettings && (
+              {/* Section 2.5: 酒馆状态栏格式与正则表达式配置 (Regex & Status Bar Settings) */}
+              <div className="space-y-1.5">
+                <div className="text-[10px] text-[#aaa] font-medium px-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Sliders className="w-3 h-3 text-[#ae7e89]" />
+                    <span>酒馆状态栏格式与正则表达式配置 (Regex & Template)</span>
+                  </span>
+                  <span className="text-[10px] text-[#ae7e89]">单独配置</span>
+                </div>
 
-              <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3">
-                {/* 状态变量 */}
-                <div className="space-y-2">
-                  <div className="font-semibold text-xs text-[#333]">编辑实时状态变量：</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-[10px] text-[#999]">地点 location</span>
-                      <input
-                        value={statusData.location}
-                        onChange={(e) => setStatusData({ ...statusData, location: e.target.value })}
-                        className="w-full p-1.5 bg-[#fafafa] border border-[#ddd] rounded-md text-xs mt-0.5 text-[#333]"
-                      />
+                <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3">
+                  {/* 状态变量 */}
+                  <div className="space-y-2">
+                    <div className="font-semibold text-xs text-[#333]">编辑实时状态变量：</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-[10px] text-[#999]">地点 location</span>
+                        <input
+                          value={statusData.location}
+                          onChange={(e) => setStatusData({ ...statusData, location: e.target.value })}
+                          className="w-full p-1.5 bg-[#fafafa] border border-[#ddd] rounded-md text-xs mt-0.5 text-[#333]"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[#999]">时间 time</span>
+                        <input
+                          value={statusData.time}
+                          onChange={(e) => setStatusData({ ...statusData, time: e.target.value })}
+                          className="w-full p-1.5 bg-[#fafafa] border border-[#ddd] rounded-md text-xs mt-0.5 text-[#333]"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[#999]">当前活动 activity</span>
+                        <input
+                          value={statusData.activity}
+                          onChange={(e) => setStatusData({ ...statusData, activity: e.target.value })}
+                          className="w-full p-1.5 bg-[#fafafa] border border-[#ddd] rounded-md text-xs mt-0.5 text-[#333]"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[#999]">好感度 favor</span>
+                        <input
+                          value={statusData.favor}
+                          onChange={(e) => setStatusData({ ...statusData, favor: e.target.value })}
+                          className="w-full p-1.5 bg-[#fafafa] border border-[#ddd] rounded-md text-xs mt-0.5 text-[#333]"
+                        />
+                      </div>
                     </div>
                     <div>
-                      <span className="text-[10px] text-[#999]">时间 time</span>
+                      <span className="text-[10px] text-[#999]">内心心境 mood</span>
                       <input
-                        value={statusData.time}
-                        onChange={(e) => setStatusData({ ...statusData, time: e.target.value })}
-                        className="w-full p-1.5 bg-[#fafafa] border border-[#ddd] rounded-md text-xs mt-0.5 text-[#333]"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-[#999]">当前活动 activity</span>
-                      <input
-                        value={statusData.activity}
-                        onChange={(e) => setStatusData({ ...statusData, activity: e.target.value })}
-                        className="w-full p-1.5 bg-[#fafafa] border border-[#ddd] rounded-md text-xs mt-0.5 text-[#333]"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-[#999]">好感度 favor</span>
-                      <input
-                        value={statusData.favor}
-                        onChange={(e) => setStatusData({ ...statusData, favor: e.target.value })}
+                        value={statusData.mood}
+                        onChange={(e) => setStatusData({ ...statusData, mood: e.target.value })}
                         className="w-full p-1.5 bg-[#fafafa] border border-[#ddd] rounded-md text-xs mt-0.5 text-[#333]"
                       />
                     </div>
                   </div>
-                  <div>
-                    <span className="text-[10px] text-[#999]">内心心境 mood</span>
+
+                  {/* HTML 渲染模板 */}
+                  <div className="border-t border-[#f2f2f3] pt-2.5 space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] text-[#555]">
+                      <span className="font-semibold">HTML 渲染模板：</span>
+                      <span className="text-[10px] text-[#aaa]">支持变量占位符</span>
+                    </div>
+                    <textarea
+                      value={statusFormat}
+                      onChange={(e) => setStatusFormat(e.target.value)}
+                      className="w-full h-24 p-2 font-mono text-[11px] bg-[#f8f8fa] border border-[#e6e6e8] rounded-[10px] outline-none leading-relaxed resize-none text-[#333]"
+                    />
+                    <div className="text-[9.5px] text-[#aaa]">
+                      可用标签：<code>{`{{location}}`}</code>, <code>{`{{time}}`}</code>, <code>{`{{activity}}`}</code>, <code>{`{{mood}}`}</code>, <code>{`{{favor}}`}</code>
+                    </div>
+                  </div>
+
+                  {/* 正则表达式匹配 */}
+                  <div className="border-t border-[#f2f2f3] pt-2.5 space-y-1">
+                    <div className="font-semibold text-[11px] text-[#555]">酒馆状态提取正则表达式 (Regex)：</div>
                     <input
-                      value={statusData.mood}
-                      onChange={(e) => setStatusData({ ...statusData, mood: e.target.value })}
-                      className="w-full p-1.5 bg-[#fafafa] border border-[#ddd] rounded-md text-xs mt-0.5 text-[#333]"
+                      value={statusRegex}
+                      onChange={(e) => setStatusRegex(e.target.value)}
+                      className="w-full p-2 font-mono text-xs bg-[#f8f8fa] border border-[#e6e6e8] rounded-[10px] outline-none text-[#333]"
                     />
                   </div>
                 </div>
-
-                {/* HTML 渲染模板 */}
-                <div className="border-t border-[#f2f2f3] pt-2.5 space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px] text-[#555]">
-                    <span className="font-semibold">HTML 渲染模板：</span>
-                    <span className="text-[10px] text-[#aaa]">支持变量占位符</span>
-                  </div>
-                  <textarea
-                    value={statusFormat}
-                    onChange={(e) => setStatusFormat(e.target.value)}
-                    className="w-full h-24 p-2 font-mono text-[11px] bg-[#f8f8fa] border border-[#e6e6e8] rounded-[10px] outline-none leading-relaxed resize-none text-[#333]"
-                  />
-                  <div className="text-[9.5px] text-[#aaa]">
-                    可用标签：<code>{`{{location}}`}</code>, <code>{`{{time}}`}</code>, <code>{`{{activity}}`}</code>, <code>{`{{mood}}`}</code>, <code>{`{{favor}}`}</code>
-                  </div>
-                </div>
-
-                {/* 正则表达式匹配 */}
-                <div className="border-t border-[#f2f2f3] pt-2.5 space-y-1">
-                  <div className="font-semibold text-[11px] text-[#555]">酒馆状态提取正则表达式 (Regex)：</div>
-                  <input
-                    value={statusRegex}
-                    onChange={(e) => setStatusRegex(e.target.value)}
-                    className="w-full p-2 font-mono text-xs bg-[#f8f8fa] border border-[#e6e6e8] rounded-[10px] outline-none text-[#333]"
-                  />
-                </div>
               </div>
+
+              )}
             </div>
 
             {/* Section 3: 我的人设管理器快捷入口 */}
@@ -5511,21 +5535,25 @@ export function LineConversationView({
           </div>
 
           <div className="flex-1 overflow-y-auto no-scrollbar pb-10">
-            {/* Cover Banner */}
-            <div className="h-[140px] bg-gradient-to-r from-[#e8dadf] via-[#efe6e8] to-[#ded6dc] relative">
-              <div
-                className="absolute inset-0"
-                style={{
-                  background: 'radial-gradient(circle at 80% 20%, rgba(255,255,255,0.7), transparent 40%), linear-gradient(135deg, #e4d7dc 0%, #efe5e8 50%, #ded7dc 100%)',
-                }}
-              />
+            {/* Cover Banner：头像与背景都可替换 */}
+            <div className="h-[140px] relative overflow-hidden">
+              <input ref={characterCoverFileRef} type="file" accept="image/*" className="hidden" onChange={async e => {
+                const file = e.target.files?.[0]; if (!file) return;
+                try { setCharacterCover(await readImageFileAsDataUrl(file)); showToast('主页背景已更新'); } catch { showToast('背景读取失败'); }
+                e.currentTarget.value = '';
+              }} />
+              {characterCover ? <img src={characterCover} alt="主页背景" className="absolute inset-0 w-full h-full object-cover" /> : <div className="absolute inset-0 bg-gradient-to-r from-[#e8dadf] via-[#efe6e8] to-[#ded6dc]" />}
+              <button onClick={() => characterCoverFileRef.current?.click()} className="absolute top-3 right-3 px-2.5 py-1.5 rounded-full bg-black/35 text-white text-[9px] backdrop-blur">更换背景</button>
               <div className="absolute -bottom-7 left-4">
                 <div className="w-[66px] h-[66px] rounded-full bg-[#f1f1f2] border-3 border-white shadow-md flex items-center justify-center overflow-hidden">
-                  <svg className="w-10 h-10 text-[#999]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <circle cx="12" cy="8" r="4" />
-                    <path d="M4 21c.8-4 3.5-6 8-6s7.2 2 8 6" />
-                  </svg>
+                  {characterProfileAvatar ? <img src={characterProfileAvatar} alt={characterProfile.nickname} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : importedCharacter?.avatar ? <img src={importedCharacter.avatar} alt={characterProfile.nickname} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <svg className="w-10 h-10 text-[#999]" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4" /><path d="M4 21c.8-4 3.5-6 8 6-6 2" /></svg>}
                 </div>
+                <input ref={characterProfileAvatarFileRef} type="file" accept="image/*" className="hidden" onChange={async e => {
+                  const file = e.target.files?.[0]; if (!file) return;
+                  try { setCharacterProfileAvatar(await readImageFileAsDataUrl(file)); showToast('主页头像已更新'); } catch { showToast('头像读取失败'); }
+                  e.currentTarget.value = '';
+                }} />
+                <button onClick={() => characterProfileAvatarFileRef.current?.click()} className="mt-1 ml-2 text-[8px] text-[#ae7e89]">更换头像</button>
               </div>
 
               <div className="absolute bottom-2.5 right-4 flex items-center gap-2">
@@ -5553,9 +5581,7 @@ export function LineConversationView({
             <div className="px-4 pt-9 pb-3 bg-white border-b border-[#f0f0f1]">
               <div className="flex items-center gap-2">
                 <span className="text-[19px] font-bold text-[#202124]">{characterProfile.nickname}</span>
-                <span className="text-[9.5px] px-2 py-0.5 rounded-full bg-[#faf1f3] text-[#ae7e89] border border-[#f0dee3] font-medium">
-                  {characterProfile.relationship}
-                </span>
+
               </div>
               <div className="text-[11px] text-[#aaa] mt-0.5 font-mono">
                 ID: guyan_silent · {characterProfile.birthday}
@@ -5596,27 +5622,10 @@ export function LineConversationView({
               </div>
             </div>
 
-            {/* Profile Tab Header: 动态 (Threads) | 记忆与世界书 | 胶片相册 */}
+            {/* Profile Tabs：主页只保留动态与相册；记忆 / 世界书统一在聊天设置 */}
             <div className="h-[42px] bg-white border-b border-[#ededee] flex text-xs font-medium text-[#777]">
-              <div className="flex-1 flex items-center justify-center border-b-2 border-[#ae7e89] text-[#ae7e89]">
-                动态 (Threads)
-              </div>
-              <div
-                onClick={() => {
-                  setShowCharacterProfile(false);
-                  setShowLorebookInspector(true);
-                  setShowSettings(true);
-                }}
-                className="flex-1 flex items-center justify-center cursor-pointer hover:text-[#333]"
-              >
-                记忆与世界书
-              </div>
-              <div
-                onClick={() => showToast('相册正在整理中…')}
-                className="flex-1 flex items-center justify-center cursor-pointer hover:text-[#333]"
-              >
-                胶片相册
-              </div>
+              <div className="flex-1 flex items-center justify-center border-b-2 border-[#ae7e89] text-[#ae7e89]">动态 (Threads)</div>
+              <div onClick={() => showToast('相册正在整理中…')} className="flex-1 flex items-center justify-center cursor-pointer hover:text-[#333]">胶片相册</div>
             </div>
 
             {/* Dynamic Posts Feed (Threads / Moments style) */}
