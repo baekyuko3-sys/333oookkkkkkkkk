@@ -209,6 +209,12 @@ export function LineConversationView({
   
   // Settings & Overlays
   const [showSettings, setShowSettings] = useState(false);
+  const [showBehaviourSettings, setShowBehaviourSettings] = useState(false);
+  const [showWorldbookSettings, setShowWorldbookSettings] = useState(false);
+  const [showOpeningSettings, setShowOpeningSettings] = useState(false);
+  const [allowRoleInitiatedMessage, setAllowRoleInitiatedMessage] = usePersistentState<boolean>(`line:allow-role-message:${conversationStorageId}`, true);
+  const [allowRoleMomentsPost, setAllowRoleMomentsPost] = usePersistentState<boolean>(`line:allow-role-moments:${conversationStorageId}`, true);
+  const [allowOfflineInvite, setAllowOfflineInvite] = usePersistentState<boolean>(`line:allow-offline-invite:${conversationStorageId}`, true);
   const [chatApiOverride, setChatApiOverride] = usePersistentState<ChannelAiSettings>(`line:chat-api-override:${conversationStorageId}`, {
     ...readAppSettings().chatApiOverride,
     enabled: false,
@@ -534,9 +540,8 @@ export function LineConversationView({
     .map(book => ({
       ...book,
       entries: book.entries.filter(entry => {
-        if (!entry.enabled) return false;
         const selected = selectedWorldBookEntries[book.id];
-        return selected === undefined ? true : selected.includes(entry.id);
+        return selected === undefined ? entry.enabled : selected.includes(entry.id);
       }),
     }));
 
@@ -1342,6 +1347,10 @@ export function LineConversationView({
   };
 
   const generateRoleOfflineInvite = async () => {
+    if (!allowOfflineInvite) {
+      showToast('当前聊天已关闭角色主动线下邀约');
+      return;
+    }
     if (!importedCharacter) {
       showToast('当前聊天没有绑定角色，无法生成角色邀约');
       return;
@@ -3975,6 +3984,25 @@ export function LineConversationView({
               </div>}
             </div>
 
+            <details open={showBehaviourSettings} onToggle={(e) => setShowBehaviourSettings((e.currentTarget as HTMLDetailsElement).open)} className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
+              <summary className="list-none cursor-pointer p-3.5 flex items-center justify-between">
+                <div><div className="font-medium text-[#333]">角色主动行为</div><div className="text-[10px] text-[#999]">只对当前角色 × 当前聊天生效</div></div>
+                <span className="text-[10px] text-[#aaa]">{showBehaviourSettings ? '收起' : '展开'}</span>
+              </summary>
+              <div className="px-3.5 pb-3.5 space-y-2">
+                {[
+                  ['message', '角色主动发消息', '允许角色在合适的剧情时机主动联系你。', allowRoleInitiatedMessage, setAllowRoleInitiatedMessage],
+                  ['moments', '角色主动发朋友圈 / VROOM', '允许角色在聊天之外发布动态。', allowRoleMomentsPost, setAllowRoleMomentsPost],
+                  ['offline', '角色主动发起线下邀约', '允许角色向你发送线下剧情邀请。', allowOfflineInvite, setAllowOfflineInvite],
+                ].map(([id, title, desc, value, setter]: any) => (
+                  <button key={id} type="button" onClick={() => setter(!value)} className="w-full flex items-center justify-between gap-3 p-3 rounded-xl bg-[#fafafa] border border-[#eeeeef] text-left">
+                    <div><div className="text-[11px] text-[#444] font-medium">{title}</div><div className="text-[9px] text-[#aaa] mt-0.5">{desc}</div></div>
+                    <span className={`w-9 h-5 rounded-full p-0.5 ${value ? 'bg-[#d4aab5]' : 'bg-[#d9d9db]'}`}><span className={`block w-4 h-4 rounded-full bg-white shadow-sm ${value ? 'translate-x-4' : ''}`} /></span>
+                  </button>
+                ))}
+              </div>
+            </details>
+
             {/* Section -1: 聊天偏好 (置顶 / 免打扰 / 背景 / 收藏 / 导出) */}
             <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3">
               {/* 置顶聊天 */}
@@ -4400,7 +4428,9 @@ export function LineConversationView({
             )}
 
             {/* Section 2: 世界书选择 (Lorebook) */}
-            <div className="space-y-1.5">
+            <details open={showWorldbookSettings} onToggle={(e) => setShowWorldbookSettings((e.currentTarget as HTMLDetailsElement).open)} className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
+              <summary className="list-none cursor-pointer p-3 flex items-center justify-between"><div className="flex items-center gap-1.5 text-[10px] font-medium text-[#555]"><BookOpen className="w-3 h-3 text-[#ae7e89]" />世界书设定</div><span className="text-[9px] text-[#aaa]">{showWorldbookSettings ? '收起' : '展开'}</span></summary>
+              <div className="px-3 pb-3"><div className="space-y-1.5">
               <div className="text-[10px] text-[#aaa] font-medium px-1 flex items-center justify-between">
                 <span className="flex items-center gap-1">
                   <BookOpen className="w-3 h-3 text-[#ae7e89]" />
@@ -4441,31 +4471,31 @@ export function LineConversationView({
                       .filter(book => book.enabled)
                       .map(book => {
                         const selected = selectedWorldBookEntries[book.id];
-                        const allEnabled = book.entries.filter(entry => entry.enabled);
-                        const allChecked = selected === undefined;
+                        const allEntries = book.entries;
+                        const allChecked = selected === undefined
+                          ? allEntries.every(entry => entry.enabled)
+                          : selected.length === allEntries.length;
                         return (
                           <div key={book.id} className="bg-white rounded-[10px] border border-[#eee] p-2">
                             <div className="flex items-center justify-between gap-2">
                               <div className="text-[10px] font-semibold text-[#444] truncate">{book.name}</div>
                               <button
-                                onClick={() => setSelectedWorldBookEntries(prev => ({ ...prev, [book.id]: allChecked ? allEnabled.map(e => e.id) : [] }))}
+                                onClick={() => setSelectedWorldBookEntries(prev => ({ ...prev, [book.id]: allChecked ? allEntries.map(e => e.id) : [] }))}
                                 className="text-[9px] text-[#ae7e89] shrink-0"
                               >{allChecked ? '取消全选' : '全选条目'}</button>
                             </div>
                             <div className="mt-1.5 space-y-1">
-                              {allEnabled.map(entry => {
-                                const checked = allChecked || selected.includes(entry.id);
+                              {allEntries.map(entry => {
+                                const checked = selected === undefined ? entry.enabled : selected.includes(entry.id);
                                 return (
                                   <label key={entry.id} className="flex items-start gap-2 p-1.5 rounded-lg hover:bg-[#faf7f8] cursor-pointer">
                                     <input
                                       type="checkbox"
                                       checked={checked}
                                       onChange={() => {
-                                        const next = allChecked
-                                          ? allEnabled.filter(item => item.id !== entry.id).map(item => item.id)
-                                          : checked
-                                            ? selected.filter(id => id !== entry.id)
-                                            : [...selected, entry.id];
+                                        const next = checked
+                                          ? (selected === undefined ? allEntries.filter(item => item.id !== entry.id).map(item => item.id) : selected.filter(id => id !== entry.id))
+                                          : [...(selected || []), entry.id];
                                         setSelectedWorldBookEntries(prev => ({ ...prev, [book.id]: next }));
                                       }}
                                       className="mt-0.5 accent-[#ae7e89]"
@@ -4481,15 +4511,16 @@ export function LineConversationView({
                   </div>
                 )}
               </div>
-            </div>
+            </div></div></details>
 
             {/* Section 2.4: 角色开场白选择 */}
             {!isGroup && importedCharacter && (() => {
               const greetings = [importedCharacter.firstMessage, ...importedCharacter.alternateGreetings].filter(Boolean);
               const currentOpening = selectedOpeningContext;
               return greetings.length ? (
-                <div className="space-y-1.5">
-                  <div className="text-[10px] text-[#aaa] font-medium px-1">角色开场白</div>
+                <details open={showOpeningSettings} onToggle={(e) => setShowOpeningSettings((e.currentTarget as HTMLDetailsElement).open)} className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
+                  <summary className="list-none cursor-pointer p-3 flex items-center justify-between"><div className="text-[10px] text-[#555] font-medium">角色开场白</div><span className="text-[9px] text-[#aaa]">{showOpeningSettings ? '收起' : '展开'}</span></summary>
+                  <div className="px-3 pb-3">
                   <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3">
                     <select
                       value={currentOpening}
@@ -4501,7 +4532,7 @@ export function LineConversationView({
                     </select>
                     <div className="mt-2 text-[9px] text-[#aaa] leading-relaxed">开场白作为前情介绍提供给 AI，不会自动伪装成你已经发送过的消息。</div>
                   </div>
-                </div>
+                </details>
               ) : null;
             })()}
 
