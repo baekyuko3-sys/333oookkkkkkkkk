@@ -674,7 +674,7 @@ export async function generateCreativeText(input: CreativeTextInput): Promise<st
     input.onDelta?.(text);
     return text;
   } catch (error) {
-    // CORS/network errors get a second chance through Netlify.
+    // CORS/network errors get a second chance through the Vercel server-side proxy.
     if (error instanceof TypeError || /Failed to fetch|NetworkError|Load failed|CORS/i.test(String(error))) {
       return proxyChat();
     }
@@ -712,14 +712,16 @@ export async function listOpenAiCompatibleModels(
     directError = error;
   }
 
-  // Browser CORS fallback: Netlify calls the provider server-side.
-  if (!response) {
+  // Gemini model discovery must use the server-side proxy because the
+  // browser request needs the x-goog-api-key header and may be blocked by CORS.
+  if (settings.provider === 'gemini' || !response) {
     try {
       response = await fetch('/api/ai-models', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'models',
+          provider: settings.provider,
           baseUrl: base,
           apiKey: settings.apiKey.trim(),
         }),
