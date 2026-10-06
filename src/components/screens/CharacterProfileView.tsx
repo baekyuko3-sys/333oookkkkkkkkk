@@ -213,15 +213,22 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
         }
         return [nextCharacter, ...prev];
       });
-      if (parsed.embeddedWorldBook) {
+      const embeddedWorldBooks = parsed.embeddedWorldBooks?.length
+        ? parsed.embeddedWorldBooks
+        : (parsed.embeddedWorldBook ? [parsed.embeddedWorldBook] : []);
+      if (embeddedWorldBooks.length) {
         setWorldBooks(prev => [
-          parsed.embeddedWorldBook!,
-          ...prev.filter(book => book.id !== parsed.embeddedWorldBook!.id),
+          ...embeddedWorldBooks,
+          ...prev.filter(book => !embeddedWorldBooks.some(imported => imported.id === book.id)),
         ]);
       }
       setSelectedId(parsed.id);
       setIsEditing(false);
-      showNotice(`已导入「${parsed.name}」 · ${parsed.sourceFormat.toUpperCase()}`);
+      showNotice(
+        embeddedWorldBooks.length
+          ? `已导入「${parsed.name}」 · 同步导入 ${embeddedWorldBooks.length} 本世界书`
+          : `已导入「${parsed.name}」 · ${parsed.sourceFormat.toUpperCase()}`,
+      );
     } catch (error) {
       showNotice(error instanceof Error ? error.message : '角色卡解析失败');
     } finally {
