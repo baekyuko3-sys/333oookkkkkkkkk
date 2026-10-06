@@ -687,7 +687,12 @@ export async function listOpenAiCompatibleModels(
 ): Promise<string[]> {
   if (!settings.apiKey.trim()) throw new Error('AI_NOT_CONFIGURED');
 
-  let base = settings.apiBaseUrl.trim().replace(/\/+$/, '');
+  let base = (
+    settings.apiBaseUrl.trim() ||
+    (settings.provider === 'gemini'
+      ? 'https://generativelanguage.googleapis.com/v1beta'
+      : '')
+  ).replace(/\/+$/, '');
   if (!base) throw new Error('AI_BASE_URL_MISSING');
 
   base = base
