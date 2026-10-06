@@ -110,7 +110,16 @@ function getApplicableWorldBooks(input: AiReplyInput): WorldBook[] {
 
   // Character-card lorebooks are private to their source character.
   // Manually imported / global books remain available to every character.
+  const selectedIds = new Set(input.character?.worldBookIds || []);
+  const hasExplicitSelection = Array.isArray(input.character?.worldBookIds);
+
   return books.filter(book => {
+    // Once a character has an explicit selection, only checked books are injected.
+    // This is the same mental model as Tavern's per-character lorebook selection.
+    if (hasExplicitSelection) return selectedIds.has(book.id);
+
+    // Legacy cards without selection state keep the old behavior:
+    // their own embedded books + global books remain available.
     if (book.sourceType !== 'character-card' && !book.sourceCharacterId) return true;
     if (!characterId && !characterName) return false;
     return (
