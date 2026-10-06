@@ -536,7 +536,7 @@ export function LineConversationView({
       entries: book.entries.filter(entry => {
         if (!entry.enabled) return false;
         const selected = selectedWorldBookEntries[book.id];
-        return !selected || selected.length === 0 || selected.includes(entry.id);
+        return selected === undefined ? true : selected.includes(entry.id);
       }),
     }));
 
@@ -4439,7 +4439,7 @@ export function LineConversationView({
                       .map(book => {
                         const selected = selectedWorldBookEntries[book.id];
                         const allEnabled = book.entries.filter(entry => entry.enabled);
-                        const allChecked = !selected || selected.length === 0;
+                        const allChecked = selected === undefined;
                         return (
                           <div key={book.id} className="bg-white rounded-[10px] border border-[#eee] p-2">
                             <div className="flex items-center justify-between gap-2">
