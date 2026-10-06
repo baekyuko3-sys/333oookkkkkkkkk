@@ -4,7 +4,7 @@ import { PhoneSimulator } from './components/PhoneSimulator';
 import { cleanupOldDemoData } from './store/blankPhoneMigration';
 
 export default function App() {
-  const release = '2026.10.06-line-openings-v1';
+  const release = '2026.10.06-line-v2';
   const [themeMode, setThemeMode] = useState<ThemeMode>('nordic-light');
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
   const [showUpdate, setShowUpdate] = useState(false);
@@ -52,16 +52,19 @@ export default function App() {
               <div className="text-[9px] font-mono tracking-[2px] text-black/35">SANE333 · UPDATE</div>
               <h2 className="mt-2 text-xl font-semibold tracking-tight text-[#292724]">这次更新了什么？</h2>
             </div>
-            <button onClick={() => setShowUpdate(false)} className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center"><span className="text-lg">×</span></button>
+            <button onClick={() => { window.localStorage.setItem('sane333:last-seen-release', release); setShowUpdate(false); }} className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center"><span className="text-lg">×</span></button>
           </div>
           <div className="mt-5 space-y-3 text-[11px] leading-5 text-black/65">
-            <div><b className="text-black/80">LINE · 聊天修复</b><br/>修复添加角色后进入聊天时可能打不开的问题，并继续保护过期聊天入口。</div>
-            <div><b className="text-black/80">ABOUT · 角色设定</b><br/>ABOUT 与角色设定合并成一个可折叠区域，页面更干净。</div>
-            <div><b className="text-black/80">角色卡 · 开场白</b><br/>导入酒馆角色卡时保留 first message 与所有 alternate greetings。</div>
-            <div><b className="text-black/80">LINE · 开场背景</b><br/>添加聊天时可以选择“不读取”或把某个开场白作为前情提要，不会自动冒充角色发消息。</div>
-            <div><b className="text-black/80">线下剧情 · Story Openings</b><br/>每次线下剧情都可以从角色卡任意一个开场白开始，也可以完全不使用。</div>
+            <div><b className="text-black/80">LINE · 聊天稳定性</b><br/>修复添加角色后进入聊天可能打不开的问题；失效聊天入口现在会安全返回，不再卡在空白页面。</div>
+            <div><b className="text-black/80">LINE · 气泡与输入状态</b><br/>短句会分开成独立气泡，连续长文本保持完整；补回头像显示，并把“texting....”换成真正的三点动态输入状态。</div>
+            <div><b className="text-black/80">LINE · 工具与设置</b><br/>搜索聊天记录、记忆、我的头像显示开关移到聊天设置；“让角色继续说”放进 ＋ 菜单；通话入口保留但未开发时会明确提示。</div>
+            <div><b className="text-black/80">角色卡 · 导入确认</b><br/>导入 PNG / JSON / YAML / YML 后，现在会出现完整确认卡：角色、来源、版本、FIRST MESSAGE、alternate greetings、世界书数量都会直接显示。</div>
+            <div><b className="text-black/80">角色卡 · 开场白</b><br/>保留 first message 与所有 alternate greetings。创建 LINE 聊天时可选择“不读取”或指定某个开场白作为前情提要；不会自动把它冒充成角色消息。</div>
+            <div><b className="text-black/80">LINE · ABOUT</b><br/>好友资料里的 ABOUT 现在统一展示角色简介、性格、当前场景与私人备注，不再拆成重复的角色设定页面。</div>
+            <div><b className="text-black/80">角色头像</b><br/>角色头像只使用你上传的本地图片或你提供的图片链接，不再偷偷替换成预设人物图。</div>
+            <div><b className="text-black/80">世界书 · 条目可见性</b><br/>修复世界书条目区域被布局挤掉的问题，现在可以直接看到条目列表和当前选中的 ENTRY。</div>
+            <div><b className="text-black/80">线下剧情 · Story Openings</b><br/>每次线下剧情都可以从角色卡的任意开场白开始，也可以选择完全不使用。</div>
           </div>
-          <div className="mt-5 flex items-center justify-between text-[8px] font-mono text-black/30">
             <span>release {release}</span>
             <button onClick={() => { window.localStorage.setItem('sane333:last-seen-release', release); setShowUpdate(false); }} className="rounded-full bg-[#292724] px-5 py-2.5 text-white tracking-[1px]">知道了 · ENTER</button>
           </div>
