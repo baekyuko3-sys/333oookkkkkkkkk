@@ -526,7 +526,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
 
       {book && books.length > 1 && (
         <button
-          onClick={removeBook}
+          onClick={() => removeBook()}
           className="absolute z-30 right-4 bottom-12 px-3 py-1.5 rounded-full bg-[#292724] text-white text-[9px]"
         >
           删除当前世界书
