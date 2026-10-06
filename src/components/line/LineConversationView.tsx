@@ -838,9 +838,10 @@ export function LineConversationView({
     return () => clearInterval(timer);
   }, [showAudioCall]);
 
-  const handleSend = async () => {
+  const handleSend = async (shouldReply = true) => {
     const userText = inputText.trim();
-    if (!userText || isTyping) return;
+    if (!userText) return;
+    if (shouldReply && isTyping) return;
     if (characterProfile.isBlockedByCharacter) { showToast('你已被对方拉黑，暂时无法发送消息'); return; }
 
     const msgId = Date.now();
@@ -864,6 +865,9 @@ export function LineConversationView({
 
     setMessages((prev) => [...prev, newMsg]);
     setInputText('');
+
+    // Enter/Return only sends the user's message. The paper-plane button passes shouldReply=true.
+    if (!shouldReply) return;
     setIsTyping(true);
 
     // LINE read state: once the role starts processing the message, it has been seen.
@@ -946,17 +950,23 @@ export function LineConversationView({
     }
 
     const replyMsgId = Date.now() + 1;
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: replyMsgId,
-        sender: 'other',
-        text: '',
-        time: '刚刚',
-        type: 'ai-reply',
-        showThinking: false,
-      },
-    ]);
+    let replyMessageCreated = false;
+    const ensureReplyMessage = (text = '') => {
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === replyMsgId)) {
+          return prev.map((m) => m.id === replyMsgId ? { ...m, text, time: '刚刚' } : m);
+        }
+        return [...prev, {
+          id: replyMsgId,
+          sender: 'other',
+          text,
+          time: '刚刚',
+          type: 'ai-reply',
+          showThinking: false,
+        }];
+      });
+      replyMessageCreated = true;
+    };
 
     let streamedText = '';
 
@@ -982,13 +992,7 @@ export function LineConversationView({
         temperature: Number(presetTemp) || 0.85,
         onDelta: (delta) => {
           streamedText += delta;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === replyMsgId
-                ? { ...m, text: streamedText, time: '刚刚' }
-                : m
-            )
-          );
+          ensureReplyMessage(streamedText);
         },
       });
 
@@ -996,6 +1000,7 @@ export function LineConversationView({
       if (!finalReplyText) {
         throw new Error('AI 没有返回任何内容，请检查 API、模型或网络连接。');
       }
+      if (!replyMessageCreated) ensureReplyMessage(finalReplyText);
 
       // 非流式供应商或异常情况下，确保最终正文完整写入。
       setMessages((prev) =>
@@ -1085,9 +1090,10 @@ export function LineConversationView({
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'AI 请求失败';
+      ensureReplyMessage(`发送失败：${message}`);
       setMessages((prev) => prev.map(m =>
         m.id === replyMsgId
-          ? { ...m, status: 'failed', error: message, text: m.text || `发送失败：${message}` }
+          ? { ...m, status: 'failed', error: message, text: `发送失败：${message}` }
           : m
       ));
       markLineMessageFailed(conversationStorageId, replyMsgId, message);
@@ -3106,7 +3112,10 @@ export function LineConversationView({
                       setMentionPickerOpen(false);
                       return;
                     }
-                    // Enter 只换行；真正发送由右侧发送按钮触发。
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      void handleSend(false);
+                    }
                   }}
                   rows={1}
                   placeholder="メッセージを入力…"
