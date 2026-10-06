@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   ArrowLeft, CalendarClock, Check, ChevronRight, MapPin, Play, Plus, Send,
-  Sparkles, Trash2, UserRound
+  Sparkles, Trash2, UserRound, Settings2, Download, Upload, GitBranch, Palette, BookOpen, Brain, X
 } from 'lucide-react';
 import type { OfflineEvent, ScreenType } from '../../types';
 import { getOfflineEvents, updateOfflineEvent, upsertOfflineEvent, deleteOfflineEvent } from '../../store/offlineEvents';
@@ -15,6 +15,8 @@ import { generateCreativeText, readStoredAiSettings } from '../../ai/aiEngine';
 import { setCurrentScene, setCharacterRuntime } from '../../store/worldRuntime';
 import { emitWorldEvent } from '../../store/worldRuntime';
 import { recordOfflineEventInLine } from '../../store/lineRuntime';
+import { getCotForTarget } from '../../store/cotPresets';
+import { getOfflinePersonas, getOfflineStyle, saveOfflineStyle, exportOfflineEvent, importOfflineEvent, cloneOfflineBranch, type OfflinePersona, type OfflineStyleSettings } from '../../store/offlineStory';
 
 const statusLabel: Record<OfflineEvent['status'], string> = {
   draft: '草稿',
@@ -37,6 +39,10 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
   const [sceneBusy, setSceneBusy] = useState(false);
   const [actionText, setActionText] = useState('');
   const [notice, setNotice] = useState('');
+  const [managementOpen, setManagementOpen] = useState(false);
+  const [managementTab, setManagementTab] = useState<'session' | 'beauty' | 'data'>('session');
+  const [personas, setPersonas] = useState<OfflinePersona[]>(getOfflinePersonas());
+  const [style, setStyle] = useState<OfflineStyleSettings>(getOfflineStyle());
 
   const selected = events.find(event => event.id === selectedId) || null;
   const activeEvents = useMemo(
@@ -78,6 +84,11 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
       createdAt: nowIso(),
       updatedAt: nowIso(),
       sceneLog: [],
+      worldBookIds: worldbooks.filter(book => book.enabled).map(book => book.id),
+      personaId: personas[0]?.id,
+      cotPresetId: getCotForTarget('offline')?.id,
+      branchId: 'branch-root-' + Date.now(),
+      branchName: '主线',
     };
     upsertOfflineEvent(event);
     sync();
@@ -111,6 +122,9 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
     const memory = character ? getCharacterMemory(character.id, character.name) : null;
     const project = getProjectManifest();
     const settings = readStoredAiSettings();
+    const cot = getCotForTarget('offline');
+    const selectedBooks = worldbooks.filter(book => event.worldBookIds?.length ? event.worldBookIds.includes(book.id) : book.enabled);
+    const persona = personas.find(item => item.id === event.personaId);
 
     try {
       const systemPrompt = [
@@ -140,8 +154,15 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
           ...memory.items.slice(0, 12).map(item => '- ' + item.content),
         ].join('\n') : '【长期记忆】无。',
         '',
+        '【当前 Persona】',
+        persona ? [persona.name, persona.title || '', persona.bio || ''].filter(Boolean).join('\n') : '未指定 Persona。',
+        '',
         '【世界书】',
-        worldbooks.flatMap(book => book.enabled ? book.entries.filter(entry => entry.enabled).slice(0, 10).map(entry => '- ' + entry.name + ': ' + entry.content) : []).join('\n') || '无。',
+        selectedBooks.flatMap(book => book.entries.filter(entry => entry.enabled).slice(0, 10).map(entry => '- ' + entry.name + ': ' + entry.content)).join('\n') || '无。',
+        '',
+        cot ? '【思维链预设】\n' + cot.template : '',
+        event.authorNote ? '【Author\'s Note】\n' + event.authorNote : '',
+        event.systemPrompt ? '【本剧情 System Prompt】\n' + event.systemPrompt : '',
       ].join('\n');
 
       const prompt = [
@@ -216,6 +237,9 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
         '【项目】' + project.name + ' / ' + project.tone,
         character ? '【角色】' + character.name + '\n' + character.description + '\n' + character.personality + '\n' + character.scenario : '【角色】' + profile.nickname,
         memory ? '【长期记忆】' + memory.summary + '\n' + memory.items.slice(0, 12).map(item => '- ' + item.content).join('\n') : '【长期记忆】无。',
+        (() => { const c = getCotForTarget('offline'); return c ? '【思维链预设】\n' + c.template : ''; })(),
+        selected ? '【Author\'s Note】\n' + (selected.authorNote || '') : '',
+        selected ? '【本剧情 System Prompt】\n' + (selected.systemPrompt || '') : '',
       ].join('\n');
 
       const userText = actionText.trim();
@@ -270,6 +294,27 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
     notify('剧情存档已删除');
   };
 
+  const createBranch = () => {
+    if (!selected || !selected.sceneLog?.length) return notify('先进入剧情，再从当前位置创建分支');
+    const branch = cloneOfflineBranch(selected);
+    upsertOfflineEvent(branch);
+    sync();
+    setSelectedId(branch.id);
+    notify('已创建剧情分支');
+  };
+  const handleExport = () => {
+    if (!selected) return;
+    const url = URL.createObjectURL(new Blob([exportOfflineEvent(selected)], { type: 'application/json' }));
+    const a = document.createElement('a'); a.href = url; a.download = (selected.title || 'offline-story') + '.json'; a.click(); URL.revokeObjectURL(url);
+  };
+  const handleImport = (file?: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => { try { const event = importOfflineEvent(String(reader.result || '')); upsertOfflineEvent(event); sync(); setSelectedId(event.id); notify('剧情已导入'); } catch (error) { notify(error instanceof Error ? error.message : '导入失败'); } };
+    reader.readAsText(file);
+  };
+  const saveStyle = (patch: Partial<OfflineStyleSettings>) => { const next = { ...style, ...patch }; setStyle(next); saveOfflineStyle(patch); };
+
   return (
     <div className="relative w-full h-full flex flex-col overflow-hidden" style={{ background: 'var(--paper)', color: 'var(--ink)' }}>
       <div className="absolute inset-0 opacity-15 bg-paper-noise pointer-events-none" />
@@ -284,15 +329,24 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
             <h2 className="font-serif font-bold text-base tracking-tight text-[#242323]">线下剧情 · Story</h2>
           </div>
         </div>
-        <button onClick={createDraft} className="w-8 h-8 rounded-full bg-[#292724] text-white grid place-items-center">
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => setManagementOpen(true)} className="w-8 h-8 rounded-full bg-white/55 border border-black/5 grid place-items-center text-[#5e5852]"><Settings2 className="w-3.5 h-3.5" /></button>
+          <button onClick={createDraft} className="w-8 h-8 rounded-full bg-[#292724] text-white grid place-items-center">
           <Plus className="w-3.5 h-3.5" />
-        </button>
+          </button>
+        </div>
       </header>
 
       {selected && (selected.status === 'in-progress' || selected.status === 'completed') && (
         <div className="relative z-10 flex-1 flex flex-col min-h-0">
           <div className="px-4 py-3 border-b border-black/5 bg-white/35">
-            <button onClick={() => setSelectedId(null)} className="text-[9px] text-[#8b7560]">← 返回剧情库</button>
+            <div className="flex items-center justify-between">
+              <button onClick={() => setSelectedId(null)} className="text-[9px] text-[#8b7560]">← 返回剧情库</button>
+              <div className="flex gap-1">
+                <button onClick={createBranch} className="px-2 py-1 rounded-full bg-white/60 border border-black/5 text-[8px]"><GitBranch className="w-3 h-3 inline mr-1" />分支</button>
+                <button onClick={() => setManagementOpen(true)} className="px-2 py-1 rounded-full bg-white/60 border border-black/5 text-[8px]"><Settings2 className="w-3 h-3 inline mr-1" />管理</button>
+              </div>
+            </div>
             <div className="mt-2 flex items-start justify-between gap-2">
               <div>
                 <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">NOW PLAYING</div>
@@ -303,7 +357,7 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-3">
+          <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-3" style={{ fontSize: style.fontSize, lineHeight: style.lineHeight }}>
             {(selected.sceneLog || []).map(item => (
               <div key={item.id} className={item.speaker === 'me' ? 'flex justify-end' : item.speaker === 'role' ? 'flex justify-start' : 'flex justify-center'}>
                 <div className={
@@ -462,6 +516,26 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
       )}
 
       <div className="relative z-10 p-3 text-center text-[9px] text-[#8b8782] font-mono border-t border-[rgba(40,36,31,.1)]">OFFLINE STORY ARCHIVE · PRIVATE DEVICE</div>
+      {managementOpen && (
+        <div className="absolute inset-0 z-[60] bg-black/20 backdrop-blur-[2px] flex items-end">
+          <div className="w-full max-h-[82%] overflow-y-auto rounded-t-[26px] bg-[#f7f4ee] border-t border-black/10 shadow-2xl p-4">
+            <div className="flex items-center justify-between"><div><div className="text-[8px] font-mono tracking-[1.5px] text-[#96908a]">OFFLINE / TAVERN</div><div className="mt-1 text-[15px] font-serif font-bold">管理</div></div><button onClick={() => setManagementOpen(false)} className="w-7 h-7 rounded-full bg-black/5 grid place-items-center"><X className="w-3.5 h-3.5" /></button></div>
+            <div className="mt-3 flex gap-1.5">
+              {([['session','剧情'],['beauty','美化'],['data','导入导出']] as const).map(([id,label]) => <button key={id} onClick={() => setManagementTab(id)} className={'flex-1 py-2 rounded-xl text-[9px] border ' + (managementTab===id ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/60 text-[#716b64] border-black/5')}>{label}</button>)}
+            </div>
+            {managementTab === 'session' && selected && <div className="mt-3 space-y-2">
+              <label className="block p-3 rounded-2xl bg-white/60 border border-black/5 text-[9px]">角色<select value={selected.characterId} onChange={e=>{const c=characters.find(x=>x.id===e.target.value);patchEvent({characterId:e.target.value,characterName:c?.name||'未指定角色'});}} className="w-full mt-1 bg-transparent text-xs outline-none">{characters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+              <label className="block p-3 rounded-2xl bg-white/60 border border-black/5 text-[9px]">用户身份<select value={selected.personaId||''} onChange={e=>patchEvent({personaId:e.target.value||undefined})} className="w-full mt-1 bg-transparent text-xs outline-none"><option value="">不指定</option>{personas.map(p=><option key={p.id} value={p.id}>{p.name}{p.title?' · '+p.title:''}</option>)}</select></label>
+              <div className="p-3 rounded-2xl bg-white/60 border border-black/5"><div className="text-[9px] mb-2">世界书</div>{worldbooks.map(book=><label key={book.id} className="flex items-center justify-between text-[9px] py-1"><span>{book.name}</span><input type="checkbox" checked={selected.worldBookIds?.includes(book.id) ?? book.enabled} onChange={e=>{const ids=new Set(selected.worldBookIds?.length?selected.worldBookIds:worldbooks.filter(b=>b.enabled).map(b=>b.id));e.target.checked?ids.add(book.id):ids.delete(book.id);patchEvent({worldBookIds:[...ids]});}} /></label>)}<button onClick={()=>onNavigate('world-book')} className="mt-2 text-[9px] text-[#8b7560]">打开世界书管理 →</button></div>
+              <label className="block p-3 rounded-2xl bg-white/60 border border-black/5 text-[9px]">Author's Note<textarea value={selected.authorNote||''} onChange={e=>patchEvent({authorNote:e.target.value})} className="w-full mt-1 h-16 bg-transparent outline-none resize-none text-[10px]" placeholder="当前剧情的短提示" /></label>
+              <label className="block p-3 rounded-2xl bg-white/60 border border-black/5 text-[9px]">System Prompt<textarea value={selected.systemPrompt||''} onChange={e=>patchEvent({systemPrompt:e.target.value})} className="w-full mt-1 h-20 bg-transparent outline-none resize-none text-[10px]" placeholder="可选" /></label>
+              <div className="p-3 rounded-2xl bg-white/60 border border-black/5 text-[9px]"><Brain className="w-3 h-3 inline mr-1" />思维链：{getCotForTarget('offline')?.title||'未启用'}<div className="mt-1 text-[#777]">沿用现有 Offline COT 预设，不另造一套。</div></div>
+            </div>}
+            {managementTab === 'beauty' && <div className="mt-3 p-3 rounded-2xl bg-white/60 border border-black/5 space-y-3"><div className="text-[9px]"><Palette className="w-3 h-3 inline mr-1" />正文美化</div><label className="block text-[9px]">字号 <input type="range" min="10" max="16" step=".5" value={style.fontSize} onChange={e=>saveStyle({fontSize:Number(e.target.value)})} className="w-full" /></label><label className="block text-[9px]">行距 <input type="range" min="1.4" max="2.3" step=".05" value={style.lineHeight} onChange={e=>saveStyle({lineHeight:Number(e.target.value)})} className="w-full" /></label><label className="flex justify-between text-[9px]">显示头像<input type="checkbox" checked={style.showAvatars} onChange={e=>saveStyle({showAvatars:e.target.checked})} /></label><label className="flex justify-between text-[9px]">显示时间/元数据<input type="checkbox" checked={style.showMetadata} onChange={e=>saveStyle({showMetadata:e.target.checked})} /></label><label className="flex justify-between text-[9px]">紧凑正文<input type="checkbox" checked={style.compact} onChange={e=>saveStyle({compact:e.target.checked})} /></label></div>}
+            {managementTab === 'data' && <div className="mt-3 space-y-2"><button onClick={handleExport} disabled={!selected} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px] disabled:opacity-30"><Download className="w-3 h-3 inline mr-1" />导出当前剧情 JSON</button><label className="w-full py-2.5 rounded-xl bg-white/70 border border-black/5 text-center text-[9px] block cursor-pointer"><Upload className="w-3 h-3 inline mr-1" />导入剧情 JSON<input type="file" accept=".json" className="hidden" onChange={e=>handleImport(e.target.files?.[0])} /></label><div className="p-3 rounded-xl bg-white/50 border border-black/5 text-[9px] text-[#777]">世界书继续使用现有 World Book 的导入/导出。</div></div>}
+          </div>
+        </div>
+      )}
       {notice && <div className="absolute z-50 left-1/2 -translate-x-1/2 bottom-16 bg-[#292724] text-white px-3.5 py-2 rounded-full text-[10px] shadow-lg">{notice}</div>}
     </div>
   );
