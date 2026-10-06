@@ -274,7 +274,20 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
               <div className="mt-1 text-[12px] font-semibold">选择任意应用，单独保存它的美化</div>
               <div className="mt-1 text-[9px] text-[#777069] leading-relaxed">每个应用都有自己的背景、强调色、圆角和文字比例。保存外观方案时，这些设置也会一起保存。</div>
             </div>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="p-3 rounded-2xl bg-[#ebe6de] border border-black/5 space-y-2">
+  <div className="text-[9px] font-mono tracking-[1.5px] text-[#8b8782]">DESKTOP LAYOUT</div>
+  <div className="text-[11px] font-semibold">桌面布局</div>
+  <div className="text-[8px] text-[#777069] leading-relaxed">第一页、第二页都可以自由拖动 App 和小组件，位置会自动保存到当前外观。</div>
+  <div className="grid grid-cols-2 gap-1.5">
+    <button onClick={() => window.dispatchEvent(new CustomEvent('sane333:open-desktop-editor', { detail: { page: 1 } }))} className="py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">整理第一页</button>
+    <button onClick={() => window.dispatchEvent(new CustomEvent('sane333:open-desktop-editor', { detail: { page: 2 } }))} className="py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">整理第二页</button>
+  </div>
+  <div className="grid grid-cols-2 gap-1.5">
+    <button onClick={() => update('desktopLayouts', { ...appearance.desktopLayouts, page1: {} })} className="py-2 rounded-xl bg-white text-[#777] text-[8px] border border-black/5">恢复第一页</button>
+    <button onClick={() => update('desktopLayouts', { ...appearance.desktopLayouts, page2: {} })} className="py-2 rounded-xl bg-white text-[#777] text-[8px] border border-black/5">恢复第二页</button>
+  </div>
+</div>
+<div className="grid grid-cols-2 gap-1.5">
               {appItems.map(([id, label]) => (
                 <button key={id} onClick={() => setSelectedApp(id)} className={selectedApp === id ? 'p-2.5 rounded-xl bg-[#292724] text-white text-left text-[9px]' : 'p-2.5 rounded-xl bg-white/65 border border-black/5 text-left text-[9px] text-[#555]'}>
                   {label}
