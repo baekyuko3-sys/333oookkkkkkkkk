@@ -2772,6 +2772,21 @@ export function LineConversationView({
                   </div>
                 )}
 
+                {msg.status === 'failed' && (
+                  <div
+                    className="max-w-[280px] mt-1 rounded-[12px] border border-[#ead9de] bg-[#fff7f8] px-3 py-2 text-[10px] text-[#8b5d68]"
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setContextMenuMsg(msg);
+                    }}
+                  >
+                    <div className="font-semibold">AI 请求失败</div>
+                    <div className="mt-1 font-mono text-[9px] leading-relaxed break-words text-[#9a6b75]">
+                      {msg.error || '未提供错误代码'}
+                    </div>
+                  </div>
+                )}
+
                 {isGroup && !isMe && msg.senderName && (
                   <div className="text-[9px] text-[#9a777f] px-1 mb-0.5 font-medium">{msg.senderName}</div>
                 )}
