@@ -4532,6 +4532,7 @@ export function LineConversationView({
                     </select>
                     <div className="mt-2 text-[9px] text-[#aaa] leading-relaxed">开场白作为前情介绍提供给 AI，不会自动伪装成你已经发送过的消息。</div>
                   </div>
+                  </div>
                 </details>
               ) : null;
             })()}
