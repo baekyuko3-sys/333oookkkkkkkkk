@@ -4,7 +4,7 @@ import { PhoneSimulator } from './components/PhoneSimulator';
 import { cleanupOldDemoData } from './store/blankPhoneMigration';
 
 export default function App() {
-  const release = '2026.10.06-line-v2';
+  const release = '2026.10.06-line-v3';
   const [themeMode, setThemeMode] = useState<ThemeMode>('nordic-light');
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
   const [showUpdate, setShowUpdate] = useState(false);
@@ -55,7 +55,7 @@ export default function App() {
             <button onClick={() => { window.localStorage.setItem('sane333:last-seen-release', release); setShowUpdate(false); }} className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center"><span className="text-lg">×</span></button>
           </div>
           <div className="mt-5 space-y-3 text-[11px] leading-5 text-black/65">
-            <div><b className="text-black/80">LINE · 聊天稳定性</b><br/>修复添加角色后进入聊天可能打不开的问题；失效聊天入口现在会安全返回，不再卡在空白页面。</div>
+            <div><b className="text-black/80">LINE · 聊天发送逻辑</b><br/>Enter / 手机键盘回车只发送你的消息；点击纸飞机才会触发角色回复。修复等待回复时出现空白白气泡的问题，并保留左滑消息操作。</div>
             <div><b className="text-black/80">LINE · 气泡与输入状态</b><br/>短句会分开成独立气泡，连续长文本保持完整；补回头像显示，并把“texting....”换成真正的三点动态输入状态。</div>
             <div><b className="text-black/80">LINE · 工具与设置</b><br/>搜索聊天记录、记忆、我的头像显示开关移到聊天设置；“让角色继续说”放进 ＋ 菜单；通话入口保留但未开发时会明确提示。</div>
             <div><b className="text-black/80">角色卡 · 导入确认</b><br/>导入 PNG / JSON / YAML / YML 后，现在会出现完整确认卡：角色、来源、版本、FIRST MESSAGE、alternate greetings、世界书数量都会直接显示。</div>
