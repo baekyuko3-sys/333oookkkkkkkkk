@@ -408,7 +408,7 @@ export function LineConversationView({
   const myAvatarFileRef = useRef<HTMLInputElement>(null);
   const characterProfileAvatarFileRef = useRef<HTMLInputElement>(null);
   const characterCoverFileRef = useRef<HTMLInputElement>(null);
-  const activePersona = userPersonas.find(p => p.id === activePersonaId) || {
+  const activePersona = userPersonas.find(p => p.boundCharacterId === importedCharacter?.id) || userPersonas.find(p => p.id === activePersonaId) || {
     id: '',
     name: '',
     avatar: '',
