@@ -65,6 +65,10 @@ export default function App() {
             <div><b className="text-black/80">世界书 · 条目可见性</b><br/>修复世界书条目区域被布局挤掉的问题，现在可以直接看到条目列表和当前选中的 ENTRY。</div>
             <div><b className="text-black/80">线下剧情 · Story Openings</b><br/>每次线下剧情都可以从角色卡的任意开场白开始，也可以选择完全不使用。</div>
           </div>
+          <div className="mt-5 flex items-center justify-between text-[10px] text-black/35">
+            <span>release {release}</span>
+            <button onClick={() => { window.localStorage.setItem('sane333:last-seen-release', release); setShowUpdate(false); }} className="rounded-full bg-[#292724] px-5 py-2.5 text-white tracking-[1px]">知道了 · ENTER</button>
+          </div>
             <span>release {release}</span>
             <button onClick={() => { window.localStorage.setItem('sane333:last-seen-release', release); setShowUpdate(false); }} className="rounded-full bg-[#292724] px-5 py-2.5 text-white tracking-[1px]">知道了 · ENTER</button>
           </div>
