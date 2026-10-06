@@ -139,6 +139,15 @@ export interface OfflineEvent {
   updatedAt?: string;
   sceneIntro?: string;
   sceneLog?: Array<{ id: string; speaker: 'role' | 'me' | 'narrator'; text: string; createdAt: string }>;
+  /** SillyTavern-style offline session controls. Kept optional for backwards compatibility. */
+  personaId?: string;
+  worldBookIds?: string[];
+  cotPresetId?: string;
+  authorNote?: string;
+  systemPrompt?: string;
+  branchId?: string;
+  parentBranchId?: string;
+  branchName?: string;
 }
 
 export interface WidgetConfig {
