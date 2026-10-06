@@ -524,12 +524,21 @@ export function LineConversationView({
 
   // 聊天设定使用真正的全局世界书；选择结果按聊天保存。
   const [selectedWorldBookId, setSelectedWorldBookId] = usePersistentState<string>(`line:selected-worldbook:${conversationStorageId}`, 'all');
+  const [selectedWorldBookEntries, setSelectedWorldBookEntries] = usePersistentState<Record<string, string[]>>(`line:selected-worldbook-entries:${conversationStorageId}`, {});
   const [showLorebookInspector, setShowLorebookInspector] = useState(false);
-  const activeWorldbooks = selectedWorldBookId === 'all'
+  const activeWorldbooks = (selectedWorldBookId === 'all'
     ? worldbooks
     : selectedWorldBookId === 'none'
       ? []
-      : worldbooks.filter(book => book.id === selectedWorldBookId);
+      : worldbooks.filter(book => book.id === selectedWorldBookId))
+    .map(book => ({
+      ...book,
+      entries: book.entries.filter(entry => {
+        if (!entry.enabled) return false;
+        const selected = selectedWorldBookEntries[book.id];
+        return !selected || selected.length === 0 || selected.includes(entry.id);
+      }),
+    }));
 
   // 酒馆思维链预设系统 (Chain of Thought Presets)
   const [showCotPresetModal, setShowCotPresetModal] = useState(false);
@@ -4422,11 +4431,50 @@ export function LineConversationView({
                 </select>
 
                 {showLorebookInspector && (
-                  <div className="p-2.5 bg-[#faf8f9] rounded-[10px] border border-[#f0e4e7] space-y-1.5 animate-in fade-in">
-                    <div className="font-semibold text-[11px] text-[#333]">生效词条触发器：</div>
-                    <div className="text-[10px] text-[#888] leading-relaxed">
-                      当对话中出现 <code className="text-[#ae7e89]">便利店</code>、<code className="text-[#ae7e89]">雨伞</code>、<code className="text-[#ae7e89]">旧书店</code> 等关键词时，将自动激活对应背景知识。
-                    </div>
+                  <div className="p-2.5 bg-[#faf8f9] rounded-[10px] border border-[#f0e4e7] space-y-2 animate-in fade-in">
+                    <div className="font-semibold text-[11px] text-[#333]">世界书条目 · 单独启用</div>
+                    <div className="text-[9px] text-[#999]">和酒馆一样：先选择世界书，再单独勾选这本书里的条目。未勾选的条目不会进入本次聊天上下文。</div>
+                    {(selectedWorldBookId === 'all' ? worldbooks : selectedWorldBookId === 'none' ? [] : worldbooks.filter(book => book.id === selectedWorldBookId))
+                      .filter(book => book.enabled)
+                      .map(book => {
+                        const selected = selectedWorldBookEntries[book.id];
+                        const allEnabled = book.entries.filter(entry => entry.enabled);
+                        const allChecked = !selected || selected.length === 0;
+                        return (
+                          <div key={book.id} className="bg-white rounded-[10px] border border-[#eee] p-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-[10px] font-semibold text-[#444] truncate">{book.name}</div>
+                              <button
+                                onClick={() => setSelectedWorldBookEntries(prev => ({ ...prev, [book.id]: allChecked ? allEnabled.map(e => e.id) : [] }))}
+                                className="text-[9px] text-[#ae7e89] shrink-0"
+                              >{allChecked ? '取消全选' : '全选条目'}</button>
+                            </div>
+                            <div className="mt-1.5 space-y-1">
+                              {allEnabled.map(entry => {
+                                const checked = allChecked || selected.includes(entry.id);
+                                return (
+                                  <label key={entry.id} className="flex items-start gap-2 p-1.5 rounded-lg hover:bg-[#faf7f8] cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() => {
+                                        const next = allChecked
+                                          ? allEnabled.filter(item => item.id !== entry.id).map(item => item.id)
+                                          : checked
+                                            ? selected.filter(id => id !== entry.id)
+                                            : [...selected, entry.id];
+                                        setSelectedWorldBookEntries(prev => ({ ...prev, [book.id]: next }));
+                                      }}
+                                      className="mt-0.5 accent-[#ae7e89]"
+                                    />
+                                    <span className="text-[9px] text-[#555] leading-relaxed">{entry.name}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
                   </div>
                 )}
               </div>
