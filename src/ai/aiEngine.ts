@@ -454,9 +454,7 @@ async function callGemini(input: AiReplyInput): Promise<string> {
     },
   };
 
-  let response: Response;
-  try {
-    response = await fetch(endpoint, {
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -514,10 +512,6 @@ async function callOpenAiCompatible(input: AiReplyInput): Promise<string> {
     body: JSON.stringify(body),
   });
 
-    });
-  } catch (error) {
-    return proxyChat();
-  }
   if (!response.ok) throw new Error('AI_OPENAI_' + response.status + ': ' + await readError(response));
 
   if (input.settings.streaming) {
