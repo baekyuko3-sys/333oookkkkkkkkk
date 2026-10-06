@@ -24,6 +24,7 @@ import { LockScreenView } from './screens/LockScreenView';
 import { HomeCustomizeSheet } from './modals/HomeCustomizeSheet';
 import { playAppSound, type AppSoundKind } from '../store/soundManager';
 import { runProactiveCatchup } from '../store/proactiveRuntime';
+import { readAppearance } from '../store/appearance';
 
 interface PhoneSimulatorProps {
   themeMode: ThemeMode;
@@ -39,11 +40,20 @@ export function PhoneSimulator({
   onSelectTheme,
 }: PhoneSimulatorProps) {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [appearance, setAppearance] = useState(() => readAppearance());
   const isDark = themeMode === 'dark-luxury';
+  const appBeauty = appearance.appBeauty?.[currentScreen] || {};
+
 
   const handleToggleTheme = () => {
     onSelectTheme(isDark ? 'nordic-light' : 'dark-luxury');
   };
+
+  useEffect(() => {
+    const syncAppearance = () => setAppearance(readAppearance());
+    window.addEventListener('sane333:appearance-changed', syncAppearance);
+    return () => window.removeEventListener('sane333:appearance-changed', syncAppearance);
+  }, []);
 
   useEffect(() => {
     // The phone itself owns the world clock: proactive messages can arrive
@@ -112,7 +122,19 @@ export function PhoneSimulator({
         </div>
 
         {/* Screen Content Viewport */}
-        <div className="flex-1 relative overflow-hidden">
+        <div
+          className="flex-1 relative overflow-hidden"
+          style={{
+            fontSize: appBeauty.fontScale ? `${appBeauty.fontScale}em` : undefined,
+            background: appBeauty.background ? '#f7f4ee' : undefined,
+          }}
+        >
+          {appBeauty.background && (
+            <div
+              className="absolute inset-0 z-[4] pointer-events-none opacity-[0.12] bg-center bg-cover"
+              style={{ backgroundImage: `url(${appBeauty.background})` }}
+            />
+          )}
           {currentScreen === 'home' && (
             <SaneHomeScreenView
               onNavigate={setCurrentScreen}
