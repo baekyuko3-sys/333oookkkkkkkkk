@@ -481,6 +481,30 @@ function normalizeOpenAiEndpoint(baseUrl: string): string {
   return /\/chat\/completions$/i.test(base) ? base : base + '/chat/completions';
 }
 
+function isLocalAiBaseUrl(baseUrl: string): boolean {
+  try {
+    const url = new URL(baseUrl);
+    return url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '0.0.0.0';
+  } catch {
+    return /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?(?:\/|$)/i.test(baseUrl.trim());
+  }
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 10000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('AI_TIMEOUT: Docker AI 接口超过 ' + Math.round(timeoutMs / 1000) + ' 秒没有响应');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 async function callOpenAiCompatible(input: AiReplyInput): Promise<string> {
   const endpoint = normalizeOpenAiEndpoint(input.settings.apiBaseUrl);
   const system = buildCharacterSystemPrompt(input);
@@ -643,7 +667,7 @@ export async function generateCreativeText(input: CreativeTextInput): Promise<st
     }
 
     const endpoint = normalizeOpenAiEndpoint(input.settings.apiBaseUrl);
-    const response = await fetch(endpoint, {
+    const response = await fetchWithTimeout(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -668,8 +692,10 @@ export async function generateCreativeText(input: CreativeTextInput): Promise<st
     input.onDelta?.(text);
     return text;
   } catch (error) {
-    // CORS/network errors get a second chance through the Vercel server-side proxy.
-    if (error instanceof TypeError || /Failed to fetch|NetworkError|Load failed|CORS/i.test(String(error))) {
+    // A local Docker endpoint must stay in the browser. Vercel cannot reach
+    // the user's localhost, so proxying localhost requests only creates a hang.
+    if (!isLocalAiBaseUrl(input.settings.apiBaseUrl) &&
+        (error instanceof TypeError || /Failed to fetch|NetworkError|Load failed|CORS/i.test(String(error)))) {
       return proxyChat();
     }
     throw error;
@@ -700,20 +726,21 @@ export async function listOpenAiCompatibleModels(
   let directError: unknown = null;
 
   try {
-    response = await fetch(endpoint, {
+    response = await fetchWithTimeout(endpoint, {
       method: 'GET',
       headers: {
         Accept: 'application/json',
         Authorization: 'Bearer ' + settings.apiKey.trim(),
       },
-    });
+    }, 8000);
   } catch (error) {
     directError = error;
   }
 
-  // Gemini model discovery must use the server-side proxy because the
-  // browser request needs the x-goog-api-key header and may be blocked by CORS.
-  if (settings.provider === 'gemini' || !response) {
+  // Gemini discovery uses the server-side proxy. Local Docker OpenAI-compatible
+  // endpoints must remain browser-side because a Vercel function cannot reach
+  // the user's localhost.
+  if (settings.provider === 'gemini' || (!response && !isLocalAiBaseUrl(base))) {
     try {
       response = await fetch('/api/ai-models', {
         method: 'POST',
