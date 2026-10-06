@@ -765,8 +765,11 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                               <label><span className="text-[8px] font-mono text-[#8b8782]">LANGUAGE</span>
-                                <select value={profile.language} onChange={e => updateLanguage({ language: e.target.value as any })} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
-                                  <option value="zh-CN">简体中文</option><option value="zh-TW">繁體中文</option><option value="yue">粤语</option><option value="en">English</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="fr">Français</option><option value="es">Español</option><option value="de">Deutsch</option><option value="other">其他</option>
+                                <select value={profile.language} onChange={e => {
+                                  const language = e.target.value as any;
+                                  updateLanguage({ language, bilingualMode: language === 'zh-CN' ? 'off' : 'auto' });
+                                }} className="w-full mt-1 bg-white/65 border border-[rgba(40,36,31,.1)] rounded-xl px-2.5 py-2 outline-none">
+                                  <option value="zh-CN">简体中文</option><option value="zh-TW">繁體中文</option><option value="yue">粤语</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="en">English</option>
                                 </select>
                               </label>
                               <label><span className="text-[8px] font-mono text-[#8b8782]">BILINGUAL</span>
