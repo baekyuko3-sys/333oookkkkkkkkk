@@ -56,7 +56,7 @@ export default function App() {
           </div>
           <div className="mt-5 space-y-3 text-[11px] leading-5 text-black/65">
             <div><b className="text-black/80">Meme Studio</b><br/>连续对话上线：Meme 会记住当前 Studio 会话，不再每句话重新开始。</div>
-            <div><b className="text-black/80">AI 连接</b><br/>Studio AI 请求增加 Netlify 代理，解决部署到网页后第三方 API 的 CORS 失败。</div>
+            <div><b className="text-black/80">AI 连接</b><br/>Studio AI 增加 Vercel 服务器端代理，解决部署到网页后第三方 API 的 CORS 失败。</div>
             <div><b className="text-black/80">Agent</b><br/>Meme 可以继续检查项目、读取文件、提出 Changes，并经过自检后交给你批准。</div>
           </div>
           <div className="mt-5 flex items-center justify-between text-[8px] font-mono text-black/30">
