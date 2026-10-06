@@ -751,7 +751,8 @@ export async function listOpenAiCompatibleModels(
   const models = rawModels
     .map((item: any) => typeof item === 'string' ? item : item?.id || item?.name)
     .filter((id: unknown): id is string => typeof id === 'string' && id.trim().length > 0)
-    .map(id => id.trim());
+    .map(id => id.trim())
+    .map(id => settings.provider === 'gemini' ? id.replace(/^models\//i, '') : id);
 
   return Array.from(new Set(models));
 }
