@@ -373,14 +373,25 @@ function requireApiKey(settings: AiSettings) {
 }
 
 async function readError(response: Response): Promise<string> {
+  const statusLabel = response.statusText ? ' ' + response.statusText : '';
   try {
     const data = await response.json();
-    return data?.error?.message || data?.message || JSON.stringify(data);
+    const error = data?.error ?? data;
+    const code = error?.code ?? error?.error_code ?? error?.statusCode;
+    const type = error?.type;
+    const message = error?.message ?? data?.message;
+    const parts = [
+      code !== undefined ? 'code=' + String(code) : '',
+      type ? 'type=' + String(type) : '',
+      message ? String(message) : '',
+    ].filter(Boolean);
+    return '[' + response.status + statusLabel + ']' + (parts.length ? ' ' + parts.join(' · ') : ' ' + JSON.stringify(data));
   } catch {
     try {
-      return await response.text();
+      const text = (await response.text()).trim();
+      return '[' + response.status + statusLabel + ']' + (text ? ' ' + text : '');
     } catch {
-      return response.statusText || 'AI 请求失败';
+      return '[' + response.status + statusLabel + '] AI 请求失败';
     }
   }
 }
