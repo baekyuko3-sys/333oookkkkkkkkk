@@ -116,6 +116,9 @@ export interface WorldBook {
   entries: WorldBookEntry[];
   enabled: boolean;
   updatedAt: string;
+  sourceCharacterId?: string;
+  sourceCharacterName?: string;
+  sourceType?: 'character-card' | 'manual' | 'imported';
 }
 
 export interface OfflineEvent {
