@@ -48,7 +48,7 @@ async function upstreamJson(response: Response) {
   });
 }
 
-export default async function handler(request: Request) {
+async function handleRequest(request: Request) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders });
   if (request.method !== 'POST') return json({ error: 'POST required' }, 405);
 
@@ -135,3 +135,5 @@ export default async function handler(request: Request) {
     }, 502);
   }
 }
+
+export default { fetch: handleRequest };
