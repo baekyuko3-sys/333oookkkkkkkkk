@@ -128,7 +128,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
     downloadJson('line-character-profile.json', {
       version: 1,
       characterId,
-      profile: generatedCharacterProfiles[characterId] || { followers: 0, following: 0, signature: '' },
+      profile: generatedCharacterProfiles[characterId] || { followers: 0, following: 0, signature: '', updatedAt: '' },
       style: characterProfileStyles[characterId] || {},
     });
     showToast('角色主页已导出');
@@ -1218,7 +1218,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
       {showCharacterProfileGenerator && friendProfile && (() => {
         const character = importedCharacters.find(c => c.id === friendProfile.characterId) || importedCharacters.find(c => c.name === friendProfile.name);
         if (!character) return null;
-        const profile = generatedCharacterProfiles[character.id] || { followers: 0, following: 0, signature: '' };
+        const profile = generatedCharacterProfiles[character.id] || { followers: 0, following: 0, signature: '', updatedAt: '' };
         return <div className="absolute inset-0 z-[90] bg-black/25 flex items-end" onClick={() => setShowCharacterProfileGenerator(false)}>
           <div className="w-full bg-white rounded-t-[24px] p-5 pb-8 space-y-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
@@ -1295,7 +1295,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
       {characterProfileManageOpen && friendProfile && (() => {
         const character = importedCharacters.find(c => c.id === friendProfile.characterId) || importedCharacters.find(c => c.name === friendProfile.name);
         if (!character) return null;
-        const profile = generatedCharacterProfiles[character.id] || { followers: 0, following: 0, signature: '' };
+        const profile = generatedCharacterProfiles[character.id] || { followers: 0, following: 0, signature: '', updatedAt: '' };
         return <div className="absolute inset-0 z-[95] bg-black/25 flex items-end" onClick={() => setCharacterProfileManageOpen(false)}>
           <div className="w-full bg-white rounded-t-[24px] p-5 pb-8 space-y-3" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between"><div><div className="font-semibold text-[15px]">个人主页管理</div><div className="text-[9px] text-[#aaa] mt-1">编辑、导入、导出都在这里</div></div><button onClick={() => setCharacterProfileManageOpen(false)} className="text-xl text-[#aaa]">×</button></div>
@@ -1337,7 +1337,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                 </div>
 
                 {character && (() => {
-                  const profile = generatedCharacterProfiles[character.id] || { followers: 0, following: 0, signature: '' };
+                  const profile = generatedCharacterProfiles[character.id] || { followers: 0, following: 0, signature: '', updatedAt: '' };
                   return <div className="mt-4">
                     <div className="flex items-center gap-2 mb-3">
                       <button onClick={() => setShowCharacterProfileGenerator(true)} className="flex-1 py-2.5 rounded-xl bg-[#292724] text-white text-[10px] font-medium">✦ 生成主页 / 签名</button>
