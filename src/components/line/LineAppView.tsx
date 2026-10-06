@@ -1,6 +1,7 @@
 import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { usePersistentState } from '../../store/usePersistentState';
 import type { ImportedCharacter } from '../../data/characterImport';
+import { getCharacterMemory } from '../../store/characterMemory';
 import { ScreenType } from '../../types';
 import { LineConversationView } from './LineConversationView';
 import { LineConversationErrorBoundary } from './LineConversationErrorBoundary';
@@ -96,8 +97,9 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   };
 
   const generateMomentsPost = async () => {
-    const source = importedCharacters[Math.floor(Math.random() * importedCharacters.length)];
-    if (!source) { showToast('先导入至少一个角色卡，朋友圈 AI 才有角色可以发动态'); return; }
+    const allowed = importedCharacters.filter(character => momentsSettings.enabledCharacterIds.length === 0 || momentsSettings.enabledCharacterIds.includes(character.id));
+    const source = allowed[Math.floor(Math.random() * allowed.length)];
+    if (!source) { showToast('请先在朋友圈设置里允许至少一个角色发动态'); return; }
     setIsRefreshingMoments(true);
     try {
       const settings = channelSettings.moments.enabled ? channelAsAiSettings('moments') : resolveChannelAiSettings('moments');
@@ -188,6 +190,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [showPostModal, setShowPostModal] = useState(false);
   const [newPostText, setNewPostText] = useState('');
   const [newPostTag, setNewPostTag] = useState('#日常');
+  const [showMomentsSettings, setShowMomentsSettings] = useState(false);
+  const [momentsSettings, setMomentsSettings] = usePersistentState<{ enabledCharacterIds: string[]; allowCharacterAutoPost: boolean }>('line:moments-settings', { enabledCharacterIds: [], allowCharacterAutoPost: true });
 
   // Moments interactive comments drawer
   const [commentingPostId, setCommentingPostId] = useState<string | null>(null);
@@ -207,6 +211,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [channelModels, setChannelModels] = useState<{ chat: string[]; moments: string[] }>({ chat: [], moments: [] });
   const [channelBusy, setChannelBusy] = useState<'chat-models' | 'chat-test' | 'moments-models' | 'moments-test' | null>(null);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
+  const [showCharacterProfileGenerator, setShowCharacterProfileGenerator] = useState(false);
+  const [profileGeneratorMode, setProfileGeneratorMode] = useState<'character' | 'memory'>('character');
+  const [profileGeneratorBusy, setProfileGeneratorBusy] = useState(false);
+  const [generatedCharacterProfiles, setGeneratedCharacterProfiles] = usePersistentState<Record<string, { bio: string; quote: string; status: string; updatedAt: string }>>('line:character-generated-profiles', {});
   const [friendProfile, setFriendProfile] = useState<LineFriend | null>(null);
   const [friendSettingsOpen, setFriendSettingsOpen] = useState(false);
   const [friendEditing, setFriendEditing] = useState(false);
@@ -244,7 +252,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [userPersonas, setUserPersonas] = usePersistentState<any[]>('line:user-personas', []);
   const [activePersonaId, setActivePersonaId] = usePersistentState<string | null>('line:active-persona', null);
   const [personaEditorOpen, setPersonaEditorOpen] = useState(false);
-  const [personaDraft, setPersonaDraft] = useState<any>({ name: '', age: '', profession: '', setting: '', avatar: '' });
+  const [personaDraft, setPersonaDraft] = useState<any>({ name: '', age: '', profession: '', setting: '', avatar: '', boundCharacterId: '' });
   const activePersona = userPersonas.find((p) => p.id === activePersonaId) || userPersonas[0] || null;
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
 
@@ -685,6 +693,13 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
 
             <div className="flex items-center gap-2">
               <button
+                onClick={() => setShowMomentsSettings(true)}
+                className="w-[35px] h-[35px] border border-[#e7e7e8] rounded-full flex items-center justify-center text-sm text-[#555] hover:bg-[#f7f7f7] cursor-pointer"
+                title="朋友圈设置"
+              >
+                ⚙
+              </button>
+              <button
                 onClick={() => {
                   void generateMomentsPost();
                 }}
@@ -694,7 +709,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                 ↻
               </button>
               <button
-                onClick={() => setShowPostModal(true)}
+                onClick={() => setShowPostModal(true)
                 className="w-[35px] h-[35px] border border-[#e7e7e8] rounded-full flex items-center justify-center text-lg text-[#555] hover:bg-[#f7f7f7] cursor-pointer"
                 title="发表动态"
               >
@@ -963,10 +978,11 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               ['profession','职业'],
               ['setting','设定'],
               ['avatar','头像 URL'],
+              ['boundCharacterId','绑定角色'],
             ].map(([key,label]) => (
               <div key={key}>
                 <div className="text-[9px] text-[#aaa] mb-1">{label}</div>
-                <input value={personaDraft[key] || ''} onChange={(e) => setPersonaDraft((p:any) => ({...p,[key]:e.target.value}))} placeholder={key === 'setting' ? '你的性格、背景、与你聊天时的身份……' : ''} className="w-full h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-xs outline-none" />
+                {key === 'boundCharacterId' ? <select value={personaDraft[key] || ''} onChange={(e) => setPersonaDraft((p:any) => ({...p,[key]:e.target.value}))} className="w-full h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-xs outline-none"><option value="">不绑定（通用人设）</option>{importedCharacters.map(character => <option key={character.id} value={character.id}>{character.name}</option>)}</select> : <input value={personaDraft[key] || ''} onChange={(e) => setPersonaDraft((p:any) => ({...p,[key]:e.target.value}))} placeholder={key === 'setting' ? '你的性格、背景、与你聊天时的身份……' : ''} className="w-full h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-xs outline-none" />}
               </div>
             ))}
             <button onClick={() => {
@@ -1110,6 +1126,27 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
       )}
 
       {/* 创建新身份抽屉 */}
+      {showMomentsSettings && (
+        <div className="absolute inset-0 z-[85] bg-black/25 flex items-end" onClick={() => setShowMomentsSettings(false)}>
+          <div className="w-full max-h-[82%] overflow-y-auto bg-white rounded-t-[24px] p-5 pb-8 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between"><div><div className="text-[8px] font-mono tracking-[1.5px] text-[#aaa]">VROOM · SETTINGS</div><div className="mt-1 font-semibold text-[15px]">朋友圈设置</div></div><button onClick={() => setShowMomentsSettings(false)} className="text-xl text-[#aaa]">×</button></div>
+            <label className="flex items-center justify-between p-3 rounded-2xl bg-[#f8f8f9]"><div><div className="text-xs font-medium">允许角色自主发朋友圈</div><div className="text-[9px] text-[#aaa] mt-1">关闭后，角色不会通过主动生活事件发布动态。</div></div><input type="checkbox" checked={momentsSettings.allowCharacterAutoPost} onChange={e => setMomentsSettings(prev => ({...prev, allowCharacterAutoPost: e.target.checked}))} /></label>
+            <div><div className="text-[10px] font-semibold text-[#555] mb-2">谁可以发朋友圈</div><div className="space-y-1.5">{importedCharacters.map(character => { const checked = momentsSettings.enabledCharacterIds.length === 0 || momentsSettings.enabledCharacterIds.includes(character.id); return <label key={character.id} className="flex items-center gap-3 p-2.5 rounded-xl border border-[#eee] cursor-pointer"><div className="w-9 h-9 rounded-full overflow-hidden bg-[#f1f1f2] shrink-0">{character.avatar ? <img src={character.avatar} alt="" className="w-full h-full object-cover" /> : null}</div><span className="flex-1 text-xs">{character.name}</span><input type="checkbox" checked={checked} onChange={() => setMomentsSettings(prev => { const allIds = importedCharacters.map(item => item.id); const current = prev.enabledCharacterIds.length === 0 ? allIds : prev.enabledCharacterIds; const next = current.includes(character.id) ? current.filter(id => id !== character.id) : [...current, character.id]; return {...prev, enabledCharacterIds: next.length === allIds.length ? [] : next}; })} /></label>; })}</div></div>
+            <button onClick={() => { setShowMomentsSettings(false); void generateMomentsPost(); }} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-xs">按当前设置让角色发一条</button>
+          </div>
+        </div>
+      )}
+
+      {showCharacterProfileGenerator && friendProfile && (() => {
+        const character = importedCharacters.find(c => c.id === friendProfile.characterId) || importedCharacters.find(c => c.name === friendProfile.name);
+        if (!character) return null;
+        return <div className="absolute inset-0 z-[90] bg-black/25 flex items-end" onClick={() => setShowCharacterProfileGenerator(false)}><div className="w-full bg-white rounded-t-[24px] p-5 pb-8 space-y-4" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between"><div><div className="text-[8px] font-mono tracking-[1.5px] text-[#aaa]">CHARACTER PROFILE</div><div className="mt-1 font-semibold text-[15px]">生成 {character.name} 的个人主页</div></div><button onClick={() => setShowCharacterProfileGenerator(false)} className="text-xl text-[#aaa]">×</button></div>
+          <div className="grid grid-cols-2 gap-2"><button onClick={() => setProfileGeneratorMode('character')} className={`p-3 rounded-xl border text-left ${profileGeneratorMode === 'character' ? 'border-[#292724] bg-[#292724] text-white' : 'border-[#eee] bg-[#fafafa]'}`}><div className="text-xs font-semibold">角色自主生成</div><div className="text-[8px] opacity-60 mt-1">根据角色卡自己写主页</div></button><button onClick={() => setProfileGeneratorMode('memory')} className={`p-3 rounded-xl border text-left ${profileGeneratorMode === 'memory' ? 'border-[#292724] bg-[#292724] text-white' : 'border-[#eee] bg-[#fafafa]'}`}><div className="text-xs font-semibold">根据记忆生成</div><div className="text-[8px] opacity-60 mt-1">读取聊天长期记忆与经历</div></button></div>
+          <button disabled={profileGeneratorBusy} onClick={async () => { setProfileGeneratorBusy(true); try { const memory = getCharacterMemory(character.id, character.name); const memoryText = memory.summary + '\\n' + memory.items.slice(0, 20).map(item => item.content).join('\\n'); const prompt = profileGeneratorMode === 'memory' ? `根据以下角色长期记忆，生成一份自然的社交软件个人主页。不要解释，不要提AI。\\n${memoryText}` : `请让角色${character.name}根据自己的角色设定，自主写一份真实的社交软件个人主页。不要解释，不要提AI。`; const text = await generateCreativeText({ settings: channelAsAiSettings('moments'), systemPrompt: [character.description, character.personality, character.scenario, character.creatorNotes].filter(Boolean).join('\\n'), userPrompt: prompt + '\\n请严格输出三行：简介：...\\n签名：...\\n状态：...', temperature: 0.8 }); const lines = text.split(/\\n+/).map(line => line.trim()).filter(Boolean); const pick = (key: string) => lines.find(line => line.startsWith(key))?.slice(key.length).replace(/^[:：]\\s*/, '') || ''; setGeneratedCharacterProfiles(prev => ({...prev, [character.id]: { bio: pick('简介') || text.trim(), quote: pick('签名'), status: pick('状态'), updatedAt: new Date().toISOString() }})); showToast('角色个人主页已生成'); setShowCharacterProfileGenerator(false); } catch (e) { showToast(e instanceof Error ? e.message : '生成失败'); } finally { setProfileGeneratorBusy(false); } }} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-xs disabled:opacity-40">{profileGeneratorBusy ? '正在生成…' : '生成并保存个人主页'}</button>
+        </div></div>;
+      })()}
+
       {friendProfile && (() => {
         const character = importedCharacters.find(c => c.id === friendProfile.characterId) || importedCharacters.find(c => c.name === friendProfile.name);
         const chat = chatItems.find(c => c.characterId === friendProfile.characterId) || chatItems.find(c => c.name === friendProfile.name);
@@ -1131,6 +1168,12 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                   {friendProfile.online && <span className="text-[9px] px-2 py-1 rounded-full bg-[#f1f7f2] text-[#719178]">ONLINE</span>}
                 </div>
 
+                {character && (
+                  <button onClick={() => setShowCharacterProfileGenerator(true)} className="mt-4 w-full py-2.5 rounded-xl bg-[#292724] text-white text-[10px] font-medium">✦ 生成角色个人主页</button>
+                )}
+                {generatedCharacterProfiles[friendProfile.characterId || character?.id || ''] && (
+                  <div className="mt-3 p-3 rounded-2xl bg-[#faf7f5] border border-[#eee4df]"><div className="text-[9px] text-[#aaa]">角色自己写的主页</div><div className="mt-1 text-xs text-[#444] leading-5">{generatedCharacterProfiles[friendProfile.characterId || character?.id || ''].bio}</div>{generatedCharacterProfiles[friendProfile.characterId || character?.id || ''].quote && <div className="mt-2 text-[10px] text-[#8b7560]">“{generatedCharacterProfiles[friendProfile.characterId || character?.id || ''].quote}”</div>}<div className="mt-2 text-[9px] text-[#aaa]">{generatedCharacterProfiles[friendProfile.characterId || character?.id || ''].status}</div></div>
+                )}
                 {character && (
                   <div className="mt-5 border border-[#ededed] rounded-2xl overflow-hidden">
                     <button
