@@ -7,12 +7,16 @@ import { readAppSettings } from './appSettings';
 import { generateCreativeText, readStoredAiSettings } from '../ai/aiEngine';
 import { emitWorldEvent, setCharacterRuntime, syncWorldCharacters } from './worldRuntime';
 import { appendLineMessage, getLineConversationMessages, saveLineConversationMessages } from './lineRuntime';
+import { upsertOfflineEvent } from './offlineEvents';
 import { getLineRealitySettings, getCurrentLineTimeContext } from './lineReality';
 
 interface ScheduleItem {
   id: string;
   time: string;
   title: string;
+  kind?: 'message' | 'moment' | 'offline-invite';
+  location?: string;
+  theme?: string;
 }
 
 interface ProactiveState {
@@ -104,6 +108,35 @@ function appendProactiveMessage(character: ImportedCharacter, text: string) {
       reason: 'scheduled-proactive',
     },
   }));
+}
+
+async function generateLifeText(
+  character: ImportedCharacter,
+  schedule: ScheduleItem,
+  mode: 'moment' | 'invite',
+): Promise<string> {
+  const settings = readStoredAiSettings();
+  if (!settings.apiKey.trim()) throw new Error('AI_NOT_CONFIGURED');
+  const profile = getCharacterProfile(character.name);
+  const memory = getCharacterMemory(character.id, character.name);
+  const recentMessages = getLineConversationMessages(character.id || character.name).slice(-10);
+  const prompt = mode === 'moment'
+    ? '请写一条角色自己的朋友圈动态。像真实生活记录，不要向用户提问，不要替用户说话，不要解释这是 AI。可以是照片感、正在做的事、看到的东西或一句自然的话。控制在手机朋友圈适合的长度。'
+    : '请写一段角色发来的线下邀约附言。要具体说明为什么想见面，语气符合角色，不替用户做决定。不要写选项菜单。';
+  return generateCreativeText({
+    settings,
+    systemPrompt: [
+      '你是 Sane333 的角色生活引擎。',
+      '角色：' + character.name,
+      character.description || '', character.personality || '', character.scenario || '',
+      '关系：' + profile.relationship + '；称呼：' + profile.callMe,
+      '长期记忆：' + (memory.summary || '暂无') ,
+      '最近聊天：\\n' + recentMessages.map(m => (m.sender === 'other' ? character.name : '我') + ': ' + (m.text || '[媒体]')).join('\\n'),
+      mode === 'moment' ? '朋友圈动态必须是角色自己的生活，不要伪装成聊天消息。' : '线下邀约必须保留用户拒绝、改期或选择的空间。',
+    ].join('\\n'),
+    userPrompt: prompt + '\\n日程：' + schedule.time + ' · ' + schedule.title,
+    temperature: settings.temperature ?? 0.85,
+  });
 }
 
 async function generateProactiveMessage(
@@ -234,10 +267,64 @@ export async function runProactiveCatchup() {
       const lastSent = state.lastSentAt?.[character.id] ? Date.parse(state.lastSentAt[character.id]!) : 0;
       if (lastSent && now.getTime() - lastSent < cooldownMs) continue;
 
-      const message = await generateProactiveMessage(character, candidate.item);
-      if (!message.trim()) continue;
-
-      appendProactiveMessage(character, message.trim());
+      const kind = candidate.item.kind || 'message';
+      if (kind === 'moment') {
+        const text = await generateLifeText(character, candidate.item, 'moment');
+        if (!text.trim()) continue;
+        const rawPosts = window.localStorage.getItem('line:moments-posts');
+        let posts: any[] = [];
+        try { posts = rawPosts ? JSON.parse(rawPosts) : []; } catch { posts = []; }
+        posts.unshift({
+          id: 'moment-proactive-' + Date.now().toString(36),
+          name: character.name,
+          text: text.trim(),
+          time: '刚刚',
+          tag: '#日常',
+          liked: false,
+          likes: 0,
+          commentsList: [],
+          characterId: character.id,
+          source: 'proactive-life',
+        });
+        window.localStorage.setItem('line:moments-posts', JSON.stringify(posts.slice(0, 200)));
+        window.dispatchEvent(new CustomEvent('sane333:moments-updated', { detail: { characterId: character.id, characterName: character.name } }));
+        emitWorldEvent('character.moment', { characterId: character.id, characterName: character.name, data: { preview: text.trim().slice(0, 120) } });
+        setCharacterRuntime(character.id, { activity: '刚刚更新了朋友圈', mood: '有自己的生活', lastInteractionAt: new Date().toISOString() }, character.name);
+        if (settings.notificationEnabled && 'Notification' in window && Notification.permission === 'granted') {
+          new Notification(character.name + ' · VROOM', { body: text.trim().slice(0, 180), tag: 'sane333-moment-' + character.id });
+        }
+      } else if (kind === 'offline-invite') {
+        const letter = await generateLifeText(character, candidate.item, 'invite');
+        const event: OfflineEvent = {
+          id: 'offline-proactive-' + Date.now().toString(36),
+          characterId: character.id,
+          characterName: character.name,
+          title: candidate.item.title || '想见你一面',
+          location: candidate.item.location || '待定',
+          time: candidate.item.time,
+          theme: candidate.item.theme || '线下见面',
+          letter: letter.trim(),
+          openingGreeting: letter.trim(),
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        upsertOfflineEvent(event);
+        appendLineMessage(character.id || character.name, {
+          id: 'offline-invite-' + event.id,
+          sender: 'other',
+          text: '💌 发来了一份线下邀约：' + event.title,
+          kind: 'offline-invite',
+          createdAt: event.createdAt,
+          status: 'delivered',
+          metadata: { offlineEventId: event.id, location: event.location, time: event.time },
+        });
+        emitWorldEvent('offline.invite', { characterId: character.id, characterName: character.name, eventId: event.id, data: event });
+      } else {
+        const message = await generateProactiveMessage(character, candidate.item);
+        if (!message.trim()) continue;
+        appendProactiveMessage(character, message.trim());
+      }
       state.delivered[character.id] = deliveryKey;
       state.lastSentAt![character.id] = now.toISOString();
       dirty = true;
