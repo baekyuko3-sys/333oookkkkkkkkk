@@ -3451,82 +3451,59 @@ export function LineConversationView({
             <div className="space-y-3">
               {userPersonas.map((persona) => {
                 const isActive = persona.id === activePersonaId;
-
+                const isEditing = persona.id === editingPersonaId;
+                const updatePersona = (patch: Record<string, any>) => {
+                  setUserPersonas(prev => prev.map(item => item.id === persona.id ? {
+                    ...item,
+                    ...patch,
+                    identity: patch.profession ?? item.profession ?? item.identity ?? '',
+                    background: patch.setting ?? item.setting ?? item.background ?? '',
+                  } : item));
+                };
                 return (
-                  <div
-                    key={persona.id}
-                    onClick={() => {
-                      setActivePersonaId(persona.id);
-                      showToast(`已切换为身份：${persona.name}`);
-                    }}
-                    className={`p-3.5 rounded-[14px] border transition-all cursor-pointer ${
-                      isActive
-                        ? 'border-[#d4aab5] bg-[#fdf9fa] shadow-2xs ring-1 ring-[#d4aab5]/40'
-                        : 'border-[#ededee] bg-white hover:bg-neutral-50'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-full overflow-hidden border border-[#eee] shrink-0">
-                          {persona.avatar ? (
-                            <img src={persona.avatar} alt={persona.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                          ) : (
-                            <span className="text-[10px] text-[#aaa]">头像</span>
-                          )}
+                  <div key={persona.id} className={`p-3.5 rounded-[14px] border transition-all ${isActive ? 'border-[#d4aab5] bg-[#fdf9fa] ring-1 ring-[#d4aab5]/40' : 'border-[#ededee] bg-white'}`}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-full overflow-hidden border border-[#eee] shrink-0 bg-[#fafafa] grid place-items-center">
+                        {persona.avatar ? <img src={persona.avatar} alt={persona.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <span className="text-[10px] text-[#aaa]">头像</span>}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-[13.5px] text-[#222] truncate">{persona.name || '未命名人设'}</div>
+                        <div className="text-[10px] text-[#aaa] mt-0.5">{persona.age ? `${persona.age} 岁` : '未填写年龄'} · {persona.profession || persona.identity || '未填写职业'}</div>
+                      </div>
+                      {isActive && <span className="text-[9px] bg-[#d4aab5] text-white px-2 py-0.5 rounded-full shrink-0">当前使用 ✓</span>}
+                    </div>
+
+                    {isEditing ? (
+                      <div className="mt-3 pt-3 border-t border-[#f2f2f4] space-y-2.5" onClick={e => e.stopPropagation()}>
+                        <input value={persona.name || ''} onChange={e => updatePersona({ name: e.target.value })} placeholder="姓名" className="w-full p-2 bg-white border border-[#e8e8e9] rounded-md text-[10px] text-[#333]" />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input value={persona.age || ''} onChange={e => updatePersona({ age: e.target.value })} placeholder="年龄" className="w-full p-2 bg-white border border-[#e8e8e9] rounded-md text-[10px] text-[#333]" />
+                          <input value={persona.profession || persona.identity || ''} onChange={e => updatePersona({ profession: e.target.value })} placeholder="职业" className="w-full p-2 bg-white border border-[#e8e8e9] rounded-md text-[10px] text-[#333]" />
                         </div>
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-semibold text-[13.5px] text-[#222]">
-                              {persona.name}
-                            </span>
-                            <span className="text-[10px] text-[#888] bg-[#f0f0f2] px-1.5 py-0.2 rounded-md">
-                              {persona.identity}
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-[#aaa] mt-0.5">
-                            {persona.traits}
-                          </div>
+                        <textarea value={persona.setting || persona.background || ''} onChange={e => updatePersona({ setting: e.target.value })} placeholder="设定" className="w-full h-24 p-2 bg-white border border-[#e8e8e9] rounded-md text-[10px] text-[#333] leading-relaxed resize-none" />
+                        <div className="grid grid-cols-2 gap-2">
+                          <button type="button" onClick={() => document.getElementById(`persona-avatar-${persona.id}`)?.click()} className="py-1.5 rounded-[9px] bg-white border border-[#e8e8e9] text-[9px] text-[#666]">更换头像</button>
+                          <button type="button" onClick={() => setEditingPersonaId(null)} className="py-1.5 rounded-[9px] bg-[#292724] text-white text-[9px]">保存</button>
                         </div>
                       </div>
+                    ) : (
+                      <div className="mt-2.5 pt-2 border-t border-[#f2f2f4] text-[10.5px] text-[#666] leading-relaxed">
+                        <span className="font-medium text-[#444]">设定：</span>{persona.setting || persona.background || '未填写'}
+                      </div>
+                    )}
 
-                      {isActive ? (
-                        <span className="text-[10px] bg-[#d4aab5] text-white px-2 py-0.5 rounded-full font-medium">
-                          当前使用 ✓
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-[#bbb] hover:text-[#ae7e89]">
-                          点击切换
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-2.5 pt-2 border-t border-[#f2f2f4] text-[11px] text-[#666] leading-relaxed">
-                      <span className="font-medium text-[#444]">背景渊源：</span>
-                      {persona.background}
-                    </div>
                     <div className="mt-2 flex gap-2">
-                      <input id={`persona-avatar-${persona.id}`} type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
+                      <input id={`persona-avatar-${persona.id}`} type="file" accept="image/*" className="hidden" onChange={async e => {
+                        const file = e.target.files?.[0]; if (!file) return;
                         try {
                           const avatar = await readImageFileAsDataUrl(file);
-                          setUserPersonas(prev => prev.map(item => item.id === persona.id ? { ...item, avatar } : item));
+                          updatePersona({ avatar });
                           showToast(`已更新「${persona.name}」的头像`);
-                        } catch {
-                          showToast('头像读取失败');
-                        } finally {
-                          e.currentTarget.value = '';
-                        }
+                        } catch { showToast('头像读取失败'); }
+                        e.currentTarget.value = '';
                       }} />
-                      <button type="button" onClick={(e) => { e.stopPropagation(); document.getElementById(`persona-avatar-${persona.id}`)?.click(); }} className="flex-1 py-1.5 rounded-[9px] bg-[#fafafa] border border-[#e8e8e9] text-[9px] text-[#666]">上传头像</button>
-                      <button type="button" onClick={(e) => {
-                        e.stopPropagation();
-                        const url = window.prompt('粘贴头像图片链接：', persona.avatar || '');
-                        if (url !== null) {
-                          setUserPersonas(prev => prev.map(item => item.id === persona.id ? { ...item, avatar: url.trim() } : item));
-                          showToast('头像链接已更新');
-                        }
-                      }} className="flex-1 py-1.5 rounded-[9px] bg-[#fafafa] border border-[#e8e8e9] text-[9px] text-[#666]">图片链接</button>
+                      <button type="button" onClick={() => { setActivePersonaId(persona.id); showToast(`已切换为身份：${persona.name}`); }} className="flex-1 py-1.5 rounded-[9px] bg-[#fafafa] border border-[#e8e8e9] text-[9px] text-[#666]">使用此人设</button>
+                      <button type="button" onClick={() => setEditingPersonaId(isEditing ? null : persona.id)} className="flex-1 py-1.5 rounded-[9px] bg-[#fafafa] border border-[#e8e8e9] text-[9px] text-[#666]">{isEditing ? '收起编辑' : '编辑全部设定'}</button>
                     </div>
                   </div>
                 );
@@ -5546,7 +5523,7 @@ export function LineConversationView({
               <button onClick={() => characterCoverFileRef.current?.click()} className="absolute top-3 right-3 px-2.5 py-1.5 rounded-full bg-black/35 text-white text-[9px] backdrop-blur">更换背景</button>
               <div className="absolute -bottom-7 left-4">
                 <div className="w-[66px] h-[66px] rounded-full bg-[#f1f1f2] border-3 border-white shadow-md flex items-center justify-center overflow-hidden">
-                  {characterProfileAvatar ? <img src={characterProfileAvatar} alt={characterProfile.nickname} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : importedCharacter?.avatar ? <img src={importedCharacter.avatar} alt={characterProfile.nickname} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <svg className="w-10 h-10 text-[#999]" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4" /><path d="M4 21c.8-4 3.5-6 8 6-6 2" /></svg>}
+                  {characterProfileAvatar ? <img src={characterProfileAvatar} alt={characterProfile.nickname} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : importedCharacter?.avatar ? <img src={importedCharacter.avatar} alt={characterProfile.nickname} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <svg className="w-10 h-10 text-[#999]" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4" /><path d="M4 21c.8-4 3.5-6 8-6s7.2 2 8 6" /></svg>}
                 </div>
                 <input ref={characterProfileAvatarFileRef} type="file" accept="image/*" className="hidden" onChange={async e => {
                   const file = e.target.files?.[0]; if (!file) return;
