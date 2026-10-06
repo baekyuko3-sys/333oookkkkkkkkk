@@ -4,7 +4,7 @@ import { PhoneSimulator } from './components/PhoneSimulator';
 import { cleanupOldDemoData } from './store/blankPhoneMigration';
 
 export default function App() {
-  const release = '2026.10.06-line-v3';
+  const release = '2026.10.06-life-v1';
   const [themeMode, setThemeMode] = useState<ThemeMode>('nordic-light');
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
   const [showUpdate, setShowUpdate] = useState(false);
@@ -64,6 +64,7 @@ export default function App() {
             <div><b className="text-black/80">角色头像</b><br/>角色头像只使用你上传的本地图片或你提供的图片链接，不再偷偷替换成预设人物图。</div>
             <div><b className="text-black/80">世界书 · 条目可见性</b><br/>修复世界书条目区域被布局挤掉的问题，现在可以直接看到条目列表和当前选中的 ENTRY。</div>
             <div><b className="text-black/80">线下剧情 · Story Openings</b><br/>每次线下剧情都可以从角色卡的任意开场白开始，也可以选择完全不使用。</div>
+            <div><b className="text-black/80">角色主动生活 · Life Schedule</b><br/>聊天设定里的角色日程现在支持三种行为：主动聊天、发朋友圈、发起线下邀约。朋友圈会进入 VROOM，邀约会进入线下剧情存档，并触发现有通知与世界事件。</div>
           </div>
           <div className="mt-5 flex items-center justify-between text-[10px] text-black/35">
             <span>release {release}</span>
