@@ -1,5 +1,5 @@
 export type ChatPunctuationStyle = 'natural' | 'spaces' | 'tight' | 'mixed';
-export type CharacterLanguage = 'zh-CN' | 'en' | 'ja' | 'ko' | 'fr' | 'es' | 'de' | 'other';
+export type CharacterLanguage = 'zh-CN' | 'zh-TW' | 'yue' | 'en' | 'ja' | 'ko' | 'fr' | 'es' | 'de' | 'other';
 export type BilingualLayout = 'inside-bubble' | 'below-bubble';
 export type BilingualMode = 'off' | 'auto';
 
@@ -109,6 +109,8 @@ export function buildLineHumanBehaviorPrompt() {
   }[settings.punctuationStyle];
   const language = {
     'zh-CN': '角色主要使用普通话/简体中文；不要无理由切换语言。',
+    'zh-TW': '角色主要使用繁體中文。',
+    yue: '角色主要使用粤语。',
     en: '角色主要使用英语。',
     ja: '角色主要使用日语。',
     ko: '角色主要使用韩语。',
