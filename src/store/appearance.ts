@@ -9,6 +9,7 @@ export interface AppearanceScheme {
   subtitle: string;
   wallpaper: string;
   appIcons: Record<string, string>;
+  desktopLayouts: Record<'page1' | 'page2', Record<string, { x: number; y: number }>>;
   widget: WidgetConfig;
   appBeauty: Record<string, {
     background?: string;
@@ -31,6 +32,7 @@ export const DEFAULT_APPEARANCE: AppearanceScheme = {
   subtitle: '这是你的私人设备。\n内容由你自己建立。',
   wallpaper: '',
   appIcons: {},
+  desktopLayouts: { page1: {}, page2: {} },
   appBeauty: {},
   widget: {
     weatherCity: 'YOUR CITY',
@@ -68,6 +70,7 @@ function normalizeAppearance(value: Partial<AppearanceScheme>): AppearanceScheme
     subtitle: String(value.subtitle ?? DEFAULT_APPEARANCE.subtitle),
     wallpaper: String(value.wallpaper ?? ''),
     appIcons: value.appIcons && typeof value.appIcons === 'object' ? Object.fromEntries(Object.entries(value.appIcons).map(([key, icon]) => [String(key), String(icon || '')])) : {},
+    desktopLayouts: value.desktopLayouts && typeof value.desktopLayouts === 'object' ? { page1: value.desktopLayouts.page1 || {}, page2: value.desktopLayouts.page2 || {} } : { page1: {}, page2: {} },
     appBeauty: value.appBeauty && typeof value.appBeauty === 'object' ? Object.fromEntries(Object.entries(value.appBeauty).map(([key, raw]) => {
       const item = raw as Partial<{ background: string; accent: string; radius: number; fontScale: number }>;
       return [String(key), {
