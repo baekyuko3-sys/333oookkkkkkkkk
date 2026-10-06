@@ -2047,11 +2047,19 @@ export function LineConversationView({
       <input
         ref={fileInputRef}
         type="file"
+        accept={subSheetType === 'image' ? 'image/*' : subSheetType === 'video' ? 'video/*' : '*/*'}
+        multiple={subSheetType === 'image'}
         className="hidden"
         onChange={(e) => {
-          if (e.target.files?.[0] && subSheetType) {
-            handleRealUpload(subSheetType, e.target.files[0]);
+          if (subSheetType && e.target.files?.length) {
+            const files = Array.from(e.target.files);
+            if (subSheetType === 'image' && files.length > 1) {
+              files.forEach(file => handleRealUpload('image', file));
+            } else {
+              handleRealUpload(subSheetType, files[0]);
+            }
           }
+          e.currentTarget.value = '';
         }}
       />
 
