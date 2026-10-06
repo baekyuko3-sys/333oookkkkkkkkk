@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ArrowLeft, Film, ImagePlus, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, Film, ImagePlus, Trash2, Settings2, Download, Upload } from 'lucide-react';
 import { ScreenType } from '../../types';
 
 interface GalleryScreenViewProps {
@@ -18,6 +18,8 @@ const STORAGE_KEY = 'phone:gallery';
 
 export function GalleryScreenView({ onNavigate }: GalleryScreenViewProps) {
   const [photos, setPhotos] = useState<GalleryPhoto[]>([]);
+  const [manageOpen, setManageOpen] = useState(false);
+  const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     try {
@@ -46,6 +48,27 @@ export function GalleryScreenView({ onNavigate }: GalleryScreenViewProps) {
       save([next, ...photos]);
     };
     reader.readAsDataURL(file);
+  };
+
+  const exportGallery = () => {
+    const blob = new Blob([JSON.stringify({ type: 'sane333-gallery', version: 1, exportedAt: new Date().toISOString(), photos }, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='sane333-gallery.json'; a.click(); URL.revokeObjectURL(url);
+  };
+
+  const importGallery = async (file?: File) => {
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      const incoming = Array.isArray(parsed) ? parsed : parsed?.photos;
+      if (!Array.isArray(incoming)) throw new Error('相册文件格式不正确');
+      const map = new Map(photos.map(photo => [photo.id, photo]));
+      incoming.forEach((photo: GalleryPhoto) => {
+        if (photo?.id && photo?.src) map.set(String(photo.id), { ...photo });
+      });
+      save([...map.values()]);
+      setManageOpen(true);
+    } catch { window.alert('相册导入失败：文件格式不正确'); }
+    if (importRef.current) importRef.current.value = '';
   };
 
   const remove = (id: string) => {
@@ -120,6 +143,20 @@ export function GalleryScreenView({ onNavigate }: GalleryScreenViewProps) {
           </div>
         )}
       </div>
+
+      {manageOpen && (
+        <div className="absolute inset-0 z-[80] bg-black/25 flex items-end" onClick={() => setManageOpen(false)}>
+          <div className="w-full max-h-[82%] overflow-y-auto bg-white rounded-t-[24px] p-5 pb-8 space-y-3" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between"><div><div className="text-[8px] font-mono tracking-[1.5px] text-[#aaa]">GALLERY · MANAGEMENT</div><div className="text-[15px] font-semibold mt-1">相册管理</div></div><button onClick={() => setManageOpen(false)} className="text-xl text-[#aaa]">×</button></div>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={exportGallery} className="p-3 rounded-xl bg-[#292724] text-white text-[9px] flex items-center justify-center gap-1"><Download className="w-3 h-3"/>导出全部相册</button>
+              <label className="p-3 rounded-xl bg-[#f7f5f1] border border-[#eee] text-[#555] text-[9px] flex items-center justify-center gap-1 cursor-pointer"><Upload className="w-3 h-3"/>导入相册 JSON<input ref={importRef} type="file" accept=".json,application/json" className="hidden" onChange={e => importGallery(e.target.files?.[0])}/></label>
+            </div>
+            <div className="p-3 rounded-xl bg-[#fafafa] border border-[#eee] text-[9px] text-[#777]">共 {photos.length} 张照片 · 本机保存</div>
+            <button onClick={() => { if (!window.confirm('清空全部相册照片？')) return; save([]); }} className="w-full py-2.5 rounded-xl bg-rose-50 text-rose-500 text-xs">清空全部照片</button>
+          </div>
+        </div>
+      )}
 
       <div className="relative z-10 p-3 text-center text-[9px] text-[#8b8782] font-mono border-t border-[rgba(40,36,31,.1)]">
         LOCAL FILM ARCHIVE · {photos.length} FRAME{photos.length === 1 ? '' : 'S'}
