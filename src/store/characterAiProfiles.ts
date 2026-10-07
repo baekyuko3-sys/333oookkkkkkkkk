@@ -13,6 +13,11 @@ export interface CharacterAiProfile {
   contextLength: number;
   maxOutputTokens: number;
   temperature: number;
+  topP: number;
+  topK: number;
+  frequencyPenalty: number;
+  presencePenalty: number;
+  seed: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -69,6 +74,11 @@ export function buildCharacterAiProfile(base: AiSettings, characterId: string, c
     contextLength: base.contextLength,
     maxOutputTokens: base.maxOutputTokens,
     temperature: base.temperature,
+    topP: base.topP,
+    topK: base.topK,
+    frequencyPenalty: base.frequencyPenalty,
+    presencePenalty: base.presencePenalty,
+    seed: base.seed,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -86,5 +96,10 @@ export function mergeCharacterAiSettings(base: AiSettings, profile: CharacterAiP
     contextLength: profile.contextLength,
     maxOutputTokens: profile.maxOutputTokens,
     temperature: profile.temperature,
+    topP: profile.topP,
+    topK: profile.topK,
+    frequencyPenalty: profile.frequencyPenalty,
+    presencePenalty: profile.presencePenalty,
+    seed: profile.seed,
   };
 }
