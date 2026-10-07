@@ -2805,8 +2805,22 @@ export function LineConversationView({
               )}
 
               {/* Bubble content container */}
-              <div className="max-w-[78%] space-y-1.5">
-                
+              <div className={`max-w-[78%] space-y-1.5 relative ${isMe ? 'items-end' : 'items-start'}`}>
+                {!msg.isRecalled && !msg.isRecalledByOther && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingMessageId(msg.id);
+                      setEditingMessageText(msg.text || '');
+                    }}
+                    className={`absolute -top-2 ${isMe ? '-left-14' : '-right-14'} z-10 px-1.5 py-0.5 rounded-full bg-white border border-[#eee] text-[8px] text-[#999] shadow-sm opacity-70 hover:opacity-100 hover:text-[#ae7e89] hover:border-[#e7d3d9] transition-all cursor-pointer`}
+                    title="编辑这一条消息"
+                  >
+                    编辑
+                  </button>
+                )}
+
                 {/* 1. 酒馆思维链 (Chain of Thought / 内心独白折叠卡) */}
                 {!isMe && hasThinking && (
                   <div className="thinking-card bg-[#faf8f9] border border-[#f0e4e7] rounded-[12px] p-2 text-xs transition-all">
