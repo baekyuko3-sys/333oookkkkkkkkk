@@ -1120,7 +1120,7 @@ export function LineConversationView({
           const turnId = String(replyMsgId);
           withoutStreaming.splice(insertAt, 0, ...groupReplyParts.map((text, partIndex) => ({
             id: partIndex === 0 ? replyMsgId : `${replyMsgId}-${partIndex}`,
-            turnId, sender: 'other', senderName: character.name, text, time: '刚刚',
+            turnId, sender: 'other', senderName: character.name, text, time: formatLineMessageClock({ createdAt: new Date().toISOString() }, chatTimezone), createdAt: new Date().toISOString(),
             type: 'ai-reply', aiModel: result.model,
             matchedWorldbookEntries: result.matchedWorldbookEntries, status: 'delivered',
           })));
@@ -1226,7 +1226,7 @@ export function LineConversationView({
         const turnId = String(replyMsgId);
         withoutStreaming.splice(insertAt, 0, ...replyParts.map((text, index) => ({
           id: index === 0 ? replyMsgId : `${replyMsgId}-${index}`,
-          turnId, sender: 'other', text, time: '刚刚', type: 'ai-reply',
+          turnId, sender: 'other', text, time: formatLineMessageClock({ createdAt: new Date().toISOString() }, chatTimezone), createdAt: new Date().toISOString(), type: 'ai-reply',
           status: 'delivered', aiModel: result.model,
           matchedWorldbookEntries: result.matchedWorldbookEntries,
         })));
