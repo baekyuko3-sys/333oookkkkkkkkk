@@ -2638,7 +2638,7 @@ export function LineConversationView({
             loadOlderMessages();
           }
         }}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y px-3.5 py-4 space-y-4 relative"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y px-3.5 py-4 space-y-1.5 relative"
         style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
       >
         {showUnreadJump && unreadAnchorId !== null && (
@@ -2667,6 +2667,9 @@ export function LineConversationView({
         )}
         {visibleMessages.map((msg, messageIndex) => {
           const previousMessage = visibleMessages[messageIndex - 1];
+          const nextMessage = visibleMessages[messageIndex + 1];
+          const sameAsPrevious = Boolean(previousMessage && previousMessage.sender === msg.sender && previousMessage.type !== 'system-nudge' && msg.type !== 'system-nudge');
+          const sameAsNext = Boolean(nextMessage && nextMessage.sender === msg.sender && nextMessage.type !== 'system-nudge' && msg.type !== 'system-nudge');
           const todayKey = new Date().toLocaleDateString();
           const currentDate = msg.createdAt ? new Date(msg.createdAt) : new Date();
           const previousDate = previousMessage?.createdAt ? new Date(previousMessage.createdAt) : (messageIndex === 0 ? null : currentDate);
@@ -2731,7 +2734,7 @@ export function LineConversationView({
               onPointerUp={(event) => handleMessagePointerUp(event, msg)}
               onPointerCancel={cancelMessageSwipe}
               style={{ touchAction: 'pan-y' }}
-              className="relative flex items-end gap-2 group mb-1"
+              className={`relative flex items-end gap-2 group ${sameAsNext ? 'mb-0.5' : 'mb-2'}`}
             >
               {swipingMessageId === msg.id && swipeOffset < -8 && (
                 <div
@@ -2769,6 +2772,9 @@ export function LineConversationView({
 
               {/* Other Avatar */}
               {!isMe && (
+                sameAsPrevious ? (
+                  <div className="w-[31px] shrink-0" aria-hidden="true" />
+                ) : (
                 <div
                   onClick={() => {
                     if (isGroup) {
@@ -2795,6 +2801,7 @@ export function LineConversationView({
                   </svg>
                   )}
                 </div>
+                )
               )}
 
               {/* Bubble content container */}
@@ -3248,7 +3255,7 @@ export function LineConversationView({
                 </div>
 
               {/* Message meta is kept under the bubble so every row stays aligned. */}
-              {!msg.isRecalled && (
+              {!msg.isRecalled && (!sameAsNext || isMe) && (
                 <div className={`mt-1 flex items-center gap-1 px-1 text-[8.5px] leading-none text-[#b8b8bb] ${isMe ? 'justify-end' : 'justify-start'}`}>
                   {isMe ? (
                     (() => {
@@ -3256,11 +3263,7 @@ export function LineConversationView({
                       const hasRoleReply = msgIndex >= 0 && messages.slice(msgIndex + 1).some((candidate) =>
                         candidate.sender !== 'me' && candidate.type !== 'system-nudge'
                       );
-                      const readLabel = !msg.isRead
-                        ? '未读'
-                        : hasRoleReply
-                          ? '已读'
-                          : '已读 · 暂未回复';
+                      const readLabel = hasRoleReply || msg.isRead ? '已读' : '未读';
                       return (
                         <>
                           <span className={msg.isRead ? "text-[#ae7e89] font-medium" : "text-[#b8b8bb] font-medium"}>{readLabel}</span>
@@ -3278,6 +3281,9 @@ export function LineConversationView({
 
               {/* Optional user avatar */}
               {isMe && showMyAvatar && (
+                sameAsPrevious ? (
+                  <div className="w-[31px] shrink-0" aria-hidden="true" />
+                ) : (
                 <div
                   className="w-[31px] h-[31px] rounded-full bg-[#f2f2f3] flex items-center justify-center overflow-hidden shrink-0 self-end mb-0.5 border border-white"
                   title={activePersona.name ? `我的人设：${activePersona.name}` : '我的头像'}
@@ -3288,6 +3294,7 @@ export function LineConversationView({
                     <span className="text-[10px] font-medium text-[#999]">{(activePersona.name || '我').slice(0, 1)}</span>
                   )}
                 </div>
+                )
               )}
 
               </div>
