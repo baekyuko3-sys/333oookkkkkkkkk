@@ -307,6 +307,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
 
   // Chat item long-press / context action
   const [chatContextMenu, setChatContextMenu] = useState<any | null>(null);
+  const [swipedChatId, setSwipedChatId] = useState<string | null>(null);
+  const chatSwipeStart = useRef<{ id: string; x: number; y: number } | null>(null);
 
   // Moments refresh state
   const [isRefreshingMoments, setIsRefreshingMoments] = useState(false);
@@ -577,8 +579,42 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
             {sortedChats.map((item) => (
               <div
                 key={item.id}
-                onClick={() => {
-                  setChatItems((prev) =>
+                className="relative h-[76px] overflow-hidden bg-white border-b border-[#f1f1f1]"
+                onPointerDown={(e) => {
+                  chatSwipeStart.current = { id: item.id, x: e.clientX, y: e.clientY };
+                }}
+                onPointerMove={(e) => {
+                  const start = chatSwipeStart.current;
+                  if (!start || start.id !== item.id) return;
+                  const dx = e.clientX - start.x;
+                  const dy = e.clientY - start.y;
+                  if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+                    setSwipedChatId(dx < 0 ? item.id : null);
+                  }
+                }}
+                onPointerUp={() => { chatSwipeStart.current = null; }}
+                onPointerCancel={() => { chatSwipeStart.current = null; }}
+              >
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    if (swipedChatId === item.id) {
+                      e.stopPropagation();
+                      setSwipedChatId(null);
+                      return;
+                    }
+                    setChatItems((prev) => prev.map((c) => (c.id === item.id ? { ...c, unread: 0 } : c)));
+                    markLineConversationRead(item.id);
+                    markLineNotificationsReadForConversation(item.id);
+                    setActiveChatId(item.id);
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setChatContextMenu(item);
+                  }}
+                  className="absolute inset-y-0 left-0 z-10 w-full px-4 flex items-center text-left bg-white transition-transform duration-200 touch-pan-y"
+                  style={{ transform: swipedChatId === item.id ? 'translateX(-76px)' : 'translateX(0)' }}
+                >
                     prev.map((c) => (c.id === item.id ? { ...c, unread: 0 } : c))
                   );
                   markLineConversationRead(item.id);
@@ -650,6 +686,19 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                     {item.unread}
                   </div>
                 )}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setChatItems((prev) => prev.filter((chat) => chat.id !== item.id));
+                    setSwipedChatId(null);
+                    showToast('聊天已删除');
+                  }}
+                  className="absolute inset-y-0 right-0 z-0 w-[76px] bg-[#e96f73] text-white text-[11px] font-medium flex items-center justify-center"
+                >
+                  删除
+                </button>
               </div>
             ))}
 
