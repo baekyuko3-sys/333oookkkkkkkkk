@@ -204,12 +204,16 @@ export function PresetResourceManager({
                     placeholder={(selected as StatusBarPreset).inputFormat || '{{status:地点｜时间｜活动｜心情}}'}
                     className="w-full h-20 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[9px] outline-none resize-none"
                   />
-                  <div className="rounded-lg bg-white border border-[#e8e8e8] p-3 min-h-[70px] overflow-visible">
+                  <div className="min-h-[70px] flex items-start justify-center py-3 overflow-visible">
                     {regexTestInput
                       ? renderStatusBarHtml(selected as StatusBarPreset, regexTestInput)
-                        ? <div dangerouslySetInnerHTML={{__html: renderStatusBarHtml(selected as StatusBarPreset, regexTestInput)}} className="w-full text-[10px] text-[#333]"/>
-                        : <div className="text-[9px] text-[#b36f78]">格式不匹配：只有完整符合提取正则的文字才会渲染。</div>
-                      : <span className="text-[8px] text-[#aaa]">这里显示最终 HTML 渲染效果</span>}
+                        ? (
+                          <div className="w-full max-w-[420px] rounded-[18px] border border-[#dedfe3] bg-white shadow-[0_8px_28px_rgba(0,0,0,0.10)] overflow-visible">
+                            <div className="w-full min-h-0 px-4 py-4 text-[10px] leading-relaxed text-[#333] break-words [&_*]:max-w-full [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_table]:max-w-full [&_pre]:whitespace-pre-wrap [&_pre]:break-words" style={{ height: 'auto', minHeight: 0 }} dangerouslySetInnerHTML={{__html: renderStatusBarHtml(selected as StatusBarPreset, regexTestInput)}} />
+                          </div>
+                        )
+                        : <div className="text-[9px] text-[#b36f78] py-8 text-center">格式不匹配：只有完整符合提取正则的文字才会渲染。</div>
+                      : <span className="text-[8px] text-[#aaa] py-8">这里显示最终 HTML 渲染效果</span>}
                   </div>
                 </div>
                 <label className="block text-[8px] text-[#999]">Description
@@ -232,7 +236,13 @@ export function PresetResourceManager({
                   />
                   <div className="rounded-lg bg-white border border-[#e8e8e8] p-2.5 min-h-[48px] overflow-hidden">
                     {selected && regexTestInput
-                      ? <div dangerouslySetInnerHTML={{__html: renderStatusBarHtml(selected as StatusBarPreset, regexTestInput)}} className="text-[10px] text-[#333]"/>
+                      ? (
+                        <div className="flex justify-center py-2">
+                          <div className="w-full max-w-[420px] rounded-[18px] border border-[#dedfe3] bg-white shadow-[0_8px_28px_rgba(0,0,0,0.10)] overflow-visible">
+                            <div className="w-full min-h-0 px-4 py-4 text-[10px] leading-relaxed text-[#333] break-words [&_*]:max-w-full [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_table]:max-w-full [&_pre]:whitespace-pre-wrap [&_pre]:break-words" style={{ height: 'auto', minHeight: 0 }} dangerouslySetInnerHTML={{__html: renderStatusBarHtml(selected as StatusBarPreset, regexTestInput)}} />
+                          </div>
+                        </div>
+                      )
                       : <span className="text-[8px] text-[#aaa]">这里显示最终 HTML 卡片</span>}
                   </div>
                 </div>
