@@ -300,7 +300,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             description: 'Search the repository code.',
             run: async ({ query }) => {
               const q = encodeURIComponent(String(query) + ' repo:' + owner + '/' + repo);
-              const data = await github('https://api.github.com/search/code?q=' + q);
+              const data = await github('https://api.github.com/search/code?q=' + q, token);
               return (data.items || []).slice(0, 20).map((item: any) => ({ path: item.path, name: item.name, sha: item.sha }));
             },
           },
