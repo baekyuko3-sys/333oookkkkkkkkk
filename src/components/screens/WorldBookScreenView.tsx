@@ -186,7 +186,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
     <div className="relative w-full h-full flex flex-col overflow-hidden" style={{ background: 'var(--paper)', color: 'var(--ink)' }}>
       <div className="absolute inset-0 opacity-15 bg-paper-noise pointer-events-none" />
 
-      <header className="relative z-10 px-5 pt-12 pb-3.5 border-b border-[rgba(40,36,31,.12)] bg-[rgba(247,244,238,.85)] backdrop-blur-xl flex items-center justify-between">
+      <header className="relative z-10 px-5 pt-12 pb-3.5 border-b border-[rgba(40,36,31,.12)] bg-[color-mix(in_srgb,var(--paper)_92%,white_8%)] backdrop-blur-xl flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             onClick={() => onNavigate('home')}
@@ -348,12 +348,12 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
               placeholder="搜索条目 / 关键词"
               className="flex-1 bg-white/60 border border-[rgba(40,36,31,.12)] rounded-xl px-3 py-2 text-xs outline-none text-[#444]"
             />
-            <button onClick={() => importRef.current?.click()} className="px-3 py-2 rounded-xl bg-[#ebe7df] border border-[rgba(40,36,31,.12)] text-[10px] text-[#5d5751]">
+            <button onClick={() => importRef.current?.click()} className="px-3 py-2 rounded-xl bg-[color-mix(in_srgb,var(--paper)_82%,white_18%)] border border-[rgba(40,36,31,.12)] text-[10px] text-[#5d5751]">
               导入
             </button>
             <button
               onClick={() => book && downloadJson(`${book.name}.json`, JSON.parse(exportNativeWorldBook(book)))}
-              className="px-3 py-2 rounded-xl bg-[#ebe7df] border border-[rgba(40,36,31,.12)] text-[10px] text-[#5d5751]"
+              className="px-3 py-2 rounded-xl bg-[color-mix(in_srgb,var(--paper)_82%,white_18%)] border border-[rgba(40,36,31,.12)] text-[10px] text-[#5d5751]"
             >
               <Download className="w-3 h-3 inline mr-1" />导出
             </button>
@@ -369,7 +369,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
 
           <div className="min-h-0 overflow-y-auto no-scrollbar space-y-2">
             <div className="min-h-0 space-y-1.5">
-              <div className="sticky top-0 z-10 px-2 py-1.5 rounded-xl bg-[#f7f4ee]/95 backdrop-blur text-[8px] font-mono tracking-[1.2px] text-[#8b847d] border border-[rgba(40,36,31,.08)]">
+              <div className="sticky top-0 z-10 px-2 py-1.5 rounded-xl bg-[color-mix(in_srgb,var(--paper)_95%,white_5%)] backdrop-blur text-[8px] font-mono tracking-[1.2px] text-[#8b847d] border border-[rgba(40,36,31,.08)]">
                 <div className="flex items-center justify-between">
                   <span>条目 · {filteredEntries.length}</span>
                   <span className="tracking-normal font-sans text-[7px]">☑ 启用 · ☐ 停用</span>
@@ -421,16 +421,16 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
             </div>
 
             <div className="min-h-0">
-              {selectedEntry ? (
+              {selectedEntry && entryDetailOpen ? (
                 <div className="absolute inset-0 z-40 overflow-y-auto no-scrollbar bg-[var(--paper)] px-4 pb-6">
-                  <div className="sticky top-0 z-10 -mx-4 px-4 pt-4 pb-3 bg-[rgba(247,244,238,.96)] backdrop-blur-xl border-b border-[rgba(40,36,31,.1)] flex items-center justify-between">
+                  <div className="sticky top-0 z-10 -mx-4 px-4 pt-4 pb-3 bg-[color-mix(in_srgb,var(--paper)_96%,white_4%)] backdrop-blur-xl border-b border-[rgba(40,36,31,.1)] flex items-center justify-between">
                     <div>
                       <div className="text-[8px] font-mono tracking-[1.2px] text-[#8b8782]">WORLD BOOK ENTRY</div>
                       <div className="mt-0.5 text-sm font-serif font-bold text-[#242323]">条目详情</div>
                     </div>
                     <button onClick={() => setEntryDetailOpen(false)} className="px-3 py-1.5 rounded-full bg-white border border-[rgba(40,36,31,.12)] text-[9px] text-[#555]">返回条目</button>
                   </div>
-                  <div className="mt-3 rounded-2xl bg-[#ebe7df] border border-[rgba(40,36,31,.12)] p-3 space-y-3">
+                  <div className="mt-3 rounded-2xl bg-[color-mix(in_srgb,var(--paper)_82%,white_18%)] border border-[rgba(40,36,31,.12)] p-3 space-y-3">
                   <div className="flex items-center justify-between gap-2 pb-1">
                     <div className="min-w-0">
                       <div className="text-[8px] font-mono tracking-[1.2px] text-[#8b8782]">WORLD BOOK ENTRY</div>

@@ -1,5 +1,13 @@
 import type { ThemeMode, WidgetConfig } from '../types';
 
+export interface SavedFont {
+  id: string;
+  name: string;
+  source: 'upload' | 'url';
+  value: string;
+  createdAt: string;
+}
+
 export interface AppearanceScheme {
   id: string;
   name: string;
@@ -28,6 +36,7 @@ export interface AppearanceScheme {
 
 const KEY = 'sane333:appearance';
 const SCHEMES_KEY = 'sane333:appearance-schemes';
+const FONTS_KEY = 'sane333:saved-fonts';
 
 export const DEFAULT_APPEARANCE: AppearanceScheme = {
   id: 'default',
@@ -147,4 +156,24 @@ export function deleteAppearanceScheme(id: string) {
   if (id === DEFAULT_APPEARANCE.id || typeof window === 'undefined') return;
   const next = getAppearanceSchemes().filter(item => item.id !== id);
   window.localStorage.setItem(SCHEMES_KEY, JSON.stringify(next));
+}
+
+
+export function getSavedFonts(): SavedFont[] {
+  if (typeof window === 'undefined') return [];
+  const parsed = safeParse<unknown>(window.localStorage.getItem(FONTS_KEY), []);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter(item => item && typeof item === 'object').map(item => {
+    const value = item as Partial<SavedFont>;
+    return { id: String(value.id || ''), name: String(value.name || '未命名字体'), source: value.source === 'url' ? 'url' : 'upload', value: String(value.value || ''), createdAt: String(value.createdAt || new Date().toISOString()) };
+  }).filter(item => item.id && item.value);
+}
+export function saveFont(font: Omit<SavedFont, 'id' | 'createdAt'>): SavedFont {
+  const next: SavedFont = { ...font, id: 'font-' + Date.now().toString(36), createdAt: new Date().toISOString() };
+  if (typeof window !== 'undefined') window.localStorage.setItem(FONTS_KEY, JSON.stringify([next, ...getSavedFonts()]));
+  return next;
+}
+export function deleteSavedFont(id: string) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(FONTS_KEY, JSON.stringify(getSavedFonts().filter(font => font.id !== id)));
 }
