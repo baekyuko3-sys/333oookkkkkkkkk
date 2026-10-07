@@ -61,9 +61,38 @@ export interface AiReplyInput {
 
 export interface AiReplyResult {
   text: string;
+  thinkingSummary?: string;
+  actionDescription?: string;
   provider: AiSettings['provider'];
   model: string;
   matchedWorldbookEntries: number;
+}
+
+export function parseAiReplyPayload(rawText: string): Pick<AiReplyResult, 'text' | 'thinkingSummary' | 'actionDescription'> {
+  const raw = String(rawText || '').replace(/\\r\\n/g, '\\n').trim();
+  const withoutHiddenThinking = raw
+    .replace(/<think>[\\s\\S]*?<\\/think>/gi, '')
+    .replace(/<thought>[\\s\\S]*?<\\/thought>/gi, '');
+
+  const readTag = (name: string): string => {
+    const match = withoutHiddenThinking.match(new RegExp('<' + name + '>\\\\s*([\\s\\S]*?)\\\\s*</' + name + '>', 'i'));
+    return match ? match[1].trim() : '';
+  };
+
+  const thinkingSummary = readTag('summary');
+  const actionDescription = readTag('action');
+  const messageMatch = withoutHiddenThinking.match(/<message>\\s*([\\s\\S]*?)\\s*<\\/message>/i);
+
+  const text = (messageMatch?.[1] || withoutHiddenThinking
+    .replace(/<summary>[\\s\\S]*?<\\/summary>/gi, '')
+    .replace(/<action>[\\s\\S]*?<\\/action>/gi, ''))
+    .trim();
+
+  return {
+    text,
+    thinkingSummary: thinkingSummary || undefined,
+    actionDescription: actionDescription || undefined,
+  };
 }
 
 export function resolveChannelAiSettings(channel: 'chat' | 'moments'): AiSettings {
@@ -250,6 +279,13 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     input.stylePreset ? '【聊天风格预设】\n' + input.stylePreset : '【聊天风格预设】自然、沉浸、像真实聊天。',
     input.authorNote ? '【作者注释】\n' + input.authorNote : '【作者注释】无。',
     cotPreset ? '【内部生成预设】\n' + cotPreset.template + '\n只用于内部生成规划；绝对不要把思维过程、<think> 或 <thought> 标签输出给用户。' : '【内部生成预设】无。',
+    '',
+    '【当前消息 · 最高优先级】',
+    '你现在真正要处理的是本轮用户刚刚发送的这一条消息。',
+    '当前用户消息：「' + input.userMessage + '」',
+    '回答必须直接针对这条消息。不要因为角色卡、世界书、长期记忆或较早聊天里出现了别的话题，就自行把回复切换到旧话题。',
+    '历史内容只用于理解当前消息、保持事实连续性和关系连续性；除非当前消息明确引用过去，否则不要主动回答已经结束的旧话题。',
+    '如果当前消息很短，也先回答它本身，不要为了展示上下文而扩展到无关内容。',
     '',
     '【输出约束】',
     '禁止输出原始 <think>、思维链、隐藏推理或内部分析。若系统要求显示思考信息，只允许使用独立的高层次“思考摘要”，不能泄露逐步内部推理。',
@@ -642,20 +678,23 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     .join('\n') + '\n' + input.userMessage;
   const matchedWorldbookEntries = selectWorldBookEntries(worldbooks, scannedText, buildWorldBookScanResolver(input, scanDepth)).length;
 
-  const text =
+  // Parse structured output only after the provider finishes. Raw <summary>/<action>
+  // tags must never be streamed directly into the chat bubble.
+  const providerInput: AiReplyInput = { ...input, onDelta: undefined };
+  const rawText =
     input.settings.provider === 'gemini'
-      ? await callGemini(input)
-      : await callOpenAiCompatible(input);
+      ? await callGemini(providerInput)
+      : await callOpenAiCompatible(providerInput);
 
-  const cleanedText = text.trim()
-    .replace(/<think>[\s\S]*?<\/think>/gi, '')
-    .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
-    .trim();
+  const parsed = parseAiReplyPayload(rawText);
+  if (!parsed.text) throw new Error('AI_EMPTY_RESPONSE');
 
-  if (!cleanedText) throw new Error('AI_EMPTY_RESPONSE');
+  input.onDelta?.(parsed.text);
 
   return {
-    text: cleanedText,
+    text: parsed.text,
+    thinkingSummary: parsed.thinkingSummary,
+    actionDescription: parsed.actionDescription,
     provider: input.settings.provider,
     model: input.settings.model.trim(),
     matchedWorldbookEntries,
