@@ -18,7 +18,7 @@ import { getLineGroups, updateLineGroupMember, addLineGroupMemory, setLineGroupR
 import { createTogetherMusicSession, type TogetherMusicSession } from '../../store/togetherMusic';
 import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
 import { getStatusBarPresets, type StatusBarPreset } from '../../store/statusBarPresets';
-import { getCotPresets, type CotPreset } from '../../store/cotPresets';
+import { getCotPresets, type CotPreset, type CotPresetTarget } from '../../store/cotPresets';
 import { PresetResourceManager } from './PresetResourceManager';
 import { appendLineMessage, editLineMessage, toggleLineReaction, setLineMessageFavorite, recordLineCall, markLineMessageFailed, clearLineConversation, recallLineMessage, updateLineMessage } from '../../store/lineRuntime';
 import { getLineConversationMessages, markLineConversationRead, saveLineConversationMessages, searchLineMessages, type LineRuntimeMessage } from '../../store/lineRuntime';
@@ -211,7 +211,7 @@ export function LineConversationView({
   const [musicTitle, setMusicTitle] = useState('');
   const [musicArtist, setMusicArtist] = useState('');
   const [musicUrl, setMusicUrl] = useState('');
-  const [creatorType, setCreatorType] = useState<'image' | 'video' | 'file'>('image');
+  const [creatorType, setCreatorType] = useState<'image' | 'video' | 'file' | 'voice'>('image');
   const [creatorPrompt, setCreatorPrompt] = useState('');
   
   // Settings & Overlays
@@ -961,7 +961,7 @@ export function LineConversationView({
       const mentioned = groupAiMembers.filter(({ member }) => userText.includes('@' + member.name) || userText.includes('@' + (member.nickname || '')));
       const pool = mentioned.length ? mentioned : groupAiMembers;
       const responders = pool.slice(0, mentioned.length && activeGroupPreset.mentionPriority ? 1 : Math.min(pool.length, activeGroupPreset.maxResponders));
-      let workingMessages: any[] = [...messages, newMsg];
+      let workingMessages = [...messages, newMsg].map(message => ({ ...message, sender: message.sender || 'other' }));
       for (let index = 0; index < responders.length; index += 1) {
         const { character } = responders[index];
         if (!character) continue;
@@ -1073,7 +1073,7 @@ export function LineConversationView({
         worldbooks: activeWorldbooks,
         memory: characterMemory,
         project: projectManifest,
-        messages: [...messages, newMsg],
+        messages: [...messages, newMsg].map(message => ({ ...message, sender: message.sender || 'other' })),
         userMessage: userText,
         isGroup,
         authorNote: [
@@ -1725,7 +1725,7 @@ export function LineConversationView({
         worldbooks: activeWorldbooks,
         memory: characterMemory,
         project: projectManifest,
-        messages,
+        messages: messages.map(message => ({ ...message, sender: message.sender || 'other' })),
         userMessage: lastUser?.text || '继续刚才的对话',
         isGroup,
         authorNote: [
@@ -2079,7 +2079,7 @@ export function LineConversationView({
         worldbooks: activeWorldbooks,
         memory: characterMemory,
         project: projectManifest,
-        messages: messages.slice(0, targetIndex),
+        messages: messages.slice(0, targetIndex).map(message => ({ ...message, sender: message.sender || 'other' })),
         userMessage: previousUser || '继续当前对话',
         isGroup,
         authorNote: [authorsNote, '重新生成要求：' + instruction].filter(Boolean).join('\\n'),
@@ -2540,7 +2540,7 @@ export function LineConversationView({
                         className="flex items-center gap-1.5 cursor-pointer hover:opacity-80"
                       >
                         <Brain className="w-3.5 h-3.5 text-[#d4aab5]" />
-                        <span>思维链预设 · {activeCotPreset.title.replace('预设', '')}</span>
+                        <span>思维链预设 · {resolvedCotPreset.title.replace('预设', '')}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <button
@@ -4373,7 +4373,7 @@ export function LineConversationView({
                     当前预设：{activeCotPreset.title}
                   </div>
                   <div className="text-[10px] text-[#888] mt-0.5 leading-snug">
-                    {activeCotPreset.description}
+                    {resolvedCotPreset.description}
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-[#aaa] shrink-0 ml-2" />
@@ -5219,7 +5219,7 @@ export function LineConversationView({
                 </span>
                 <button
                   onClick={() => {
-                    setCustomCotTemplate(activeCotPreset.template);
+                    setCustomCotTemplate(resolvedCotPreset.template);
                     showToast('已重置为预设默认');
                   }}
                   className="text-[10px] text-[#ae7e89] hover:underline cursor-pointer"
