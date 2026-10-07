@@ -527,6 +527,8 @@ export function LineConversationView({
     birthday: '',
   };
 
+  const [personaLiveWeather, setPersonaLiveWeather] = useState<LineWeatherSnapshot | null>(null);
+
   const activeGroup = isGroup ? getLineGroupByName(contactName) : null;
   const safeGroupMembers = Array.isArray(activeGroup?.members)
     ? activeGroup.members.filter((member: any) => !!member && typeof member === 'object')
@@ -602,6 +604,19 @@ export function LineConversationView({
     ? groupAiMembers.some(({ member }) => member.online !== false)
     : (lineFriends.find(friend => friend.characterId === characterId || friend.name === contactName)?.online ?? true);
   const projectManifest = getProjectManifest();
+
+  useEffect(() => {
+    const region = String(activePersona?.region || '').trim();
+    if (!region) {
+      setPersonaLiveWeather(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchLineWeather(region).then(weather => {
+      if (!cancelled) setPersonaLiveWeather(weather);
+    });
+    return () => { cancelled = true; };
+  }, [activePersona?.id, activePersona?.region]);
 
   useEffect(() => {
     const region = String(activePersona?.region || '').trim();
