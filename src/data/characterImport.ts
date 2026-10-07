@@ -96,6 +96,22 @@ function normalizeCharacter(raw: any, sourceFormat: ImportedCharacter['sourceFor
   const data = getCardPayload(raw);
   const now = new Date().toISOString();
   const embeddedWorldBooks = extractEmbeddedWorldBooks(data);
+  const extensions =
+    data.extensions && typeof data.extensions === 'object'
+      ? (data.extensions as Record<string, unknown>)
+      : {};
+  const languageProfile =
+    data.languageProfile && typeof data.languageProfile === 'object'
+      ? data.languageProfile
+      : extensions.languageProfile && typeof extensions.languageProfile === 'object'
+        ? extensions.languageProfile
+        : undefined;
+  const onlinePersona =
+    cleanString(data.onlinePersona) ||
+    cleanString(extensions.onlinePersona);
+  const typingHabit =
+    cleanString(data.typingHabit) ||
+    cleanString(extensions.typingHabit);
   const name = cleanString(data.name) || '未命名角色';
   const variantLabel = cleanString(data.variantLabel) || cleanString(data.variant_label) || cleanString(data.lifeStage) || cleanString(data.life_stage) || cleanString(data.timeline) || cleanString(data.characterVersion) || cleanString(data.character_version) || '默认版本';
 
@@ -122,8 +138,10 @@ function normalizeCharacter(raw: any, sourceFormat: ImportedCharacter['sourceFor
     creator: cleanString(data.creator),
     characterVersion:
       cleanString(data.character_version) || cleanString(data.characterVersion),
-    extensions: data.extensions && typeof data.extensions === 'object' ? data.extensions : undefined,
-    languageProfile: data.languageProfile && typeof data.languageProfile === 'object' ? data.languageProfile : undefined,
+    extensions: Object.keys(extensions).length > 0 ? extensions : undefined,
+    languageProfile,
+    onlinePersona: onlinePersona || undefined,
+    typingHabit: typingHabit || undefined,
     embeddedWorldBook: embeddedWorldBooks[0],
     embeddedWorldBooks,
     groupId: cleanString(data.groupId) || cleanString(data.group_id) || null,
@@ -160,14 +178,12 @@ function readPngTextChunks(buffer: ArrayBuffer): Record<string, string> {
       }
     }
 
-    // iTXt is used by some card exporters.
     if (type === 'zTXt') {
       const zero = chunk.indexOf(0);
       if (zero > 0 && zero + 2 <= chunk.length) {
         const keyword = decoder.decode(chunk.slice(0, zero));
         const compressionMethod = chunk[zero + 1];
         if (compressionMethod === 0) {
-          // Keep compressed text payloads as base64 so decodeCardPayload can inflate them.
           result[keyword] = 'zlib:' + btoa(String.fromCharCode(...chunk.slice(zero + 2)));
         }
       }
@@ -190,9 +206,9 @@ function readPngTextChunks(buffer: ArrayBuffer): Record<string, string> {
         }
         const compressionFlag = chunk[cursor];
         cursor += 1;
-        cursor += 1; // compression method
-        readNullTerminated(); // language tag
-        readNullTerminated(); // translated keyword
+        cursor += 1;
+        readNullTerminated();
+        readNullTerminated();
         if (compressionFlag === 0 && cursor <= chunk.length) {
           result[keyword] = decoder.decode(chunk.slice(cursor));
         }
@@ -216,7 +232,7 @@ export async function parseCharacterFile(file: File): Promise<ImportedCharacter>
 
     let jsonText = '';
     const decodeBase64Bytes = (value: string) => {
-      const normalized = value.replace(/-/g, '+').replace(/_/g, '/').replace(/\\s/g, '');
+      const normalized = value.replace(/-/g, '+').replace(/_/g, '/').replace(/\s/g, '');
       return Uint8Array.from(atob(normalized), char => char.charCodeAt(0));
     };
 
@@ -233,7 +249,6 @@ export async function parseCharacterFile(file: File): Promise<ImportedCharacter>
         JSON.parse(plain);
         return plain;
       } catch {
-        // Some V2 exporters store base64(zlib(JSON)).
         try {
           const inflated = await inflateZlib(bytes);
           return new TextDecoder().decode(inflated);
@@ -271,7 +286,6 @@ export async function parseCharacterFile(file: File): Promise<ImportedCharacter>
     return normalizeCharacter(JSON.parse(text), 'json');
   }
 
-  // Full YAML parsing supports nested Character Card documents.
   if (lower.endsWith('.yaml') || lower.endsWith('.yml')) {
     const parsed = YAML.parse(text);
     if (!parsed || typeof parsed !== 'object') {
@@ -281,6 +295,15 @@ export async function parseCharacterFile(file: File): Promise<ImportedCharacter>
   }
 
   throw new Error('支持的角色卡格式：PNG / JSON / YAML / YML。');
+}
+
+function getExportExtensions(character: ImportedCharacter): Record<string, unknown> {
+  return {
+    ...(character.extensions || {}),
+    ...(character.languageProfile ? { languageProfile: character.languageProfile } : {}),
+    ...(character.onlinePersona ? { onlinePersona: character.onlinePersona } : {}),
+    ...(character.typingHabit ? { typingHabit: character.typingHabit } : {}),
+  };
 }
 
 export function exportCharacterJson(character: ImportedCharacter): string {
@@ -301,7 +324,7 @@ export function exportCharacterJson(character: ImportedCharacter): string {
       creator: character.creator,
       character_version: character.characterVersion,
       groupId: character.groupId || null,
-      extensions: { ...(character.extensions || {}), ...(character.languageProfile ? { languageProfile: character.languageProfile } : {}) },
+      extensions: getExportExtensions(character),
       ...(character.embeddedWorldBook ? { character_book: character.embeddedWorldBook } : {}),
     },
     null,
@@ -327,7 +350,7 @@ export function exportCharacterCardV2(character: ImportedCharacter): string {
       tags: character.tags,
       creator: character.creator,
       character_version: character.characterVersion,
-      extensions: { ...(character.extensions || {}), ...(character.languageProfile ? { languageProfile: character.languageProfile } : {}) },
+      extensions: getExportExtensions(character),
       ...(character.embeddedWorldBook ? { character_book: character.embeddedWorldBook } : {}),
     },
   }, null, 2);
