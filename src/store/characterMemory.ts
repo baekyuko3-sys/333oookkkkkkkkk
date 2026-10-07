@@ -190,6 +190,92 @@ export function mergeRecentMemorySummaries(characterId: string, characterName: s
   });
 }
 
+
+export function applyMemoryMergeResult(
+  characterId: string,
+  characterName: string,
+  batchIds: string[],
+  result: {
+    summary: string;
+    updates: Array<{
+      action: 'add' | 'update' | 'delete';
+      id?: string;
+      content?: string;
+      section?: MemorySection;
+      kind?: CharacterMemoryItem['kind'];
+      importance?: number;
+    }>;
+  },
+): CharacterMemory {
+  const current = getCharacterMemory(characterId, characterName);
+  const now = new Date().toISOString();
+  let items = [...current.items];
+  const deleteIds = new Set<string>();
+  const updateMap = new Map<string, typeof items[number]>();
+
+  for (const update of result.updates || []) {
+    if (update.action === 'delete' && update.id) {
+      deleteIds.add(update.id);
+      continue;
+    }
+    if (!update.content?.trim()) continue;
+
+    if (update.action === 'update' && update.id) {
+      const existing = items.find(item => item.id === update.id);
+      if (existing) {
+        updateMap.set(update.id, {
+          ...existing,
+          content: update.content.trim(),
+          section: update.section || existing.section,
+          kind: update.kind || existing.kind,
+          importance: Math.max(0, Math.min(100, Number(update.importance ?? existing.importance) || 0)),
+          updatedAt: now,
+        });
+        continue;
+      }
+    }
+
+    const normalized = normalizeMemoryText(update.content);
+    const duplicate = items.find(item => normalizeMemoryText(item.content) === normalized);
+    if (duplicate) {
+      updateMap.set(duplicate.id, {
+        ...duplicate,
+        content: update.content.trim(),
+        section: update.section || duplicate.section,
+        kind: update.kind || duplicate.kind,
+        importance: Math.max(duplicate.importance, Number(update.importance ?? duplicate.importance) || 0),
+        updatedAt: now,
+      });
+    } else {
+      const item: CharacterMemoryItem = {
+        id: 'memory-merge-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+        content: update.content.trim(),
+        source: 'ai-summary',
+        createdAt: now,
+        updatedAt: now,
+        importance: Math.max(0, Math.min(100, Number(update.importance) || 50)),
+        kind: update.kind || 'fact',
+        section: update.section || 'stage',
+      };
+      items.unshift(item);
+    }
+  }
+
+  items = items
+    .filter(item => !deleteIds.has(item.id))
+    .map(item => updateMap.get(item.id) || item)
+    .slice(0, 160);
+
+  const processed = new Set(batchIds);
+  return saveCharacterMemory({
+    ...current,
+    summary: result.summary?.trim() || current.summary,
+    items,
+    recentSummaries: (current.recentSummaries || []).filter(item => !processed.has(item.id)),
+    lastMergedAt: now,
+  });
+}
+
 export function addCharacterMemoryItem(
   characterId: string,
   characterName: string,
