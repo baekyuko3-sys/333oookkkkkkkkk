@@ -165,7 +165,7 @@ export function getSavedFonts(): SavedFont[] {
   if (!Array.isArray(parsed)) return [];
   return parsed.filter(item => item && typeof item === 'object').map(item => {
     const value = item as Partial<SavedFont>;
-    return { id: String(value.id || ''), name: String(value.name || '未命名字体'), source: value.source === 'url' ? 'url' : 'upload', value: String(value.value || ''), createdAt: String(value.createdAt || new Date().toISOString()) };
+    return { id: String(value.id || ''), name: String(value.name || '未命名字体'), source: (value.source === 'url' ? 'url' : 'upload') as 'upload' | 'url', value: String(value.value || ''), createdAt: String(value.createdAt || new Date().toISOString()) };
   }).filter(item => item.id && item.value);
 }
 export function saveFont(font: Omit<SavedFont, 'id' | 'createdAt'>): SavedFont {
