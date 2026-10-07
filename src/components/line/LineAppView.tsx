@@ -61,6 +61,9 @@ interface LineUserProfile {
   desc: string;
   avatar?: string;
   background?: string;
+  region?: string;
+  timezone?: string;
+  birthday?: string;
 }
 
 export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewProps) {
@@ -323,13 +326,16 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
     desc: '',
     avatar: '',
     background: '',
+    region: '',
+    timezone: '',
+    birthday: '',
   });
   const [profileDraft, setProfileDraft] = useState<LineUserProfile>(currentUser);
   const [userPersonasRaw, setUserPersonas] = usePersistentState<any[]>('line:user-personas', []);
   const userPersonas = Array.isArray(userPersonasRaw) ? userPersonasRaw : [];
   const [activePersonaId, setActivePersonaId] = usePersistentState<string | null>('line:active-persona', null);
   const [personaEditorOpen, setPersonaEditorOpen] = useState(false);
-  const [personaDraft, setPersonaDraft] = useState<any>({ name: '', age: '', profession: '', setting: '', avatar: '', boundCharacterId: '' });
+  const [personaDraft, setPersonaDraft] = useState<any>({ name: '', age: '', profession: '', region: '', timezone: '', birthday: '', setting: '', avatar: '', boundCharacterId: '' });
   const activePersona = userPersonas.find((p) => p.id === activePersonaId) || userPersonas[0] || null;
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
 
@@ -1093,13 +1099,16 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               ['name','名字'],
               ['age','年龄'],
               ['profession','职业'],
+              ['region','地区'],
+              ['timezone','时区'],
+              ['birthday','生日'],
               ['setting','设定'],
               ['avatar','头像'],
               ['boundCharacterId','绑定角色'],
             ].map(([key,label]) => (
               <div key={key}>
                 <div className="text-[9px] text-[#aaa] mb-1">{label}</div>
-                {key === 'boundCharacterId' ? <select value={personaDraft[key] || ''} onChange={(e) => setPersonaDraft((p:any) => ({...p,[key]:e.target.value}))} className="w-full h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-xs outline-none"><option value="">不绑定（通用人设）</option>{importedCharacters.map(character => <option key={character.id} value={character.id}>{character.name}</option>)}</select> : key === 'avatar' ? <label className="w-full h-10 px-3 bg-[#fafafa] border border-dashed border-[#e7e7e8] rounded-[10px] text-xs flex items-center gap-2 cursor-pointer overflow-hidden"><span className="text-[#888]">{personaDraft.avatar ? '已选择头像 · 点击更换' : '上传头像'}</span><input type="file" accept="image/*" className="hidden" onChange={e => { const f=e.target.files?.[0]; if(f) readImageFile(f, data => setPersonaDraft((p:any)=>({...p,avatar:data}))); }} /></label> : <input value={personaDraft[key] || ''} onChange={(e) => setPersonaDraft((p:any) => ({...p,[key]:e.target.value}))} placeholder={key === 'setting' ? '你的性格、背景、与你聊天时的身份……' : ''} className="w-full h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-xs outline-none" />}
+                {key === 'boundCharacterId' ? <select value={personaDraft[key] || ''} onChange={(e) => setPersonaDraft((p:any) => ({...p,[key]:e.target.value}))} className="w-full h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-xs outline-none"><option value="">不绑定（通用人设）</option>{importedCharacters.map(character => <option key={character.id} value={character.id}>{character.name}</option>)}</select> : key === 'avatar' ? <label className="w-full h-10 px-3 bg-[#fafafa] border border-dashed border-[#e7e7e8] rounded-[10px] text-xs flex items-center gap-2 cursor-pointer overflow-hidden"><span className="text-[#888]">{personaDraft.avatar ? '已选择头像 · 点击更换' : '上传头像'}</span><input type="file" accept="image/*" className="hidden" onChange={e => { const f=e.target.files?.[0]; if(f) readImageFile(f, data => setPersonaDraft((p:any)=>({...p,avatar:data}))); }} /></label> : <input value={personaDraft[key] || ''} onChange={(e) => setPersonaDraft((p:any) => ({...p,[key]:e.target.value}))} placeholder={key === 'setting' ? '你的性格、背景、与你聊天时的身份……' : key === 'region' ? '例如：上海 / London' : key === 'timezone' ? '例如：Asia/Shanghai / Europe/London' : key === 'birthday' ? '例如：1999-12-25' : ''} className="w-full h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-xs outline-none" />}
               </div>
             ))}
             <button onClick={() => {
