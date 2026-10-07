@@ -2752,6 +2752,18 @@ export function LineConversationView({
                   <CornerUpLeft className="w-3.5 h-3.5" />
                 </div>
               )}
+              {(() => {
+                const replyStatus = formatReplyReasonStatus(msg);
+                if (!replyStatus) return null;
+                return (
+                  <div className={`flex ${isMe ? 'justify-end pr-1' : 'justify-start pl-1'} mb-1.5`}>
+                    <div className={`inline-flex max-w-[86%] items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] leading-none shadow-[0_1px_2px_rgba(0,0,0,0.025)] ${replyStatus.tone === 'muted' ? 'border-[#e8e8ea] bg-[#f8f8f9] text-[#999]' : 'border-[#eadde1] bg-[#fbf4f6] text-[#9b737c]'}`}>
+                      <span className="text-[9px] opacity-80">{replyStatus.icon}</span>
+                      <span className="truncate">{replyStatus.label}</span>
+                    </div>
+                  </div>
+                );
+              })()}
               <div
                 className={`w-full flex items-end gap-2 transition-transform duration-75 ease-out ${isMe ? 'justify-end' : 'justify-start'}`}
                 style={{ transform: swipingMessageId === msg.id ? `translateX(${swipeOffset}px)` : 'translateX(0)' }}
