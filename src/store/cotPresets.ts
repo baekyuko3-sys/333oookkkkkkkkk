@@ -3,6 +3,8 @@ export type CotPresetTarget = 'line' | 'offline' | 'group';
 export interface CotPreset {
   id: string;
   title: string;
+  displayTitle?: string;
+  displayStyle?: 'minimal' | 'soft' | 'mono' | 'outline';
   tag: string;
   description: string;
   template: string;
@@ -17,7 +19,9 @@ const KEY = 'line:cot-presets';
 export const DEFAULT_COT_PRESETS: CotPreset[] = [
   {
     id: 'cot-1',
-    title: 'SANE333 角色决策链',
+    title: 'COT',
+    displayTitle: 'COT',
+    displayStyle: 'minimal',
     tag: '<think>...</think>',
     description: '以角色本人为中心，结合前文、设定、人设与状态决定自然回复。',
     template: 'STEP 1 CONTEXT: 当前消息 + 角色上一条回复 + 最近前文 + 当前话题 + 未完成事项。\\nSTEP 2 CHARACTER: 角色设定 + 线上人设 + 表达习惯，只使用角色已知信息。\\nSTEP 3 MEANING: 判断用户表面意思与真实意图，不脱离上下文，不过度脑补。\\nSTEP 4 REACTION: 站在角色立场理解，判断当前状态与第一反应。\\nSTEP 5 RESPONSE: 角色自行决定回答、反问、调侃、安慰、延伸、简短回应或不展开，不强制主动。\\nSTEP 6 STATE BAR: 如果状态栏已启用，每次角色回复后都必须生成一次状态栏；根据当前聊天、前文与角色已知状态生成最新快照。没有变化就自然延续上一状态，有变化就更新；不得凭空创造状态或剧情。\\nSTEP 7 CHECK: 检查角色一致性、前文连续性、知识边界、OOC、禁止事项，以及是否替用户决定行为、想法或反应。\\nFINAL: 只输出角色真正会发送的 LINE 消息，不输出内部分析。',
@@ -73,8 +77,8 @@ export function getCotPresets(): CotPreset[] {
     if (!Array.isArray(parsed)) return DEFAULT_COT_PRESETS;
     const defaultsById = new Map(DEFAULT_COT_PRESETS.map(item => [item.id, item]));
     return parsed.map((item: CotPreset) => {
-      if (item?.id !== 'cot-1' || item.title === 'SANE333 角色决策链') return item;
-      return { ...defaultsById.get('cot-1'), ...item, title: DEFAULT_COT_PRESETS[0].title, description: DEFAULT_COT_PRESETS[0].description, template: DEFAULT_COT_PRESETS[0].template, exampleThinking: DEFAULT_COT_PRESETS[0].exampleThinking };
+      if (item?.id !== 'cot-1' || (item.title !== 'SANE333 角色决策链' && item.title !== 'COT')) return item;
+      return { ...defaultsById.get('cot-1'), ...item, title: DEFAULT_COT_PRESETS[0].title, displayTitle: item.displayTitle || DEFAULT_COT_PRESETS[0].displayTitle, displayStyle: item.displayStyle || DEFAULT_COT_PRESETS[0].displayStyle, description: DEFAULT_COT_PRESETS[0].description, template: DEFAULT_COT_PRESETS[0].template, exampleThinking: DEFAULT_COT_PRESETS[0].exampleThinking };
     });
   } catch {
     return DEFAULT_COT_PRESETS;
@@ -99,6 +103,8 @@ export function importCotPresets(raw: string): CotPreset[] {
     ...item,
     id: String(item.id || `cot-import-${Date.now()}-${index}`),
     title: String(item.title || '未命名思维链预设'),
+    displayTitle: String(item.displayTitle || item.title || 'COT'),
+    displayStyle: ['minimal','soft','mono','outline'].includes(item.displayStyle) ? item.displayStyle : 'minimal',
     tag: String(item.tag || '<think>...</think>'),
     description: String(item.description || ''),
     template: String(item.template || ''),
