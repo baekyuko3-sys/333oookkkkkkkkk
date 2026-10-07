@@ -871,6 +871,114 @@ export async function listOpenAiCompatibleModels(
 }
 
 
+
+export interface MemoryMergeResult {
+  summary: string;
+  updates: Array<{
+    action: 'add' | 'update' | 'delete';
+    id?: string;
+    content?: string;
+    section?: CharacterMemory['memoryStyle'] extends infer _ ? import('../store/characterMemory').MemorySection : never;
+    kind?: 'fact' | 'diary' | 'relationship' | 'preference' | 'event';
+    importance?: number;
+  }>;
+}
+
+function memoryStyleInstructions(memory: CharacterMemory): string {
+  const style = memory.memoryStyle;
+  if (!style) return '使用角色自己的自然记忆方式，但绝不改变事实。';
+  const personalityMap: Record<string,string> = {
+    balanced: '平衡、克制，优先保留真正有用的信息。',
+    observant: '像一个细心观察的人，重视细节与行为变化。',
+    diary: '像角色自己的私人记录，保留事件与当时氛围。',
+    analytical: '重视因果、关系变化与稳定事实。',
+    warm: '更关注关系中的重要时刻与情绪，但不替用户编造感受。',
+    'character-style': '完全按照这个角色自己的性格、经历和既有记忆来决定什么值得记住。',
+  };
+  const sectionLines = Object.entries(style.sections || {}).map(([section, preset]) =>
+    section + ': ' + preset.length + ', 最多 ' + preset.maxChars + ' 字, 重点=' + preset.focus
+  );
+  return [
+    '整体记忆人格：' + (personalityMap[style.personality] || personalityMap['character-style']),
+    '每一层记忆的总结方式：',
+    ...sectionLines,
+    '“角色自己的风格”只能改变选择、详略、语气和主观侧重点，绝对不能凭空创造事实。',
+  ].join('\n');
+}
+
+export async function mergeRecentMemoryBatch(
+  settings: AiSettings,
+  characterName: string,
+  currentMemory: CharacterMemory,
+  batch: Array<{ id: string; content: string; importance: number; source: string; createdAt: string }>,
+): Promise<MemoryMergeResult> {
+  const appSettings = readAppSettings();
+  const model = appSettings.memoryModel.trim() || settings.model;
+  const mergeSettings: AiSettings = { ...settings, model, temperature: appSettings.memoryTemperature };
+  const existing = currentMemory.items.slice(0, 120).map(item =>
+    JSON.stringify({ id: item.id, section: item.section || 'stage', kind: item.kind || 'fact', importance: item.importance, content: item.content })
+  ).join('\n');
+  const incoming = batch.map(item =>
+    JSON.stringify({ id: item.id, importance: item.importance, source: item.source, createdAt: item.createdAt, content: item.content })
+  ).join('\n');
+
+  const systemPrompt = [
+    '你是角色 Memory Merge Engine。',
+    '这里有一批已经通过候选判断的近期 Memory Summary。它们不是聊天原文，而是值得进一步整理的候选记忆。',
+    '你的任务不是简单压缩成一段话，而是把它们与已有长期记忆逐项比较。',
+    '必须：去重、合并相关记忆、识别新旧冲突、处理过时信息、更新长期记忆、分类到七个固定层。',
+    '七个层只能使用：stage, about-you, relationship, understanding, confirm, todo, done。',
+    '普通闲聊不要进入长期记忆。',
+    '发生冲突时，以更晚、证据更明确的信息更新旧记忆；必要时保留时间关系，不要同时保留明显互相矛盾的永久事实。',
+    'delete 用于明确已经失效或被新信息完全取代的旧条目。',
+    memoryStyleInstructions(currentMemory),
+    '只能使用输入中的事实。绝不脑补。',
+    '输出严格 JSON，不要 Markdown。',
+    JSON.stringify({
+      summary: '新的长期记忆总览',
+      updates: [
+        { action: 'add', content: '...', section: 'about-you', kind: 'fact', importance: 80 },
+        { action: 'update', id: '已有记忆ID', content: '...', section: 'relationship', kind: 'relationship', importance: 90 },
+        { action: 'delete', id: '已有记忆ID' }
+      ]
+    }),
+  ].join('\n');
+
+  const userPrompt = [
+    '【角色】' + characterName,
+    '【角色现有长期记忆】',
+    existing || '暂无',
+    '',
+    '【本次刚满 100 条的近期 Summary】',
+    incoming,
+    '',
+    '请完成一次完整 Merge。不要为了填满七层而制造内容。',
+  ].join('\n');
+
+  const raw = await generateCreativeText({
+    settings: mergeSettings,
+    systemPrompt,
+    userPrompt,
+    temperature: appSettings.memoryTemperature,
+  });
+  const cleaned = raw.trim().replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\s*\`\`\`$/i, '');
+  const parsed = JSON.parse(cleaned);
+  const validSections = new Set(['stage','about-you','relationship','understanding','confirm','todo','done']);
+  const validKinds = new Set(['fact','diary','relationship','preference','event']);
+  const updates = Array.isArray(parsed?.updates) ? parsed.updates.map((item: any) => ({
+    action: item?.action === 'delete' ? 'delete' : item?.action === 'update' ? 'update' : 'add',
+    id: typeof item?.id === 'string' ? item.id : undefined,
+    content: typeof item?.content === 'string' ? item.content.trim() : undefined,
+    section: validSections.has(item?.section) ? item.section : 'stage',
+    kind: validKinds.has(item?.kind) ? item.kind : 'fact',
+    importance: Math.max(0, Math.min(100, Number(item?.importance) || 50)),
+  })).filter((item: any) => item.action === 'delete' ? Boolean(item.id) : Boolean(item.content)).slice(0, 120) : [];
+  return {
+    summary: typeof parsed?.summary === 'string' ? parsed.summary.trim() : currentMemory.summary,
+    updates,
+  };
+}
+
 export async function summarizeConversationMemory(
   settings: AiSettings,
   characterName: string,
