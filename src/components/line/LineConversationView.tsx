@@ -2809,7 +2809,7 @@ export function LineConversationView({
 
               {/* Bubble content container */}
               <div
-                className={`max-w-[78%] space-y-1.5 relative touch-pan-y transition-transform duration-200 ${isMe ? 'items-end' : 'items-start'}`}
+                className={`max-w-[78%] relative touch-pan-y transition-transform duration-200 ${isMe ? 'items-end' : 'items-start'}`}
                 style={{ transform: swipedMessageId === msg.id ? (swipeAction === 'edit' ? 'translateX(-46px)' : 'translateX(46px)') : 'translateX(0)' }}
                 onTouchStart={(e) => {
                   swipeStartXRef.current = e.touches[0]?.clientX ?? null;
@@ -3285,34 +3285,12 @@ export function LineConversationView({
                     </div>
                   )}
 
-                  {!msg.isRecalled && (
-                    <button
-                      onClick={() => setContextMenuMsg(msg)}
-                      className="hover:text-[#ae7e89] flex items-center gap-0.5 cursor-pointer"
-                      title="操作菜单"
-                    >
-                      <span>操作</span>
-                    </button>
-                  )}
-
-                  {!msg.isRecalled && (
-                    <button
-                      onClick={() => {
-                        setEditingMessageId(msg.id);
-                        setEditingMessageText(msg.text);
-                      }}
-                      className="hover:text-[#ae7e89] flex items-center gap-0.5 cursor-pointer"
-                      title="原地编辑消息"
-                    >
-                      <Edit3 className="w-3 h-3" />
-                      <span>编辑</span>
-                    </button>
-                  )}
+                  {/* 单条消息操作通过左右滑动触发：左滑编辑，右滑引用。这里不再常驻按钮，保持气泡紧凑。 */}
                 </div>
 
               {/* Message meta is kept under the bubble so every row stays aligned. */}
-              {!msg.isRecalled && (!sameAsNext || isMe) && (
-                <div className={`mt-1 flex items-center gap-1 px-1 text-[8.5px] leading-none text-[#b8b8bb] ${isMe ? 'justify-end' : 'justify-start'}`}>
+              {!msg.isRecalled && (
+                <div className={`mt-0.5 flex items-center gap-1 px-1 text-[8px] leading-none text-[#b8b8bb] ${isMe ? 'justify-end' : 'justify-start'} ${sameAsNext ? 'opacity-0 h-0 overflow-hidden' : 'h-[10px]'}`}>
                   {isMe ? (
                     (() => {
                       const msgIndex = messages.findIndex((candidate) => String(candidate.id) === String(msg.id));
