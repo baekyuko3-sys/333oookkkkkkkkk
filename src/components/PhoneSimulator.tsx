@@ -72,6 +72,8 @@ export function PhoneSimulator({
   const [appearance, setAppearance] = useState(() => readAppearance());
   const isDark = themeMode === 'dark-luxury';
   const appBeauty = appearance.appBeauty?.[currentScreen] || {};
+  const isLineScreen = currentScreen === 'chat' || currentScreen === 'inbox';
+  const globalBg = isLineScreen ? '#ffffff' : (appearance.globalBackground || '#f7f4ee');
 
 
   const handleToggleTheme = () => {
@@ -122,7 +124,7 @@ export function PhoneSimulator({
         className={`relative w-[360px] sm:w-[390px] h-[780px] sm:h-[844px] overflow-hidden rounded-[43px] border-[7px] border-[var(--frame,#1e1d1b)] shadow-[0_30px_100px_rgba(20,18,15,.28)] flex flex-col select-none ${
           isDark ? 'dark-theme-mode' : ''
         }`}
-        style={{ background: 'var(--screen, #ffffff)', color: 'var(--ink, #242323)' }}
+        style={{ background: globalBg, color: 'var(--ink, #242323)' }}
       >
         
         {/* Statusbar (Exact from user template) */}
@@ -155,7 +157,7 @@ export function PhoneSimulator({
           className="flex-1 relative overflow-hidden"
           style={{
             fontSize: appBeauty.fontScale ? `${appBeauty.fontScale}em` : undefined,
-            background: appBeauty.background ? '#f7f4ee' : undefined,
+            background: appBeauty.background || globalBg,
             ['--app-accent' as any]: appBeauty.accent || '#292724',
             ['--app-radius' as any]: `${appBeauty.radius ?? 18}px`,
           }}
