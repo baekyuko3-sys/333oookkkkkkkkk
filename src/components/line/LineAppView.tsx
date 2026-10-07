@@ -21,7 +21,7 @@ function getCharacterStoryAge(character: any): string {
   const direct = character?.age ?? character?.extensions?.age ?? character?.extensions?.characterAge;
   if (direct !== undefined && direct !== null && String(direct).trim()) return String(direct).trim();
   const text = [character?.description, character?.personality, character?.scenario, character?.onlinePersona].filter(Boolean).join('\n');
-  const match = text.match(/(?:年龄|age)\s*[:：=]?\s*(\d{1,3})\s*(?:岁|years?\s*old)?/i);
+  const match = text.match(/(?:年龄|age)\s*[:：=]?\s*(\d{1,3})\s*(?:岁|years?\s*old)?/i) || text.match(/(\d{1,3})\s*岁/);
   return match?.[1] || '';
 }
 
@@ -1213,14 +1213,15 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               <div className="text-[9px] text-[#aaa]">PERSONA · 你的聊天身份</div>
             </div>
             <button onClick={() => {
-              const referenceCharacter = importedCharacters.find(character => character.id === personaDraft.ageReferenceCharacterId);
+              const referenceId = personaDraft.ageReferenceCharacterId || (personaDraft.boundCharacterIds || [])[0] || '';
+              const referenceCharacter = importedCharacters.find(character => character.id === referenceId);
               const resolvedAge = personaDraft.ageMode === 'follow-character' ? getCharacterStoryAge(referenceCharacter) : String(personaDraft.age || '');
               const persona = {
                 ...personaDraft,
                 id: personaDraft.id || crypto.randomUUID(),
                 age: resolvedAge,
                 ageMode: personaDraft.ageMode || 'manual',
-                ageReferenceCharacterId: personaDraft.ageReferenceCharacterId || '',
+                ageReferenceCharacterId: referenceId,
                 weather: personaWeather ? formatLineWeather(personaWeather) : (personaDraft.weather || ''),
                 regionResolved: personaWeather?.location || personaDraft.regionResolved || '',
                 boundCharacterIds: Array.isArray(personaDraft.boundCharacterIds) ? personaDraft.boundCharacterIds : [],
