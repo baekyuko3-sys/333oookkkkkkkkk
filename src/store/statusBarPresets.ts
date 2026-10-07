@@ -120,6 +120,23 @@ export function extractStatusMatch(text: string, regexSource: string): { match: 
   };
 }
 
+export function sanitizeHtmlFragment(html: string): string {
+  if (typeof window === 'undefined') return '';
+  const template = document.createElement('template');
+  template.innerHTML = String(html || '');
+  template.content.querySelectorAll('script,iframe,object,embed,form,style,link,meta').forEach(node => node.remove());
+  template.content.querySelectorAll('*').forEach(node => {
+    Array.from(node.attributes).forEach(attribute => {
+      const name = attribute.name.toLowerCase();
+      const value = attribute.value.trim().toLowerCase();
+      if (name.startsWith('on') || name === 'srcdoc' || ((name === 'href' || name === 'src') && value.startsWith('javascript:'))) {
+        node.removeAttribute(attribute.name);
+      }
+    });
+  });
+  return template.innerHTML.trim();
+}
+
 export function renderStatusBarHtml(
   preset: StatusBarPreset | null,
   sourceText: string,
