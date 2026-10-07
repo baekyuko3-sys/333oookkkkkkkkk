@@ -131,7 +131,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
     downloadJson('line-character-profile.json', {
       version: 1,
       characterId,
-      profile: generatedCharacterProfiles[characterId] || { profileId: character.id, followers: 0, following: 0, signature: '', updatedAt: '' },
+      profile: generatedCharacterProfiles[characterId] || { profileId: characterId, followers: 0, following: 0, signature: '', updatedAt: '' },
       style: characterProfileStyles[characterId] || {},
     });
     showToast('角色主页已导出');
@@ -1491,17 +1491,17 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                         )}
                         {[
                           ['description', '角色简介', character.description],
-                          ['personality', '性格', character.personality],
-                          ['scenario', '当前场景', character.scenario],
-                          ['onlinePersona', '线上人设', character.onlinePersona],
-                          ['typingHabit', '打字习惯', character.typingHabit],
-                        ].map(([key, label, value]) => (
+                          ['personality', '性格', character?.personality || ''],
+                          ['scenario', '当前场景', character?.scenario || ''],
+                          ['onlinePersona', '线上人设', character?.onlinePersona || ''],
+                          ['typingHabit', '打字习惯', character?.typingHabit || ''],
+                        ].map(([key, label, value]: [string, string, unknown]) => (
                           <div key={key} className="pt-3">
                             <div className="text-[10px] text-[#999] mb-1.5">{label}</div>
                             {friendEditing ? (
                               <textarea
                                 value={String(value || '')}
-                                onChange={e => setImportedCharacters(prev => prev.map(item => item.id === character.id ? { ...item, [key]: e.target.value } : item))}
+                                onChange={e => setImportedCharacters(prev => prev.map(item => item.id === character?.id ? { ...item, [key]: e.target.value } : item))}
                                 className="w-full min-h-[62px] bg-[#f8f8f8] rounded-xl p-3 text-xs leading-5 text-[#555] outline-none resize-y"
                               />
                             ) : (
