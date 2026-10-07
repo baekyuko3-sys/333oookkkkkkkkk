@@ -727,6 +727,7 @@ export function LineConversationView({
     avoidRepetition ? '【避免机械重复】不要连续多条消息重复同一个名字、外号、亲昵称呼、情绪标签或固定句式。一次自然使用即可，下一句应像真人一样继续内容。' : '',
     emotionContinuity ? '【情绪连续但不循环】角色的情绪可以持续，也可以随着互动缓和、转移或改变；不要因为一次事件就让角色在每条后续消息里重复同一件事、反复翻旧账。' : '',
     characterTimeSensitivity === 'low' ? '【时间敏感度：不在意】角色基本不因用户多久没回复而产生情绪。允许用户长时间甚至很久不出现；再次出现时通常自然继续聊天。不要主动计算、记录或强调失联时长。' : characterTimeSensitivity === 'high' ? '【时间敏感度：高度在意】角色确实很重视联系与陪伴。长时间失联（例如一天、数天、数周，具体程度必须结合角色性格和关系）可以明显影响角色情绪，例如担心、想念、委屈、不满或生气，并能在用户回来后自然表现出来。但严禁把时间变成计时器：不要报具体分钟、小时，不要机械复述“你多久没回”，不要每隔几分钟催促，不要反复翻旧账。短暂聊天间隔仍然正常。' : '【时间敏感度：自然感知（默认）】角色像现实中的人一样感知联系是否中断。短暂不回复（几分钟、十几分钟等）完全正常，不应催促或计时；较长失联（例如一天、数天甚至更久）是否产生想念、担心、委屈、不满或生气，应由角色性格、关系和情境自然判断。时间可以影响角色情绪，但不要把时间本身当成话题，不要精确计算、报时或反复算账。用户回来后优先自然回应当前内容。',
+    lineActionDescriptionsEnabled ? '【线上动作描写：开启】这是 LINE 聊天中的线上描写，不是线下小说旁白。角色可以在确有必要时输出一行简短的线上行为/反应，例如输入很久后删掉重写、看完消息停顿片刻、过了一会儿才回复等。严格使用 <action>...</action>，不要把现实场景动作写成长篇旁白。不是每条消息都必须有动作；没有表现价值时不要生成。' : '【线上动作描写：关闭】不要输出 <action> 标签或任何额外动作旁白。',
   ].filter(Boolean).join('\n');
 
   // 聊天设定使用真正的全局世界书；选择结果按聊天保存。
@@ -3027,10 +3028,13 @@ export function LineConversationView({
                 )}
 
                 {msg.actionDescription && !msg.isRecalled && (
-                  <div className="w-full max-w-[86%] mb-1.5 ml-0">
-                    <div className="inline-flex items-start gap-1.5 rounded-[10px] border border-[#ece5e7] bg-[#faf9f9] px-2.5 py-1.5 text-[10px] leading-relaxed text-[#777]">
-                      <span className="text-[#b89aa2] shrink-0">·</span>
-                      <span>{msg.actionDescription}</span>
+                  <div className="w-full flex items-center justify-center my-2.5 px-4 animate-in fade-in">
+                    <div className="relative flex items-center justify-center gap-2 max-w-[88%] text-center">
+                      <span className="h-px w-6 shrink-0 bg-[#eee8eb]" />
+                      <span className="max-w-[78%] text-[10.5px] leading-[1.6] italic tracking-[0.01em] text-[#9b9599]">
+                        {msg.actionDescription}
+                      </span>
+                      <span className="h-px w-6 shrink-0 bg-[#eee8eb]" />
                     </div>
                   </div>
                 )}
