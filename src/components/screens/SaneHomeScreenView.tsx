@@ -60,8 +60,17 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
 
   const getDefaultLayout = (page: DesktopPage) => page === 1 ? defaultPage1Layout : defaultPage2Layout;
   const pageKey = (page: DesktopPage) => page === 1 ? 'page1' : 'page2';
-  const getLayout = (page: DesktopPage): DesktopItem[] =>
-    getDefaultLayout(page).map(item => ({ ...item, ...(desktopLayouts[pageKey(page)][item.id] || {}) }));
+  const getLayout = (page: DesktopPage): DesktopItem[] => {
+    const phone = typeof document !== 'undefined' ? document.querySelector('[data-sane333-phone]') as HTMLElement | null : null;
+    const width = phone?.clientWidth || 360;
+    const height = phone?.clientHeight || 800;
+    return getDefaultLayout(page).map(item => {
+      const saved = desktopLayouts[pageKey(page)][item.id] || {};
+      const merged = { ...item, ...saved };
+      const metrics = itemMetrics(item.id);
+      return { ...merged, x: Math.max(12, Math.min(width - metrics.width - 12, merged.x)), y: Math.max(120, Math.min(height - 135 - metrics.height, merged.y)) };
+    });
+  };
 
   const isHidden = (page: DesktopPage, id: string) => desktopHidden[pageKey(page)].includes(id);
 
@@ -462,6 +471,10 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               ['moments','IG','ig','bg-[#9b8068] text-white','moments'],
               ['music','音乐','music','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','music'],
               ['offline-story','线下剧情','book','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','offline-story'],
+              ['character-profile','角色档案','card','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','character-profile'],
+              ['world-book','世界书','globe','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','world-book'],
+              ['appearance','外观','look','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','appearance'],
+              ['settings','设置','gear','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','settings'],
             ].map(([id,label,symbol,iconClass,screen]) => { if (isHidden(1,'app-'+id)) return null; const pos=itemPosition(1,'app-'+id); return <button key={id} onClick={()=>{if(!desktopEditing) onNavigate(screen as ScreenType)}} onPointerDown={e=>beginDesktopDrag(1,'app-'+id,e)} onPointerMove={e=>continueDesktopDrag(1,'app-'+id,e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)} className={`absolute pointer-events-auto flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] select-none touch-none ${desktopEditing?'cursor-grab active:cursor-grabbing':''}`} style={{left:pos.x,top:pos.y}}>
                 <div className={`w-[64px] h-[64px] rounded-[21px] shadow-[0_6px_18px_rgba(52,43,34,.055)] grid place-items-center ${iconClass}`}>{renderAppIcon(id,symbol,'w-6 h-6')}{id==='line'&&worldUnread>0&&<span className="absolute -top-1 right-[-2px] w-4 h-4 rounded-full bg-[#9b625b] text-white text-[9px] font-bold flex items-center justify-center">{worldUnread>99?'99+':worldUnread}</span>}</div><span className="font-medium">{label}</span>
               </button>; })}
@@ -523,7 +536,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
                     {appearance.appIcons[id] ? renderAppIcon(id,symbol,'w-6 h-6') : id==='npc' ? <span className="text-[20px] font-serif">人</span> : id==='group-presets' ? <span className="text-[18px] font-serif">预</span> : id==='memory' ? <span className="font-serif text-[20px]">M</span> : renderAppIcon(id,symbol,'w-6 h-6')}
                   </div>
                   <span className="font-semibold tracking-tight text-[var(--ink)] whitespace-nowrap">{label}</span>
-                  {desktopEditing && <button onPointerDown={e=>e.stopPropagation()} onClick={()=>hideDesktopItem(2,itemId)} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px]">×</button>}
+                  {desktopEditing && <span onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();hideDesktopItem(2,itemId)}} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px] grid place-items-center cursor-pointer">×</span>}
                 </button>
               );
             })}
