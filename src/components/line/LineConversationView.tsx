@@ -46,7 +46,14 @@ function splitLineChatText(text: string): string[] {
   const normalized = text.replace(/\r\n/g, '\n').trim();
   if (!normalized) return [''];
   const lines = normalized.split('\n').map((line) => line.trim()).filter(Boolean);
-  if (lines.length > 1 && lines.every((line) => Array.from(line).length <= 28)) return lines;
+  if (lines.length > 1 && lines.every((line) => Array.from(line).length <= 80)) return lines;
+  return [normalized];
+}
+function splitGeneratedLineMessages(text: string): string[] {
+  const normalized = text.replace(/\r\n/g, '\n').trim();
+  if (!normalized) return [];
+  const lines = normalized.split('\n').map((line) => line.trim()).filter(Boolean);
+  if (lines.length > 1 && lines.every((line) => Array.from(line).length <= 80)) return lines;
   return [normalized];
 }
 
@@ -231,6 +238,10 @@ export function LineConversationView({
   const [typingLength, setTypingLength] = usePersistentState<string>(`line:typing-length:${conversationStorageId}`, 'medium');
   const [typingFillers, setTypingFillers] = usePersistentState<string>(`line:typing-fillers:${conversationStorageId}`, 'natural');
   const [typingSentenceBreak, setTypingSentenceBreak] = usePersistentState<string>(`line:typing-sentence-break:${conversationStorageId}`, 'natural');
+  const [bilingualMode, setBilingualMode] = usePersistentState<'off' | 'auto'>(`line:bilingual-mode:${conversationStorageId}`, 'off');
+  const [chatTimeMode, setChatTimeMode] = usePersistentState<'current' | 'virtual'>(`line:chat-time-mode:${conversationStorageId}`, 'current');
+  const [virtualChatTime, setVirtualChatTime] = usePersistentState<string>(`line:virtual-chat-time:${conversationStorageId}`, new Date().toISOString().slice(0, 16));
+  const [characterTimeSensitivity, setCharacterTimeSensitivity] = usePersistentState<'sensitive' | 'insensitive'>(`line:character-time-sensitivity:${conversationStorageId}`, 'sensitive');
   const [chatApiOverride, setChatApiOverride] = usePersistentState<ChannelAiSettings>(`line:chat-api-override:${conversationStorageId}`, {
     ...readAppSettings().chatApiOverride,
     enabled: false,
@@ -252,6 +263,13 @@ export function LineConversationView({
       temperature: chatApiOverride.temperature,
     };
   };
+  const lineConversationRules = [
+    '【最高优先级·用户边界】绝对不要替用户编造台词、动作、表情、想法、决定、经历或未提供的事实；用户没有说或做的事情，不得写成用户已经说过或做过。',
+    bilingualMode === 'auto' ? '【双语模式】除普通话/国语/简体中文与繁体中文外，角色使用其他主要语言时，回复采用自然双语表达：保留角色原语言，并附自然中文对应，不要逐句机械翻译。' : '',
+    chatTimeMode === 'current' ? '【时间】聊天时间跟随现实当前时间；涉及现在、今天、今晚、明天等相对时间时，以当前真实日期时间为准。' : `【虚拟时间】本聊天时间固定为 ${virtualChatTime}；涉及现在、今天、今晚、明天等相对时间时，只能依据这个虚拟时间推算。`,
+    characterTimeSensitivity === 'sensitive' ? '【角色时间感】角色对时间敏感：应留意日期、时段、前后顺序，不要无故跳过时间。' : '【角色时间感】角色对时间不敏感：不要为了显示时间而强行报时；只有剧情自然涉及时间时才提及，并允许使用模糊时间表达。',
+  ].filter(Boolean).join('\n');
+
   const updateChatApiOverride = (patch: Partial<ChannelAiSettings>) => {
     setChatApiOverride(prev => ({ ...prev, ...patch }));
   };
@@ -1040,6 +1058,7 @@ export function LineConversationView({
           userMessage: userText,
           isGroup: true,
           authorNote: [
+            lineConversationRules,
             authorsNote,
             '群聊预设：' + activeGroupPreset.name,
             activeGroupPreset.systemPrompt,
@@ -1072,7 +1091,20 @@ export function LineConversationView({
         });
         const groupReplyText = String(result?.text || streamedText || '').trim();
         if (!groupReplyText) throw new Error(`${character.name} 没有返回任何内容，请检查 API、模型或网络连接。`);
-        setMessages(prev => prev.map(m => m.id === replyMsgId ? { ...m, text: groupReplyText, senderName: character.name, aiModel: result.model, matchedWorldbookEntries: result.matchedWorldbookEntries, status: 'delivered' } : m));
+        const groupReplyParts = splitGeneratedLineMessages(groupReplyText);
+        setMessages(prev => {
+          const targetIndex = prev.findIndex(m => m.id === replyMsgId);
+          const withoutStreaming = prev.filter(m => m.id !== replyMsgId);
+          const insertAt = targetIndex >= 0 ? Math.min(targetIndex, withoutStreaming.length) : withoutStreaming.length;
+          const turnId = String(replyMsgId);
+          withoutStreaming.splice(insertAt, 0, ...groupReplyParts.map((text, partIndex) => ({
+            id: partIndex === 0 ? replyMsgId : `${replyMsgId}-${partIndex}`,
+            turnId, sender: 'other', senderName: character.name, text, time: '刚刚',
+            type: 'ai-reply', aiModel: result.model,
+            matchedWorldbookEntries: result.matchedWorldbookEntries, status: 'delivered',
+          })));
+          return withoutStreaming;
+        });
         // 角色真正回复后，用户刚才的消息才变成已读。
         setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isRead: true } : m));
         workingMessages = [...workingMessages, { id: replyMsgId, sender: 'other', senderName: character.name, text: String(result?.text || '').trim() }];
@@ -1136,6 +1168,7 @@ export function LineConversationView({
         userMessage: userText,
         isGroup,
         authorNote: [
+          lineConversationRules,
           authorsNote,
           relationshipContext.trim() ? '【你们过去的关系背景】\n' + relationshipContext.trim() : '',
           selectedOpeningContext.trim() ? '【角色卡开场白 / 前情提要】\n' + selectedOpeningContext.trim() : '',
@@ -1164,24 +1197,20 @@ export function LineConversationView({
       }
       if (!replyMessageCreated) ensureReplyMessage(finalReplyText);
 
-      // 非流式供应商或异常情况下，确保最终正文完整写入。
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === replyMsgId
-            ? {
-                ...m,
-                text: finalReplyText,
-                time: '刚刚',
-                type: 'ai-reply',
-                status: 'delivered',
-                aiModel: result.model,
-                matchedWorldbookEntries: result.matchedWorldbookEntries,
-              }
-            : m.id === msgId
-              ? { ...m, isRead: true }
-              : m
-        )
-      );
+      const replyParts = splitGeneratedLineMessages(finalReplyText);
+      setMessages((prev) => {
+        const targetIndex = prev.findIndex((m) => m.id === replyMsgId);
+        const withoutStreaming = prev.filter((m) => m.id !== replyMsgId);
+        const insertAt = targetIndex >= 0 ? Math.min(targetIndex, withoutStreaming.length) : withoutStreaming.length;
+        const turnId = String(replyMsgId);
+        withoutStreaming.splice(insertAt, 0, ...replyParts.map((text, index) => ({
+          id: index === 0 ? replyMsgId : `${replyMsgId}-${index}`,
+          turnId, sender: 'other', text, time: '刚刚', type: 'ai-reply',
+          status: 'delivered', aiModel: result.model,
+          matchedWorldbookEntries: result.matchedWorldbookEntries,
+        })));
+        return withoutStreaming.map((m) => m.id === msgId ? { ...m, isRead: true } : m);
+      });
 
       window.dispatchEvent(new CustomEvent('sane333:play-sound', { detail: { kind: 'message' } }));
 
@@ -1828,6 +1857,7 @@ export function LineConversationView({
         userMessage: lastUser?.text || '继续刚才的对话',
         isGroup,
         authorNote: [
+          lineConversationRules,
           authorsNote,
           '这是 Continue：请自然接着角色上一条未说完的内容继续。',
           lastOther?.text ? '【上一条角色消息】\\n' + lastOther.text : '',
@@ -2074,7 +2104,7 @@ export function LineConversationView({
               ],
               userMessage: '我给你发了一张图片，请看看这张图片并自然回应。',
               isGroup,
-              authorNote: authorsNote,
+              authorNote: [lineConversationRules, authorsNote].filter(Boolean).join('\n'),
               stylePreset: activeCotPreset?.title || selectedPreset,
               typingHabit: [
           typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
@@ -2201,7 +2231,7 @@ export function LineConversationView({
         messages: messages.slice(0, targetIndex).map(message => ({ ...message, sender: message.sender || 'other' })),
         userMessage: previousUser || '继续当前对话',
         isGroup,
-        authorNote: [authorsNote, '重新生成要求：' + instruction].filter(Boolean).join('\\n'),
+        authorNote: [lineConversationRules, '重新生成要求：' + instruction + '；这次只重新生成被选中的这一条消息，不要额外生成其他消息。'].filter(Boolean).join('\\n'),
         stylePreset: activeCotPreset?.title || selectedPreset,
         typingHabit: [
           typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
@@ -2226,15 +2256,16 @@ export function LineConversationView({
         });
         },
       });
+      const rerolledText = splitGeneratedLineMessages(String(result.text || streamed)).filter(Boolean)[0] || String(result.text || streamed || '').trim();
       setMessages(prev => {
         const next = [...prev];
         const existingIndex = next.findIndex(m => m.id === target.id);
-        const nextMessage = { ...target, text: result.text, status: 'delivered', editedAt: new Date().toISOString(), aiModel: result.model, error: undefined, edited: true };
+        const nextMessage = { ...target, text: rerolledText, status: 'delivered', editedAt: new Date().toISOString(), aiModel: result.model, error: undefined, edited: true };
         if (existingIndex >= 0) next[existingIndex] = nextMessage;
         else next.splice(Math.min(targetIndex, next.length), 0, nextMessage);
         return next;
       });
-      appendLineMessage(conversationStorageId, { id: target.id, sender: 'other', text: result.text, kind: 'text', status: 'delivered', createdAt: new Date().toISOString() });
+      appendLineMessage(conversationStorageId, { id: target.id, sender: 'other', text: rerolledText, kind: 'text', status: 'delivered', createdAt: new Date().toISOString() });
       showToast('这一条已经重新生成');
     } catch (error) {
       const message = error instanceof Error ? error.message : '重新生成失败';
@@ -2546,10 +2577,6 @@ export function LineConversationView({
             更早的聊天已折叠 · 点击查看上一组 100 条
           </button>
         )}
-        <div className="text-center text-[10px] text-[#b3b3b7] my-1">
-          今天
-        </div>
-
         {visibleMessages.map((msg, messageIndex) => {
           const previousMessage = visibleMessages[messageIndex - 1];
           const currentDay = msg.createdAt ? new Date(msg.createdAt).toLocaleDateString() : 'today';
@@ -4340,6 +4367,42 @@ export function LineConversationView({
                   <div className="text-[8px] text-[#aaa] mt-1">控制一句话内部怎么断开，例如“嗯 我知道了”或“嗯，\n我知道了”。</div>
                 </div>
                                 <div className="text-[8.5px] leading-relaxed text-[#aaa]">这些只控制“怎么打字”，不会改变角色性格、世界书和剧情。</div>
+              </div>
+            </details>
+
+            <details className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
+              <summary className="list-none cursor-pointer p-3.5 flex items-center justify-between">
+                <div><div className="font-medium text-[#333]">语言与时间</div><div className="text-[10px] text-[#999]">控制双语输出、聊天时间和角色的时间感</div></div>
+                <span className="text-[10px] text-[#aaa]">可自定义</span>
+              </summary>
+              <div className="px-3.5 pb-3.5 space-y-3">
+                <div><div className="text-[9.5px] font-medium text-[#666] mb-1.5">双语模式</div>
+                  <div className="flex gap-1.5">
+                    {[
+                      ['off', '关闭'],
+                      ['auto', '自动双语'],
+                    ].map(([id, title]) => <button key={id} type="button" onClick={() => setBilingualMode(id as 'off' | 'auto')} className={"px-3 py-1.5 rounded-full border text-[8.5px] " + (bilingualMode === id ? 'bg-[#f7eef0] border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#fafafa] border-[#eee] text-[#777]')}>{title}</button>)}
+                  </div>
+                  <div className="text-[8px] text-[#aaa] mt-1">普通话/国语/简体中文/繁体中文保持中文；其他主要语言自动附自然中文对应。</div>
+                </div>
+                <div><div className="text-[9.5px] font-medium text-[#666] mb-1.5">聊天时间</div>
+                  <div className="flex gap-1.5">
+                    {[
+                      ['current', '跟随现在的时间'],
+                      ['virtual', '使用虚拟时间'],
+                    ].map(([id, title]) => <button key={id} type="button" onClick={() => setChatTimeMode(id as 'current' | 'virtual')} className={"px-3 py-1.5 rounded-full border text-[8.5px] " + (chatTimeMode === id ? 'bg-[#f7eef0] border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#fafafa] border-[#eee] text-[#777]')}>{title}</button>)}
+                  </div>
+                  {chatTimeMode === 'virtual' && <input type="datetime-local" value={virtualChatTime} onChange={(e) => setVirtualChatTime(e.target.value)} className="mt-2 w-full px-2.5 py-2 bg-[#fafafa] border border-[#eee] rounded-xl text-[10px] text-[#555] outline-none" />}
+                </div>
+                <div><div className="text-[9.5px] font-medium text-[#666] mb-1.5">角色时间感</div>
+                  <div className="flex gap-1.5">
+                    {[
+                      ['sensitive', '对时间敏感'],
+                      ['insensitive', '对时间不敏感'],
+                    ].map(([id, title]) => <button key={id} type="button" onClick={() => setCharacterTimeSensitivity(id as 'sensitive' | 'insensitive')} className={"px-3 py-1.5 rounded-full border text-[8.5px] " + (characterTimeSensitivity === id ? 'bg-[#f7eef0] border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#fafafa] border-[#eee] text-[#777]')}>{title}</button>)}
+                  </div>
+                  <div className="text-[8px] text-[#aaa] mt-1">时间不敏感 ≠ 可以乱编时间；仍然不能违背聊天里已经明确发生的时间。</div>
+                </div>
               </div>
             </details>
             <details className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
