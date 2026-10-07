@@ -441,8 +441,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
       return (
         <div className="w-full h-full pt-[30px] bg-white flex items-center justify-center">
           <div className="text-center px-8">
-            <div className="text-sm font-semibold text-[#333]">聊天已不存在</div>
-            <div className="mt-2 text-xs text-[#aaa]">这个聊天入口已经被移除。</div>
+            <div className="text-sm font-semibold text-[#333]">聊天暂时无法打开</div>
+            <div className="mt-2 text-xs text-[#aaa]">这个聊天入口当前无法正常打开，聊天数据没有被删除。</div>
             <button
               onClick={() => setActiveChatId(null)}
               className="mt-5 px-4 py-2 rounded-full bg-[#292724] text-white text-xs"
@@ -459,7 +459,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
     const conversationId = activeItem?.id || activeCharacterId || activeItem?.name || activeChatId;
     return (
       <div className="w-full h-full pt-[30px] bg-white">
-        <LineConversationErrorBoundary onBack={() => setActiveChatId(null)}>
+        <LineConversationErrorBoundary key={activeChatId} onBack={() => setActiveChatId(null)}>
         <LineConversationView
           contactName={activeChatName}
           characterId={activeCharacterId}
