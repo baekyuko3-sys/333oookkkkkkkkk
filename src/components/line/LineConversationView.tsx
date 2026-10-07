@@ -271,6 +271,10 @@ export function LineConversationView({
   const [typingLength, setTypingLength] = usePersistentState<string>(`line:typing-length:${conversationStorageId}`, 'medium');
   const [typingFillers, setTypingFillers] = usePersistentState<string>(`line:typing-fillers:${conversationStorageId}`, 'natural');
   const [typingSentenceBreak, setTypingSentenceBreak] = usePersistentState<string>(`line:typing-sentence-break:${conversationStorageId}`, 'natural');
+  const [replyCountEnabled, setReplyCountEnabled] = usePersistentState<boolean>(`line:reply-count-enabled:${conversationStorageId}`, false);
+  const [replyCountMin, setReplyCountMin] = usePersistentState<number>(`line:reply-count-min:${conversationStorageId}`, 1);
+  const [replyCountMax, setReplyCountMax] = usePersistentState<number>(`line:reply-count-max:${conversationStorageId}`, 3);
+
   const [bilingualMode, setBilingualMode] = usePersistentState<'off' | 'auto'>(`line:bilingual-mode:${conversationStorageId}`, 'off');
   const [chatTimeMode, setChatTimeMode] = usePersistentState<'current' | 'virtual'>(`line:chat-time-mode:${conversationStorageId}`, 'current');
   const [virtualChatTime, setVirtualChatTime] = usePersistentState<string>(`line:virtual-chat-time:${conversationStorageId}`, new Date().toISOString().slice(0, 16));
@@ -1299,6 +1303,9 @@ export function LineConversationView({
             '句子长度：' + typingLength,
             '语气词：' + typingFillers,
             '断句：' + typingSentenceBreak,
+            replyCountEnabled
+              ? `【一次性回复条数】开启：本轮角色必须自然分成 ${Math.max(1, Math.min(5, replyCountMin))}～${Math.max(Math.max(1, Math.min(5, replyCountMin)), Math.min(8, replyCountMax))} 条独立 LINE 消息。不得少于最少条数或超过最多条数；不要为了凑数制造无意义内容。`
+              : '【一次性回复条数】关闭：按自然聊天节奏决定本轮消息条数。',
           ].join('；'),
           temperature: Number(presetTemp) || 0.85,
           onDelta: delta => {
@@ -1443,6 +1450,7 @@ export function LineConversationView({
           matchedWorldbookEntries: result.matchedWorldbookEntries,
           thinkingSummary: replyMetadata.thinkingSummary,
           actionDescription: replyMetadata.actionDescription,
+          showThinking: Boolean(enableChainOfThought && replyMetadata.thinkingSummary),
           metadata: {
             ...(replyMetadata.thinkingSummary ? { thinkingSummary: replyMetadata.thinkingSummary } : {}),
             ...(replyMetadata.actionDescription ? { actionDescription: replyMetadata.actionDescription } : {}),
@@ -5018,6 +5026,43 @@ export function LineConversationView({
                 </button>
 
                 {/* 回复细节 */}
+                <div className="mb-2 rounded-[13px] border border-[#eee3e6] bg-[#fcf8f9] px-3.5 py-3">
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0 pr-4">
+                      <div className="text-[12px] font-semibold text-[#353438]">一次性回复条数</div>
+                      <div className="mt-1 text-[9.5px] leading-[1.45] text-[#a2a0a4]">控制角色这一轮连续发送多少条 LINE 消息</div>
+                    </div>
+                    <button type="button" role="switch" aria-checked={replyCountEnabled}
+                      onClick={() => setReplyCountEnabled(!replyCountEnabled)}
+                      className="relative w-11 h-6 shrink-0 rounded-full p-0.5 border border-black/[0.04] shadow-inner transition-colors"
+                      style={{ backgroundColor: replyCountEnabled ? '#d5aab6' : '#dedee1' }}>
+                      <span className="absolute top-[2px] left-[2px] block w-5 h-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,.16)] transition-transform"
+                        style={{ transform: replyCountEnabled ? 'translateX(20px)' : 'translateX(0)' }} />
+                    </button>
+                  </div>
+                  {replyCountEnabled && (
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <label className="rounded-[11px] bg-white border border-[#eee3e6] p-2.5">
+                        <div className="text-[9px] text-[#aaa] mb-1">最少</div>
+                        <select value={replyCountMin} onChange={e => {
+                          const n = Math.min(5, Math.max(1, Number(e.target.value)));
+                          setReplyCountMin(n);
+                          if (replyCountMax < n) setReplyCountMax(n);
+                        }} className="w-full bg-transparent outline-none text-[12px] text-[#444]">
+                          {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} 句</option>)}
+                        </select>
+                      </label>
+                      <label className="rounded-[11px] bg-white border border-[#eee3e6] p-2.5">
+                        <div className="text-[9px] text-[#aaa] mb-1">最多</div>
+                        <select value={Math.max(replyCountMin, replyCountMax)} onChange={e => setReplyCountMax(Math.min(8, Math.max(replyCountMin, Number(e.target.value))))}
+                          className="w-full bg-transparent outline-none text-[12px] text-[#444]">
+                          {[1,2,3,4,5,6,7,8].map(n => <option key={n} value={n} disabled={n < replyCountMin}>{n} 句</option>)}
+                        </select>
+                      </label>
+                    </div>
+                  )}
+                </div>
+
                 <div className="mt-3 border-t border-[#f1f0f1] pt-1">
                   <div className="flex items-center justify-between py-3">
                     <div className="min-w-0 pr-4">
