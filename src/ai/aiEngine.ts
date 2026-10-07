@@ -213,7 +213,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
 
   return [
     '你正在一个私人虚拟手机的即时通讯 App 中扮演角色。',
-    '只输出角色这一次要发送给用户的消息正文，不要解释规则，不要提及模型、提示词、世界书或系统。',
+    '你现在只需要完成一个任务：作为角色，直接回应用户本轮最新消息。不要解释规则，不要提及模型、提示词、世界书或系统。',
     '不要替用户说话、替用户行动、替用户决定感受或想法。用户拥有自己的行为与台词。',
     '保持角色连续性：角色卡、用户人设、长期记忆、关系、实时世界状态、命中的世界书与最近对话共同构成当前上下文。',
     '如果历史聊天中存在与用户当前话题高度相关的旧消息，应把它视为真实发生过的过去，而不是重新发明；保持前后记忆一致。',
@@ -280,7 +280,16 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     input.authorNote ? '【作者注释】\n' + input.authorNote : '【作者注释】无。',
     cotPreset ? '【内部生成预设】\n' + cotPreset.template + '\n只用于内部生成规划；绝对不要把思维过程、<think> 或 <thought> 标签输出给用户。' : '【内部生成预设】无。',
     '',
-    '【当前消息 · 最高优先级】',
+    '【当前任务 · 绝对最高优先级】',
+    '你只能回答当前用户消息，不要替当前用户补写下一句，也不要自行延续旧话题。',
+    '下面这条才是本轮必须处理的用户消息：',
+    '<<<CURRENT_USER_MESSAGE>>>',
+    input.userMessage,
+    '<<<END_CURRENT_USER_MESSAGE>>>',
+    '如果旧聊天、记忆、世界书、关系设定与当前消息冲突，当前消息决定本轮要回答什么；其他资料只用于角色身份、事实连续性和语气。',
+    '不要因为旧消息里出现过的问题、请求或关键词，就再次回答那个旧问题。',
+    '',
+        '【当前消息 · 最高优先级】',
     '你现在真正要处理的是本轮用户刚刚发送的这一条消息。',
     '当前用户消息：「' + input.userMessage + '」',
     '回答必须直接针对这条消息。不要因为角色卡、世界书、长期记忆或较早聊天里出现了别的话题，就自行把回复切换到旧话题。',
@@ -355,93 +364,42 @@ function mediaContextLabel(message: AiReplyInput['messages'][number]): string {
 }
 
 function buildConversationMessages(input: AiReplyInput) {
-  // contextLength is the user's actual context budget: first cap turns, then cap
-  // the approximate payload size so a huge message/media transcript cannot silently
-  // consume the entire provider window.
-  // Character chat should feel like a conversation, not a full-database retrieval.
-  // Keep the user-configured budget, but put a hard ceiling on one reply turn so
-  // old topics cannot drown out the message that triggered this response.
-  const turnBudget = Math.max(6, Math.min(24, Number(input.settings.contextLength) || 12));
-  const limit = turnBudget * 2;
-  const maxApproxChars = Math.max(8000, Math.min(160000, turnBudget * 5000));
+  // The model must see the current user message as the final conversational turn.
+  // Do not mix old "historical chat memory" or depth-injected lorebook messages into
+  // the provider's dialogue stream: they can look like fresh instructions and cause
+  // the character to answer an older topic instead of what the user just said.
+  const turnBudget = Math.max(6, Math.min(16, Number(input.settings.contextLength) || 10));
   const eligible = input.messages
-    .filter(message => message.type !== 'system-nudge' && !message.isRecalled && !message.isRecalledByOther);
-  const recentSource = eligible.slice(-limit);
+    .filter(message =>
+      message.type !== 'system-nudge' &&
+      !message.isRecalled &&
+      !message.isRecalledByOther
+    );
 
-  const recent = recentSource.map(message => ({
-    role: message.sender === 'other' ? 'assistant' : 'user',
+  // Exclude the current user turn here; it is appended exactly once as the final
+  // user message below, which makes its priority unambiguous to both Gemini and
+  // OpenAI-compatible models.
+  const historySource = eligible
+    .slice(0, -1)
+    .slice(-(turnBudget * 2));
+
+  const history = historySource.map(message => ({
+    role: message.sender === 'other' ? 'assistant' as const : 'user' as const,
     content: input.isGroup && message.senderName
       ? '[' + message.senderName + '] ' + (message.text || message.transcript || mediaContextLabel(message))
       : message.text || message.transcript || mediaContextLabel(message),
     imageData: message.imageData,
   }));
 
-  const recentIds = new Set(recentSource.map(message => String((message as any).id)));
-  const historical = findRelevantHistory(input, recentIds);
-  const historyContext = historical.map(message => ({
-    role: 'system' as const,
-    content: '[HISTORICAL CHAT MEMORY] ' + (message.text || message.transcript || '[媒体消息]'),
+  // The current message is deliberately isolated from the older dialogue.
+  // This is the single message the character is answering right now.
+  history.push({
+    role: 'user' as const,
+    content: '【当前用户消息】\\n' + input.userMessage,
     imageData: undefined,
-  }));
+  });
 
-  const last = recent[recent.length - 1];
-  if (!last || last.role !== 'user' || last.content !== input.userMessage) {
-    recent.push({ role: 'user', content: input.userMessage, imageData: undefined });
-  }
-
-  const scannedText = recent
-    .map(message => message.content)
-    .filter(Boolean)
-    .join('\n');
-  const historicalWithMarker = historyContext;
-  const depthEntries = selectWorldBookEntries(input.worldbooks || [], scannedText, buildWorldBookScanResolver(input, 12))
-    .filter(({ entry }) => entry.insertion === 'depth');
-
-  if (depthEntries.length) {
-    const byDepth = new Map<number, typeof depthEntries>();
-    for (const item of depthEntries) {
-      const depth = Math.max(0, Number(item.entry.depth || 0));
-      const group = byDepth.get(depth) || [];
-      group.push(item);
-      byDepth.set(depth, group);
-    }
-
-    const withDepth: typeof recent = [];
-    for (let index = 0; index < recent.length; index += 1) {
-      const depth = recent.length - index;
-      const entries = byDepth.get(depth) || [];
-      for (const { entry } of entries) {
-        withDepth.push({
-          role: entry.role || 'system',
-          content: '[WORLD BOOK · depth=' + depth + ']\n' + entry.content,
-          imageData: undefined,
-        });
-      }
-      withDepth.push(recent[index]);
-    }
-
-    for (const { entry } of byDepth.get(0) || []) {
-      withDepth.push({
-        role: entry.role || 'system',
-        content: '[WORLD BOOK · depth=0]\n' + entry.content,
-        imageData: undefined,
-      });
-    }
-
-    return [...historicalWithMarker, ...withDepth];
-  }
-
-  const combined = [...historicalWithMarker, ...recent];
-  let chars = 0;
-  const budgeted: typeof combined = [];
-  for (let index = combined.length - 1; index >= 0; index -= 1) {
-    const item = combined[index];
-    const cost = String(item.content || '').length;
-    if (budgeted.length > 0 && chars + cost > maxApproxChars) break;
-    budgeted.unshift(item);
-    chars += cost;
-  }
-  return budgeted;
+  return history;
 }
 
 function requireApiKey(settings: AiSettings) {
