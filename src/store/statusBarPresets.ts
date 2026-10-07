@@ -110,8 +110,9 @@ export function extractStatusMatch(text: string, regexSource: string): { match: 
   const regex = parseRegex(regexSource);
   if (!regex) return null;
   regex.lastIndex = 0;
-  const match = regex.exec(String(text || ''));
-  if (!match) return null;
+  const input = String(text || '').trim();
+  const match = regex.exec(input);
+  if (!match || match[0] !== input) return null;
   return {
     match: match[0] || '',
     captures: match.slice(1).map(value => String(value ?? '')),
@@ -126,6 +127,7 @@ export function renderStatusBarHtml(
 ): string {
   if (!preset) return '';
   const extracted = extractStatusMatch(sourceText, preset.regex);
+  if (!extracted) return '';
   const values: Record<string,string> = { ...fallbackValues };
   extracted?.captures.forEach((value, index) => { values[String(index + 1)] = value; });
   Object.assign(values, extracted?.groups || {});
