@@ -4767,6 +4767,8 @@ export function LineConversationView({
                       不使用开场白作为前情提要
                     </button>
                   </div>
+                  </div>
+                </details>
               ) : null;
             })()}
 
