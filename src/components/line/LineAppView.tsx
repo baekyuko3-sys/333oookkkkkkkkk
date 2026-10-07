@@ -1296,8 +1296,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               <div className="text-[9px] text-[#aaa] mt-1 mb-4">这部分只描述“你是谁”，不会改变角色本身。</div>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  ['name','名字'], ['age','年龄'], ['profession','职业'],
-                  ['region','地区'], ['timezone','时区'], ['birthday','生日']
+                  ['name','名字'], ['profession','职业'], ['birthday','生日']
                 ].map(([key,label]) => (
                   <label key={key} className="text-[9px] text-[#999]">
                     {label}
@@ -1309,6 +1308,78 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                   </label>
                 ))}
               </div>
+
+              <div className="mt-3 p-3 rounded-[14px] bg-[#fafafa] border border-[#eeeeef]">
+                <div className="text-[10px] font-semibold text-[#555]">年龄</div>
+                <div className="text-[8.5px] text-[#aaa] mt-1">可以自己固定年龄，也可以让年龄跟随故事里的参考角色。</div>
+                <div className="flex gap-2 mt-2">
+                  <button type="button" onClick={() => setPersonaDraft((p:any)=>({...p, ageMode:'manual'}))} className={`flex-1 py-2 rounded-[10px] border text-[9px] ${personaDraft.ageMode !== 'follow-character' ? 'bg-white border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#f5f5f5] border-[#eee] text-[#888]'}`}>自己填写</button>
+                  <button type="button" onClick={() => setPersonaDraft((p:any)=>({...p, ageMode:'follow-character'}))} className={`flex-1 py-2 rounded-[10px] border text-[9px] ${personaDraft.ageMode === 'follow-character' ? 'bg-white border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#f5f5f5] border-[#eee] text-[#888]'}`}>跟随故事时间线</button>
+                </div>
+                {personaDraft.ageMode === 'follow-character' ? (
+                  <div className="mt-2 space-y-2">
+                    <select
+                      value={personaDraft.ageReferenceCharacterId || ''}
+                      onChange={e => setPersonaDraft((p:any)=>({...p, ageReferenceCharacterId:e.target.value}))}
+                      className="w-full h-9 px-3 bg-white border border-[#e7e7e8] rounded-[10px] text-[10px] text-[#555] outline-none"
+                    >
+                      <option value="">选择参考角色</option>
+                      {importedCharacters.filter(c => (personaDraft.boundCharacterIds || []).includes(c.id)).map(character => (
+                        <option key={character.id} value={character.id}>{character.name} · {getCharacterStoryAge(character) || '未设置故事年龄'}</option>
+                      ))}
+                    </select>
+                    <div className="text-[8px] text-[#aaa]">
+                      当前故事年龄：{getCharacterStoryAge(importedCharacters.find(c => c.id === personaDraft.ageReferenceCharacterId)) || '还无法从角色资料识别年龄'}
+                    </div>
+                  </div>
+                ) : (
+                  <input
+                    value={personaDraft.age || ''}
+                    onChange={e => setPersonaDraft((p:any) => ({ ...p, age: e.target.value }))}
+                    placeholder="例如 28"
+                    className="mt-2 w-full h-9 px-3 bg-white border border-[#e7e7e8] rounded-[10px] text-xs text-[#333] outline-none"
+                  />
+                )}
+              </div>
+
+              <label className="block mt-3 text-[9px] text-[#999]">
+                现实地区
+                <div className="flex gap-2 mt-1">
+                  <input
+                    value={personaDraft.region || ''}
+                    onChange={e => setPersonaDraft((p:any) => ({ ...p, region: e.target.value }))}
+                    placeholder="例如 London / Tokyo / 上海"
+                    className="min-w-0 flex-1 h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-xs text-[#333] outline-none"
+                  />
+                  <button
+                    type="button"
+                    disabled={personaWeatherBusy || !String(personaDraft.region || '').trim()}
+                    onClick={async () => {
+                      setPersonaWeatherBusy(true);
+                      const weather = await fetchLineWeather(String(personaDraft.region || ''));
+                      setPersonaWeather(weather);
+                      if (weather) setPersonaDraft((p:any)=>({...p, regionResolved: weather.location, weather: formatLineWeather(weather)}));
+                      setPersonaWeatherBusy(false);
+                    }}
+                    className="px-3 h-9 rounded-[10px] bg-[#292724] text-white text-[9px] disabled:opacity-40"
+                  >{personaWeatherBusy ? '查询中…' : '查天气'}</button>
+                </div>
+                {personaWeather && <div className="mt-2 p-2.5 rounded-[10px] bg-[#f7eef0] text-[9px] text-[#8c5f6b]">📍 {formatLineWeather(personaWeather)}</div>}
+                {personaDraft.regionResolved && !personaWeather && <div className="mt-1 text-[8px] text-[#aaa]">已解析地区：{personaDraft.regionResolved}</div>}
+              </label>
+
+              <label className="block mt-3 text-[9px] text-[#999]">
+                时区
+                <select value={personaDraft.timezone || ''} onChange={e => setPersonaDraft((p:any)=>({...p, timezone:e.target.value}))} className="mt-1 w-full h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-[10px] text-[#555] outline-none">
+                  <option value="">自动 / 跟随地区</option>
+                  {[
+                    ['Asia/Shanghai','中国 / 上海（UTC+8）'],['Asia/Tokyo','日本 / 东京（UTC+9）'],['Asia/Seoul','韩国 / 首尔（UTC+9）'],
+                    ['Europe/London','英国 / 伦敦'],['Europe/Paris','欧洲中部 / 巴黎'],['America/Los_Angeles','美国 / 洛杉矶'],
+                    ['America/New_York','美国 / 纽约'],['America/Toronto','加拿大 / 多伦多'],['Australia/Sydney','澳大利亚 / 悉尼'],
+                    ['Pacific/Auckland','新西兰 / 奥克兰'],['Asia/Singapore','新加坡'],['Asia/Hong_Kong','中国香港'],['UTC','UTC']
+                  ].map(([id,title])=><option key={id} value={id}>{title}</option>)}
+                </select>
+              </label>
               <label className="block mt-3 text-[9px] text-[#999]">
                 设定
                 <textarea
