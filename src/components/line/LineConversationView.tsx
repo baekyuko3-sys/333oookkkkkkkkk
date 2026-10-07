@@ -4816,7 +4816,7 @@ export function LineConversationView({
               >
                 <div>
                   <div className="font-semibold text-xs text-[#ae7e89]">
-                    当前预设：{activeCotPreset.title}
+                    当前预设：{(activeCotPreset?.title || '默认预设')}
                   </div>
                   <div className="text-[10px] text-[#888] mt-0.5 leading-snug">
                     {enableChainOfThought ? '回复上方显示轻量生成摘要（默认折叠）' : '聊天中隐藏生成摘要'}
