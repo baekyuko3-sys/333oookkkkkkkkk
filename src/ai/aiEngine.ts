@@ -31,7 +31,10 @@ export interface AiReplyInput {
     birthday?: string;
     profession?: string;
     age?: string;
+    ageMode?: 'manual' | 'follow-character';
+    weather?: string;
   } | null;
+  characterWeather?: string;
   worldbooks?: WorldBook[];
   memory?: CharacterMemory | null;
   project?: ProjectManifest | null;
@@ -229,8 +232,11 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
       '地区：' + (input.persona.region || ''),
       '时区：' + (input.persona.timezone || ''),
       '生日：' + (input.persona.birthday || ''),
+      '年龄模式：' + (input.persona.ageMode || 'manual'),
+      input.persona.weather ? '用户所在地区当前天气：' + input.persona.weather : '',
       '这些资料属于用户本人。相关时自然参考，不要每轮机械提及。'
     ].join('\n') : '',
+    input.characterWeather ? '【角色所在地天气】' + input.characterWeather + '。角色可以知道自己所在地的当前天气，但不要每轮主动播报。' : '',
     '',
     '【关系状态】\n' + context.relationship,
     '',
