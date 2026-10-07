@@ -129,7 +129,7 @@ export function LineConversationView({
 
   // LINE keeps the complete conversation in storage, but only renders the newest
   // page at first. Older messages load naturally as you scroll upward.
-  const LINE_PAGE_SIZE = 100;
+  const LINE_PAGE_SIZE = 100; // 100 messages stay freely scrollable; older messages are folded by page.
   const [loadedMessageCount, setLoadedMessageCount] = useState(LINE_PAGE_SIZE);
   const messagesViewportRef = useRef<HTMLDivElement>(null);
   const visibleMessages = messages.slice(-loadedMessageCount);
@@ -848,9 +848,22 @@ export function LineConversationView({
     return () => { cancelled = true; };
   }, [messages]);
 
+  // Only follow the conversation when the user is already near the bottom.
+  // Never yank the user back down while they are reading older messages.
+  const previousMessageCountRef = useRef(messages.length);
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    const viewport = messagesViewportRef.current;
+    const previousCount = previousMessageCountRef.current;
+    const grew = messages.length > previousCount;
+    previousMessageCountRef.current = messages.length;
+    if (!viewport || !grew) return;
+    const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+    if (distanceFromBottom < 180) {
+      requestAnimationFrame(() => {
+        viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+      });
+    }
+  }, [messages.length]);
 
   useEffect(() => {
     const onProactive = (event: Event) => {
@@ -1156,11 +1169,50 @@ export function LineConversationView({
 
       const totalConversationMessages = messages.length + 2;
 
+      // Every 100 messages, create a compact long-term summary of the current chat
+      // before the next 100-message window becomes the active visible window.
+      if (
+        importedCharacter &&
+        totalConversationMessages > 0 &&
+        totalConversationMessages % LINE_PAGE_SIZE === 0
+      ) {
+        const summaryKey = `line:summary-boundary:${conversationStorageId}:${totalConversationMessages}`;
+        if (!window.localStorage.getItem(summaryKey)) {
+          window.localStorage.setItem(summaryKey, 'pending');
+          void summarizeConversationMemory(
+            conversationAiSettings(),
+            contactName,
+            characterMemory,
+            [...messages, newMsg, { sender: 'other', text: result.text }]
+          ).then(memoryResult => {
+            if (memoryResult.summary.trim()) {
+              updateCharacterMemory(importedCharacter.id, importedCharacter.name, {
+                summary: memoryResult.summary,
+              });
+            }
+            for (const item of memoryResult.items) {
+              addCharacterMemoryItem(importedCharacter.id, importedCharacter.name, item.content, {
+                source: 'ai-summary',
+                importance: item.importance,
+                kind: item.kind,
+              });
+            }
+            window.dispatchEvent(new CustomEvent('sane333:memory-updated', {
+              detail: { characterId: importedCharacter.id, boundary: totalConversationMessages },
+            }));
+            window.localStorage.setItem(summaryKey, 'done');
+          }).catch(() => {
+            window.localStorage.removeItem(summaryKey);
+          });
+        }
+      }
+
       if (
         latestSettings.autoMemoryEnabled &&
         importedCharacter &&
         latestSettings.autoMemoryEveryMessages > 0 &&
-        totalConversationMessages % latestSettings.autoMemoryEveryMessages === 0
+        totalConversationMessages % latestSettings.autoMemoryEveryMessages === 0 &&
+        totalConversationMessages % LINE_PAGE_SIZE !== 0
       ) {
         void summarizeConversationMemory(
           conversationAiSettings(),
@@ -2423,7 +2475,8 @@ export function LineConversationView({
             loadOlderMessages();
           }
         }}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y px-3.5 py-4 space-y-4 no-scrollbar relative"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y px-3.5 py-4 space-y-4 relative"
+        style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
       >
         {showUnreadJump && unreadAnchorId !== null && (
           <button
@@ -2446,7 +2499,7 @@ export function LineConversationView({
             onClick={loadOlderMessages}
             className="mx-auto block text-[9.5px] text-[#aaa] hover:text-[#ae7e89] py-1.5 px-3 rounded-full hover:bg-[#faf1f3] transition-colors"
           >
-            已折叠更早的消息 · 点击展开 {messages.length - loadedMessageCount} 条
+            更早的聊天已折叠 · 点击查看上一组 100 条
           </button>
         )}
         <div className="text-center text-[10px] text-[#b3b3b7] my-1">
