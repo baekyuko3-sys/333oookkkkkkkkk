@@ -54,6 +54,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
   const [activeNowText, setActiveNowText] = useState('');
   const [activeNowOpen, setActiveNowOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [entryDetailOpen, setEntryDetailOpen] = useState(false);
   const [globalWorldBookEnabled, setGlobalWorldBookEnabled] = usePersistentState<boolean>('phone:worldbook:global-enabled', true);
 
   const book = books.find(item => item.id === selectedBookId) || books[0] || null;
@@ -137,6 +138,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
     const entry = createEntry();
     patchBook({ entries: [...book.entries, entry] });
     setSelectedEntryId(entry.id);
+    setEntryDetailOpen(true);
     showNotice('已新增条目');
   };
 
@@ -202,7 +204,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
         </button>
       </header>
 
-      <div className="relative z-10 flex-1 min-h-0 overflow-hidden grid grid-rows-[auto_auto_minmax(0,1fr)]">
+      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto no-scrollbar">
         <div className="px-4 pt-3 pb-2">
           <div className="flex items-center justify-between mb-2">
             <div>
@@ -229,7 +231,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
             {books.map(item => (
               <div key={item.id} className={`shrink-0 w-[145px] rounded-2xl border p-3 transition-all ${item.id === book?.id ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/60 text-[#4f4943] border-[rgba(40,36,31,.12)]'}`}>
                 <button
-                  onClick={() => { setSelectedBookId(item.id); setSelectedEntryId(item.entries[0]?.id || ''); setManageBooks(false); }}
+                  onClick={() => { setSelectedBookId(item.id); setSelectedEntryId(item.entries[0]?.id || ''); setManageBooks(false); setEntryDetailOpen(false); }}
                   className="w-full text-left"
                 >
                   <div className="text-[11px] font-serif font-bold truncate">{item.name || '未命名世界书'}</div>
@@ -376,7 +378,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
               {filteredEntries.map(entry => (
                 <button
                   key={entry.id}
-                  onClick={() => setSelectedEntryId(entry.id)}
+                  onClick={() => { setSelectedEntryId(entry.id); setEntryDetailOpen(true); }}
                   className={`w-full text-left p-2.5 rounded-xl border transition-all ${
                     selectedEntry?.id === entry.id
                       ? 'bg-[#292724] text-white border-[#292724]'
@@ -420,7 +422,15 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
 
             <div className="min-h-0">
               {selectedEntry ? (
-                <div className="rounded-2xl bg-[#ebe7df] border border-[rgba(40,36,31,.12)] p-3 space-y-3">
+                <div className="absolute inset-0 z-40 overflow-y-auto no-scrollbar bg-[var(--paper)] px-4 pb-6">
+                  <div className="sticky top-0 z-10 -mx-4 px-4 pt-4 pb-3 bg-[rgba(247,244,238,.96)] backdrop-blur-xl border-b border-[rgba(40,36,31,.1)] flex items-center justify-between">
+                    <div>
+                      <div className="text-[8px] font-mono tracking-[1.2px] text-[#8b8782]">WORLD BOOK ENTRY</div>
+                      <div className="mt-0.5 text-sm font-serif font-bold text-[#242323]">条目详情</div>
+                    </div>
+                    <button onClick={() => setEntryDetailOpen(false)} className="px-3 py-1.5 rounded-full bg-white border border-[rgba(40,36,31,.12)] text-[9px] text-[#555]">返回条目</button>
+                  </div>
+                  <div className="mt-3 rounded-2xl bg-[#ebe7df] border border-[rgba(40,36,31,.12)] p-3 space-y-3">
                   <div className="flex items-center justify-between gap-2 pb-1">
                     <div className="min-w-0">
                       <div className="text-[8px] font-mono tracking-[1.2px] text-[#8b8782]">WORLD BOOK ENTRY</div>
@@ -610,6 +620,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
                     <button onClick={removeEntry} className="inline-flex items-center gap-1.5 text-[10px] text-[#9b625b]">
                       <Trash2 className="w-3.5 h-3.5" />删除条目
                     </button>
+                  </div>
                   </div>
                 </div>
               ) : (
