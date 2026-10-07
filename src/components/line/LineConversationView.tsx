@@ -1452,7 +1452,7 @@ export function LineConversationView({
           matchedWorldbookEntries: result.matchedWorldbookEntries,
           thinkingSummary: replyMetadata.thinkingSummary,
           actionDescription: replyMetadata.actionDescription,
-          showThinking: Boolean(enableChainOfThought && replyMetadata.thinkingSummary),
+          showThinking: false,
           hasThinking: Boolean(replyMetadata.thinkingSummary),
           hasAction: Boolean(replyMetadata.actionDescription),
           metadata: {
