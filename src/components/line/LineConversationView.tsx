@@ -17,7 +17,7 @@ import { getGroupPreset, getGroupPresets } from '../../store/groupPresets';
 import { getLineGroups, updateLineGroupMember, addLineGroupMemory, setLineGroupRelationships } from '../../store/lineGroups';
 import { createTogetherMusicSession, type TogetherMusicSession } from '../../store/togetherMusic';
 import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
-import { getStatusBarPresets, renderStatusBarHtml, type StatusBarPreset } from '../../store/statusBarPresets';
+import { appendStatusBarSnapshot, deleteStatusBarSnapshot, getStatusBarHistory, getStatusBarPresets, getStatusBarRandomMode, renderStatusBarHtml, saveStatusBarRandomMode, type StatusBarPreset, type StatusBarSnapshot } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset, type CotPresetTarget } from '../../store/cotPresets';
 import { PresetResourceManager } from './PresetResourceManager';
 import { appendLineMessage, editLineMessage, toggleLineReaction, setLineMessageFavorite, recordLineCall, markLineMessageFailed, clearLineConversation, recallLineMessage, updateLineMessage } from '../../store/lineRuntime';
@@ -818,6 +818,9 @@ export function LineConversationView({
   const [statusTab, setStatusTab] = useState<'preview' | 'regex' | 'format'>('preview');
   const [statusBarPresets, setStatusBarPresets] = usePersistentState<StatusBarPreset[]>('line:status-bar-presets', getStatusBarPresets());
   const [activeStatusBarPresetId, setActiveStatusBarPresetId] = usePersistentState(`line:status-bar-active:${conversationStorageId}`, statusBarPresets[0]?.id || 'status-minimal');
+  const [statusBarHistory, setStatusBarHistory] = useState<StatusBarSnapshot[]>(() => getStatusBarHistory(conversationStorageId));
+  const [statusBarHistoryIndex, setStatusBarHistoryIndex] = useState(Math.max(0, getStatusBarHistory(conversationStorageId).length - 1));
+  const [statusBarRandomMode, setStatusBarRandomMode] = useState(() => getStatusBarRandomMode(conversationStorageId));
 
   // 角色个人主页 (Threads / Twitter / LINE 混合风格)
   const [showCharacterProfile, setShowCharacterProfile] = useState(false);
@@ -876,6 +879,50 @@ export function LineConversationView({
   const recordingDiscardRef = useRef(false);
   const avatarClickTimerRef = useRef<number | null>(null);
   const memoryMergeBusyRef = useRef(false);
+
+  useEffect(() => {
+    const refresh = () => {
+      const next = getStatusBarHistory(conversationStorageId);
+      setStatusBarHistory(next);
+      setStatusBarHistoryIndex(Math.max(0, next.length - 1));
+      setStatusBarRandomMode(getStatusBarRandomMode(conversationStorageId));
+    };
+    window.addEventListener('sane333:status-bar-history-changed', refresh);
+    window.addEventListener('sane333:status-bar-random-changed', refresh);
+    return () => {
+      window.removeEventListener('sane333:status-bar-history-changed', refresh);
+      window.removeEventListener('sane333:status-bar-random-changed', refresh);
+    };
+  }, [conversationStorageId]);
+
+  const createStatusBarSnapshot = (replyText: string, sourceMessageId: string | number) => {
+    const presets = statusBarPresets.filter(preset => preset.targets.includes('line'));
+    if (!presets.length) return;
+    const chosen = statusBarRandomMode
+      ? presets[Math.floor(Math.random() * presets.length)]
+      : presets.find(preset => preset.id === activeStatusBarPresetId) || presets[0];
+    const html = renderStatusBarHtml(chosen, replyText, {
+      location: statusData.location,
+      time: statusData.time,
+      activity: statusData.activity,
+      mood: statusData.mood,
+      favor: statusData.favor,
+    });
+    const snapshot: StatusBarSnapshot = {
+      id: `status-snapshot-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      presetId: chosen.id,
+      presetName: chosen.name,
+      html,
+      sourceMessageId,
+      sourceText: replyText,
+      createdAt: new Date().toISOString(),
+    };
+    appendStatusBarSnapshot(conversationStorageId, snapshot);
+    const next = [...getStatusBarHistory(conversationStorageId)];
+    setStatusBarHistory(next);
+    setStatusBarHistoryIndex(Math.max(0, next.length - 1));
+    setActiveStatusBarPresetId(chosen.id);
+  };
 
   const handleMessageAvatarClick = () => {
     if (avatarClickTimerRef.current) window.clearTimeout(avatarClickTimerRef.current);
@@ -1337,6 +1384,9 @@ export function LineConversationView({
       });
 
       window.dispatchEvent(new CustomEvent('sane333:play-sound', { detail: { kind: 'message' } }));
+
+      // Every completed character reply creates one new status snapshot.
+      createStatusBarSnapshot(finalReplyText, replyMsgId);
 
       if (importedCharacter) {
         setCharacterRuntime(importedCharacter.id, {
@@ -2403,10 +2453,11 @@ export function LineConversationView({
   const activeStatusBarPreset = statusBarPresets.find(item => item.id === activeStatusBarPresetId)
     || statusBarPresets[0]
     || null;
+  const currentStatusSnapshot = statusBarHistory[statusBarHistoryIndex] || statusBarHistory.at(-1) || null;
   const latestCharacterMessageText = [...messages]
     .reverse()
     .find(message => message.sender === 'other' && !message.isRecalled)?.text || '';
-  const renderStatusHtml = () => renderStatusBarHtml(
+  const renderStatusHtml = () => currentStatusSnapshot?.html || renderStatusBarHtml(
     activeStatusBarPreset,
     latestCharacterMessageText,
     {
