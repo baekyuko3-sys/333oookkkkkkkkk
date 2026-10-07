@@ -171,7 +171,11 @@ export function LineConversationView({
   useEffect(() => {
     const stored = getLineConversationMessages(conversationStorageId);
     if (stored.length && messages.length === 0) {
-      setMessages(stored);
+      setMessages(stored.map(message => ({
+        ...message,
+        thinking: message.thinking || message.metadata?.thinking,
+        actionDescription: message.actionDescription || message.metadata?.actionDescription,
+      })));
     }
     markLineConversationRead(conversationStorageId, messages.at(-1)?.id);
   }, [conversationStorageId]);
@@ -198,6 +202,8 @@ export function LineConversationView({
         mediaRef: message.mediaRef,
         transcript: message.transcript,
         fileName: message.fileName,
+        thinking: message.thinking,
+        actionDescription: message.actionDescription,
       },
     }));
     // Mirror the whole visible conversation so older messages remain searchable,
