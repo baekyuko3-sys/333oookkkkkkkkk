@@ -7,47 +7,7 @@ export interface CotPreset {
   displayStyle?: 'minimal' | 'soft' | 'mono' | 'outline';
   tag: string;
   description: string;
-  template: `<thinking>
-
-STEP 1: CONTEXT
-- 当前消息
-- 角色上一条回复
-- 最近前文 / 当前话题
-- 未完成的事情
-
-STEP 2: CHARACTER
-- 读取角色设定
-- 读取线上人设
-- 读取角色表达习惯
-- 只使用角色已知的信息
-
-STEP 3: MEANING
-- 我这句话表面是什么意思？
-- 结合前文，我真正可能在表达什么？
-- 不过度脑补。
-
-STEP 4: REACTION
-- 站在角色立场，他会怎么理解？
-- 他现在的情绪 / 状态是什么？
-- 他第一反应想做什么？
-
-STEP 5: RESPONSE
-- 角色决定：回答 / 反问 / 调侃 / 安慰 / 延伸 / 简短回应 / 不展开
-- 决定回复长度和表达方式。
-- 不强制主动，不强制制造情绪。
-
-STEP 6: CHECK
-- 是否符合角色设定、关系、前文和表达习惯？
-- 是否 OOC？
-- 是否使用角色不知道的信息？
-- 是否替用户决定行为、思想或反应？
-- 是否违反禁止事项？
-
-STEP 7: FINAL
-- 只输出角色真正会发送的 LINE 消息。
-- 不解释分析过程，不复述用户消息，不使用 AI 式总结。
-
-</thinking>`,
+  template: string;
 exampleThinking: string;
   targets: CotPresetTarget[];
   createdAt: string;
