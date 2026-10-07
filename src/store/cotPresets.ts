@@ -19,7 +19,7 @@ const KEY = 'line:cot-presets';
 export const DEFAULT_COT_PRESETS: CotPreset[] = [
   {
     id: 'cot-1',
-    title: 'COT',
+    title: 'SANE333 角色决策链',
     displayTitle: 'COT',
     displayStyle: 'minimal',
     tag: '<cot>...</cot>',
@@ -76,10 +76,27 @@ export function getCotPresets(): CotPreset[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return DEFAULT_COT_PRESETS;
     const defaultsById = new Map(DEFAULT_COT_PRESETS.map(item => [item.id, item]));
-    return parsed.map((item: CotPreset) => {
-      if (item?.id !== 'cot-1') return item;
-      return { ...defaultsById.get('cot-1'), ...item, title: DEFAULT_COT_PRESETS[0].title, displayTitle: item.displayTitle || DEFAULT_COT_PRESETS[0].displayTitle, displayStyle: item.displayStyle || DEFAULT_COT_PRESETS[0].displayStyle, description: DEFAULT_COT_PRESETS[0].description, template: DEFAULT_COT_PRESETS[0].template, exampleThinking: DEFAULT_COT_PRESETS[0].exampleThinking };
+    const migrated = parsed.map((item: CotPreset) => {
+      const isLegacyDefault = item?.id === 'cot-1' || ['深度心理侧写与情感博弈预设', '深度心理侧写与情感博弈', 'SANE333 角色决策链'].includes(item?.title);
+      if (!isLegacyDefault) return item;
+      return {
+        ...defaultsById.get('cot-1'),
+        ...item,
+        id: 'cot-1',
+        title: DEFAULT_COT_PRESETS[0].title,
+        displayTitle: item.displayTitle || DEFAULT_COT_PRESETS[0].displayTitle,
+        displayStyle: item.displayStyle || DEFAULT_COT_PRESETS[0].displayStyle,
+        description: DEFAULT_COT_PRESETS[0].description,
+        tag: '<thinking>...</thinking>',
+        template: DEFAULT_COT_PRESETS[0].template,
+        exampleThinking: DEFAULT_COT_PRESETS[0].exampleThinking,
+        targets: ['line', 'offline', 'group'],
+      } as CotPreset;
     });
+    if (!migrated.some(item => item.id === 'cot-1')) migrated.unshift(DEFAULT_COT_PRESETS[0]);
+    const normalized = migrated;
+    localStorage.setItem(KEY, JSON.stringify(normalized));
+    return normalized;
   } catch {
     return DEFAULT_COT_PRESETS;
   }
