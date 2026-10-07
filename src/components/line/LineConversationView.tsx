@@ -62,7 +62,7 @@ function formatLineMessageClock(message: any, timezone: string): string {
   const date = raw ? new Date(raw) : new Date();
   if (Number.isNaN(date.getTime())) return String(message?.time || '刚刚');
   try {
-    return new Intl.DateTimeFormat('zh-CN', { timeZone: timezone, hour: 'numeric', minute: '2-digit', hour12: false }).format(date);
+    return new Intl.DateTimeFormat('zh-CN', { timeZone: timezone, hour: 'numeric', minute: '2-digit', hour12: true }).format(date);
   } catch {
     return new Intl.DateTimeFormat('zh-CN', { hour: 'numeric', minute: '2-digit', hour12: false }).format(date);
   }
