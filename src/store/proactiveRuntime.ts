@@ -17,6 +17,7 @@ interface ScheduleItem {
   kind?: 'message' | 'moment' | 'offline-invite';
   location?: string;
   theme?: string;
+  conversationId?: string;
 }
 
 interface ProactiveState {
@@ -268,8 +269,18 @@ export async function runProactiveCatchup() {
       if (lastSent && now.getTime() - lastSent < cooldownMs) continue;
 
       const kind = candidate.item.kind || 'message';
+      const permissionId = candidate.item.conversationId || character.id || character.name;
+      const behaviorAllowed = (type: 'message' | 'moment' | 'offline') => {
+        const key = type === 'message' ? 'line:allow-role-message:' : type === 'moment' ? 'line:allow-role-moments:' : 'line:allow-offline-invite:';
+        return readLocal<boolean>(key + permissionId, true);
+      };
+      let notificationBody = '';
       if (kind === 'moment') {
-    if (!isMomentsCharacterAllowed(character.id)) return null;
+        if (!behaviorAllowed('moment')) {
+          state.delivered[character.id] = deliveryKey;
+          dirty = true;
+          continue;
+        }
         const text = await generateLifeText(character, candidate.item, 'moment');
         if (!text.trim()) continue;
         const rawPosts = window.localStorage.getItem('line:moments-posts');
@@ -294,7 +305,13 @@ export async function runProactiveCatchup() {
         if (settings.notificationEnabled && 'Notification' in window && Notification.permission === 'granted') {
           new Notification(character.name + ' · VROOM', { body: text.trim().slice(0, 180), tag: 'sane333-moment-' + character.id });
         }
+        notificationBody = text.trim();
       } else if (kind === 'offline-invite') {
+        if (!behaviorAllowed('offline')) {
+          state.delivered[character.id] = deliveryKey;
+          dirty = true;
+          continue;
+        }
         const letter = await generateLifeText(character, candidate.item, 'invite');
         const event: OfflineEvent = {
           id: 'offline-proactive-' + Date.now().toString(36),
@@ -321,10 +338,17 @@ export async function runProactiveCatchup() {
           metadata: { offlineEventId: event.id, location: event.location, time: event.time },
         });
         emitWorldEvent('offline.invite', { characterId: character.id, characterName: character.name, eventId: event.id, data: event });
+        notificationBody = '💌 ' + event.title;
       } else {
+        if (!behaviorAllowed('message')) {
+          state.delivered[character.id] = deliveryKey;
+          dirty = true;
+          continue;
+        }
         const message = await generateProactiveMessage(character, candidate.item);
         if (!message.trim()) continue;
         appendProactiveMessage(character, message.trim());
+        notificationBody = message.trim();
       }
       state.delivered[character.id] = deliveryKey;
       state.lastSentAt![character.id] = now.toISOString();
@@ -332,7 +356,7 @@ export async function runProactiveCatchup() {
 
       if (settings.notificationEnabled && 'Notification' in window && Notification.permission === 'granted') {
         new Notification(character.name, {
-          body: message.trim().slice(0, 180),
+          body: notificationBody.slice(0, 180),
           tag: 'sane333-proactive-' + character.id,
         });
       }
@@ -343,18 +367,4 @@ export async function runProactiveCatchup() {
     running = false;
     if (dirty) saveLocal('phone:proactive-state', state);
   }
-}function isMomentsCharacterAllowed(characterId: string): boolean {
-  if (typeof window === 'undefined') return true;
-  try {
-    const raw = window.localStorage.getItem('line:moments-settings');
-    if (!raw) return true;
-    const settings = JSON.parse(raw) as { enabledCharacterIds?: string[]; allowCharacterAutoPost?: boolean };
-    if (settings.allowCharacterAutoPost === false) return false;
-    const ids = Array.isArray(settings.enabledCharacterIds) ? settings.enabledCharacterIds : [];
-    return ids.length === 0 || ids.includes(characterId);
-  } catch {
-    return true;
-  }
 }
-
-
