@@ -1389,6 +1389,13 @@ export function LineConversationView({
           selectedOpeningContext.trim() ? '【角色卡开场白 / 前情提要】\n' + selectedOpeningContext.trim() : '',
         ].filter(Boolean).join('\n'),
         stylePreset: activeCotPreset?.title || selectedPreset,
+        cotTarget: activeCotPreset ? 'line' : undefined,
+        cotPreset: activeCotPreset ? {
+          id: activeCotPreset.id,
+          title: activeCotPreset.title,
+          template: customCotTemplate || activeCotPreset.template,
+          tag: activeCotPreset.tag,
+        } : undefined,
         typingHabit: [
           typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
           '标点：' + typingPunctuation,
