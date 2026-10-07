@@ -34,6 +34,7 @@ interface LineChatItem {
   openingMode?: 'none' | 'context';
   openingGreeting?: string;
   groupId?: string;
+  personaId?: string;
   time: string;
   preview: string;
   unread: number;
@@ -342,6 +343,19 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [masks, setMasks] = usePersistentState<Array<{ name: string; id: string; desc: string }>>('line:masks', []);
   // Chat Data with Pin, Mute, Draft, and Group capabilities
   const [chatItemsRaw, setChatItems] = usePersistentState<LineChatItem[]>('line:chat-items', []);
+
+  useEffect(() => {
+    if (!activePersonaId) return;
+    setChatItems(prev => {
+      let changed = false;
+      const next = prev.map(chat => {
+        if (chat.personaId) return chat;
+        changed = true;
+        return { ...chat, personaId: activePersonaId };
+      });
+      return changed ? next : prev;
+    });
+  }, [activePersonaId]);
   const chatItems = Array.isArray(chatItemsRaw)
     ? chatItemsRaw.filter((c): c is LineChatItem => !!c && typeof c === 'object' && typeof c.id === 'string')
       .map(c => ({
@@ -452,7 +466,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
 
   // Filtered & Sorted Chats (Pinned items always float to the top)
   const chatQuery = chatSearch.trim().toLowerCase();
-  const filteredChats = chatItems.filter((c) =>
+  const personaChats = activePersonaId
+    ? chatItems.filter((c) => c.personaId === activePersonaId)
+    : chatItems;
+  const filteredChats = personaChats.filter((c) =>
     !chatQuery ||
     c.name.toLowerCase().includes(chatQuery) ||
     c.preview.toLowerCase().includes(chatQuery) ||
@@ -1017,7 +1034,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                   <div className="w-9 h-9 rounded-full overflow-hidden bg-[#f1f1f2] flex items-center justify-center shrink-0">
                     {persona.avatar ? <img src={persona.avatar} className="w-full h-full object-cover" /> : <span className="text-xs">{persona.name?.[0] || '◎'}</span>}
                   </div>
-                  <button onClick={() => setActivePersonaId(persona.id)} className="min-w-0 flex-1 text-left">
+                  <button onClick={() => { setActivePersonaId(persona.id); setActiveChatId(null); }} className="min-w-0 flex-1 text-left">
                     <div className="text-[11px] font-semibold text-[#333] truncate">{persona.name || '未命名人设'} {persona.id === activePersonaId && <span className="text-[#ae7e89]">· 当前</span>}</div>
                     <div className="text-[9px] text-[#aaa] truncate">{[persona.age, persona.profession].filter(Boolean).join(' · ') || '未填写基本信息'}</div>
                   </button>
@@ -1126,7 +1143,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           <div className="w-full bg-white rounded-t-[22px] p-5 pb-7 space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between"><div className="font-semibold text-sm">选择聊天人设</div><button onClick={() => setPersonaSwitchOpen(false)} className="text-[#aaa]">×</button></div>
             {userPersonas.map(persona => (
-              <button key={persona.id} onClick={() => { setActivePersonaId(persona.id); setPersonaSwitchOpen(false); }} className="w-full flex items-center gap-3 p-3 rounded-[14px] border border-[#eeeeef] text-left">
+              <button key={persona.id} onClick={() => { setActivePersonaId(persona.id); setActiveChatId(null); setPersonaSwitchOpen(false); }} className="w-full flex items-center gap-3 p-3 rounded-[14px] border border-[#eeeeef] text-left">
                 <div className="w-10 h-10 rounded-full overflow-hidden bg-[#f1f1f2] flex items-center justify-center">{persona.avatar ? <img src={persona.avatar} className="w-full h-full object-cover" /> : <span>{persona.name?.[0] || '◎'}</span>}</div>
                 <div className="min-w-0 flex-1"><div className="text-xs font-semibold">{persona.name || '未命名人设'}</div><div className="text-[9px] text-[#aaa] truncate">{persona.setting || '暂无设定'}</div></div>
                 {persona.id === activePersonaId && <span className="text-[#ae7e89] text-xs">✓</span>}
