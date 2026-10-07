@@ -11,6 +11,7 @@ export interface AppearanceScheme {
   globalBackground: string;
   customFont: string;
   customFontName: string;
+  customFontUrl: string;
   appIcons: Record<string, string>;
   desktopLayouts: Record<'page1' | 'page2', Record<string, { x: number; y: number }>>;
   desktopHidden: Record<'page1' | 'page2', string[]>;
@@ -38,6 +39,7 @@ export const DEFAULT_APPEARANCE: AppearanceScheme = {
   globalBackground: '#f7f4ee',
   customFont: '',
   customFontName: '',
+  customFontUrl: '',
   appIcons: {},
   desktopLayouts: { page1: {}, page2: {} },
   desktopHidden: { page1: [], page2: [] },
@@ -80,6 +82,7 @@ function normalizeAppearance(value: Partial<AppearanceScheme>): AppearanceScheme
     globalBackground: String(value.globalBackground || '#f7f4ee'),
     customFont: String(value.customFont || ''),
     customFontName: String(value.customFontName || ''),
+    customFontUrl: String(value.customFontUrl || ''),
     appIcons: value.appIcons && typeof value.appIcons === 'object' ? Object.fromEntries(Object.entries(value.appIcons).map(([key, icon]) => [String(key), String(icon || '')])) : {},
     desktopLayouts: value.desktopLayouts && typeof value.desktopLayouts === 'object' ? { page1: value.desktopLayouts.page1 || {}, page2: value.desktopLayouts.page2 || {} } : { page1: {}, page2: {} },
     desktopHidden: value.desktopHidden && typeof value.desktopHidden === 'object' ? { page1: Array.isArray(value.desktopHidden.page1) ? value.desktopHidden.page1.map(String) : [], page2: Array.isArray(value.desktopHidden.page2) ? value.desktopHidden.page2.map(String) : [] } : { page1: [], page2: [] },
