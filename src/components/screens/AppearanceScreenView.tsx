@@ -205,7 +205,6 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
             </div>
             <div className="p-3 rounded-2xl bg-white/65 border border-black/5 space-y-3">
               <div>
-                <div className="p-3 rounded-2xl bg-white/65 border border-black/5 space-y-3">
               <div>
                 <div className="text-[9px] font-mono tracking-[1.5px] text-[#8b8782]">FONT LIBRARY</div>
                 <div className="mt-1 text-[11px] font-semibold">字体收藏与切换</div>
@@ -238,6 +237,8 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
                 <button onClick={()=>{update('customFont','');update('customFontUrl','');notify('已恢复系统字体')}} className="py-2.5 rounded-xl bg-[#f5f3ef] text-[#777069] text-[9px]">恢复系统字体</button>
                 <button onClick={()=>{saveAppearance({});notify('当前字体设置已保存')}} className="py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">保存当前设置</button>
               </div>
+            </div>
+            </div>
             </div>
           </>
         )}
