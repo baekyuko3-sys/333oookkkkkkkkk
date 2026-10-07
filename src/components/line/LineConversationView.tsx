@@ -22,6 +22,7 @@ import { getCotPresets, type CotPreset, type CotPresetTarget } from '../../store
 import { PresetResourceManager } from './PresetResourceManager';
 import { appendLineMessage, editLineMessage, toggleLineReaction, setLineMessageFavorite, recordLineCall, markLineMessageFailed, clearLineConversation, recallLineMessage, updateLineMessage } from '../../store/lineRuntime';
 import { getLineConversationMessages, markLineConversationRead, saveLineConversationMessages, searchLineMessages, type LineRuntimeMessage } from '../../store/lineRuntime';
+import { fetchLineWeather, formatLineWeather, type LineWeatherSnapshot } from '../../store/lineReality';
 import {
   Video, Settings, Plus, Mic, Send, Smile,
   Image as ImageIcon, Film, FileText, Calendar, Sliders, RefreshCw, X,
@@ -262,6 +263,9 @@ export function LineConversationView({
   const [virtualChatTime, setVirtualChatTime] = usePersistentState<string>(`line:virtual-chat-time:${conversationStorageId}`, new Date().toISOString().slice(0, 16));
   const [chatTimezone, setChatTimezone] = usePersistentState<string>(`line:chat-timezone:${conversationStorageId}`, Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai');
   const [characterLanguage, setCharacterLanguage] = usePersistentState<string>(`line:character-language:${conversationStorageId}`, 'auto');
+  const [characterRegion, setCharacterRegion] = usePersistentState<string>(`line:character-region:${conversationStorageId}`, '');
+  const [characterWeather, setCharacterWeather] = usePersistentState<LineWeatherSnapshot | null>(`line:character-weather:${conversationStorageId}`, null);
+  const [characterWeatherBusy, setCharacterWeatherBusy] = useState(false);
   const [storedCharacterTimeSensitivity, setCharacterTimeSensitivity] = usePersistentState<string>(`line:character-time-sensitivity:${conversationStorageId}`, 'natural');
   const characterTimeSensitivity = storedCharacterTimeSensitivity === 'sensitive' ? 'high' : storedCharacterTimeSensitivity === 'insensitive' ? 'low' : (storedCharacterTimeSensitivity === 'low' || storedCharacterTimeSensitivity === 'high' || storedCharacterTimeSensitivity === 'natural' ? storedCharacterTimeSensitivity : 'natural');
   const [chatApiOverride, setChatApiOverride] = usePersistentState<ChannelAiSettings>(`line:chat-api-override:${conversationStorageId}`, {
@@ -598,6 +602,15 @@ export function LineConversationView({
     ? groupAiMembers.some(({ member }) => member.online !== false)
     : (lineFriends.find(friend => friend.characterId === characterId || friend.name === contactName)?.online ?? true);
   const projectManifest = getProjectManifest();
+
+  useEffect(() => {
+    if (!characterRegion.trim()) return;
+    let cancelled = false;
+    void fetchLineWeather(characterRegion).then(weather => {
+      if (!cancelled && weather) setCharacterWeather(weather);
+    });
+    return () => { cancelled = true; };
+  }, [characterRegion]);
 
   // 酒馆角色核心档案
   const [storedCharacterProfile, setCharacterProfile] = usePersistentState(
