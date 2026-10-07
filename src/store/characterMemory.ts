@@ -116,21 +116,42 @@ export function addRecentMemorySummary(
     createdAt: now,
     importance: Math.max(0, Math.min(100, Number(options?.importance ?? 50) || 50)),
   };
-  return saveCharacterMemory({ ...current, recentSummaries: [summary, ...(current.recentSummaries || [])].slice(0, 100) });
+  return saveCharacterMemory({ ...current, recentSummaries: [summary, ...(current.recentSummaries || [])] });
 }
 
 export function mergeRecentMemorySummaries(characterId: string, characterName: string): CharacterMemory {
   const current = getCharacterMemory(characterId, characterName);
   const recent = current.recentSummaries || [];
   if (!recent.length) return current;
-  const unique = recent.filter((item, index, arr) => {
+  // Automatic maintenance is batch-based: every 100 pending summaries is one cycle.
+  // The caller/UI may also invoke this manually before the threshold.
+  const batch = recent.slice(-100);
+  if (batch.length < 100) return current;
+  const unique = batch.filter((item, index, arr) => {
     const n = normalizeMemoryText(item.content);
     return arr.findIndex(other => normalizeMemoryText(other.content) === n) === index;
   });
+  // This local merge keeps the batch compact; the AI merge engine can later replace
+  // these candidates with classified long-term memories. Crucially, only the processed
+  // 100-record batch is removed; newer records remain pending for the next cycle.
+  const processedIds = new Set(batch.map(item => item.id));
   return saveCharacterMemory({
     ...current,
-    recentSummaries: unique.slice(0, 100),
+    recentSummaries: recent.filter(item => !processedIds.has(item.id)),
     lastMergedAt: new Date().toISOString(),
+    items: [
+      ...unique.map(item => ({
+        id: `memory-${item.id}`,
+        content: item.content,
+        source: 'ai-summary' as const,
+        createdAt: item.createdAt,
+        updatedAt: new Date().toISOString(),
+        importance: item.importance,
+        kind: 'event' as const,
+        section: 'stage' as const,
+      })),
+      ...current.items,
+    ].slice(0, 120),
   });
 }
 
@@ -252,7 +273,7 @@ export function buildMemoryContext(memory: CharacterMemory, maxItems = 20): stri
     .slice(0, maxItems);
 
   const recent = [...(memory.recentSummaries || [])].sort((a,b) => b.importance-a.importance || b.createdAt.localeCompare(a.createdAt)).slice(0, 10);
-  if (recent.length) sections.push('【最近100条记忆摘要】\n' + recent.map(item => `- [${item.source}] ${item.content}`).join('\n'));
+  if (recent.length) sections.push('【待整理的近期记忆摘要】\n' + recent.map(item => `- [${item.source}] ${item.content}`).join('\n'));
 
   if (items.length) {
     sections.push('【长期记忆条目】\n' + items.map(item => `- [重要度 ${item.importance}] ${item.content}`).join('\n'));

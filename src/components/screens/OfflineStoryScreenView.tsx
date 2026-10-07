@@ -9,7 +9,7 @@ import { usePersistentState } from '../../store/usePersistentState';
 import type { ImportedCharacter } from '../../data/characterImport';
 import type { WorldBook } from '../../types';
 import { getProjectManifest } from '../../store/projectManifest';
-import { getCharacterMemory } from '../../store/characterMemory';
+import { getCharacterMemory, addRecentMemorySummary } from '../../store/characterMemory';
 import { getCharacterProfile } from '../../data/characterProfiles';
 import { generateCreativeText, readStoredAiSettings } from '../../ai/aiEngine';
 import { setCurrentScene, setCharacterRuntime } from '../../store/worldRuntime';
@@ -190,6 +190,7 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
         updatedAt: nowIso(),
       });
       if (updated) {
+        addRecentMemorySummary(updated.characterId, updated.characterName, `线下剧情开始：${updated.title} · ${updated.location} · ${updated.theme}`, { source: 'offline', importance: 65 });
         recordOfflineEventInLine(updated);
         emitWorldEvent('offline.started', {
           characterId: updated.characterId,
@@ -265,6 +266,7 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
         ],
         updatedAt: nowIso(),
       });
+      addRecentMemorySummary(selected.characterId, selected.characterName, '线下剧情互动：用户：' + userText.slice(0, 240) + '；角色：' + generated.slice(0, 420), { source: 'offline', importance: 60 });
       sync();
       setActionText('');
     } catch (error) {
