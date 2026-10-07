@@ -2859,6 +2859,15 @@ export function LineConversationView({
 
           const isMe = msg.sender === 'me';
           const hasThinking = Boolean(msg.thinkingSummary || msg.metadata?.thinkingSummary) && enableChainOfThought;
+          const cotLabel = resolvedCotPreset.displayTitle || resolvedCotPreset.title || 'COT';
+          const cotStyle = resolvedCotPreset.displayStyle || 'minimal';
+          const cotStyleClass = cotStyle === 'soft'
+            ? 'bg-[#faf8f9] border-[#eee5e8] text-[#8c6872]'
+            : cotStyle === 'mono'
+              ? 'bg-[#f7f7f7] border-[#e5e5e5] text-[#666] font-mono'
+              : cotStyle === 'outline'
+                ? 'bg-white border-[#e4e4e6] text-[#777]'
+                : 'bg-transparent border-transparent text-[#888]';
           const hasVariants = msg.variants && msg.variants.length > 1;
 
           return (
@@ -2990,51 +2999,27 @@ export function LineConversationView({
                   }
                 }}
               >
-                {/* 1. 酒馆思维链 (Chain of Thought / 内心独白折叠卡) */}
+                {/* COT · iMessage-style compact disclosure */}
                 {!isMe && hasThinking && (
-                  <div className="thinking-card bg-[#faf8f9] border border-[#f0e4e7] rounded-[12px] p-2 text-xs transition-all">
-                    <div className="w-full flex items-center justify-between text-[10.5px] font-medium text-[#ae7e89]">
-                      <div
-                        onClick={() =>
-                          setMessages((prev) =>
-                            prev.map((m) =>
-                              m.id === msg.id ? { ...m, showThinking: !m.showThinking } : m
-                            )
+                  <div className={`mb-1.5 ${cotStyle === 'minimal' ? '' : 'rounded-[11px] border px-2.5 py-1.5'} ${cotStyleClass}`}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setMessages((prev) =>
+                          prev.map((m) =>
+                            m.id === msg.id ? { ...m, showThinking: !m.showThinking } : m
                           )
-                        }
-                        className="flex items-center gap-1.5 cursor-pointer hover:opacity-80"
-                      >
-                        <Brain className="w-3.5 h-3.5 text-[#d4aab5]" />
-                        <span>生成摘要 · {resolvedCotPreset.title.replace('预设', '')}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowCotPresetModal(true);
-                          }}
-                          className="text-[9px] text-[#ae7e89] bg-white border border-[#f0dee3] px-1.5 py-0.5 rounded cursor-pointer hover:bg-[#faf1f3]"
-                          title="切换或自定义生成摘要预设"
-                        >
-                          ⚙ 预设
-                        </button>
-                        <span
-                          onClick={() =>
-                            setMessages((prev) =>
-                              prev.map((m) =>
-                                m.id === msg.id ? { ...m, showThinking: !m.showThinking } : m
-                              )
-                            )
-                          }
-                          className="text-[10px] text-[#b88c97] cursor-pointer"
-                        >
-                          {msg.showThinking ? '收起 ▴' : '展开生成摘要 ▾'}
-                        </span>
-                      </div>
-                    </div>
+                        )
+                      }
+                      className="flex items-center gap-1.5 text-[10px] leading-none cursor-pointer hover:opacity-70 transition-opacity"
+                    >
+                      <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full ${cotStyle === 'minimal' ? 'bg-[#f3f1f2]' : 'bg-white'} text-[8px] font-semibold`}>C</span>
+                      <span className="font-medium">{cotLabel}</span>
+                      <span className="text-[9px] opacity-60">{msg.showThinking ? '⌃' : '›'}</span>
+                    </button>
 
                     {msg.showThinking && (
-                      <div className="mt-2 pt-2 border-t border-[#f2e6e9] text-[11px] leading-relaxed text-[#666] font-mono whitespace-pre-wrap animate-in fade-in">
+                      <div className="mt-2 pt-2 border-t border-current/10 text-[10px] leading-[1.65] whitespace-pre-wrap break-words animate-in fade-in">
                         {msg.thinkingSummary || msg.metadata?.thinkingSummary}
                       </div>
                     )}
