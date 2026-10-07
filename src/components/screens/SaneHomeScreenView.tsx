@@ -26,7 +26,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
 
   type DesktopItem = { id: string; x: number; y: number };
   const defaultPage1Layout: DesktopItem[] = [
-    { id: 'widget-date', x: 26, y: 148 }, { id: 'widget-photo', x: 326, y: 181 },
+    { id: 'widget-date', x: 20, y: 148 }, { id: 'widget-photo', x: 294, y: 181 },
     { id: 'widget-weather', x: 20, y: 306 }, { id: 'widget-note', x: 188, y: 306 }, { id: 'widget-music', x: 20, y: 424 },
     { id: 'app-line', x: 20, y: 565 }, { id: 'app-moments', x: 102, y: 565 }, { id: 'app-music', x: 184, y: 565 }, { id: 'app-offline-story', x: 266, y: 565 },
   ];
@@ -154,8 +154,8 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   return (
     <div className="relative w-full h-full overflow-hidden select-none" style={{ background: 'var(--screen, #fff)', color: 'var(--ink, #242323)', backgroundImage: appearance.wallpaper ? `url(${appearance.wallpaper})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
       
-      {desktopEditing && <button onClick={() => resetDesktopLayout(currentPage)} className="absolute z-30 top-[70px] left-[25px] px-3 h-8 rounded-full bg-white/80 border border-black/5 text-[9px] font-mono text-[#777]">重置</button>}
-      {desktopEditing && <button onClick={() => setDesktopEditing(false)} className="absolute z-30 top-[70px] right-[25px] px-3 h-8 rounded-full bg-[#292724] text-white border border-[#292724] text-[9px] font-mono">完成整理</button>}
+      {desktopEditing && <button onClick={() => resetDesktopLayout(currentPage)} 
+      {desktopEditing && <button onClick={() => setDesktopEditing(false)} 
       {/* SVG Icon Definitions */}
       <svg width="0" height="0" className="absolute pointer-events-none" aria-hidden="true">
         <defs>
@@ -205,7 +205,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               {currentPage === 1 ? currentGreeting : 'VAULT ARCHIVES · PAGE 02'}
             </div>
             <div className="text-[17px] font-[650] tracking-[0.2px] text-[var(--ink)]">
-              {currentPage === 1 ? appearance.appTitle : 'Inner Vault'}
+              {appearance.appTitle}
             </div>
           </div>
         </div>
@@ -389,7 +389,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               ['music','音乐','music','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','music'],
               ['offline-story','线下剧情','book','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','offline-story'],
             ].map(([id,label,symbol,iconClass,screen]) => { const pos=itemPosition(1,'app-'+id); return <button key={id} onClick={()=>{if(!desktopEditing) onNavigate(screen as ScreenType)}} onPointerDown={e=>beginDesktopDrag(1,'app-'+id,e)} onPointerMove={e=>continueDesktopDrag(1,'app-'+id,e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)} className={`absolute pointer-events-auto flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] select-none touch-none ${desktopEditing?'cursor-grab active:cursor-grabbing':''}`} style={{left:pos.x,top:pos.y}}>
-                <div className={`w-[64px] h-[64px] rounded-[21px] shadow-[0_6px_18px_rgba(52,43,34,.055)] grid place-items-center ${iconClass}`}>{renderAppIcon(id,symbol,'w-6 h-6')}{id==='line'&&worldUnread>0&&<span className="absolute -top-1 right-[-2px] w-4 h-4 rounded-full bg-[#9b625b] text-white text-[9px] font-bold flex items-center justify-center">{worldUnread>99?'99+':worldUnread}</span>}</div><span className="font-medium">{label}</span>
+                <div className={`w-[60px] h-[60px] rounded-[18px] shadow-[0_6px_18px_rgba(52,43,34,.055)] grid place-items-center ${iconClass}`}>{renderAppIcon(id,symbol,'w-6 h-6')}{id==='line'&&worldUnread>0&&<span className="absolute -top-1 right-[-2px] w-4 h-4 rounded-full bg-[#9b625b] text-white text-[9px] font-bold flex items-center justify-center">{worldUnread>99?'99+':worldUnread}</span>}</div><span className="font-medium">{label}</span>
               </button>; })}
           </section>
 
