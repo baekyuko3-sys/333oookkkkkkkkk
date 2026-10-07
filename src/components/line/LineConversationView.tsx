@@ -4587,32 +4587,32 @@ export function LineConversationView({
               <div className="px-3.5 pb-3.5 space-y-2">
                 <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-[#fafafa]">
                   <div><div className="text-[9.5px] font-medium text-[#444]">自然称呼</div><div className="text-[8px] text-[#aaa] mt-0.5">普通聊天不机械喊名字。</div></div>
-                  <button type="button" onClick={() => setNaturalAddressing(!naturalAddressing)} className="shrink-0 w-9 h-5 rounded-full relative transition-colors" style={{ backgroundColor: naturalAddressing ? '#d4aab5' : '#ddd' }} aria-label="自然称呼开关"><span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform" style={{ transform: `translateX(${naturalAddressing ? 16 : 2}px)` }} /></button>
+                  <button type="button" onClick={() => setNaturalAddressing(!naturalAddressing)} className="shrink-0 w-10 h-6 rounded-full relative shrink-0 p-0.5 border border-black/5 shadow-inner cursor-pointer transition-colors duration-200 relative transition-colors" style={{ backgroundColor: naturalAddressing ? '#d4aab5' : '#ddd' }} aria-label="自然称呼开关"><span className="absolute top-0.5 block w-5 h-5 rounded-full bg-white shadow-sm absolute top-0.5 left-0.5 transition-transform duration-200 transition-transform" style={{ transform: `translateX(${naturalAddressing ? 16 : 0}px)` }} /></button>
                 </div>
 
                 <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-[#fafafa]">
                   <div><div className="text-[9.5px] font-medium text-[#444]">称呼稳定</div><div className="text-[8px] text-[#aaa] mt-0.5">不随机发明一堆外号，已有称呼保持稳定。</div></div>
-                  <button type="button" onClick={() => setStableNicknames(!stableNicknames)} className="shrink-0 w-9 h-5 rounded-full relative transition-colors" style={{ backgroundColor: stableNicknames ? '#d4aab5' : '#ddd' }} aria-label="称呼稳定开关"><span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform" style={{ transform: `translateX(${stableNicknames ? 16 : 2}px)` }} /></button>
+                  <button type="button" onClick={() => setStableNicknames(!stableNicknames)} className="shrink-0 w-10 h-6 rounded-full relative shrink-0 p-0.5 border border-black/5 shadow-inner cursor-pointer transition-colors duration-200 relative transition-colors" style={{ backgroundColor: stableNicknames ? '#d4aab5' : '#ddd' }} aria-label="称呼稳定开关"><span className="absolute top-0.5 block w-5 h-5 rounded-full bg-white shadow-sm absolute top-0.5 left-0.5 transition-transform duration-200 transition-transform" style={{ transform: `translateX(${stableNicknames ? 16 : 0}px)` }} /></button>
                 </div>
 
                 <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-[#fafafa]">
                   <div><div className="text-[9.5px] font-medium text-[#444]">关系语境称呼</div><div className="text-[8px] text-[#aaa] mt-0.5">根据关系判断“老公/老婆/哥哥”等称呼是否自然。</div></div>
-                  <button type="button" onClick={() => setRelationshipAwareAddressing(!relationshipAwareAddressing)} className="shrink-0 w-9 h-5 rounded-full relative transition-colors" style={{ backgroundColor: relationshipAwareAddressing ? '#d4aab5' : '#ddd' }} aria-label="关系语境称呼开关"><span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform" style={{ transform: `translateX(${relationshipAwareAddressing ? 16 : 2}px)` }} /></button>
+                  <button type="button" onClick={() => setRelationshipAwareAddressing(!relationshipAwareAddressing)} className="shrink-0 w-10 h-6 rounded-full relative shrink-0 p-0.5 border border-black/5 shadow-inner cursor-pointer transition-colors duration-200 relative transition-colors" style={{ backgroundColor: relationshipAwareAddressing ? '#d4aab5' : '#ddd' }} aria-label="关系语境称呼开关"><span className="absolute top-0.5 block w-5 h-5 rounded-full bg-white shadow-sm absolute top-0.5 left-0.5 transition-transform duration-200 transition-transform" style={{ transform: `translateX(${relationshipAwareAddressing ? 16 : 0}px)` }} /></button>
                 </div>
 
                 <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-[#fafafa]">
                   <div><div className="text-[9.5px] font-medium text-[#444]">角色自主判断</div><div className="text-[8px] text-[#aaa] mt-0.5">反应来自角色自己，不套统一 AI 模板。</div></div>
-                  <button type="button" onClick={() => setCharacterAutonomy(!characterAutonomy)} className="shrink-0 w-9 h-5 rounded-full relative transition-colors" style={{ backgroundColor: characterAutonomy ? '#d4aab5' : '#ddd' }} aria-label="角色自主判断开关"><span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform" style={{ transform: `translateX(${characterAutonomy ? 16 : 2}px)` }} /></button>
+                  <button type="button" onClick={() => setCharacterAutonomy(!characterAutonomy)} className="shrink-0 w-10 h-6 rounded-full relative shrink-0 p-0.5 border border-black/5 shadow-inner cursor-pointer transition-colors duration-200 relative transition-colors" style={{ backgroundColor: characterAutonomy ? '#d4aab5' : '#ddd' }} aria-label="角色自主判断开关"><span className="absolute top-0.5 block w-5 h-5 rounded-full bg-white shadow-sm absolute top-0.5 left-0.5 transition-transform duration-200 transition-transform" style={{ transform: `translateX(${characterAutonomy ? 16 : 0}px)` }} /></button>
                 </div>
 
                 <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-[#fafafa]">
                   <div><div className="text-[9.5px] font-medium text-[#444]">避免重复称呼</div><div className="text-[8px] text-[#aaa] mt-0.5">不连续重复名字、外号、固定称呼和句式。</div></div>
-                  <button type="button" onClick={() => setAvoidRepetition(!avoidRepetition)} className="shrink-0 w-9 h-5 rounded-full relative transition-colors" style={{ backgroundColor: avoidRepetition ? '#d4aab5' : '#ddd' }} aria-label="避免重复称呼开关"><span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform" style={{ transform: `translateX(${avoidRepetition ? 16 : 2}px)` }} /></button>
+                  <button type="button" onClick={() => setAvoidRepetition(!avoidRepetition)} className="shrink-0 w-10 h-6 rounded-full relative shrink-0 p-0.5 border border-black/5 shadow-inner cursor-pointer transition-colors duration-200 relative transition-colors" style={{ backgroundColor: avoidRepetition ? '#d4aab5' : '#ddd' }} aria-label="避免重复称呼开关"><span className="absolute top-0.5 block w-5 h-5 rounded-full bg-white shadow-sm absolute top-0.5 left-0.5 transition-transform duration-200 transition-transform" style={{ transform: `translateX(${avoidRepetition ? 16 : 0}px)` }} /></button>
                 </div>
 
                 <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-[#fafafa]">
                   <div><div className="text-[9.5px] font-medium text-[#444]">情绪自然延续</div><div className="text-[8px] text-[#aaa] mt-0.5">情绪可以持续，但不会每句话都翻旧账。</div></div>
-                  <button type="button" onClick={() => setEmotionContinuity(!emotionContinuity)} className="shrink-0 w-9 h-5 rounded-full relative transition-colors" style={{ backgroundColor: emotionContinuity ? '#d4aab5' : '#ddd' }} aria-label="情绪自然延续开关"><span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform" style={{ transform: `translateX(${emotionContinuity ? 16 : 2}px)` }} /></button>
+                  <button type="button" onClick={() => setEmotionContinuity(!emotionContinuity)} className="shrink-0 w-10 h-6 rounded-full relative shrink-0 p-0.5 border border-black/5 shadow-inner cursor-pointer transition-colors duration-200 relative transition-colors" style={{ backgroundColor: emotionContinuity ? '#d4aab5' : '#ddd' }} aria-label="情绪自然延续开关"><span className="absolute top-0.5 block w-5 h-5 rounded-full bg-white shadow-sm absolute top-0.5 left-0.5 transition-transform duration-200 transition-transform" style={{ transform: `translateX(${emotionContinuity ? 16 : 0}px)` }} /></button>
                 </div>
 
               </div>
@@ -4793,8 +4793,8 @@ export function LineConversationView({
                   <Brain className="w-4 h-4 text-[#ae7e89]" />
                   <span>显示生成摘要</span>
                 </div>
-                <button type="button" onClick={() => setEnableChainOfThought(!enableChainOfThought)} className="w-9 h-5 rounded-full relative cursor-pointer transition-colors" style={{ backgroundColor: enableChainOfThought ? '#d4aab5' : '#ddd' }} aria-label={enableChainOfThought ? '隐藏生成摘要' : '显示生成摘要'}>
-                  <span className="w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform" style={{ transform: `translateX(${enableChainOfThought ? 16 : 2}px)` }} />
+                <button type="button" onClick={() => setEnableChainOfThought(!enableChainOfThought)} className="w-10 h-6 rounded-full relative shrink-0 p-0.5 border border-black/5 shadow-inner cursor-pointer transition-colors duration-200 relative cursor-pointer transition-colors" style={{ backgroundColor: enableChainOfThought ? '#d4aab5' : '#ddd' }} aria-label={enableChainOfThought ? '隐藏生成摘要' : '显示生成摘要'}>
+                  <span className="block w-5 h-5 rounded-full bg-white shadow-sm absolute top-0.5 left-0.5 transition-transform duration-200 absolute top-0.5 transition-transform" style={{ transform: `translateX(${enableChainOfThought ? 16 : 0}px)` }} />
                 </button>
               </div>
 
@@ -4825,8 +4825,8 @@ export function LineConversationView({
                 </div>
                 <div className="flex items-center justify-between">
                   <div><div className="text-[10px] font-medium text-[#444]">禁止编造 User</div><div className="text-[8.5px] text-[#aaa] mt-0.5">不替你补台词、动作、表情、想法、决定或未提供的事实</div></div>
-                  <button type="button" onClick={() => setPreventUserFabrication(!preventUserFabrication)} className="w-9 h-5 rounded-full relative transition-colors" style={{ backgroundColor: preventUserFabrication ? '#d4aab5' : '#ddd' }} aria-label={preventUserFabrication ? '关闭禁止编造 User' : '开启禁止编造 User'}>
-                    <span className="w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform" style={{ transform: `translateX(${preventUserFabrication ? 16 : 2}px)` }} />
+                  <button type="button" onClick={() => setPreventUserFabrication(!preventUserFabrication)} className="w-10 h-6 rounded-full relative shrink-0 p-0.5 border border-black/5 shadow-inner cursor-pointer transition-colors duration-200 relative transition-colors" style={{ backgroundColor: preventUserFabrication ? '#d4aab5' : '#ddd' }} aria-label={preventUserFabrication ? '关闭禁止编造 User' : '开启禁止编造 User'}>
+                    <span className="block w-5 h-5 rounded-full bg-white shadow-sm absolute top-0.5 left-0.5 transition-transform duration-200 absolute top-0.5 transition-transform" style={{ transform: `translateX(${preventUserFabrication ? 16 : 0}px)` }} />
                   </button>
                 </div>
               </div>
