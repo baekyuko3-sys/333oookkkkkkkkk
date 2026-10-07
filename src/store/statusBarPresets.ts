@@ -137,6 +137,16 @@ export function renderStatusBarHtml(
   return html;
 }
 
+export interface StatusBarSnapshot {
+  id: string;
+  presetId: string;
+  presetName: string;
+  html: string;
+  sourceMessageId: string | number;
+  sourceText: string;
+  createdAt: string;
+}
+
 export type StatusBarAssignments = Partial<Record<StatusBarTarget, string>>;
 const ASSIGN_KEY = 'line:status-bar-assignments';
 export function getStatusBarAssignments(): StatusBarAssignments { if (typeof window === 'undefined') return {}; try { return JSON.parse(window.localStorage.getItem(ASSIGN_KEY) || '{}'); } catch { return {}; } }
