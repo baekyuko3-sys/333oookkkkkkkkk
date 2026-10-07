@@ -1099,7 +1099,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               </div>
               <button
                 onClick={() => {
-                  setPersonaDraft({ name: '', age: '', profession: '', setting: '', avatar: '' });
+                  setPersonaEditorIndex(userPersonas.length);
+                  setPersonaDraft({ name: '', age: '', profession: '', region: '', timezone: '', birthday: '', setting: '', avatar: '', boundCharacterIds: [] });
                   setPersonaEditorOpen(true);
                 }}
                 className="px-3 py-1.5 rounded-full bg-[#292724] text-white text-[10px]"
@@ -1108,17 +1109,25 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
             <div className="mt-3 space-y-2">
               {userPersonas.length === 0 ? (
                 <div className="text-[10px] text-[#aaa] py-3 text-center">还没有人设。先创建一个你的聊天身份。</div>
-              ) : userPersonas.map((persona) => (
-                <div key={persona.id} className="flex items-center gap-3 p-2.5 bg-white rounded-[12px] border border-[#eeeeef]">
+              ) : userPersonas.map((persona, index) => (
+                <button
+                  key={persona.id}
+                  onClick={() => {
+                    setPersonaEditorIndex(index);
+                    setPersonaDraft({ ...persona, boundCharacterIds: Array.isArray(persona.boundCharacterIds) ? persona.boundCharacterIds : (persona.boundCharacterId ? [persona.boundCharacterId] : []) });
+                    setPersonaEditorOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 p-2.5 bg-white rounded-[12px] border border-[#eeeeef] text-left"
+                >
                   <div className="w-9 h-9 rounded-full overflow-hidden bg-[#f1f1f2] flex items-center justify-center shrink-0">
                     {persona.avatar ? <img src={persona.avatar} className="w-full h-full object-cover" /> : <span className="text-xs">{persona.name?.[0] || '◎'}</span>}
                   </div>
-                  <button onClick={() => { setActivePersonaId(persona.id); setActiveChatId(null); }} className="min-w-0 flex-1 text-left">
+                  <div className="min-w-0 flex-1">
                     <div className="text-[11px] font-semibold text-[#333] truncate">{persona.name || '未命名人设'} {persona.id === activePersonaId && <span className="text-[#ae7e89]">· 当前</span>}</div>
-                    <div className="text-[9px] text-[#aaa] truncate">{[persona.age, persona.profession].filter(Boolean).join(' · ') || '未填写基本信息'}</div>
-                  </button>
-                  <button onClick={() => { setPersonaDraft(persona); setPersonaEditorOpen(true); }} className="text-[10px] text-[#999] px-2">编辑</button>
-                </div>
+                    <div className="text-[9px] text-[#aaa] truncate">{[persona.age, persona.profession].filter(Boolean).join(' · ') || '未填写基本信息'} · {persona.boundCharacterIds.length} 个绑定角色</div>
+                  </div>
+                  <span className="text-[#ccc] text-lg">›</span>
+                </button>
               ))}
             </div>
           </div>
@@ -1183,36 +1192,162 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
       )}
 
       {personaEditorOpen && (
-        <div className="absolute inset-0 z-[100] bg-white flex flex-col">
-          <div className="h-[60px] border-b border-[#ededee] flex items-center justify-between px-4 shrink-0">
+        <div className="absolute inset-0 z-[100] bg-[#f8f8f8] flex flex-col">
+          <div className="h-[60px] bg-white border-b border-[#ededee] flex items-center justify-between px-4 shrink-0">
             <button onClick={() => setPersonaEditorOpen(false)} className="text-2xl text-[#555] px-2">‹</button>
-            <div className="text-center"><div className="font-semibold text-sm text-[#333]">我的人设</div><div className="text-[9px] text-[#aaa]">完整手机页面 · 设定聊天身份</div></div>
-            <div className="w-8" />
-          </div>
-          <div className="flex-1 overflow-y-auto p-5 pb-10 space-y-4">
-            <div className="flex items-center justify-between"><div className="font-semibold text-sm">编辑我的人设</div><button onClick={() => setPersonaEditorOpen(false)} className="text-[#aaa]">×</button></div>
-            {[
-              ['name','名字'],
-              ['age','年龄'],
-              ['profession','职业'],
-              ['region','地区'],
-              ['timezone','时区'],
-              ['birthday','生日'],
-              ['setting','设定'],
-              ['avatar','头像'],
-              ['boundCharacterId','绑定角色'],
-            ].map(([key,label]) => (
-              <div key={key}>
-                <div className="text-[9px] text-[#aaa] mb-1">{label}</div>
-                {key === 'boundCharacterId' ? <select value={personaDraft[key] || ''} onChange={(e) => setPersonaDraft((p:any) => ({...p,[key]:e.target.value}))} className="w-full h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-xs outline-none"><option value="">不绑定（通用人设）</option>{importedCharacters.map(character => <option key={character.id} value={character.id}>{character.name}</option>)}</select> : key === 'avatar' ? <label className="w-full h-10 px-3 bg-[#fafafa] border border-dashed border-[#e7e7e8] rounded-[10px] text-xs flex items-center gap-2 cursor-pointer overflow-hidden"><span className="text-[#888]">{personaDraft.avatar ? '已选择头像 · 点击更换' : '上传头像'}</span><input type="file" accept="image/*" className="hidden" onChange={e => { const f=e.target.files?.[0]; if(f) readImageFile(f, data => setPersonaDraft((p:any)=>({...p,avatar:data}))); }} /></label> : <input value={personaDraft[key] || ''} onChange={(e) => setPersonaDraft((p:any) => ({...p,[key]:e.target.value}))} placeholder={key === 'setting' ? '你的性格、背景、与你聊天时的身份……' : key === 'region' ? '例如：上海 / London' : key === 'timezone' ? '例如：Asia/Shanghai / Europe/London' : key === 'birthday' ? '例如：1999-12-25' : ''} className="w-full h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-xs outline-none" />}
-              </div>
-            ))}
+            <div className="text-center">
+              <div className="font-semibold text-sm text-[#333]">我的人设</div>
+              <div className="text-[9px] text-[#aaa]">PERSONA · 你的聊天身份</div>
+            </div>
             <button onClick={() => {
-              const persona = { ...personaDraft, id: personaDraft.id || crypto.randomUUID() };
+              const persona = { ...personaDraft, id: personaDraft.id || crypto.randomUUID(), boundCharacterIds: Array.isArray(personaDraft.boundCharacterIds) ? personaDraft.boundCharacterIds : [] };
               setUserPersonas(prev => prev.some(p => p.id === persona.id) ? prev.map(p => p.id === persona.id ? persona : p) : [persona, ...prev]);
               setActivePersonaId(persona.id);
               setPersonaEditorOpen(false);
-            }} className="w-full py-2.5 rounded-[12px] bg-[#292724] text-white text-xs">保存并作为当前人设</button>
+            }} className="text-[10px] font-semibold text-[#ae7e89] px-2">保存</button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto pb-8">
+            <div className="px-4 pt-4">
+              <div className="flex items-end justify-between mb-2">
+                <div>
+                  <div className="text-[12px] font-semibold text-[#333]">我的人设卡</div>
+                  <div className="text-[9px] text-[#aaa] mt-0.5">左右滑动切换不同的“我”</div>
+                </div>
+                <div className="text-[9px] text-[#aaa]">{userPersonas.length ? Math.min(personaEditorIndex + 1, userPersonas.length) : 1} / {Math.max(userPersonas.length, 1)}</div>
+              </div>
+              <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-2" style={{ touchAction: 'pan-x' }}>
+                {userPersonas.map((persona, index) => (
+                  <button
+                    key={persona.id}
+                    type="button"
+                    onClick={() => {
+                      setPersonaEditorIndex(index);
+                      setPersonaDraft({ ...persona, boundCharacterIds: Array.isArray(persona.boundCharacterIds) ? persona.boundCharacterIds : (persona.boundCharacterId ? [persona.boundCharacterId] : []) });
+                    }}
+                    className={`snap-center shrink-0 w-[82%] min-h-[150px] rounded-[24px] p-5 text-left border transition-all ${index === personaEditorIndex ? 'bg-[#292724] text-white border-[#292724] shadow-lg' : 'bg-white text-[#333] border-[#e8e8e9]'}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className={`w-14 h-14 rounded-full overflow-hidden flex items-center justify-center ${index === personaEditorIndex ? 'bg-white/10' : 'bg-[#f1f1f2]'}`}>
+                        {persona.avatar ? <img src={persona.avatar} className="w-full h-full object-cover" /> : <span className="text-lg">{persona.name?.[0] || '◎'}</span>}
+                      </div>
+                      {index === personaEditorIndex && <span className="text-[8px] tracking-[1.5px] opacity-60">CURRENT</span>}
+                    </div>
+                    <div className="mt-5 text-[17px] font-semibold truncate">{persona.name || '未命名人设'}</div>
+                    <div className={`mt-1 text-[9px] truncate ${index === personaEditorIndex ? 'text-white/55' : 'text-[#aaa]'}`}>
+                      {[persona.age, persona.profession].filter(Boolean).join(' · ') || '还没有基本资料'} · {persona.boundCharacterIds.length} 个角色
+                    </div>
+                  </button>
+                ))}
+                {userPersonas.length === 0 && (
+                  <div className="w-full min-h-[150px] rounded-[24px] bg-white border border-dashed border-[#ddd] grid place-items-center text-[10px] text-[#aaa]">这是你的第一张人设卡</div>
+                )}
+              </div>
+            </div>
+
+            <div className="mx-4 mt-4 bg-white rounded-[20px] border border-[#eeeeef] p-4">
+              <div className="text-[12px] font-semibold text-[#333]">人设资料</div>
+              <div className="text-[9px] text-[#aaa] mt-1 mb-4">这部分只描述“你是谁”，不会改变角色本身。</div>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  ['name','名字'], ['age','年龄'], ['profession','职业'],
+                  ['region','地区'], ['timezone','时区'], ['birthday','生日']
+                ].map(([key,label]) => (
+                  <label key={key} className="text-[9px] text-[#999]">
+                    {label}
+                    <input
+                      value={personaDraft[key] || ''}
+                      onChange={e => setPersonaDraft((p:any) => ({ ...p, [key]: e.target.value }))}
+                      className="mt-1 w-full h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-xs text-[#333] outline-none"
+                    />
+                  </label>
+                ))}
+              </div>
+              <label className="block mt-3 text-[9px] text-[#999]">
+                设定
+                <textarea
+                  value={personaDraft.setting || ''}
+                  onChange={e => setPersonaDraft((p:any) => ({ ...p, setting: e.target.value }))}
+                  placeholder="你的性格、背景、职业、生活状态、与你聊天时的身份……"
+                  className="mt-1 w-full min-h-[92px] p-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[12px] text-xs text-[#333] outline-none resize-none"
+                />
+              </label>
+              <div className="mt-3 flex items-center gap-3">
+                <div className="w-11 h-11 rounded-full overflow-hidden bg-[#f1f1f2] flex items-center justify-center shrink-0">
+                  {personaDraft.avatar ? <img src={personaDraft.avatar} className="w-full h-full object-cover" /> : <span className="text-xs">{personaDraft.name?.[0] || '◎'}</span>}
+                </div>
+                <label className="text-[10px] text-[#777] cursor-pointer">
+                  {personaDraft.avatar ? '更换头像' : '上传头像'}
+                  <input type="file" accept="image/*" className="hidden" onChange={e => { const file=e.target.files?.[0]; if(file) readImageFile(file, data => setPersonaDraft((p:any)=>({...p,avatar:data}))); }} />
+                </label>
+              </div>
+            </div>
+
+            <div className="mx-4 mt-4 bg-white rounded-[20px] border border-[#eeeeef] p-4">
+              <div className="flex items-end justify-between">
+                <div>
+                  <div className="text-[12px] font-semibold text-[#333]">绑定角色</div>
+                  <div className="text-[9px] text-[#aaa] mt-1">一个人设可以绑定多个角色。这里显示的是角色自己的备注名。</div>
+                </div>
+                <div className="text-[9px] text-[#aaa]">{(personaDraft.boundCharacterIds || []).length} 个</div>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {importedCharacters.length === 0 ? (
+                  <div className="py-6 text-center text-[10px] text-[#aaa]">还没有导入角色。</div>
+                ) : importedCharacters.map(character => {
+                  const ids = Array.isArray(personaDraft.boundCharacterIds) ? personaDraft.boundCharacterIds : [];
+                  const checked = ids.includes(character.id);
+                  const friend = friendsList.find(f => f.characterId === character.id);
+                  const chat = chatItems.find(item => item.characterId === character.id);
+                  const remarkName = friend?.note?.trim() || chat?.name?.trim() || character.name;
+                  return (
+                    <button
+                      key={character.id}
+                      type="button"
+                      onClick={() => setPersonaDraft((p:any) => {
+                        const current = Array.isArray(p.boundCharacterIds) ? p.boundCharacterIds : [];
+                        return { ...p, boundCharacterIds: current.includes(character.id) ? current.filter((id:string) => id !== character.id) : [...current, character.id] };
+                      })}
+                      className={`w-full flex items-center gap-3 p-2.5 rounded-[14px] border text-left ${checked ? 'border-[#b28a93] bg-[#fbf7f8]' : 'border-[#eeeeef] bg-white'}`}
+                    >
+                      <div className="w-11 h-11 rounded-full overflow-hidden bg-[#f1f1f2] flex items-center justify-center shrink-0">
+                        {character.avatar ? <img src={character.avatar} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" /> : <span className="text-xs text-[#aaa]">{character.name?.[0] || '◎'}</span>}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[12px] font-semibold text-[#333] truncate">{remarkName}</div>
+                        <div className="text-[9px] text-[#aaa] truncate">{remarkName !== character.name ? '角色名：' + character.name : '未设置备注名，使用角色名'}</div>
+                      </div>
+                      <div className={`w-5 h-5 rounded-full border grid place-items-center ${checked ? 'bg-[#ae7e89] border-[#ae7e89] text-white' : 'border-[#d9d9da] text-transparent'}`}>✓</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {personaDraft.id && (
+              <div className="mx-4 mt-3 flex gap-2">
+                <button
+                  onClick={() => {
+                    const id = personaDraft.id;
+                    setUserPersonas(prev => prev.filter(p => p.id !== id));
+                    if (activePersonaId === id) setActivePersonaId(null);
+                    setPersonaEditorOpen(false);
+                  }}
+                  className="flex-1 py-2.5 rounded-[12px] bg-white border border-[#eeeeef] text-[10px] text-[#999]"
+                >删除这个人设</button>
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                const persona = { ...personaDraft, id: personaDraft.id || crypto.randomUUID(), boundCharacterIds: Array.isArray(personaDraft.boundCharacterIds) ? personaDraft.boundCharacterIds : [] };
+                setUserPersonas(prev => prev.some(p => p.id === persona.id) ? prev.map(p => p.id === persona.id ? persona : p) : [persona, ...prev]);
+                setActivePersonaId(persona.id);
+                setPersonaEditorOpen(false);
+              }}
+              className="mx-4 mt-4 w-[calc(100%-2rem)] py-3 rounded-[14px] bg-[#292724] text-white text-xs font-semibold"
+            >保存并使用这个人设</button>
           </div>
         </div>
       )}
