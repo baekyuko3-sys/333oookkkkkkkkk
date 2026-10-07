@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Brain, Clock3, Heart, Plus, Trash2, BookOpen, Sparkles, Link2, Tag, UserRound, HelpCircle, CheckCircle2, ListTodo, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Brain, Clock3, Heart, Plus, Trash2, BookOpen, Sparkles, UserRound, HelpCircle, CheckCircle2, ListTodo, Settings2, ChevronRight, X } from 'lucide-react';
 import type { ScreenType } from '../../types';
 import type { ImportedCharacter } from '../../data/characterImport';
 import {
@@ -12,6 +12,28 @@ import {
 } from '../../store/characterMemory';
 
 const ACTIVE_MEMORY_KEY = 'phone:memory-active-character';
+const MEMORY_SETTINGS_KEY = 'phone:memory-settings';
+type MemorySettings = {
+  enabled: boolean;
+  trigger: 'after-chat' | 'important-only' | 'manual';
+  sources: { line: boolean; offline: boolean };
+  categories: Record<MemorySection, boolean>;
+  autoMerge: boolean;
+  autoUpdate: boolean;
+  autoDelete: boolean;
+  requireApproval: boolean;
+};
+const defaultMemorySettings: MemorySettings = {
+  enabled: true,
+  trigger: 'after-chat',
+  sources: { line: true, offline: true },
+  categories: { stage:true, 'about-you':true, relationship:true, understanding:true, confirm:true, todo:true, done:true },
+  autoMerge: true, autoUpdate: true, autoDelete: false, requireApproval: false,
+};
+function loadMemorySettings(): MemorySettings {
+  try { return { ...defaultMemorySettings, ...JSON.parse(window.localStorage.getItem(MEMORY_SETTINGS_KEY) || '{}') }; } catch { return defaultMemorySettings; }
+}
+
 
 const sections: Array<{ id: MemorySection; label: string; en: string; hint: string; icon: typeof Brain }> = [
   { id:'stage', label:'阶段记忆', en:'STORY', hint:'你们最近真正经历过的事情', icon:BookOpen },
@@ -56,6 +78,14 @@ export function MemoryScreenView({ onNavigate }: { onNavigate: (screen: ScreenTy
       : { characterId:'', characterName:'', summary:'', items:[], updatedAt:new Date().toISOString() }
   );
   const [activeSection, setActiveSection] = useState<MemorySection>('stage');
+  const [showSettings, setShowSettings] = useState(false);
+  const [memorySettings, setMemorySettings] = useState<MemorySettings>(loadMemorySettings);
+  const updateSettings = (patch: Partial<MemorySettings>) => {
+    const next = { ...memorySettings, ...patch };
+    setMemorySettings(next);
+    try { window.localStorage.setItem(MEMORY_SETTINGS_KEY, JSON.stringify(next)); } catch {}
+    window.dispatchEvent(new CustomEvent('sane333:memory-settings-changed', { detail: next }));
+  };
   const [personas] = useState<any[]>(() => {
     try {
       const raw = window.localStorage.getItem('line:user-personas');
@@ -146,7 +176,7 @@ export function MemoryScreenView({ onNavigate }: { onNavigate: (screen: ScreenTy
               <h2 className="mt-0.5 font-serif font-bold text-[18px] leading-tight">Memory</h2>
             </div>
           </div>
-          <button onClick={addMemory} disabled={!selected} className="w-8 h-8 rounded-full bg-[#292724] text-white grid place-items-center disabled:opacity-30">
+          <button onClick={() => setShowSettings(true)} className="w-8 h-8 rounded-full bg-white/75 border border-[rgba(40,36,31,.10)] text-[#292724] grid place-items-center"><Settings2 className="w-4 h-4" /></button><button onClick={addMemory} disabled={!selected} className="w-8 h-8 rounded-full bg-[#292724] text-white grid place-items-center disabled:opacity-30">
             <Plus className="w-4 h-4" />
           </button>
         </div>
@@ -289,6 +319,16 @@ export function MemoryScreenView({ onNavigate }: { onNavigate: (screen: ScreenTy
           </>
         )}
       </div>
-    </div>
+
+      {showSettings && <div className="absolute inset-0 z-50 bg-[#292724]/20 backdrop-blur-[2px] flex items-end">
+        <div className="w-full max-h-[88%] overflow-y-auto rounded-t-[28px] bg-[#f7f4ee] border-t border-white/70 px-5 pt-4 pb-7 shadow-[0_-18px_50px_rgba(40,36,31,.18)]">
+          <div className="flex items-center justify-between"><div><div className="text-[8px] font-mono tracking-[1.8px] text-[#918a82]">MEMORY CONTROL</div><h3 className="mt-1 font-serif text-[20px]">Memory Settings</h3></div><button onClick={()=>setShowSettings(false)} className="w-8 h-8 rounded-full bg-white border border-[#ddd7cf] grid place-items-center"><X className="w-4 h-4"/></button></div>
+          <div className="mt-4 rounded-2xl bg-white border border-[#e2ddd5] p-4 flex items-center justify-between"><div><div className="text-[11px] font-semibold">角色记忆</div><div className="mt-1 text-[8.5px] text-[#918a82]">关闭后继续聊天，但不产生新的长期 Memory。</div></div><button onClick={()=>updateSettings({enabled:!memorySettings.enabled})} className={`w-11 h-6 rounded-full p-1 transition ${memorySettings.enabled?'bg-[#292724]':'bg-[#d7d1c8]'}`}><span className={`block w-4 h-4 rounded-full bg-white transition ${memorySettings.enabled?'translate-x-5':'translate-x-0'}`}/></button></div>
+          <div className="mt-3 rounded-2xl bg-white border border-[#e2ddd5] p-4"><div className="text-[9px] font-mono tracking-[1.3px] text-[#8d867e]">WHEN TO REMEMBER</div><div className="mt-2 space-y-2">{[['after-chat','每次对话结束后判断'],['important-only','只有出现重要信息才判断'],['manual','仅手动记录']].map(([id,label])=><button key={id} onClick={()=>updateSettings({trigger:id as MemorySettings['trigger']})} className={`w-full flex items-center justify-between py-2 text-left text-[10px] ${memorySettings.trigger===id?'font-semibold':'text-[#6f6962]'}`}><span>{label}</span><span className={`w-4 h-4 rounded-full border ${memorySettings.trigger===id?'bg-[#292724] border-[#292724]':'border-[#cfc8be]'}`}/></button>)}</div></div>
+          <div className="mt-3 rounded-2xl bg-white border border-[#e2ddd5] p-4"><div className="text-[9px] font-mono tracking-[1.3px] text-[#8d867e]">MEMORY SOURCES</div><div className="mt-2 grid grid-cols-2 gap-2">{[['line','LINE CHAT'],['offline','OFFLINE STORY']].map(([id,label])=><button key={id} onClick={()=>updateSettings({sources:{...memorySettings.sources,[id]:!memorySettings.sources[id as 'line'|'offline']}})} className={`rounded-xl border p-3 text-left text-[9px] ${memorySettings.sources[id as 'line'|'offline']?'bg-[#292724] text-white border-[#292724]':'bg-[#f5f1ea] border-[#e2ddd5] text-[#777069]'}`}>{label}<div className="mt-1 text-[7px] opacity-60">{memorySettings.sources[id as 'line'|'offline']?'允许写入':'不写入 Memory'}</div></button>)}</div></div>
+          <div className="mt-3 rounded-2xl bg-white border border-[#e2ddd5] p-4"><div className="text-[9px] font-mono tracking-[1.3px] text-[#8d867e]">WHAT CAN BE REMEMBERED</div><div className="mt-2 grid grid-cols-2 gap-x-4">{sections.map(sec=><label key={sec.id} className="flex items-center gap-2 py-2 text-[9px] text-[#625c55]"><input type="checkbox" checked={memorySettings.categories[sec.id]} onChange={e=>updateSettings({categories:{...memorySettings.categories,[sec.id]:e.target.checked}})} />{sec.label}</label>)}</div></div>
+          <div className="mt-3 rounded-2xl bg-white border border-[#e2ddd5] p-4"><div className="text-[9px] font-mono tracking-[1.3px] text-[#8d867e]">MAINTENANCE</div><div className="mt-2 space-y-2 text-[9px]">{[['autoMerge','自动合并重复记忆'],['autoUpdate','发现新信息时更新旧记忆'],['autoDelete','自动删除低价值记忆'],['requireApproval','保存前先让我确认']].map(([id,label])=><label key={id} className="flex items-center justify-between py-2"><span>{label}</span><input type="checkbox" checked={!!memorySettings[id as keyof MemorySettings]} onChange={e=>updateSettings({[id]:e.target.checked} as Partial<MemorySettings>)} /></label>)}</div><div className="mt-3 pt-3 border-t border-[#eee9e1] text-[8px] leading-relaxed text-[#9a9289]">「我的人设」永远由你控制，不属于 Memory，也不会被自动修改。</div></div>
+        </div>
+      </div>}    </div>
   );
 }
