@@ -9,7 +9,7 @@ import { resolveCharacterContext, selectWorldBookEntries } from './contextEngine
 import { getCotForTarget, type CotPreset } from '../store/cotPresets';
 import { buildLineHumanBehaviorPrompt } from '../store/lineReality';
 
-export type AiSettings = Pick<AppSettings, 'provider' | 'apiBaseUrl' | 'apiKey' | 'model' | 'streaming' | 'contextLength' | 'maxOutputTokens' | 'autoSave' | 'temperature'>;
+export type AiSettings = Pick<AppSettings, 'provider' | 'apiBaseUrl' | 'apiKey' | 'model' | 'streaming' | 'contextLength' | 'maxOutputTokens' | 'autoSave' | 'temperature' | 'topP' | 'topK' | 'frequencyPenalty' | 'presencePenalty' | 'seed'>;
 
 export interface AiReplyInput {
   settings: AiSettings;
@@ -58,6 +58,11 @@ export interface AiReplyInput {
   cotTarget?: 'line' | 'offline' | 'group';
   cotPreset?: Pick<CotPreset, 'id' | 'title' | 'template' | 'tag'>;
   temperature?: number;
+  topP?: number;
+  topK?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
+  seed?: number | null;
   onDelta?: (delta: string) => void;
 }
 
@@ -114,6 +119,11 @@ export function resolveChannelAiSettings(channel: 'chat' | 'moments'): AiSetting
     maxOutputTokens: settings.maxOutputTokens,
     autoSave: settings.autoSave,
     temperature: settings.temperature,
+    topP: settings.topP,
+    topK: settings.topK,
+    frequencyPenalty: settings.frequencyPenalty,
+    presencePenalty: settings.presencePenalty,
+    seed: settings.seed,
   };
   if (!override?.enabled) return base;
   return {
@@ -141,6 +151,11 @@ export function readStoredAiSettings(characterId?: string, characterName?: strin
     maxOutputTokens: settings.maxOutputTokens,
     autoSave: settings.autoSave,
     temperature: settings.temperature,
+    topP: settings.topP,
+    topK: settings.topK,
+    frequencyPenalty: settings.frequencyPenalty,
+    presencePenalty: settings.presencePenalty,
+    seed: settings.seed,
   };
 
   if (!characterId && !characterName) return base;
@@ -555,6 +570,8 @@ async function callGemini(input: AiReplyInput): Promise<string> {
     })),
     generationConfig: {
       temperature: Math.max(0, Math.min(2, input.temperature ?? input.settings.temperature ?? 0.85)),
+      topP: Math.max(0, Math.min(1, input.topP ?? input.settings.topP ?? 0.95)),
+      topK: Math.max(1, Math.min(100, input.topK ?? input.settings.topK ?? 40)),
       maxOutputTokens: Math.max(128, Math.min(12000, Number(input.settings.maxOutputTokens) || 1200)),
     },
   };
@@ -617,6 +634,10 @@ async function callOpenAiCompatible(input: AiReplyInput): Promise<string> {
     model: input.settings.model.trim(),
     stream: Boolean(input.settings.streaming),
     temperature: Math.max(0, Math.min(2, input.temperature ?? input.settings.temperature ?? 0.85)),
+    top_p: Math.max(0, Math.min(1, input.topP ?? input.settings.topP ?? 0.95)),
+    frequency_penalty: Math.max(-2, Math.min(2, input.frequencyPenalty ?? input.settings.frequencyPenalty ?? 0)),
+    presence_penalty: Math.max(-2, Math.min(2, input.presencePenalty ?? input.settings.presencePenalty ?? 0)),
+    ...(input.seed ?? input.settings.seed) !== null && (input.seed ?? input.settings.seed) !== undefined ? { seed: Number(input.seed ?? input.settings.seed) } : {},
     max_tokens: Math.max(128, Math.min(12000, Number(input.settings.maxOutputTokens) || 1200)),
     messages: [
       { role: 'system', content: system },
