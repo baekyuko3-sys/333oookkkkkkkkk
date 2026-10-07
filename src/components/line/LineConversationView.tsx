@@ -1285,7 +1285,7 @@ export function LineConversationView({
             activeGroup?.relationships?.length ? '【成员关系】\\n' + activeGroup.relationships.map(item => item.from + ' → ' + item.to + '：' + item.relation).join('\\n') : '',
             activeGroup?.events?.length ? '【群事件记忆】\\n' + activeGroup.events.slice(-12).map(item => item.text).join('\\n') : '',
             '【成员状态】\\n' + (activeGroup?.members || []).map(member => member.name + '：' + [member.online === false ? '离线' : '在线', member.mood || '', member.relationship || ''].filter(Boolean).join(' / ')).join('\\n'),
-          ].filter(Boolean).join('\\n'),
+          ].filter(Boolean).join('\n'),
           stylePreset: activeCotPreset?.title || selectedPreset,
         cotTarget: activeCotPreset ? 'line' : undefined,
         cotPreset: activeCotPreset ? {
@@ -1396,12 +1396,6 @@ export function LineConversationView({
         messages: [...messages, newMsg].map(message => ({ ...message, sender: message.sender || 'other' })),
         userMessage: userText,
         isGroup,
-        authorNote: [
-          lineConversationRules,
-          authorsNote,
-          relationshipContext.trim() ? '【你们过去的关系背景】\n' + relationshipContext.trim() : '',
-          selectedOpeningContext.trim() ? '【角色卡开场白 / 前情提要】\n' + selectedOpeningContext.trim() : '',
-        ].filter(Boolean).join('\n'),
         stylePreset: activeCotPreset?.title || selectedPreset,
         cotTarget: enableChainOfThought && activeCotPreset ? 'line' : undefined,
         cotPreset: enableChainOfThought && activeCotPreset ? {
@@ -1413,8 +1407,8 @@ export function LineConversationView({
         authorNote: [
           lineConversationRules,
           authorsNote,
-          relationshipContext.trim() ? '【你们过去的关系背景】\\n' + relationshipContext.trim() : '',
-          selectedOpeningContext.trim() ? '【角色卡开场白 / 前情提要】\\n' + selectedOpeningContext.trim() : '',
+          relationshipContext.trim() ? '【你们过去的关系背景】\n' + relationshipContext.trim() : '',
+          selectedOpeningContext.trim() ? '【角色卡开场白 / 前情提要】\n' + selectedOpeningContext.trim() : '',
           enableChainOfThought ? '【COT 输出：开启】本轮必须输出 <cot>...</cot> 高层角色决策记录，正文放入 <message>...</message>。禁止输出隐藏思维链。' : '【COT 输出：关闭】不要输出 <cot>、<thinking>、<think>、<summary> 标签。',
           lineActionDescriptionsEnabled ? '【线上动作描写：开启】本轮如果有动作/反应必须输出 <action>...</action>，动作与正文分离。' : '【线上动作描写：关闭】不要输出 <action> 标签。',
         ].filter(Boolean).join('\\n'),
