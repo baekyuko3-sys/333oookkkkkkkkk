@@ -3213,8 +3213,10 @@ export function LineConversationView({
 
               {/* Send Button */}
               <button
-                onClick={handleSend}
-                className="w-[34px] h-[38px] flex items-center justify-center text-[#c98f9d] hover:text-[#ae7e89] cursor-pointer"
+                type="button"
+                onClick={() => void handleSend(true)}
+                disabled={isTyping || !inputText.trim()}
+                className="w-[34px] h-[38px] flex items-center justify-center text-[#c98f9d] hover:text-[#ae7e89] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <Send className="w-5 h-5 stroke-[1.65]" />
               </button>
@@ -4039,10 +4041,21 @@ export function LineConversationView({
                 <input value={chatApiOverride.apiBaseUrl} onChange={e => updateChatApiOverride({ apiBaseUrl: e.target.value })} placeholder="API Base URL" className="w-full p-2 bg-[#fafafa] border border-[#e8e8e9] rounded-[9px] text-[10px] outline-none" />
                 <input value={chatApiOverride.apiKey} onChange={e => updateChatApiOverride({ apiKey: e.target.value })} placeholder="API Key" type="password" className="w-full p-2 bg-[#fafafa] border border-[#e8e8e9] rounded-[9px] text-[10px] outline-none" />
                 <div className="flex gap-2">
-                  <select value={chatApiOverride.model} onChange={e => updateChatApiOverride({ model: e.target.value })} className="flex-1 p-2 bg-[#fafafa] border border-[#e8e8e9] rounded-[9px] text-[10px] outline-none">
-                    <option value="">选择模型</option>{chatApiModels.map(model => <option key={model} value={model}>{model}</option>)}{chatApiOverride.model && !chatApiModels.includes(chatApiOverride.model) && <option value={chatApiOverride.model}>{chatApiOverride.model}</option>}
-                  </select>
-                  <button onClick={fetchChatApiModels} className="px-2.5 rounded-[9px] bg-[#f0e6e8] text-[#8c5f6b] text-[9px]">{chatApiBusy === 'models' ? '拉取中…' : '拉取模型'}</button>
+                  <div className="flex-1 min-w-0">
+                    <select value={chatApiOverride.model} onChange={e => updateChatApiOverride({ model: e.target.value })} className="w-full p-2 bg-[#fafafa] border border-[#e8e8e9] rounded-[9px] text-[10px] outline-none">
+                      <option value="">选择模型</option>
+                      {chatApiModels.map(model => <option key={model} value={model}>{model}</option>)}
+                      {chatApiOverride.model && !chatApiModels.includes(chatApiOverride.model) && <option value={chatApiOverride.model}>{chatApiOverride.model}</option>}
+                    </select>
+                    {chatApiModels.length > 0 && (
+                      <div className="mt-1 max-h-28 overflow-y-auto rounded-[8px] bg-white border border-[#eee] p-1 space-y-0.5">
+                        {chatApiModels.map(model => (
+                          <button key={model} type="button" onClick={() => updateChatApiOverride({ model })} className={"w-full text-left px-2 py-1.5 rounded-md text-[8px] font-mono truncate " + (chatApiOverride.model === model ? 'bg-[#f0e6e8] text-[#8c5f6b]' : 'text-[#666] hover:bg-[#fafafa]')}>{model}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={fetchChatApiModels} className="px-2.5 self-start rounded-[9px] bg-[#f0e6e8] text-[#8c5f6b] text-[9px]">{chatApiBusy === 'models' ? '拉取中…' : '拉取模型'}</button>
                 </div>
                 <button onClick={testChatApi} className="w-full py-2 rounded-[9px] bg-[#292724] text-white text-[10px]">{chatApiBusy === 'test' ? '测试中…' : '测试连接'}</button>
               </div>}
