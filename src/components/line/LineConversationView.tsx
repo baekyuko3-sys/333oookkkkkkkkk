@@ -604,6 +604,19 @@ export function LineConversationView({
   const projectManifest = getProjectManifest();
 
   useEffect(() => {
+    const region = String(activePersona?.region || '').trim();
+    if (!region) {
+      setPersonaLiveWeather(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchLineWeather(region).then(weather => {
+      if (!cancelled) setPersonaLiveWeather(weather);
+    });
+    return () => { cancelled = true; };
+  }, [activePersona?.id, activePersona?.region]);
+
+  useEffect(() => {
     if (!characterRegion.trim()) return;
     let cancelled = false;
     void fetchLineWeather(characterRegion).then(weather => {
@@ -1114,7 +1127,7 @@ export function LineConversationView({
           settings: conversationAiSettings(),
           character,
           characterProfile: memberProfile,
-          persona: activePersona,
+          persona: activePersona ? { ...activePersona, weather: personaLiveWeather ? formatLineWeather(personaLiveWeather) : activePersona.weather } : activePersona,
           characterWeather: characterWeather ? formatLineWeather(characterWeather) : '',
           worldbooks: activeWorldbooks,
           memory: memberMemory,
@@ -1402,6 +1415,7 @@ export function LineConversationView({
       setIsTyping(false);
     }
   };
+  const [personaLiveWeather, setPersonaLiveWeather] = useState<LineWeatherSnapshot | null>(null);
 
   // 双击头像“拍一拍 / 戳一戳” (Nudge / Poke)
   const handleNudge = (targetName = characterProfile.nickname) => {
