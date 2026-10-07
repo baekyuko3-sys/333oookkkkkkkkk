@@ -358,7 +358,10 @@ function buildConversationMessages(input: AiReplyInput) {
   // contextLength is the user's actual context budget: first cap turns, then cap
   // the approximate payload size so a huge message/media transcript cannot silently
   // consume the entire provider window.
-  const turnBudget = Math.max(4, Math.min(200, Number(input.settings.contextLength) || 24));
+  // Character chat should feel like a conversation, not a full-database retrieval.
+  // Keep the user-configured budget, but put a hard ceiling on one reply turn so
+  // old topics cannot drown out the message that triggered this response.
+  const turnBudget = Math.max(6, Math.min(24, Number(input.settings.contextLength) || 12));
   const limit = turnBudget * 2;
   const maxApproxChars = Math.max(8000, Math.min(160000, turnBudget * 5000));
   const eligible = input.messages
