@@ -4407,10 +4407,13 @@ export function LineConversationView({
               }}
             >
               {currentStatusSnapshot ? (
-                <div
-                  className="w-full px-1 text-[11px] leading-relaxed text-[#333] [&_*]:max-w-full [&_img]:max-w-full [&_img]:h-auto"
-                  dangerouslySetInnerHTML={{ __html: currentStatusSnapshot.html }}
-                />
+                <div className="w-full max-w-[420px] rounded-[18px] border border-[#dedfe3] bg-white shadow-[0_8px_28px_rgba(0,0,0,0.10)] overflow-visible">
+                  <div
+                    className="w-full min-h-0 px-4 py-4 text-[11px] leading-relaxed text-[#333] break-words [&_*]:max-w-full [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_table]:max-w-full [&_pre]:whitespace-pre-wrap [&_pre]:break-words"
+                    style={{ height: 'auto', minHeight: 0 }}
+                    dangerouslySetInnerHTML={{ __html: currentStatusSnapshot.html }}
+                  />
+                </div>
               ) : (
                 <div className="py-12 text-center text-[10px] text-[#aaa]">
                   还没有成功匹配的状态栏
