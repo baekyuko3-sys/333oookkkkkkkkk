@@ -476,6 +476,9 @@ export function LineConversationView({
     identity: '',
     traits: '',
     background: '',
+    region: '',
+    timezone: '',
+    birthday: '',
   };
 
   const activeGroup = isGroup ? getLineGroupByName(contactName) : null;
