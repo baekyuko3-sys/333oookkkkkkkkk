@@ -11,6 +11,7 @@ import { buildCharacterAiProfile } from '../../store/characterAiProfiles';
 import { usePersistentState } from '../../store/usePersistentState';
 import { DEFAULT_APP_SETTINGS, type AppSettings, readAppSettings, saveAppSettings } from '../../store/appSettings';
 import { applyApiPreset, deleteApiPreset, readApiPresets, settingsToApiPreset, upsertApiPreset, type ApiPreset } from '../../store/apiPresets';
+import { clearAiDebugLog, readAiDebugLog, type AiDebugEntry } from '../../store/aiDebug';
 import { listOpenAiCompatibleModels, testAiConnection } from '../../ai/aiEngine';
 import { generateImage, generateSpeech } from '../../ai/mediaEngine';
 import { playAppSound, saveSoundFile, type AppSoundKind } from '../../store/soundManager';
@@ -72,7 +73,7 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
   const callSoundFileRef = useRef<HTMLInputElement>(null);
   const [settings, setSettingsState] = usePersistentState<AppSettings>('phone:settings', () => readAppSettings());
   const [notice, setNotice] = useState('');
-  const [openSection, setOpenSection] = useState<'ai' | 'voice' | 'image' | 'data' | 'sound' | 'background'>('ai');
+  const [openSection, setOpenSection] = useState<'ai' | 'voice' | 'image' | 'data' | 'sound' | 'background' | 'debug'>('ai');
   const [testing, setTesting] = useState(false);
   const [aiConnection, setAiConnection] = useState<{ status: 'idle' | 'success' | 'error'; message: string }>({ status: 'idle', message: '' });
   const [loadingModels, setLoadingModels] = useState(false);
@@ -90,7 +91,10 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>('');
   const [apiPresets, setApiPresets] = useState<ApiPreset[]>(() => readApiPresets());
   const [apiPresetName, setApiPresetName] = useState('');
+  const [debugLog, setDebugLog] = useState<AiDebugEntry[]>(() => readAiDebugLog());
 
+
+  useMemo(() => { const fn=()=>setDebugLog(readAiDebugLog()); window.addEventListener('sane333:ai-debug-changed',fn); return () => window.removeEventListener('sane333:ai-debug-changed',fn); }, []);
 
   const localStats = useMemo(() => {
     const data = collectLocalData();
@@ -369,7 +373,7 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
           <div className="relative mt-1 text-[9px] text-[#817a72] leading-relaxed">Gemini、OpenAI Compatible、语音、图片、记忆与后台运行，都从这里管理。</div>
         </section>
 
-        <div className="grid grid-cols-6 gap-1.5">
+        <div className="grid grid-cols-7 gap-1.5">
           {[
             ['ai', 'AI'],
             ['voice', '语音'],
@@ -632,6 +636,23 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
                 <div className="mt-0.5 font-mono break-all">{aiConnection.message}</div>
               </div>
             )}
+          </section>
+        )}
+
+        {openSection === 'debug' && (
+          <section className="p-4 rounded-2xl bg-[#ebe7df] border border-[rgba(40,36,31,.12)]">
+            <div className="flex items-center justify-between mb-3">
+              <div><div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">SANE333 CONSOLE / AI</div><div className="text-sm font-semibold">AI 诊断后台</div><div className="text-[9px] text-[#8b8782] mt-0.5">记录最近请求、模型、耗时与错误，不记录完整 API Key。</div></div>
+              <button onClick={()=>{clearAiDebugLog();setDebugLog([]);}} className="text-[9px] text-[#a06e79]">清空</button>
+            </div>
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              <div className="bg-white/65 rounded-xl p-2.5"><div className="text-[8px] text-[#999]">请求</div><div className="text-base font-semibold">{debugLog.filter(x=>x.event==='request:start').length}</div></div>
+              <div className="bg-white/65 rounded-xl p-2.5"><div className="text-[8px] text-[#999]">成功</div><div className="text-base font-semibold">{debugLog.filter(x=>x.level==='success').length}</div></div>
+              <div className="bg-white/65 rounded-xl p-2.5"><div className="text-[8px] text-[#999]">错误</div><div className="text-base font-semibold">{debugLog.filter(x=>x.level==='error').length}</div></div>
+            </div>
+            <div className="max-h-[360px] overflow-y-auto space-y-1.5">
+              {debugLog.length ? debugLog.map(item => <div key={item.id} className="bg-white/70 rounded-xl p-2.5 border border-black/5"><div className="flex justify-between gap-2"><span className={`text-[9px] font-semibold ${item.level==='error'?'text-[#b35f6e]':item.level==='success'?'text-[#65856b]':'text-[#756f69']}`}>{item.event}</span><span className="text-[8px] text-[#aaa]">{new Date(item.time).toLocaleTimeString()}</span></div><div className="text-[9px] mt-1 leading-relaxed break-words">{item.message}</div><div className="text-[8px] text-[#999] mt-1">{item.provider||''} · {item.model||''}{item.durationMs ? ' · '+item.durationMs+'ms' : ''}</div>{item.meta && <pre className="mt-1 text-[7px] text-[#8b8580] whitespace-pre-wrap break-words">{JSON.stringify(item.meta,null,2)}</pre>}</div>) : <div className="py-12 text-center text-[10px] text-[#aaa]">还没有 AI 请求记录</div>}
+            </div>
           </section>
         )}
 
