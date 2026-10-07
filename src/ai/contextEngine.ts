@@ -213,10 +213,10 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
         '角色打字习惯：' + (input.character.typingHabit || '未填写'),
       ].join('\n')
     : [
-        '姓名：' + (p.callMe || '角色'),
-        '关系：' + (p.relationship || '未设置'),
-        '称呼：' + (p.callMe || '未设置'),
-        '简介：' + (p.bio || '未填写'),
+        '角色姓名：' + (p.bio ? '见角色档案' : '未设置'),
+        '当前关系记录：' + (p.relationship || '未设置'),
+        '角色对用户的称呼：' + (p.callMe || '尚未形成；不要自行套用默认昵称'),
+        '角色简介补充：' + (p.bio || '未填写'),
       ].join('\n');
 
   const persona = input.persona
@@ -250,8 +250,8 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
     : '当前没有可用的角色实时世界状态。';
 
   const relationship = [
-    '关系：' + (p.relationship || '未设置'),
-    'TA希望被称为：' + (p.callMe || '未设置'),
+    '当前关系记录：' + (p.relationship || '未设置'),
+    '角色对用户的称呼：' + (p.callMe || '尚未形成；只有在角色卡、用户资料或真实互动有依据时才使用；不要套用固定昵称'),
     live ? '当前未读：' + live.unread : '',
   ].filter(Boolean).join('\n');
 
