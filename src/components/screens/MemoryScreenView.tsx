@@ -7,6 +7,8 @@ import {
   deleteCharacterMemoryItem,
   getCharacterMemory,
   saveCharacterMemory,
+  addRecentMemorySummary,
+  mergeRecentMemorySummaries,
   type CharacterMemory,
   type MemorySection,
 } from '../../store/characterMemory';
@@ -153,6 +155,18 @@ export function MemoryScreenView({ onNavigate }: { onNavigate: (screen: ScreenTy
       section:activeSection,
     });
     notifyMemory(next);
+  };
+
+  const recentSummaries = memory.recentSummaries || [];
+  const addRecentSummary = () => {
+    if (!selected) return;
+    const content = window.prompt('添加一条最近聊天总结：');
+    if (!content?.trim()) return;
+    notifyMemory(addRecentMemorySummary(selected.id, selected.name, content, { source:'manual', importance:60 }));
+  };
+  const mergeRecent = () => {
+    if (!selected || !recentSummaries.length) return;
+    notifyMemory(mergeRecentMemorySummaries(selected.id, selected.name));
   };
 
   const removeMemory = (id: string) => {
@@ -312,7 +326,20 @@ export function MemoryScreenView({ onNavigate }: { onNavigate: (screen: ScreenTy
               ))}
             </section>
 
-            <section className="mt-3 rounded-2xl bg-white/45 border border-[rgba(40,36,31,.08)] p-4">
+            <section className="mt-3 rounded-3xl bg-[#292724] text-white p-4">
+  <div className="flex items-center justify-between">
+    <div><div className="text-[7px] font-mono tracking-[1.6px] text-white/45">MEMORY PIPELINE</div><div className="mt-1 font-serif text-[16px]">Recent → Merge → Memory</div></div>
+    <button onClick={mergeRecent} disabled={!recentSummaries.length} className="px-3 py-1.5 rounded-full bg-white text-[#292724] text-[8px] disabled:opacity-30">立即整理</button>
+  </div>
+  <div className="mt-3 grid grid-cols-3 gap-2">
+    <div className="rounded-xl bg-white/8 p-2.5"><div className="text-[17px] font-serif">{recentSummaries.length}</div><div className="text-[7px] text-white/45">RECENT / 100</div></div>
+    <div className="rounded-xl bg-white/8 p-2.5"><div className="text-[17px] font-serif">{memory.items.length}</div><div className="text-[7px] text-white/45">LONG-TERM</div></div>
+    <div className="rounded-xl bg-white/8 p-2.5"><div className="text-[11px] font-mono mt-1.5">{memory.lastMergedAt ? new Date(memory.lastMergedAt).toLocaleDateString() : '—'}</div><div className="text-[7px] text-white/45 mt-0.5">LAST MERGE</div></div>
+  </div>
+  <div className="mt-3 text-[8px] leading-relaxed text-white/55">100 条是角色最近值得保留的记忆材料，不等于最终 Memory。达到设置阈值后再由合并引擎整理、更新或吸收。</div>
+  <div className="mt-3 flex justify-between items-center"><span className="text-[8px] text-white/45">RECENT MEMORY LOG</span><button onClick={addRecentSummary} className="text-[8px] underline underline-offset-2">＋ 添加测试总结</button></div>
+</section>
+{recentSummaries.length > 0 && <section className="mt-2.5 space-y-2">{recentSummaries.slice(0,5).map(item => <article key={item.id} className="rounded-2xl bg-white/65 border border-[rgba(40,36,31,.08)] p-3"><div className="flex items-center justify-between"><span className="text-[7px] font-mono tracking-[1px] text-[#9a9289]">{item.source.toUpperCase()} · {item.importance}</span><span className="text-[7px] text-[#aaa199]">{new Date(item.createdAt).toLocaleDateString()}</span></div><div className="mt-1.5 text-[9.5px] leading-relaxed text-[#443f3a]">{item.content}</div></article>)}</section>\n            <section className="mt-3 rounded-2xl bg-white/45 border border-[rgba(40,36,31,.08)] p-4">
               <div className="flex items-center gap-2 text-[7px] font-mono tracking-[1.5px] text-[#9a9289]"><Sparkles className="w-3 h-3" /> MEMORY ENGINE</div>
               <p className="mt-1.5 text-[8.5px] leading-relaxed text-[#8a837b]">这里展示的是这个角色自己的长期记忆。聊天与线下剧情写入后会自动刷新；「对你的看法」与「关系记忆」不会被当成通用人格模板。</p>
             </section>

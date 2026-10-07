@@ -19,12 +19,22 @@ export interface CharacterMemoryItem {
   section?: MemorySection;
 }
 
+export interface RecentMemorySummary {
+  id: string;
+  content: string;
+  source: 'line' | 'offline' | 'manual';
+  createdAt: string;
+  importance: number;
+}
 export interface CharacterMemory {
+
   characterId: string;
   characterName: string;
   summary: string;
   items: CharacterMemoryItem[];
   updatedAt: string;
+  recentSummaries?: RecentMemorySummary[];
+  lastMergedAt?: string;
   /** The user persona explicitly chosen for this character. */
   personaId?: string;
   personaName?: string;
@@ -59,6 +69,7 @@ export function getCharacterMemory(characterId: string, characterName: string): 
       characterId,
       characterName: characterName || parsed.characterName || '',
       items: Array.isArray(parsed.items) ? parsed.items : [],
+      recentSummaries: Array.isArray(parsed.recentSummaries) ? parsed.recentSummaries : [],
     };
   } catch {
     return emptyMemory(characterId, characterName);
@@ -85,6 +96,41 @@ export function updateCharacterMemory(
     ...patch,
     characterId,
     characterName,
+  });
+}
+
+export function addRecentMemorySummary(
+  characterId: string,
+  characterName: string,
+  content: string,
+  options?: { source?: RecentMemorySummary['source']; importance?: number },
+): CharacterMemory {
+  const trimmed = content.trim();
+  if (!trimmed) return getCharacterMemory(characterId, characterName);
+  const current = getCharacterMemory(characterId, characterName);
+  const now = new Date().toISOString();
+  const summary: RecentMemorySummary = {
+    id: `recent-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+    content: trimmed,
+    source: options?.source || 'line',
+    createdAt: now,
+    importance: Math.max(0, Math.min(100, Number(options?.importance ?? 50) || 50)),
+  };
+  return saveCharacterMemory({ ...current, recentSummaries: [summary, ...(current.recentSummaries || [])].slice(0, 100) });
+}
+
+export function mergeRecentMemorySummaries(characterId: string, characterName: string): CharacterMemory {
+  const current = getCharacterMemory(characterId, characterName);
+  const recent = current.recentSummaries || [];
+  if (!recent.length) return current;
+  const unique = recent.filter((item, index, arr) => {
+    const n = normalizeMemoryText(item.content);
+    return arr.findIndex(other => normalizeMemoryText(other.content) === n) === index;
+  });
+  return saveCharacterMemory({
+    ...current,
+    recentSummaries: unique.slice(0, 100),
+    lastMergedAt: new Date().toISOString(),
   });
 }
 
@@ -204,6 +250,9 @@ export function buildMemoryContext(memory: CharacterMemory, maxItems = 20): stri
   const items = [...memory.items]
     .sort((a, b) => b.importance - a.importance || b.updatedAt.localeCompare(a.updatedAt))
     .slice(0, maxItems);
+
+  const recent = [...(memory.recentSummaries || [])].sort((a,b) => b.importance-a.importance || b.createdAt.localeCompare(a.createdAt)).slice(0, 10);
+  if (recent.length) sections.push('【最近100条记忆摘要】\n' + recent.map(item => `- [${item.source}] ${item.content}`).join('\n'));
 
   if (items.length) {
     sections.push('【长期记忆条目】\n' + items.map(item => `- [重要度 ${item.importance}] ${item.content}`).join('\n'));
