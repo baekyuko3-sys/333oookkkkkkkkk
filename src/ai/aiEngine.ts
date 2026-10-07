@@ -272,6 +272,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '【长期记忆】\n' + context.memory,
     '',
     '【实时世界状态】\n' + context.world,
+    cotPreset ? '【状态栏决策】先判断当前是否有状态栏并是否需要更新；若启用，只根据最近聊天与角色已知状态更新地点、时间、活动、情绪等有依据的变化。没有明确变化就保持原状态，不凭空制造剧情。状态栏是角色当前状态快照，不是旁白。' : '',
     '',
     '【项目设定】\n' + context.project,
     context.worldBookAfter ? '【世界书 · 角色定义后】\n' + context.worldBookAfter : '',
