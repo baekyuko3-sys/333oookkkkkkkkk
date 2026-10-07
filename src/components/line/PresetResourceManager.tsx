@@ -176,14 +176,6 @@ export function PresetResourceManager({
                 <label className="block text-[8px] text-[#999]">Name
                   <input value={(selected as StatusBarPreset).name} onChange={e=>updateSelected({name:e.target.value})} placeholder="例如：状态栏 / Status Card" className="w-full mt-1 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px]"/>
                 </label>
-                <label className="block text-[8px] text-[#999]">文字输入格式
-                  <input value={(selected as StatusBarPreset).inputFormat || '{{status:状态内容}}'} onChange={e=>updateSelected({inputFormat:e.target.value})} placeholder="{{status:地点｜时间｜活动｜心情}}" className="w-full mt-1 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px] font-mono"/>
-                  <div className="text-[8px] text-[#aaa] mt-1">告诉 AI：它最终必须输出成什么“原始文字格式”。</div>
-                </label>
-                <label className="block text-[8px] text-[#999]">Prompt 后缀 · AI 输出指令
-                  <textarea value={(selected as StatusBarPreset).promptSuffix || ''} onChange={e=>updateSelected({promptSuffix:e.target.value})} placeholder="例如：请在回复最后严格按照以下格式输出状态栏……" className="w-full mt-1 h-24 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px] leading-relaxed font-mono resize-y"/>
-                  <div className="text-[8px] text-[#aaa] mt-1">这是预设自带的 AI 指令。应用到 LINE 后会自动带入，不需要在聊天设置里再次填写。</div>
-                </label>
                 <label className="block text-[8px] text-[#999]">提取正则 · Find Regex
                   <input value={(selected as StatusBarPreset).regex} onChange={e=>updateSelected({regex:e.target.value})} placeholder="/\\{\\{status:(.*?)\\}\\}/gs" className="w-full mt-1 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px] font-mono"/>
                 </label>
@@ -217,35 +209,6 @@ export function PresetResourceManager({
                       : <span className="text-[8px] text-[#aaa] py-8">这里显示最终 HTML 渲染效果</span>}
                   </div>
                 </div>
-                <label className="block text-[8px] text-[#999]">Description
-                  <input value={(selected as StatusBarPreset).description} onChange={e=>updateSelected({description:e.target.value})} placeholder="可选" className="w-full mt-1 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px]"/>
-                </label>
-
-                <div className="rounded-xl bg-[#f7f7f8] border border-[#ececee] p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-[9px] font-semibold text-[#444]">Test Mode</div>
-                      <div className="text-[8px] text-[#aaa]">输入一段 AI 回复，实时看 HTML 渲染结果</div>
-                    </div>
-                    <span className="text-[8px] font-mono text-[#aaa]">AI RESPONSE</span>
-                  </div>
-                  <textarea
-                    value={regexTestInput}
-                    onChange={e=>setRegexTestInput(e.target.value)}
-                    placeholder="把角色回复粘贴到这里……"
-                    className="w-full h-20 p-2 rounded-lg bg-white border border-[#e8e8e8] text-[9px] outline-none resize-none"
-                  />
-                  <div className="rounded-lg bg-white border border-[#e8e8e8] p-2.5 min-h-[48px] overflow-hidden">
-                    {selected && regexTestInput
-                      ? (
-                        <div className="flex justify-center py-2">
-                          <div className="w-full max-w-[420px] rounded-[18px] border border-[#dedfe3] bg-white shadow-[0_8px_28px_rgba(0,0,0,0.10)] overflow-visible">
-                            <div className="w-full min-h-0 px-4 py-4 text-[10px] leading-relaxed text-[#333] break-words [&_*]:max-w-full [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_table]:max-w-full [&_pre]:whitespace-pre-wrap [&_pre]:break-words" style={{ height: 'auto', minHeight: 0 }} dangerouslySetInnerHTML={{__html: renderStatusBarHtml(selected as StatusBarPreset, regexTestInput)}} />
-                          </div>
-                        </div>
-                      )
-                      : <span className="text-[8px] text-[#aaa]">这里显示最终 HTML 卡片</span>}
-                  </div>
                 </div>
               </> : <>
                 <input value={(selected as CotPreset).title} onChange={e=>updateSelected({title:e.target.value})} className="w-full p-2 rounded-lg bg-white border border-[#eee] text-[10px]"/>
