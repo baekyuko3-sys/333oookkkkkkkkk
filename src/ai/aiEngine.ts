@@ -78,19 +78,28 @@ export interface AiReplyResult {
 
 export function parseAiReplyPayload(rawText: string): Pick<AiReplyResult, 'text' | 'thinkingSummary' | 'actionDescription'> {
   const raw = String(rawText || '').replace(/\r\n/g, '\n').trim();
-  const cotMatch = raw.match(/<(?:cot|thinking|think)>\s*([\s\S]*?)\s*<\/(?:cot|thinking|think)>/i);
-  const cotSummary = cotMatch ? cotMatch[1].trim() : '';
+  const readRawTag = (names: string[]): string => {
+    const pattern = names.join('|');
+    const match = raw.match(new RegExp('<(?:' + pattern + ')>\\s*([\\s\\S]*?)\\s*</(?:' + pattern + ')>', 'i'));
+    return match ? match[1].trim() : '';
+  };
+
+  // COT is a safe, user-visible high-level decision record. Never expose
+  // arbitrary hidden reasoning such as <think>/<thought> verbatim.
+  const cotSummary = readRawTag(['cot', 'summary']);
   const withoutHiddenThinking = raw
-    .replace(/<think>[\s\S]*?<\/think>/gi, '')
-    .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
-    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '');
+    .replace(/<think>[\\s\\S]*?<\\/think>/gi, '')
+    .replace(/<thought>[\\s\\S]*?<\\/thought>/gi, '')
+    .replace(/<thinking>[\\s\\S]*?<\\/thinking>/gi, '')
+    .replace(/<cot>[\\s\\S]*?<\\/cot>/gi, '')
+    .replace(/<summary>[\\s\\S]*?<\\/summary>/gi, '');
 
   const readTag = (name: string): string => {
     const match = withoutHiddenThinking.match(new RegExp('<' + name + '>\\s*([\\s\\S]*?)\\s*</' + name + '>', 'i'));
     return match ? match[1].trim() : '';
   };
 
-  const thinkingSummary = cotSummary || readTag('summary');
+  const thinkingSummary = cotSummary || readTag('thinking') || readTag('summary');
   const actionDescription = readTag('action');
   const messageMatch = withoutHiddenThinking.match(/<message>\s*([\s\S]*?)\s*<\/message>/i);
 
@@ -529,7 +538,26 @@ async function parseSseResponse(
   }
 
   buffer += decoder.decode();
-  if (buffer) processLine(buffer);
+  if (buffer) {
+    processLine(buffer);
+    // Some OpenAI-compatible proxies ignore stream=true and return one JSON object.
+    // In that case there are no data: lines, so parse the complete JSON response.
+    if (!fullText.trim()) {
+      try {
+        const payload = buffer.trim().replace(/^data:\s*/i, '');
+        if (payload && payload !== '[DONE]') {
+          const data = JSON.parse(payload);
+          const text = extractText(data);
+          if (text) {
+            fullText += text;
+            onDelta?.(text);
+          }
+        }
+      } catch {
+        // Keep the normal SSE result/error path.
+      }
+    }
+  }
 
   return fullText.trim();
 }
