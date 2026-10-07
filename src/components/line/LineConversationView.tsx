@@ -7,7 +7,7 @@ import { generateImage, generateSpeech, transcribeAudio } from '../../ai/mediaEn
 import { readAppSettings } from '../../store/appSettings';
 import type { ChannelAiSettings } from '../../store/appSettings';
 import { getMedia, putMedia } from '../../store/mediaVault';
-import { addCharacterMemoryItem, getCharacterMemory, updateCharacterMemory } from '../../store/characterMemory';
+import { addRecentMemorySummary, getCharacterMemory } from '../../store/characterMemory';
 import { getProjectManifest } from '../../store/projectManifest';
 import { getCharacterProfile } from '../../data/characterProfiles';
 import { getInitialChatMessages } from '../../data/characterChatSeeds';
@@ -1365,73 +1365,29 @@ export function LineConversationView({
 
       const totalConversationMessages = messages.length + 2;
 
-      // Every 100 messages, create a compact long-term summary of the current chat
-      // before the next 100-message window becomes the active visible window.
-      if (
-        importedCharacter &&
-        totalConversationMessages > 0 &&
-        totalConversationMessages % LINE_PAGE_SIZE === 0
-      ) {
-        const summaryKey = `line:summary-boundary:${conversationStorageId}:${totalConversationMessages}`;
-        if (!window.localStorage.getItem(summaryKey)) {
-          window.localStorage.setItem(summaryKey, 'pending');
-          void summarizeConversationMemory(
-            conversationAiSettings(),
-            contactName,
-            characterMemory,
-            [...messages, newMsg, { sender: 'other', text: result.text }]
-          ).then(memoryResult => {
-            if (memoryResult.summary.trim()) {
-              updateCharacterMemory(importedCharacter.id, importedCharacter.name, {
-                summary: memoryResult.summary,
-              });
-            }
-            for (const item of memoryResult.items) {
-              addCharacterMemoryItem(importedCharacter.id, importedCharacter.name, item.content, {
-                source: 'ai-summary',
-                importance: item.importance,
-                kind: item.kind,
-              });
-            }
-            window.dispatchEvent(new CustomEvent('sane333:memory-updated', {
-              detail: { characterId: importedCharacter.id, boundary: totalConversationMessages },
-            }));
-            window.localStorage.setItem(summaryKey, 'done');
-          }).catch(() => {
-            window.localStorage.removeItem(summaryKey);
-          });
-        }
-      }
-
-      if (
-        latestSettings.autoMemoryEnabled &&
-        importedCharacter &&
-        latestSettings.autoMemoryEveryMessages > 0 &&
-        totalConversationMessages % latestSettings.autoMemoryEveryMessages === 0 &&
-        totalConversationMessages % LINE_PAGE_SIZE !== 0
-      ) {
+      // LINE feeds the shared Memory pipeline. Chat boundaries never write
+      // directly into long-term memory; only valid AI-selected summaries enter
+      // the Recent Memory Pool, which is merged in batches of 100 summaries.
+      if (importedCharacter) {
         void summarizeConversationMemory(
           conversationAiSettings(),
           contactName,
           characterMemory,
           [...messages, newMsg, { sender: 'other', text: result.text }]
         ).then(memoryResult => {
-          if (memoryResult.summary.trim()) {
-            updateCharacterMemory(importedCharacter.id, importedCharacter.name, {
-              summary: memoryResult.summary,
-            });
-          }
           for (const item of memoryResult.items) {
-            addCharacterMemoryItem(importedCharacter.id, importedCharacter.name, item.content, {
-              source: 'ai-summary',
-              importance: item.importance,
-              kind: item.kind,
-            });
+            const content = String(item.content || '').trim();
+            if (!content) continue;
+            addRecentMemorySummary(
+              importedCharacter.id,
+              importedCharacter.name,
+              content,
+              { source: 'line', importance: item.importance }
+            );
           }
           window.dispatchEvent(new CustomEvent('sane333:memory-updated', {
-            detail: { characterId: importedCharacter.id },
+            detail: { characterId: importedCharacter.id, source: 'line', messageCount: totalConversationMessages },
           }));
-          showToast('长期记忆已自动整理 ✦');
         }).catch(() => {
           // Memory maintenance must never interrupt the conversation.
         });
