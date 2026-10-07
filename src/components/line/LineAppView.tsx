@@ -29,6 +29,8 @@ interface LineChatItem {
   chatLabel?: string;
   relationship?: 'new-friend' | 'old-friend' | 'readded';
   readdedReason?: 'deleted' | 'blocked' | 'mutual-delete';
+  chatAvailability?: 'open' | 'temporarily-unavailable';
+  deletionVisibility?: 'visible' | 'hidden';
   relationshipContext?: string;
   openingMode?: 'none' | 'context';
   openingGreeting?: string;
