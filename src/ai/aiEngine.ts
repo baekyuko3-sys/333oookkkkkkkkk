@@ -624,7 +624,15 @@ async function callGemini(input: AiReplyInput): Promise<string> {
   if (!response.ok) throw new Error('AI_GEMINI_' + response.status + ': ' + await readError(response));
 
   if (settings.streaming) {
-    return parseSseResponse(response, extractGeminiText, input.onDelta);
+    let rawStream = '';
+    const revealVisible = (delta: string) => {
+      rawStream += delta;
+      // Never render COT/reasoning as the LINE message while it is streaming.
+      // Only reveal content after the explicit <message> boundary.
+      const match = rawStream.match(/<message>\\s*([\\s\\S]*)$/i);
+      if (match) input.onDelta?.(match[1].replace(/<\\/message>[\\s\\S]*$/i, ''));
+    };
+    return parseSseResponse(response, extractGeminiText, revealVisible);
   }
 
   const data = await response.json();
@@ -701,7 +709,14 @@ async function callOpenAiCompatible(input: AiReplyInput): Promise<string> {
   if (!response.ok) throw new Error('AI_OPENAI_' + response.status + ': ' + await readError(response));
 
   if (input.settings.streaming) {
-    return parseSseResponse(response, extractOpenAiText, input.onDelta);
+    let rawStream = '';
+    const revealVisible = (delta: string) => {
+      rawStream += delta;
+      // Keep <cot>/<think>/<action> out of the visible bubble during streaming.
+      const match = rawStream.match(/<message>\\s*([\\s\\S]*)$/i);
+      if (match) input.onDelta?.(match[1].replace(/<\\/message>[\\s\\S]*$/i, ''));
+    };
+    return parseSseResponse(response, extractOpenAiText, revealVisible);
   }
 
   const data = await response.json();
