@@ -27,9 +27,10 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
 
   type DesktopItem = { id: string; x: number; y: number };
   const defaultPage1Layout: DesktopItem[] = [
-    { id: 'widget-date', x: 26, y: 148 }, { id: 'widget-photo', x: 326, y: 181 },
+    { id: 'widget-date', x: 26, y: 148 }, { id: 'widget-photo', x: 278, y: 181 },
     { id: 'widget-weather', x: 20, y: 306 }, { id: 'widget-note', x: 188, y: 306 }, { id: 'widget-music', x: 20, y: 424 },
-    { id: 'app-line', x: 20, y: 565 }, { id: 'app-moments', x: 102, y: 565 }, { id: 'app-music', x: 184, y: 565 }, { id: 'app-offline-story', x: 266, y: 565 },
+    { id: 'app-line', x: 18, y: 565 }, { id: 'app-moments', x: 104, y: 565 }, { id: 'app-music', x: 190, y: 565 }, { id: 'app-offline-story', x: 276, y: 565 },
+    { id: 'app-character-profile', x: 18, y: 670 }, { id: 'app-world-book', x: 104, y: 670 }, { id: 'app-appearance', x: 190, y: 670 }, { id: 'app-settings', x: 276, y: 670 },
   ];
   const defaultPage2Layout: DesktopItem[] = [
     { id: 'widget-threads', x: 20, y: 300 }, { id: 'app-threads', x: 22, y: 515 }, { id: 'app-npc', x: 104, y: 515 },
@@ -546,40 +547,32 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
         />
       </div>
 
-      {/* ========================================================================= */}
-      {/* PERFECT FUSION DOCK (Persists across pages) */}
-      <div 
-        className="absolute z-20 left-[16px] right-[16px] bottom-[28px] h-[92px] rounded-[30px] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_14px_38px_rgba(48,40,32,.08)] grid grid-cols-4 items-center px-2 backdrop-blur-2xl"
-        style={{ background: 'var(--glass, rgba(248,246,242,.72))' }}
-      >
-        <button onClick={() => onNavigate('character-profile')} className="flex flex-col items-center gap-1.5 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] hover:text-[var(--ink)] active:scale-95 transition-all group">
-          <div className="w-[46px] h-[46px] rounded-[15px] bg-[var(--icon,rgba(248,245,239,.72))] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_4px_12px_rgba(52,43,34,.05)] grid place-items-center group-hover:scale-105 group-hover:bg-white transition-all">
-            {renderAppIcon('character-profile', 'card', 'w-[22px] h-[22px]')}
-          </div>
-          <span className="font-medium">角色档案</span>
-        </button>
-
-        <button onClick={() => onNavigate('world-book')} className="flex flex-col items-center gap-1.5 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] hover:text-[var(--ink)] active:scale-95 transition-all group">
-          <div className="w-[46px] h-[46px] rounded-[15px] bg-[var(--icon,rgba(248,245,239,.72))] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_4px_12px_rgba(52,43,34,.05)] grid place-items-center group-hover:scale-105 group-hover:bg-white transition-all">
-            {renderAppIcon('world-book', 'book', 'w-[22px] h-[22px]')}
-          </div>
-          <span className="font-medium">世界书</span>
-        </button>
-
-        <button onClick={() => onNavigate('appearance')} className="flex flex-col items-center gap-1.5 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] hover:text-[var(--ink)] active:scale-95 transition-all group" title="打开外观设置">
-          <div className="w-[46px] h-[46px] rounded-[15px] bg-[var(--icon,rgba(248,245,239,.72))] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_4px_12px_rgba(52,43,34,.05)] grid place-items-center group-hover:scale-105 group-hover:bg-white transition-all text-[#8b7560]">
-            {renderAppIcon('appearance', 'look', 'w-[22px] h-[22px]')}
-          </div>
-          <span className="font-medium">外观</span>
-        </button>
-
-        <button onClick={() => onNavigate('settings')} className="flex flex-col items-center gap-1.5 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] hover:text-[var(--ink)] active:scale-95 transition-all group" title="系统设置与自定义">
-          <div className="w-[46px] h-[46px] rounded-[15px] bg-[var(--icon,rgba(248,245,239,.72))] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_4px_12px_rgba(52,43,34,.05)] grid place-items-center group-hover:scale-105 group-hover:bg-white transition-all">
-            {renderAppIcon('settings', 'gear', 'w-[22px] h-[22px]')}
-          </div>
-          <span className="font-medium">设置</span>
-        </button>
-      </div>
+      {/* Bottom dock background — apps remain freely draggable in desktop edit mode */}
+      <div className="absolute z-20 left-[16px] right-[16px] bottom-[28px] h-[108px] rounded-[30px] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_14px_38px_rgba(48,40,32,.08)] backdrop-blur-2xl pointer-events-none" style={{ background: 'var(--glass, rgba(248,246,242,.72))' }} />
+      <section className="absolute z-25 inset-0 pointer-events-none">
+        {[
+          ['character-profile','角色档案','card','character-profile'],
+          ['world-book','世界书','book','world-book'],
+          ['appearance','外观','look','appearance'],
+          ['settings','设置','gear','settings'],
+        ].map(([id,label,symbol,screen]) => {
+          const pos = itemPosition(1, 'app-' + id);
+          return <button key={id}
+            onClick={() => { if (!desktopEditing) onNavigate(screen as ScreenType); }}
+            onPointerDown={e => beginDesktopDrag(1, 'app-' + id, e)}
+            onPointerMove={e => continueDesktopDrag(1, 'app-' + id, e)}
+            onPointerUp={() => setDraggingDesktopItem(null)}
+            onPointerCancel={() => setDraggingDesktopItem(null)}
+            className={`absolute pointer-events-auto flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] select-none touch-none ${desktopEditing ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            style={{ left: pos.x, top: pos.y }}
+          >
+            <div className="w-[64px] h-[64px] rounded-[21px] bg-[var(--icon,rgba(248,245,239,.72))] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_6px_18px_rgba(52,43,34,.055)] grid place-items-center">
+              {renderAppIcon(id, symbol, 'w-6 h-6')}
+            </div>
+            <span className="font-medium">{label}</span>
+          </button>;
+        })}
+      </section>
 
     </div>
   );
