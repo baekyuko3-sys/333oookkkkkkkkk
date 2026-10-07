@@ -5358,98 +5358,71 @@ export function LineConversationView({
               ) : null;
             })()}
 
-            {/* Section 2.5: 酒馆状态栏（默认折叠） */}
+            {/* Section 2.5: 酒馆状态栏 */}
             <div className="space-y-1.5">
               <button onClick={() => setShowStatusBarSettings(value => !value)} className="w-full bg-white rounded-[14px] border border-[#f0f0f1] p-3 flex items-center justify-between text-left">
                 <span className="flex items-center gap-1.5 text-[10px] text-[#555] font-medium"><Sliders className="w-3 h-3 text-[#ae7e89]" />酒馆状态栏</span>
                 <span className="text-[9px] text-[#aaa]">{showStatusBarSettings ? '收起' : '展开设置'}</span>
               </button>
+
               {showStatusBarSettings && (
-              <div className="space-y-1.5">
-                <div className="text-[10px] text-[#aaa] font-medium px-1 flex items-center justify-between">
-                  <span className="flex items-center gap-1">
-                    <Sliders className="w-3 h-3 text-[#ae7e89]" />
-                    <span>酒馆状态栏格式与正则表达式配置 (Regex & Template)</span>
-                  </span>
-                  <span className="text-[10px] text-[#ae7e89]">单独配置</span>
-                </div>
-
                 <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3">
-                  {/* 状态变量 */}
-                  <div className="space-y-2">
-                    <div className="font-semibold text-xs text-[#333]">编辑实时状态变量：</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <span className="text-[10px] text-[#999]">地点 location</span>
-                        <input
-                          value={statusData.location}
-                          onChange={(e) => setStatusData({ ...statusData, location: e.target.value })}
-                          className="w-full p-1.5 bg-[#fafafa] border border-[#ddd] rounded-md text-xs mt-0.5 text-[#333]"
-                        />
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-[#999]">时间 time</span>
-                        <input
-                          value={statusData.time}
-                          onChange={(e) => setStatusData({ ...statusData, time: e.target.value })}
-                          className="w-full p-1.5 bg-[#fafafa] border border-[#ddd] rounded-md text-xs mt-0.5 text-[#333]"
-                        />
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-[#999]">当前活动 activity</span>
-                        <input
-                          value={statusData.activity}
-                          onChange={(e) => setStatusData({ ...statusData, activity: e.target.value })}
-                          className="w-full p-1.5 bg-[#fafafa] border border-[#ddd] rounded-md text-xs mt-0.5 text-[#333]"
-                        />
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-[#999]">好感度 favor</span>
-                        <input
-                          value={statusData.favor}
-                          onChange={(e) => setStatusData({ ...statusData, favor: e.target.value })}
-                          className="w-full p-1.5 bg-[#fafafa] border border-[#ddd] rounded-md text-xs mt-0.5 text-[#333]"
-                        />
-                      </div>
-                    </div>
+                  <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] text-[#999]">内心心境 mood</span>
-                      <input
-                        value={statusData.mood}
-                        onChange={(e) => setStatusData({ ...statusData, mood: e.target.value })}
-                        className="w-full p-1.5 bg-[#fafafa] border border-[#ddd] rounded-md text-xs mt-0.5 text-[#333]"
-                      />
+                      <div className="font-semibold text-[11px] text-[#333]">回复后生成状态</div>
+                      <div className="text-[9px] text-[#aaa] mt-0.5">每次角色回复都会保存一张新的状态快照</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const next = !statusBarRandomMode;
+                        setStatusBarRandomMode(next);
+                        saveStatusBarRandomMode(conversationStorageId, next);
+                      }}
+                      className={`px-2.5 py-1.5 rounded-full text-[9px] ${statusBarRandomMode ? 'bg-[#292724] text-white' : 'bg-[#f1f1f2] text-[#777]'}`}
+                    >
+                      {statusBarRandomMode ? '随机选择' : '固定选择'}
+                    </button>
+                  </div>
+
+                  <div className="rounded-[12px] bg-[#fafafa] border border-[#eee] p-3">
+                    <div className="text-[9px] text-[#999] mb-1.5">当前状态栏</div>
+                    <select
+                      value={activeStatusBarPresetId}
+                      onChange={e => setActiveStatusBarPresetId(e.target.value)}
+                      className="w-full p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px] outline-none"
+                    >
+                      {statusBarPresets.filter(preset => preset.targets.includes('line')).map(preset => (
+                        <option key={preset.id} value={preset.id}>{preset.name}</option>
+                      ))}
+                    </select>
+                    <div className="text-[8px] text-[#aaa] mt-1.5">
+                      开启「随机选择」后，每次回复会从这些状态栏模板中随机选一个。
                     </div>
                   </div>
 
-                  {/* HTML 渲染模板 */}
-                  <div className="border-t border-[#f2f2f3] pt-2.5 space-y-1.5">
-                    <div className="flex items-center justify-between text-[11px] text-[#555]">
-                      <span className="font-semibold">HTML 渲染模板：</span>
-                      <span className="text-[10px] text-[#aaa]">支持变量占位符</span>
-                    </div>
-                    <textarea
-                      value={statusFormat}
-                      onChange={(e) => setStatusFormat(e.target.value)}
-                      className="w-full h-24 p-2 font-mono text-[11px] bg-[#f8f8fa] border border-[#e6e6e8] rounded-[10px] outline-none leading-relaxed resize-none text-[#333]"
-                    />
-                    <div className="text-[9.5px] text-[#aaa]">
-                      可用标签：<code>{`{{location}}`}</code>, <code>{`{{time}}`}</code>, <code>{`{{activity}}`}</code>, <code>{`{{mood}}`}</code>, <code>{`{{favor}}`}</code>
-                    </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowPresetResourceManager('status')}
+                      className="flex-1 py-2.5 rounded-xl bg-[#292724] text-white text-[9px]"
+                    >
+                      管理正则 / HTML
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowRenderedStatusBarModal(true);
+                        setStatusBarHistoryIndex(Math.max(0, statusBarHistory.length - 1));
+                      }}
+                      className="flex-1 py-2.5 rounded-xl bg-[#f4f1ec] border border-[#e8e3dc] text-[#555] text-[9px]"
+                    >
+                      查看状态历史
+                    </button>
                   </div>
 
-                  {/* 正则表达式匹配 */}
-                  <div className="border-t border-[#f2f2f3] pt-2.5 space-y-1">
-                    <div className="font-semibold text-[11px] text-[#555]">酒馆状态提取正则表达式 (Regex)：</div>
-                    <input
-                      value={statusRegex}
-                      onChange={(e) => setStatusRegex(e.target.value)}
-                      className="w-full p-2 font-mono text-xs bg-[#f8f8fa] border border-[#e6e6e8] rounded-[10px] outline-none text-[#333]"
-                    />
+                  <div className="flex items-center justify-between text-[9px] text-[#aaa]">
+                    <span>历史快照</span>
+                    <span>{statusBarHistory.length} 条</span>
                   </div>
                 </div>
-              </div>
-
               )}
             </div>
 
