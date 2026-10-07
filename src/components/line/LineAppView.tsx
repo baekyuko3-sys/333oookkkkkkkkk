@@ -110,6 +110,11 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
       maxOutputTokens: s.maxOutputTokens,
       autoSave: base.autoSave,
       temperature: s.temperature,
+      topP: s.topP ?? base.topP,
+      topK: s.topK ?? base.topK,
+      frequencyPenalty: s.frequencyPenalty ?? base.frequencyPenalty,
+      presencePenalty: s.presencePenalty ?? base.presencePenalty,
+      seed: s.seed ?? base.seed,
     };
   };
 
