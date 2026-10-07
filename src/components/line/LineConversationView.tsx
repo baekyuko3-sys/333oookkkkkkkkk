@@ -796,6 +796,11 @@ export function LineConversationView({
     updatedAt: '',
   };
   const [customCotTemplate, setCustomCotTemplate] = usePersistentState(`line:cot-custom:${conversationStorageId}`, resolvedCotPreset.template);
+  useEffect(() => {
+    // When a preset is migrated or selected, make the active preset's template the
+    // actual template used by replies. Manual edits remain intact until the preset changes.
+    setCustomCotTemplate(resolvedCotPreset.template);
+  }, [activeCotPresetId]);
 
   // 酒馆预设 (Presets)
   const [selectedPreset, setSelectedPreset] = usePersistentState(`line:preset:${conversationStorageId}`, 'immersive' as 'immersive' | 'casual' | 'slowburn' | 'sweet');
@@ -1374,8 +1379,8 @@ export function LineConversationView({
       const result = await generateCharacterReply({
         settings,
         character: importedCharacter,
-        characterProfile,
-        persona: activePersona,
+        characterProfile: { ...characterProfile, canCharacterSelfJudge: characterProfile.canCharacterSelfJudge },
+        persona: activePersona ? { ...activePersona, setting: (activePersona as any).setting || '' } : activePersona,
         worldbooks: activeWorldbooks,
         memory: characterMemory,
         project: projectManifest,
@@ -2091,6 +2096,13 @@ export function LineConversationView({
           '不要重复上一条已经说过的内容，也不要突然改变话题；像真实聊天一样自然补完。',
         ].filter(Boolean).join('\\n'),
         stylePreset: activeCotPreset?.title || selectedPreset,
+        cotTarget: activeCotPreset ? 'line' : undefined,
+        cotPreset: activeCotPreset ? {
+          id: activeCotPreset.id,
+          title: activeCotPreset.title,
+          template: customCotTemplate || activeCotPreset.template,
+          tag: activeCotPreset.tag,
+        } : undefined,
         typingHabit: [
           typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
           '标点：' + typingPunctuation,
@@ -2317,7 +2329,7 @@ export function LineConversationView({
               settings,
               character: importedCharacter,
               characterProfile,
-              persona: activePersona,
+              persona: activePersona ? { ...activePersona, setting: (activePersona as any).setting || '' } : activePersona,
               worldbooks: activeWorldbooks,
               memory: characterMemory,
               project: projectManifest,
@@ -2333,6 +2345,13 @@ export function LineConversationView({
               isGroup,
               authorNote: [lineConversationRules, authorsNote].filter(Boolean).join('\n'),
               stylePreset: activeCotPreset?.title || selectedPreset,
+        cotTarget: activeCotPreset ? 'line' : undefined,
+        cotPreset: activeCotPreset ? {
+          id: activeCotPreset.id,
+          title: activeCotPreset.title,
+          template: customCotTemplate || activeCotPreset.template,
+          tag: activeCotPreset.tag,
+        } : undefined,
               typingHabit: [
           typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
           '标点：' + typingPunctuation,
@@ -2462,6 +2481,13 @@ export function LineConversationView({
         isGroup,
         authorNote: [lineConversationRules, '重新生成要求：' + instruction + '；这次只重新生成被选中的这一条消息，不要额外生成其他消息。'].filter(Boolean).join('\\n'),
         stylePreset: activeCotPreset?.title || selectedPreset,
+        cotTarget: activeCotPreset ? 'line' : undefined,
+        cotPreset: activeCotPreset ? {
+          id: activeCotPreset.id,
+          title: activeCotPreset.title,
+          template: customCotTemplate || activeCotPreset.template,
+          tag: activeCotPreset.tag,
+        } : undefined,
         typingHabit: [
           typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
           '标点：' + typingPunctuation,
