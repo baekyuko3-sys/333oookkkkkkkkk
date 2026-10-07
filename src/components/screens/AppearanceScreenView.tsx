@@ -126,8 +126,8 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
   ] as const, []);
 
   return (
-    <div className="relative w-full h-full overflow-hidden" style={{ background: 'var(--paper)', color: 'var(--ink)' }}>
-      <header className="pt-11 px-5 pb-3 border-b border-black/10 bg-[#f7f4ee]/95">
+    <div className="relative w-full h-full overflow-hidden flex flex-col" style={{ background: appearance.globalBackground || 'var(--paper)', color: 'var(--ink)' }}>
+      <header className="shrink-0 pt-11 px-5 pb-3 border-b border-black/10 bg-white/80 backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <button onClick={() => onNavigate('home')} className="w-8 h-8 rounded-full bg-white/70 grid place-items-center">
             <ArrowLeft className="w-4 h-4" />
@@ -148,7 +148,7 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
         </div>
       </header>
 
-      <main className="h-[calc(100%-105px)] overflow-y-auto no-scrollbar p-3.5 pb-8 space-y-2.5">
+      <main className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3.5 pb-24 space-y-2.5">
         {section === 'theme' && (
           <>
             <div className="p-3.5 rounded-2xl bg-[#ebe6de] border border-black/5">
@@ -414,6 +414,15 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
           </>
         )}
       </main>
+
+      <div className="absolute left-3 right-3 bottom-3 z-20 p-2 rounded-2xl bg-white/90 backdrop-blur-xl border border-black/10 shadow-[0_8px_24px_rgba(0,0,0,.10)]">
+        <button
+          onClick={() => { const next = saveAppearance(appearance); setAppearance(next); window.dispatchEvent(new CustomEvent('sane333:appearance-changed')); notify('当前外观已保存'); }}
+          className="w-full py-3 rounded-xl bg-[#292724] text-white text-[10px] font-semibold"
+        >
+          保存当前外观
+        </button>
+      </div>
 
       {notice && <div className="absolute bottom-5 left-4 right-4 z-30 p-2.5 rounded-xl bg-[#292724] text-white text-[9px] text-center">{notice}</div>}
     </div>
