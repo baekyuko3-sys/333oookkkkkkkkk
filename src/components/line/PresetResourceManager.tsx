@@ -3,7 +3,7 @@ import { Download, Plus, Save, Trash2, Upload, Copy, Check } from 'lucide-react'
 import type { CotPreset, CotPresetTarget } from '../../store/cotPresets';
 import { exportCotPresets, importCotPresets, saveCotPresets, getCotAssignments, saveCotAssignment } from '../../store/cotPresets';
 import type { StatusBarPreset, StatusBarTarget } from '../../store/statusBarPresets';
-import { exportStatusBarPresets, importStatusBarPresets, saveStatusBarPresets, getStatusBarAssignments, saveStatusBarAssignment } from '../../store/statusBarPresets';
+import { exportStatusBarPresets, importStatusBarPresets, saveStatusBarPresets, getStatusBarAssignments, saveStatusBarAssignment, renderStatusBarHtml } from '../../store/statusBarPresets';
 
 const STATUS_TARGETS: Array<[StatusBarTarget,string]> = [
   ['line','LINE 聊天'], ['offline','线下剧情'], ['character-profile','角色主页'], ['moments','动态 / Moments'], ['threads','Threads'],
@@ -40,6 +40,7 @@ export function PresetResourceManager({
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedId, setSelectedId] = useState(kind === 'status' ? (activeStatusId || statusPresets[0]?.id) : (activeCotId || cotPresets[0]?.id));
   const [notice, setNotice] = useState('');
+  const [regexTestInput, setRegexTestInput] = useState('');
   const statuses = kind === 'status';
   const list = statuses ? statusPresets : cotPresets;
   const selected = list.find(item => item.id === selectedId) || list[0];
@@ -134,8 +135,8 @@ export function PresetResourceManager({
       <div className="h-[58px] shrink-0 border-b border-[#eee] flex items-center justify-between px-4">
         <button onClick={onClose} className="text-2xl text-[#555]">‹</button>
         <div className="text-center">
-          <div className="font-semibold text-[13px] text-[#252525]">{statuses ? '状态栏资源库' : '生成摘要预设库'}</div>
-          <div className="text-[8px] text-[#aaa] tracking-[1.5px] uppercase">{statuses ? 'STATUS BAR PRESETS' : 'GENERATION SUMMARY PRESETS'}</div>
+          <div className="font-semibold text-[13px] text-[#252525]">{statuses ? '正则脚本管理' : '生成摘要预设库'}</div>
+          <div className="text-[8px] text-[#aaa] tracking-[1.5px] uppercase">{statuses ? 'REGEX SCRIPTS · FIND → REPLACE → HTML' : 'GENERATION SUMMARY PRESETS'}</div>
         </div>
         <button onClick={create} className="w-8 h-8 rounded-full bg-[#292724] text-white grid place-items-center"><Plus className="w-4 h-4"/></button>
       </div>
@@ -169,10 +170,40 @@ export function PresetResourceManager({
                 </div>
               </div>
               {statuses ? <>
-                <input value={(selected as StatusBarPreset).name} onChange={e=>updateSelected({name:e.target.value})} className="w-full p-2 rounded-lg bg-white border border-[#eee] text-[10px]"/>
-                <input value={(selected as StatusBarPreset).description} onChange={e=>updateSelected({description:e.target.value})} placeholder="描述" className="w-full p-2 rounded-lg bg-white border border-[#eee] text-[10px]"/>
-                <textarea value={(selected as StatusBarPreset).html} onChange={e=>updateSelected({html:e.target.value})} className="w-full h-28 p-2 rounded-lg bg-white border border-[#eee] text-[10px] font-mono"/>
-                <input value={(selected as StatusBarPreset).regex} onChange={e=>updateSelected({regex:e.target.value})} className="w-full p-2 rounded-lg bg-white border border-[#eee] text-[10px] font-mono"/>
+                <div className="text-[8px] font-mono tracking-[1.4px] text-[#aaa] uppercase">REGEX SCRIPT</div>
+                <label className="block text-[8px] text-[#999]">Name
+                  <input value={(selected as StatusBarPreset).name} onChange={e=>updateSelected({name:e.target.value})} placeholder="例如：状态栏 / Status Card" className="w-full mt-1 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px]"/>
+                </label>
+                <label className="block text-[8px] text-[#999]">Find Regex
+                  <input value={(selected as StatusBarPreset).regex} onChange={e=>updateSelected({regex:e.target.value})} placeholder="/\\{\\{status:(.*?)\\}\\}/gs" className="w-full mt-1 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px] font-mono"/>
+                </label>
+                <label className="block text-[8px] text-[#999]">Replace With · HTML
+                  <textarea value={(selected as StatusBarPreset).html} onChange={e=>updateSelected({html:e.target.value})} placeholder="<div class=&quot;status&quot;>{{match}}</div>" className="w-full mt-1 h-32 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px] font-mono"/>
+                </label>
+                <label className="block text-[8px] text-[#999]">Description
+                  <input value={(selected as StatusBarPreset).description} onChange={e=>updateSelected({description:e.target.value})} placeholder="可选" className="w-full mt-1 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px]"/>
+                </label>
+
+                <div className="rounded-xl bg-[#f7f7f8] border border-[#ececee] p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-[9px] font-semibold text-[#444]">Test Mode</div>
+                      <div className="text-[8px] text-[#aaa]">输入一段 AI 回复，实时看 HTML 渲染结果</div>
+                    </div>
+                    <span className="text-[8px] font-mono text-[#aaa]">AI RESPONSE</span>
+                  </div>
+                  <textarea
+                    value={regexTestInput}
+                    onChange={e=>setRegexTestInput(e.target.value)}
+                    placeholder="把角色回复粘贴到这里……"
+                    className="w-full h-20 p-2 rounded-lg bg-white border border-[#e8e8e8] text-[9px] outline-none resize-none"
+                  />
+                  <div className="rounded-lg bg-white border border-[#e8e8e8] p-2.5 min-h-[48px] overflow-hidden">
+                    {selected && regexTestInput
+                      ? <div dangerouslySetInnerHTML={{__html: renderStatusBarHtml(selected as StatusBarPreset, regexTestInput)}} className="text-[10px] text-[#333]"/>
+                      : <span className="text-[8px] text-[#aaa]">这里显示最终 HTML 卡片</span>}
+                  </div>
+                </div>
               </> : <>
                 <input value={(selected as CotPreset).title} onChange={e=>updateSelected({title:e.target.value})} className="w-full p-2 rounded-lg bg-white border border-[#eee] text-[10px]"/>
                 <input value={(selected as CotPreset).tag} onChange={e=>updateSelected({tag:e.target.value})} className="w-full p-2 rounded-lg bg-white border border-[#eee] text-[10px] font-mono"/>
