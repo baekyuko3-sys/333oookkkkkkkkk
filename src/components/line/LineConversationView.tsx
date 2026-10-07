@@ -2184,7 +2184,7 @@ export function LineConversationView({
               memory: characterMemory,
               project: projectManifest,
               messages: [
-                ...messages,
+                ...messages.map((message: any) => ({ sender: message.sender || 'other', ...message })),
                 {
                   sender: 'me',
                   text: '我给你发了一张图片，请看看这张图片并自然回应。',
