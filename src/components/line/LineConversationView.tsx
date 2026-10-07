@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, type PointerEvent } from 'react';
 import { usePersistentState } from '../../store/usePersistentState';
 import type { ImportedCharacter } from '../../data/characterImport';
 import type { ScreenType, WorldBook } from '../../types';
-import { generateCharacterReply, generateCreativeText, readStoredAiSettings, resolveChannelAiSettings, listOpenAiCompatibleModels, testAiConnection, summarizeConversationMemory, mergeRecentMemoryBatch, type AiSettings } from '../../ai/aiEngine';
+import { generateCharacterReply, generateCreativeText, generateStatusBarContent, generateHtmlInterlude, readStoredAiSettings, resolveChannelAiSettings, listOpenAiCompatibleModels, testAiConnection, summarizeConversationMemory, mergeRecentMemoryBatch, type AiSettings } from '../../ai/aiEngine';
 import { generateImage, generateSpeech, transcribeAudio } from '../../ai/mediaEngine';
 import { readAppSettings } from '../../store/appSettings';
 import type { ChannelAiSettings } from '../../store/appSettings';
@@ -17,7 +17,7 @@ import { getGroupPreset, getGroupPresets } from '../../store/groupPresets';
 import { getLineGroups, updateLineGroupMember, addLineGroupMemory, setLineGroupRelationships } from '../../store/lineGroups';
 import { createTogetherMusicSession, type TogetherMusicSession } from '../../store/togetherMusic';
 import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
-import { appendStatusBarSnapshot, deleteStatusBarSnapshot, getStatusBarHistory, getStatusBarPresets, getStatusBarRandomMode, renderStatusBarHtml, saveStatusBarRandomMode, type StatusBarPreset, type StatusBarSnapshot } from '../../store/statusBarPresets';
+import { appendStatusBarSnapshot, deleteStatusBarSnapshot, getStatusBarHistory, getStatusBarPresets, getStatusBarRandomMode, renderStatusBarHtml, sanitizeHtmlFragment, saveStatusBarRandomMode, type StatusBarPreset, type StatusBarSnapshot } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset, type CotPresetTarget } from '../../store/cotPresets';
 import { PresetResourceManager } from './PresetResourceManager';
 import { appendLineMessage, editLineMessage, toggleLineReaction, setLineMessageFavorite, recordLineCall, markLineMessageFailed, clearLineConversation, recallLineMessage, updateLineMessage } from '../../store/lineRuntime';
@@ -821,6 +821,12 @@ export function LineConversationView({
   const [statusBarHistory, setStatusBarHistory] = useState<StatusBarSnapshot[]>(() => getStatusBarHistory(conversationStorageId));
   const [statusBarHistoryIndex, setStatusBarHistoryIndex] = useState(Math.max(0, getStatusBarHistory(conversationStorageId).length - 1));
   const [statusBarRandomMode, setStatusBarRandomMode] = useState(() => getStatusBarRandomMode(conversationStorageId));
+  const [htmlInterludeEnabled, setHtmlInterludeEnabled] = usePersistentState<boolean>(`line:html-interlude-enabled:${conversationStorageId}`, false);
+  const [htmlInterludeChance, setHtmlInterludeChance] = usePersistentState<number>(`line:html-interlude-chance:${conversationStorageId}`, 25);
+  const [htmlInterludeTemplate, setHtmlInterludeTemplate] = usePersistentState<string>(
+    `line:html-interlude-template:${conversationStorageId}`,
+    '<div class="sane-html-insert"><div class="sane-html-insert__eyebrow">SCENE NOTE</div><div class="sane-html-insert__title">{{title}}</div><div class="sane-html-insert__body">{{content}}</div></div>'
+  );
 
   // 角色个人主页 (Threads / Twitter / LINE 混合风格)
   const [showCharacterProfile, setShowCharacterProfile] = useState(false);
@@ -896,33 +902,70 @@ export function LineConversationView({
     };
   }, [conversationStorageId]);
 
-  const createStatusBarSnapshot = (replyText: string, sourceMessageId: string | number) => {
+  const createStatusBarSnapshot = async (replyText: string, sourceMessageId: string | number) => {
     const presets = statusBarPresets.filter(preset => preset.targets.includes('line'));
     if (!presets.length) return;
     const chosen = statusBarRandomMode
       ? presets[Math.floor(Math.random() * presets.length)]
       : presets.find(preset => preset.id === activeStatusBarPresetId) || presets[0];
-    const html = renderStatusBarHtml(chosen, replyText, {
-      location: statusData.location,
-      time: statusData.time,
-      activity: statusData.activity,
-      mood: statusData.mood,
-      favor: statusData.favor,
-    });
-    const snapshot: StatusBarSnapshot = {
-      id: `status-snapshot-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      presetId: chosen.id,
-      presetName: chosen.name,
-      html,
-      sourceMessageId,
-      sourceText: replyText,
-      createdAt: new Date().toISOString(),
-    };
-    appendStatusBarSnapshot(conversationStorageId, snapshot);
-    const next = [...getStatusBarHistory(conversationStorageId)];
-    setStatusBarHistory(next);
-    setStatusBarHistoryIndex(Math.max(0, next.length - 1));
-    setActiveStatusBarPresetId(chosen.id);
+
+    try {
+      const rawStatus = await generateStatusBarContent(
+        conversationAiSettings(),
+        contactName,
+        chosen,
+        [...messages, { sender: 'other', text: replyText }],
+      );
+      const html = renderStatusBarHtml(chosen, rawStatus);
+      // Regex must match the complete generated status text. Otherwise nothing is rendered.
+      if (!html) return;
+
+      const snapshot: StatusBarSnapshot = {
+        id: `status-snapshot-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        presetId: chosen.id,
+        presetName: chosen.name,
+        html,
+        sourceMessageId,
+        sourceText: rawStatus,
+        createdAt: new Date().toISOString(),
+      };
+      appendStatusBarSnapshot(conversationStorageId, snapshot);
+      const next = [...getStatusBarHistory(conversationStorageId)];
+      setStatusBarHistory(next);
+      setStatusBarHistoryIndex(Math.max(0, next.length - 1));
+    } catch {
+      // A failed status generation must never interrupt the actual chat reply.
+    }
+  };
+
+  const maybeGenerateHtmlInterlude = async (replyText: string, sourceMessageId: string | number) => {
+    if (!htmlInterludeEnabled || Math.random() * 100 >= Math.max(0, Math.min(100, htmlInterludeChance))) return;
+    const template = htmlInterludeTemplate.trim();
+    if (!template) return;
+    try {
+      const raw = await generateHtmlInterlude(
+        conversationAiSettings(),
+        contactName,
+        template,
+        [...messages, { sender: 'other', text: replyText }],
+      );
+      const html = sanitizeHtmlFragment(raw);
+      if (!html) return;
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `html-interlude-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          sender: 'other',
+          type: 'html-interlude',
+          text: '',
+          htmlContent: html,
+          sourceMessageId,
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+    } catch {
+      // HTML insertion is optional and must never interrupt chat.
+    }
   };
 
   const handleMessageAvatarClick = () => {
@@ -1387,7 +1430,8 @@ export function LineConversationView({
       window.dispatchEvent(new CustomEvent('sane333:play-sound', { detail: { kind: 'message' } }));
 
       // Every completed character reply creates one new status snapshot.
-      createStatusBarSnapshot(finalReplyText, replyMsgId);
+      void createStatusBarSnapshot(finalReplyText, replyMsgId);
+      void maybeGenerateHtmlInterlude(finalReplyText, replyMsgId);
 
       if (importedCharacter) {
         setCharacterRuntime(importedCharacter.id, {
@@ -2769,6 +2813,19 @@ export function LineConversationView({
           const dayLabel = currentDay === todayKey
             ? '今天'
             : currentDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+
+          if (msg.type === 'html-interlude') {
+            const safeHtml = sanitizeHtmlFragment(String(msg.htmlContent || ''));
+            if (!safeHtml) return null;
+            return (
+              <div key={msg.id} data-line-message-id={msg.id} className="flex justify-center my-3 px-3">
+                <div
+                  className="w-full max-w-[88%] text-[11px] leading-relaxed text-[#333] [&_img]:max-w-full [&_img]:rounded-xl [&_a]:text-[#9b6875]"
+                  dangerouslySetInnerHTML={{ __html: safeHtml }}
+                />
+              </div>
+            );
+          }
 
           if (msg.type === 'music-together') {
             const session = msg.musicSession as TogetherMusicSession | undefined;
@@ -5369,6 +5426,39 @@ export function LineConversationView({
                 </details>
               ) : null;
             })()}
+
+            {/* Section 2.6: HTML 中插 */}
+            <div className="space-y-1.5">
+              <button onClick={() => setShowHtmlInterludeSettings(value => !value)} className="w-full bg-white rounded-[14px] border border-[#f0f0f1] p-3 flex items-center justify-between text-left">
+                <span className="flex items-center gap-1.5 text-[10px] text-[#555] font-medium"><Code className="w-3 h-3 text-[#ae7e89]" />HTML 中插</span>
+                <span className="text-[9px] text-[#aaa]">{showHtmlInterludeSettings ? '收起' : '展开设置'}</span>
+              </button>
+              {showHtmlInterludeSettings && (
+                <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold text-[11px] text-[#333]">根据剧情随机插入</div>
+                      <div className="text-[9px] text-[#aaa] mt-0.5">AI 会根据最近聊天决定这张卡片该写什么</div>
+                    </div>
+                    <button onClick={() => setHtmlInterludeEnabled(v => !v)} className={`px-2.5 py-1.5 rounded-full text-[9px] ${htmlInterludeEnabled ? 'bg-[#292724] text-white' : 'bg-[#f1f1f2] text-[#777]'}`}>
+                      {htmlInterludeEnabled ? '已开启' : '关闭'}
+                    </button>
+                  </div>
+                  <label className="block text-[9px] text-[#888]">
+                    出现概率
+                    <input type="range" min="0" max="100" value={htmlInterludeChance} onChange={e => setHtmlInterludeChance(Number(e.target.value))} className="w-full mt-2" />
+                    <div className="text-right text-[9px] text-[#aaa]">{htmlInterludeChance}%</div>
+                  </label>
+                  <label className="block text-[9px] text-[#888]">
+                    HTML 模板
+                    <textarea value={htmlInterludeTemplate} onChange={e => setHtmlInterludeTemplate(e.target.value)} className="w-full h-24 mt-1.5 p-2.5 rounded-lg bg-[#fafafa] border border-[#e8e8e8] text-[9px] font-mono outline-none resize-none" />
+                  </label>
+                  <div className="text-[8px] leading-relaxed text-[#aaa]">
+                    只允许正常 HTML 内容；脚本、事件属性、javascript: 链接等危险内容会被过滤。
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Section 2.5: 酒馆状态栏 */}
             <div className="space-y-1.5">
