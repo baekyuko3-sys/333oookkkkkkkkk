@@ -885,18 +885,16 @@ export async function generateStatusBarContent(
   }).join('\n');
 
   const systemPrompt = [
-    '你负责为角色聊天生成一条状态栏原始文字。',
-    '状态栏不是另一条聊天消息，而是根据刚刚发生的剧情更新的状态快照。',
-    '必须严格遵守用户提供的 Find Regex 所要求的文字格式。',
-    '只输出一条可以被该正则完整匹配的普通文字。',
-    '不要输出 Markdown、代码块、HTML、解释、前后缀。',
-    '如果没有足够证据改变某个状态，可以合理延续最近已知状态，但不能凭空创造剧情。',
-    '状态内容必须来自当前聊天上下文。',
+    '你是角色聊天的状态栏生成器。',
+    '每次角色完成一条回复后，根据刚刚发生的聊天内容生成一份新的状态快照。',
+    '状态栏不是聊天消息，不要写对白，不要解释。',
+    '只输出一条简洁的状态快照文字，内容必须来自当前聊天；可以延续已经明确出现的状态，但不能凭空创造剧情。',
+    '状态快照应包含当前角色最值得展示的状态，例如地点、时间、正在做什么、情绪、关系变化或其他对当前预设有意义的信息。',
+    '输出普通文字即可。前端会使用状态栏预设自己的 RegEx 提取内容，再渲染成 HTML。',
+    '不要输出 Markdown、代码块、HTML 或任何解释。',
     '【状态栏名称】' + preset.name,
-    '【文字输入格式】' + (preset.inputFormat || '{{status:状态内容}}'),
-    '【Prompt 后缀】' + (preset.promptSuffix || '无；请仅依据文字输入格式生成状态。'),
-    '【Find Regex】' + preset.regex,
-    '【Replace With / HTML】' + preset.html,
+    '【HTML 模板】' + preset.html,
+    '【提取正则（仅供前端理解目标内容）】' + preset.regex,
   ].join('\n');
 
   const userPrompt = [
@@ -904,7 +902,7 @@ export async function generateStatusBarContent(
     '最近聊天：',
     recent || '暂无',
     '',
-    '请只返回一条严格符合 Find Regex 的状态原文。',
+    '现在生成这一轮最新状态快照，只输出状态内容。',
   ].join('\n');
 
   return (await generateCreativeText({
