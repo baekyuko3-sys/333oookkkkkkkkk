@@ -222,6 +222,8 @@ export function LineConversationView({
   const [allowRoleInitiatedMessage, setAllowRoleInitiatedMessage] = usePersistentState<boolean>(`line:allow-role-message:${conversationStorageId}`, true);
   const [allowRoleMomentsPost, setAllowRoleMomentsPost] = usePersistentState<boolean>(`line:allow-role-moments:${conversationStorageId}`, true);
   const [allowOfflineInvite, setAllowOfflineInvite] = usePersistentState<boolean>(`line:allow-offline-invite:${conversationStorageId}`, true);
+  const [typingHabitPreset, setTypingHabitPreset] = usePersistentState<string>(`line:typing-habit:${conversationStorageId}`, 'natural');
+  const [typingHabitCustom, setTypingHabitCustom] = usePersistentState<string>(`line:typing-habit-custom:${conversationStorageId}`, '');
   const [chatApiOverride, setChatApiOverride] = usePersistentState<ChannelAiSettings>(`line:chat-api-override:${conversationStorageId}`, {
     ...readAppSettings().chatApiOverride,
     enabled: false,
@@ -983,6 +985,7 @@ export function LineConversationView({
             '【成员状态】\\n' + (activeGroup?.members || []).map(member => member.name + '：' + [member.online === false ? '离线' : '在线', member.mood || '', member.relationship || ''].filter(Boolean).join(' / ')).join('\\n'),
           ].filter(Boolean).join('\\n'),
           stylePreset: activeCotPreset?.title || selectedPreset,
+          typingHabit: typingHabitPreset === 'custom' ? typingHabitCustom : typingHabitPreset,
           temperature: Number(presetTemp) || 0.85,
           onDelta: delta => {
             streamedText += delta;
@@ -1065,6 +1068,7 @@ export function LineConversationView({
           selectedOpeningContext.trim() ? '【角色卡开场白 / 前情提要】\n' + selectedOpeningContext.trim() : '',
         ].filter(Boolean).join('\n'),
         stylePreset: activeCotPreset?.title || selectedPreset,
+        typingHabit: typingHabitPreset === 'custom' ? typingHabitCustom : typingHabitPreset,
         temperature: Number(presetTemp) || 0.85,
         onDelta: (delta) => {
           streamedText += delta;
@@ -2884,9 +2888,13 @@ export function LineConversationView({
                       setContextMenuMsg(msg);
                     }}
                   >
-                    <div className="font-semibold">AI 请求失败</div>
-                    <div className="mt-1 font-mono text-[9px] leading-relaxed break-words text-[#9a6b75]">
-                      {msg.error || '未提供错误代码'}
+                    <div className="font-semibold">回复失败</div>
+                    <div className="mt-1 text-[9px] text-[#9a6b75]">失败原因</div>
+                    <div className="mt-0.5 font-mono text-[9px] leading-relaxed break-words text-[#9a6b75]">
+                      {msg.error || '未提供错误详情'}
+                    </div>
+                    <div className="mt-1.5 text-[8.5px] text-[#b58b94]">
+                      可以检查 API 地址、API Key、模型、网络连接或服务商返回的错误。
                     </div>
                   </div>
                 )}
@@ -4067,6 +4075,53 @@ export function LineConversationView({
                     <span className={`w-9 h-5 rounded-full p-0.5 ${value ? 'bg-[#d4aab5]' : 'bg-[#d9d9db]'}`}><span className={`block w-4 h-4 rounded-full bg-white shadow-sm ${value ? 'translate-x-4' : ''}`} /></span>
                   </button>
                 ))}
+              </div>
+            </details>
+
+            <details className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
+              <summary className="list-none cursor-pointer p-3.5 flex items-center justify-between">
+                <div>
+                  <div className="font-medium text-[#333]">打字习惯</div>
+                  <div className="text-[10px] text-[#999]">只影响当前角色 × 当前聊天的回复方式</div>
+                </div>
+                <span className="text-[10px] text-[#aaa]">{typingHabitPreset === 'custom' ? '自定义' : '已选择'}</span>
+              </summary>
+              <div className="px-3.5 pb-3.5 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    ['natural', '自然聊天', '像正常聊天，句长和换行随语境变化'],
+                    ['short', '简短利落', '短句为主，少解释，不写长段落'],
+                    ['fragmented', '碎片化', '一句一句发，适当换行，像即时消息'],
+                    ['warm', '轻松活泼', '口语更多，可偶尔用语气词或 emoji'],
+                    ['cold', '冷淡克制', '字少、标点克制，不主动堆情绪'],
+                    ['custom', '自定义', '自己描述这个角色具体怎么打字'],
+                  ].map(([id, title, desc]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setTypingHabitPreset(id)}
+                      className={"text-left p-2.5 rounded-xl border transition-colors " + (
+                        typingHabitPreset === id
+                          ? 'bg-[#faf1f3] border-[#d4aab5] text-[#8c5f6b]'
+                          : 'bg-[#fafafa] border-[#eeeeef] text-[#555] hover:bg-white'
+                      )}
+                    >
+                      <div className="text-[10px] font-medium">{title}</div>
+                      <div className="text-[8.5px] leading-relaxed mt-1 text-[#999]">{desc}</div>
+                    </button>
+                  ))}
+                </div>
+                {typingHabitPreset === 'custom' && (
+                  <textarea
+                    value={typingHabitCustom}
+                    onChange={e => setTypingHabitCustom(e.target.value)}
+                    placeholder="例如：很少用句号；喜欢“……”；消息通常一句一句发；开心时会打很多字；不使用 emoji……"
+                    className="w-full min-h-[72px] p-2.5 bg-[#fafafa] border border-[#eeeeef] rounded-xl text-[10px] outline-none resize-none"
+                  />
+                )}
+                <div className="text-[8.5px] leading-relaxed text-[#aaa]">
+                  这是回复风格指令，不会改变角色性格、世界书或剧情设定。
+                </div>
               </div>
             </details>
             
