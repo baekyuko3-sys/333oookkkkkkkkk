@@ -2852,7 +2852,7 @@ export function LineConversationView({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setReplyingToMessage(msg);
+                      setReplyingToMsg(msg);
                       setSwipedMessageId(null);
                       setSwipeAction(null);
                     }}
