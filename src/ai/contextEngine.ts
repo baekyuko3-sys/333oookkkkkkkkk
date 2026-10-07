@@ -7,7 +7,7 @@ import { getWorldRuntime } from '../store/worldRuntime';
 export interface ContextEngineInput {
   character?: ImportedCharacter | null;
   characterProfile?: { relationship?: string; callMe?: string; bio?: string } | null;
-  persona?: { name?: string; identity?: string; gender?: string; traits?: string; background?: string } | null;
+  persona?: { name?: string; identity?: string; gender?: string; traits?: string; background?: string; region?: string; timezone?: string; birthday?: string; profession?: string; age?: string } | null;
   memory?: CharacterMemory | null;
   project?: ProjectManifest | null;
   worldbooks?: WorldBook[];
@@ -205,6 +205,12 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
         '创作者注释：' + (input.character.creatorNotes || '未填写'),
         '角色系统提示：' + (input.character.systemPrompt || '未填写'),
         '历史指令：' + (input.character.postHistoryInstructions || '未填写'),
+        '首条消息：' + (input.character.firstMessage || '未填写'),
+        '示例对话：' + (input.character.exampleDialogue || '未填写'),
+        '备用开场白：' + (input.character.alternateGreetings?.length ? input.character.alternateGreetings.join('\n---\n') : '未填写'),
+        '角色语言指纹：' + (input.character.languageProfile ? JSON.stringify(input.character.languageProfile) : '未填写'),
+        '角色线上人设：' + (input.character.onlinePersona || '未填写'),
+        '角色打字习惯：' + (input.character.typingHabit || '未填写'),
       ].join('\n')
     : [
         '姓名：' + (p.callMe || '角色'),
@@ -220,6 +226,11 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
         '性别：' + (input.persona.gender || '未设置'),
         '特质：' + (input.persona.traits || '未填写'),
         '背景：' + (input.persona.background || '未填写'),
+        '职业：' + (input.persona.profession || '未填写'),
+        '年龄：' + (input.persona.age || '未填写'),
+        '地区：' + (input.persona.region || '未填写'),
+        '时区：' + (input.persona.timezone || '未填写'),
+        '生日：' + (input.persona.birthday || '未填写'),
       ].join('\n')
     : '未设置。';
 
