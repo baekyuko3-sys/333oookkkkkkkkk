@@ -4536,7 +4536,7 @@ export function LineConversationView({
 
                 <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-[#fafafa]">
                   <div><div className="text-[9.5px] font-medium text-[#444]">角色自主判断</div><div className="text-[8px] text-[#aaa] mt-0.5">反应来自角色自己，不套统一 AI 模板。</div></div>
-                  <button type="button" onClick={() => setCharacterAutonomy(!characterAutonomy)} className="shrink-0 w-9 h-5 rounded-full relative transition-colors" style={{ backgroundColor: characterAutonomy ? '#d4aab5' : '#ddd' }} aria-label="角色自主判断开关"><span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform" style={{ transform: `translateX(${characterAutonomy ? 16 : 2}px)` }} /></span></button>
+                  <button type="button" onClick={() => setCharacterAutonomy(!characterAutonomy)} className="shrink-0 w-9 h-5 rounded-full relative transition-colors" style={{ backgroundColor: characterAutonomy ? '#d4aab5' : '#ddd' }} aria-label="角色自主判断开关"><span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform" style={{ transform: `translateX(${characterAutonomy ? 16 : 2}px)` }} /></button>
                 </div>
 
                 <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-[#fafafa]">
@@ -4727,17 +4727,8 @@ export function LineConversationView({
                   <Brain className="w-4 h-4 text-[#ae7e89]" />
                   <span>显示生成摘要</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setEnableChainOfThought(!enableChainOfThought)}
-                  className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors ${
-                    enableChainOfThought ? 'bg-[#d4aab5]' : 'bg-[#ddd]'
-                  }`}
-                  aria-label={enableChainOfThought ? '隐藏生成摘要' : '显示生成摘要'}
-                >
-                  <span className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${
-                    enableChainOfThought ? 'translate-x-4' : 'translate-x-0.5'
-                  }`} />
+                <button type="button" onClick={() => setEnableChainOfThought(!enableChainOfThought)} className="w-9 h-5 rounded-full relative cursor-pointer transition-colors" style={{ backgroundColor: enableChainOfThought ? '#d4aab5' : '#ddd' }} aria-label={enableChainOfThought ? '隐藏生成摘要' : '显示生成摘要'}>
+                  <span className="w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform" style={{ transform: `translateX(${enableChainOfThought ? 16 : 2}px)` }} />
                 </button>
               </div>
 
@@ -4762,14 +4753,14 @@ export function LineConversationView({
               <div className="border-t border-[#f2f2f3] mt-2 pt-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <div><div className="text-[10px] font-medium text-[#444]">角色动作描写</div><div className="text-[8.5px] text-[#aaa] mt-0.5">与消息正文分开显示，例如“指尖停了一下”</div></div>
-                  <button type="button" onClick={() => setLineActionDescriptionsEnabled(!lineActionDescriptionsEnabled)} className={"w-9 h-5 rounded-full relative " + (lineActionDescriptionsEnabled ? 'bg-[#d4aab5]' : 'bg-[#ddd]')}>
-                    <span className={"w-4 h-4 rounded-full bg-white absolute top-0.5 " + (lineActionDescriptionsEnabled ? 'translate-x-4' : 'translate-x-0.5')} />
+                  <button type="button" onClick={() => setLineActionDescriptionsEnabled(!lineActionDescriptionsEnabled)} className="w-9 h-5 rounded-full relative transition-colors" style={{ backgroundColor: lineActionDescriptionsEnabled ? '#d4aab5' : '#ddd' }} aria-label={lineActionDescriptionsEnabled ? '关闭角色动作描写' : '开启角色动作描写'}>
+                    <span className="w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform" style={{ transform: `translateX(${lineActionDescriptionsEnabled ? 16 : 2}px)` }} />
                   </button>
                 </div>
                 <div className="flex items-center justify-between">
                   <div><div className="text-[10px] font-medium text-[#444]">禁止编造 User</div><div className="text-[8.5px] text-[#aaa] mt-0.5">不替你补台词、动作、表情、想法、决定或未提供的事实</div></div>
-                  <button type="button" onClick={() => setPreventUserFabrication(!preventUserFabrication)} className={"w-9 h-5 rounded-full relative " + (preventUserFabrication ? 'bg-[#d4aab5]' : 'bg-[#ddd]')}>
-                    <span className={"w-4 h-4 rounded-full bg-white absolute top-0.5 " + (preventUserFabrication ? 'translate-x-4' : 'translate-x-0.5')} />
+                  <button type="button" onClick={() => setPreventUserFabrication(!preventUserFabrication)} className="w-9 h-5 rounded-full relative transition-colors" style={{ backgroundColor: preventUserFabrication ? '#d4aab5' : '#ddd' }} aria-label={preventUserFabrication ? '关闭禁止编造 User' : '开启禁止编造 User'}>
+                    <span className="w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform" style={{ transform: `translateX(${preventUserFabrication ? 16 : 2}px)` }} />
                   </button>
                 </div>
               </div>
