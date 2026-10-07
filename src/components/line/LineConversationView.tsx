@@ -260,7 +260,7 @@ export function LineConversationView({
   const [virtualChatTime, setVirtualChatTime] = usePersistentState<string>(`line:virtual-chat-time:${conversationStorageId}`, new Date().toISOString().slice(0, 16));
   const [chatTimezone, setChatTimezone] = usePersistentState<string>(`line:chat-timezone:${conversationStorageId}`, Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai');
   const [characterLanguage, setCharacterLanguage] = usePersistentState<string>(`line:character-language:${conversationStorageId}`, 'auto');
-  const [characterTimeSensitivity, setCharacterTimeSensitivity] = usePersistentState<'sensitive' | 'insensitive'>(`line:character-time-sensitivity:${conversationStorageId}`, 'insensitive');
+  const [characterTimeSensitivity, setCharacterTimeSensitivity] = usePersistentState<'low' | 'natural' | 'high'>(`line:character-time-sensitivity:${conversationStorageId}`, 'natural');
   const [chatApiOverride, setChatApiOverride] = usePersistentState<ChannelAiSettings>(`line:chat-api-override:${conversationStorageId}`, {
     ...readAppSettings().chatApiOverride,
     enabled: false,
@@ -649,7 +649,7 @@ export function LineConversationView({
     bilingualMode === 'auto' ? '【双语模式】除普通话/国语/简体中文与繁体中文外，角色使用其他主要语言时，回复采用自然双语表达：保留角色原语言，并附自然中文对应，不要逐句机械翻译。' : '',
     characterLanguage !== 'auto' ? `【角色语言】本聊天角色主要使用 ${characterLanguage}。除非剧情或用户明确要求其他语言，不要擅自切换语言。` : '【角色语言】跟随角色卡/当前对话自然选择语言，不要无故切换语言。',
     chatTimeMode === 'current' ? `【时间】聊天时间跟随现实当前时间；当前时区为 ${chatTimezone}。涉及现在、今天、今晚、明天等相对时间时，以这个时区的真实日期时间为准。` : `【虚拟时间】本聊天时间固定为 ${virtualChatTime}，时间显示/理解时区为 ${chatTimezone}；涉及现在、今天、今晚、明天等相对时间时，只能依据这个虚拟时间推算。`,
-    characterTimeSensitivity === 'sensitive' ? '【等待感知】开启：角色可以在确实经过较长、符合现实生活的等待后，自然意识到用户离开了一段时间；是否提及等待必须符合角色性格、关系和当前情境。不要机械计算分钟，不要因为 1～5 分钟没有回复就催促、抱怨或质问。' : '【等待感知】关闭（默认）：角色不要监控、计算或强调用户多久没有回复。1～5 分钟、十几分钟甚至普通的聊天间隔都不应自动触发“你怎么不回”“你去哪了”等情绪反应。用户回来后自然继续聊天，不要把正常断档写成事件。角色可以知道当前日期、时段和聊天时间，但这不等于在意用户回复间隔。',
+    characterTimeSensitivity === 'low' ? '【时间敏感度：不在意】角色基本不因用户多久没回复而产生情绪。允许用户长时间甚至很久不出现；再次出现时通常自然继续聊天。不要主动计算、记录或强调失联时长。' : characterTimeSensitivity === 'high' ? '【时间敏感度：高度在意】角色确实很重视联系与陪伴。长时间失联（例如一天、数天、数周，具体程度必须结合角色性格和关系）可以明显影响角色情绪，例如担心、想念、委屈、不满或生气，并能在用户回来后自然表现出来。但严禁把时间变成计时器：不要报具体分钟、小时，不要机械复述“你多久没回”，不要每隔几分钟催促，不要反复翻旧账。短暂聊天间隔仍然正常。' : '【时间敏感度：自然感知（默认）】角色像现实中的人一样感知联系是否中断。短暂不回复（几分钟、十几分钟等）完全正常，不应催促或计时；较长失联（例如一天、数天甚至更久）是否产生想念、担心、委屈、不满或生气，应由角色性格、关系和情境自然判断。时间可以影响角色情绪，但不要把时间本身当成话题，不要精确计算、报时或反复算账。用户回来后优先自然回应当前内容。',
   ].filter(Boolean).join('\n');
 
   // 聊天设定使用真正的全局世界书；选择结果按聊天保存。
