@@ -418,17 +418,6 @@ export function LineConversationView({
   const myAvatarFileRef = useRef<HTMLInputElement>(null);
   const characterProfileAvatarFileRef = useRef<HTMLInputElement>(null);
   const characterCoverFileRef = useRef<HTMLInputElement>(null);
-  const activePersona = userPersonas.find(p => p.boundCharacterId === importedCharacter?.id) || userPersonas.find(p => p.id === activePersonaId) || {
-    id: '',
-    name: '',
-    avatar: '',
-    age: '',
-    profession: '',
-    setting: '',
-    identity: '',
-    traits: '',
-    background: '',
-  };
   const [showNewPersonaModal, setShowNewPersonaModal] = useState(false);
   const [newPersonaData, setNewPersonaData] = useState({
     name: '',
@@ -468,6 +457,18 @@ export function LineConversationView({
   const importedCharacter = characterId
     ? importedCharacters.find(character => character && character.id === characterId) || null
     : importedCharacters.find(character => character && character.name === contactName) || null;
+  const activePersona = userPersonas.find(p => p.boundCharacterId === importedCharacter?.id) || userPersonas.find(p => p.id === activePersonaId) || {
+    id: '',
+    name: '',
+    avatar: '',
+    age: '',
+    profession: '',
+    setting: '',
+    identity: '',
+    traits: '',
+    background: '',
+  };
+
   const activeGroup = isGroup ? getLineGroupByName(contactName) : null;
   const safeGroupMembers = Array.isArray(activeGroup?.members)
     ? activeGroup.members.filter((member: any) => !!member && typeof member === 'object')
