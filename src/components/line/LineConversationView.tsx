@@ -185,8 +185,6 @@ export function LineConversationView({
     if (stored.length && messages.length === 0) {
       setMessages(stored.map(message => ({
         ...message,
-        thinking: message.thinking || message.metadata?.thinking,
-        actionDescription: message.actionDescription || message.metadata?.actionDescription,
       })));
     }
     markLineConversationRead(conversationStorageId, messages.at(-1)?.id);
@@ -1430,8 +1428,6 @@ export function LineConversationView({
       setIsTyping(false);
     }
   };
-  const [personaLiveWeather, setPersonaLiveWeather] = useState<LineWeatherSnapshot | null>(null);
-
   // 双击头像“拍一拍 / 戳一戳” (Nudge / Poke)
   const handleNudge = (targetName = characterProfile.nickname) => {
     setNudgeAvatar(true);
