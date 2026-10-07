@@ -19,6 +19,7 @@ export interface AiReplyInput {
     relationship: string;
     callMe: string;
     bio?: string;
+    canCharacterSelfJudge?: boolean;
   };
   persona?: {
     name?: string;
@@ -274,6 +275,10 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     input.characterWeather ? '【角色所在地天气】' + input.characterWeather + '。角色可以知道自己所在地的当前天气，但不要每轮主动播报。' : '',
     '',
     '【关系状态】\n' + context.relationship,
+    '',
+    '【角色自主判断】' + (input.characterProfile.canCharacterSelfJudge !== false
+      ? '开启：角色可以基于自己的性格、经历、关系和当前情境形成自己的判断与反应，不需要迎合用户，也不要套用统一模板。'
+      : '关闭：角色不要主动改变既有关系判断；仍须遵守角色设定与当前情境。'),
     '',
     '【长期记忆】\n' + context.memory,
     '',
