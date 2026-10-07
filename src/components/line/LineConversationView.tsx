@@ -1275,6 +1275,7 @@ export function LineConversationView({
             '【成员状态】\\n' + (activeGroup?.members || []).map(member => member.name + '：' + [member.online === false ? '离线' : '在线', member.mood || '', member.relationship || ''].filter(Boolean).join(' / ')).join('\\n'),
           ].filter(Boolean).join('\\n'),
           stylePreset: activeCotPreset?.title || selectedPreset,
+        cotTarget: activeCotPreset ? 'line' : undefined,
           typingHabit: [
             typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
             '标点：' + typingPunctuation,
