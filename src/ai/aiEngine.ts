@@ -86,6 +86,7 @@ export function parseAiReplyPayload(rawText: string): Pick<AiReplyResult, 'text'
   const messageMatch = withoutHiddenThinking.match(/<message>\s*([\s\S]*?)\s*<\/message>/i);
 
   const text = (messageMatch?.[1] || withoutHiddenThinking
+    .replace(/<cot>[\s\S]*?<\/cot>/gi, '')
     .replace(/<summary>[\s\S]*?<\/summary>/gi, '')
     .replace(/<action>[\s\S]*?<\/action>/gi, ''))
     .trim();
