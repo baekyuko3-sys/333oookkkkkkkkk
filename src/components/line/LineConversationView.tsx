@@ -484,7 +484,7 @@ export function LineConversationView({
   const importedCharacter = characterId
     ? importedCharacters.find(character => character && character.id === characterId) || null
     : importedCharacters.find(character => character && character.name === contactName) || null;
-  const activePersona = userPersonas.find(p => p.boundCharacterId === importedCharacter?.id) || userPersonas.find(p => p.id === activePersonaId) || {
+  const activePersona = userPersonas.find(p => p.id === activePersonaId) || userPersonas.find(p => p.boundCharacterId === importedCharacter?.id) || {
     id: '',
     name: '',
     avatar: '',
