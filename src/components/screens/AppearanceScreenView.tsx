@@ -92,6 +92,7 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
     onSelectTheme(theme);
     update('themeMode', theme);
     update('globalBackground', theme === 'ocean-breeze' ? '#eaf1f6' : theme === 'dark-luxury' ? '#161514' : '#f7f4ee');
+  };
 
   const saveScheme = () => {
     const saved = saveAppearanceScheme(schemeName);
