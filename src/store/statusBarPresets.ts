@@ -120,7 +120,7 @@ export function extractStatusMatch(text: string, regexSource: string): { match: 
   regex.lastIndex = 0;
   const input = String(text || '').trim();
   const match = regex.exec(input);
-  if (!match || match[0] !== input) return null;
+  if (!match) return null;
   return {
     match: match[0] || '',
     captures: match.slice(1).map(value => String(value ?? '')),
