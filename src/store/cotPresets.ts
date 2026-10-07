@@ -24,7 +24,7 @@ export const DEFAULT_COT_PRESETS: CotPreset[] = [
     displayStyle: 'minimal',
     tag: '<cot>...</cot>',
     description: '以角色本人为中心，结合前文、设定、人设与状态决定自然回复。',
-    template: 'STEP 1 CONTEXT: 当前消息 + 角色上一条回复 + 最近前文 + 当前话题 + 未完成事项。\\nSTEP 2 CHARACTER: 角色设定 + 线上人设 + 表达习惯，只使用角色已知信息。\\nSTEP 3 MEANING: 判断用户表面意思与真实意图，不脱离上下文，不过度脑补。\\nSTEP 4 REACTION: 站在角色立场理解，判断当前状态与第一反应。\\nSTEP 5 RESPONSE: 角色自行决定回答、反问、调侃、安慰、延伸、简短回应或不展开，不强制主动。\\nSTEP 6 STATE BAR: 如果状态栏已启用，每次角色回复后都必须生成一次状态栏；根据当前聊天、前文与角色已知状态生成最新快照。没有变化就自然延续上一状态，有变化就更新；不得凭空创造状态或剧情。\\nSTEP 7 CHECK: 检查角色一致性、前文连续性、知识边界、OOC、禁止事项，以及是否替用户决定行为、想法或反应。\\nFINAL: 完成以上决策后输出简短 COT 高层摘要与角色真正会发送的 LINE 消息；COT 不是隐藏推理。',
+    template: '<thinking>\n\nSTEP 1: CONTEXT\n- 当前消息\n- 角色上一条回复\n- 最近前文 / 当前话题\n- 未完成的事情\n\nSTEP 2: CHARACTER\n- 读取角色设定\n- 读取线上人设\n- 读取角色表达习惯\n- 只使用角色已知的信息\n\nSTEP 3: MEANING\n- 我这句话表面是什么意思？\n- 结合前文，我真正可能在表达什么？\n- 不过度脑补。\n\nSTEP 4: REACTION\n- 站在角色立场，他会怎么理解？\n- 他现在的情绪 / 状态是什么？\n- 他第一反应想做什么？\n\nSTEP 5: RESPONSE\n- 角色决定：回答 / 反问 / 调侃 / 安慰 / 延伸 / 简短回应 / 不展开\n- 决定回复长度和表达方式。\n- 不强制主动，不强制制造情绪。\n\nSTEP 6: CHECK\n- 是否符合角色设定、关系、前文和表达习惯？\n- 是否 OOC？\n- 是否使用角色不知道的信息？\n- 是否替用户决定行为、思想或反应？\n- 是否违反禁止事项？\n\nSTEP 7: FINAL\n- 只输出角色真正会发送的 LINE 消息。\n- 不解释分析过程，不复述用户消息，不使用 AI 式总结。\n\n</thinking>',
     exampleThinking: '前文 → 角色设定 → 用户意思 → 角色反应 → 回复决定 → 状态栏 → 连续性/OOC检查。',
     targets: ['line', 'offline', 'group'],
     createdAt: '2026-10-04T00:00:00.000Z',
@@ -77,7 +77,7 @@ export function getCotPresets(): CotPreset[] {
     if (!Array.isArray(parsed)) return DEFAULT_COT_PRESETS;
     const defaultsById = new Map(DEFAULT_COT_PRESETS.map(item => [item.id, item]));
     return parsed.map((item: CotPreset) => {
-      if (item?.id !== 'cot-1' || (item.title !== 'SANE333 角色决策链' && item.title !== 'COT')) return item;
+      if (item?.id !== 'cot-1') return item;
       return { ...defaultsById.get('cot-1'), ...item, title: DEFAULT_COT_PRESETS[0].title, displayTitle: item.displayTitle || DEFAULT_COT_PRESETS[0].displayTitle, displayStyle: item.displayStyle || DEFAULT_COT_PRESETS[0].displayStyle, description: DEFAULT_COT_PRESETS[0].description, template: DEFAULT_COT_PRESETS[0].template, exampleThinking: DEFAULT_COT_PRESETS[0].exampleThinking };
     });
   } catch {
