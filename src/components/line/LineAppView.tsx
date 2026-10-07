@@ -1891,13 +1891,20 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                     <div className="mt-1 text-[9px] text-[#aaa]">有几个开场白，就显示几个选择；太多时自动折叠。</div>
                   </div>
                   <div className="space-y-1.5">
-                    {(greetings.length > 3 ? greetings.slice(0, 3) : greetings).map((greeting, index) => (
-                      <button key={index} onClick={() => { setOpeningMode('context'); setOpeningGreetingIndex(index); }} className={`w-full text-left px-3 py-2 rounded-xl border text-[9px] ${openingMode === 'context' && openingGreetingIndex === index ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white border-[#e3e3e4] text-[#666]'}`}>
-                        <div className="font-semibold">开场白 {index + 1}</div>
-                        <div className="mt-1 whitespace-pre-wrap leading-relaxed opacity-75">{greeting}</div>
-                      </button>
+                    {greetings.map((greeting, index) => (
+                      <details key={index} className={`rounded-xl border ${openingMode === 'context' && openingGreetingIndex === index ? 'border-[#292724] bg-[#292724] text-white' : 'border-[#e3e3e4] bg-white text-[#666]'}`}>
+                        <summary className="px-3 py-2.5 text-[9px] cursor-pointer list-none flex items-center justify-between">
+                          <span className="font-semibold">开场白 {index + 1}</span>
+                          <span className="text-[8px] opacity-50">展开 / 收起</span>
+                        </summary>
+                        <div className="px-3 pb-3">
+                          <div className="text-[9px] leading-relaxed whitespace-pre-wrap opacity-80">{greeting}</div>
+                          <button onClick={() => { setOpeningMode('context'); setOpeningGreetingIndex(index); }} className={`mt-2 w-full py-2 rounded-lg text-[9px] ${openingMode === 'context' && openingGreetingIndex === index ? 'bg-white text-[#292724]' : 'bg-[#292724] text-white'}`}>
+                            {openingMode === 'context' && openingGreetingIndex === index ? '已选择这个开场白' : '选择这个开场白'}
+                          </button>
+                        </div>
+                      </details>
                     ))}
-                    {greetings.length > 3 && <details className="rounded-xl border border-[#e3e3e4] bg-white"><summary className="px-3 py-2 text-[9px] text-[#666] cursor-pointer">展开其余 {greetings.length - 3} 个开场白</summary><div className="p-2 space-y-1.5">{greetings.slice(3).map((greeting, index) => { const realIndex = index + 3; return <button key={realIndex} onClick={() => { setOpeningMode('context'); setOpeningGreetingIndex(realIndex); }} className={`w-full text-left px-3 py-2 rounded-xl border text-[9px] ${openingMode === 'context' && openingGreetingIndex === realIndex ? 'bg-[#292724] text-white border-[#292724]' : 'bg-[#fafafa] border-[#e3e3e4] text-[#666]'}`}><div className="font-semibold">开场白 {realIndex + 1}</div><div className="mt-0.5 line-clamp-2 opacity-70">{greeting}</div></button>; })}</div></details>}
                     <button onClick={() => setOpeningMode('none')} className={`w-full text-left px-3 py-2 rounded-xl border text-[9px] ${openingMode === 'none' ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white border-[#e3e3e4] text-[#666]'}`}>不选择开场白</button>
                   </div>
                 </div>
