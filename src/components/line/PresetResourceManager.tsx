@@ -67,6 +67,7 @@ export function PresetResourceManager({
         id: 'status-' + Date.now().toString(36), name:'新的状态栏', description:'',
         html:'<div class="sane-status"><div>{{location}}</div><div>{{time}} · {{activity}}</div><div>{{mood}}</div></div>',
         inputFormat:'{{status:地点｜时间｜活动｜心情}}',
+        promptSuffix:'请在回复最后严格按照以下文字输入格式输出状态栏，不要添加解释：{{status:地点｜时间｜活动｜心情}}',
         regex:'/\\{\\{status:(.*?)\\}\\}/gs', targets:['line'], createdAt:now, updatedAt:now,
       };
       const next=[item,...statusPresets]; setStatusPresets(next); saveStatusBarPresets(next); setSelectedId(item.id);
