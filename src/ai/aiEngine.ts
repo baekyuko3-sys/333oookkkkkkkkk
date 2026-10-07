@@ -872,6 +872,86 @@ export async function listOpenAiCompatibleModels(
 
 
 
+
+export async function generateStatusBarContent(
+  settings: AiSettings,
+  characterName: string,
+  preset: { name: string; regex: string; html: string },
+  conversation: Array<{ sender: string; text?: string; transcript?: string }>,
+): Promise<string> {
+  const recent = conversation.slice(-16).map(message => {
+    const speaker = message.sender === 'other' ? characterName : message.sender === 'me' ? '用户' : '系统';
+    return speaker + ': ' + (message.text || message.transcript || '[媒体]');
+  }).join('\n');
+
+  const systemPrompt = [
+    '你负责为角色聊天生成一条状态栏原始文字。',
+    '状态栏不是另一条聊天消息，而是根据刚刚发生的剧情更新的状态快照。',
+    '必须严格遵守用户提供的 Find Regex 所要求的文字格式。',
+    '只输出一条可以被该正则完整匹配的普通文字。',
+    '不要输出 Markdown、代码块、HTML、解释、前后缀。',
+    '如果没有足够证据改变某个状态，可以合理延续最近已知状态，但不能凭空创造剧情。',
+    '状态内容必须来自当前聊天上下文。',
+    '【状态栏名称】' + preset.name,
+    '【Find Regex】' + preset.regex,
+    '【Replace With / HTML】' + preset.html,
+  ].join('\n');
+
+  const userPrompt = [
+    '角色：' + characterName,
+    '最近聊天：',
+    recent || '暂无',
+    '',
+    '请只返回一条严格符合 Find Regex 的状态原文。',
+  ].join('\n');
+
+  return (await generateCreativeText({
+    settings: { ...settings, streaming: false },
+    systemPrompt,
+    userPrompt,
+    temperature: Math.min(0.75, settings.temperature ?? 0.75),
+  })).trim();
+}
+
+export async function generateHtmlInterlude(
+  settings: AiSettings,
+  characterName: string,
+  htmlTemplate: string,
+  conversation: Array<{ sender: string; text?: string; transcript?: string }>,
+): Promise<string> {
+  const recent = conversation.slice(-18).map(message => {
+    const speaker = message.sender === 'other' ? characterName : message.sender === 'me' ? '用户' : '系统';
+    return speaker + ': ' + (message.text || message.transcript || '[媒体]');
+  }).join('\n');
+
+  const systemPrompt = [
+    '你是聊天里的 HTML 中插生成器。',
+    '根据当前剧情决定这一轮是否适合出现一个轻量的视觉内容卡片。',
+    '只输出 HTML 片段，不要 Markdown 代码块，不要解释。',
+    '必须遵守提供的 HTML 模板结构，不得添加 script、style、iframe、form、事件属性、javascript: URL 或外部资源。',
+    '内容必须直接来自最近聊天，不能凭空制造已经发生的事实。',
+    'HTML 可以有标题、正文、标签、列表、时间、地点、引用、简单装饰结构。',
+    '如果模板提供占位符，就替换成与当前聊天相关的内容。',
+    '【HTML 模板】' + htmlTemplate,
+  ].join('\n');
+
+  const userPrompt = [
+    '角色：' + characterName,
+    '最近聊天：',
+    recent || '暂无',
+    '',
+    '生成一张适合插入当前聊天的 HTML 内容卡片。',
+  ].join('\n');
+
+  return (await generateCreativeText({
+    settings: { ...settings, streaming: false },
+    systemPrompt,
+    userPrompt,
+    temperature: Math.min(0.9, settings.temperature ?? 0.85),
+  })).trim();
+}
+
+
 export interface MemoryMergeResult {
   summary: string;
   updates: Array<{
