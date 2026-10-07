@@ -338,6 +338,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [personaEditorOpen, setPersonaEditorOpen] = useState(false);
   const [personaDraft, setPersonaDraft] = useState<any>({ name: '', age: '', profession: '', region: '', timezone: '', birthday: '', setting: '', avatar: '', boundCharacterId: '' });
   const activePersona = userPersonas.find((p) => p.id === activePersonaId) || userPersonas[0] || null;
+  const effectivePersonaId = activePersonaId || userPersonas[0]?.id || null;
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
 
   const [masks, setMasks] = usePersistentState<Array<{ name: string; id: string; desc: string }>>('line:masks', []);
@@ -345,17 +346,17 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [chatItemsRaw, setChatItems] = usePersistentState<LineChatItem[]>('line:chat-items', []);
 
   useEffect(() => {
-    if (!activePersonaId) return;
+    if (!effectivePersonaId) return;
     setChatItems(prev => {
       let changed = false;
       const next = prev.map(chat => {
         if (chat.personaId) return chat;
         changed = true;
-        return { ...chat, personaId: activePersonaId };
+        return { ...chat, personaId: effectivePersonaId };
       });
       return changed ? next : prev;
     });
-  }, [activePersonaId]);
+  }, [effectivePersonaId]);
   const chatItems = Array.isArray(chatItemsRaw)
     ? chatItemsRaw.filter((c): c is LineChatItem => !!c && typeof c === 'object' && typeof c.id === 'string')
       .map(c => ({
@@ -466,8 +467,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
 
   // Filtered & Sorted Chats (Pinned items always float to the top)
   const chatQuery = chatSearch.trim().toLowerCase();
-  const personaChats = activePersonaId
-    ? chatItems.filter((c) => c.personaId === activePersonaId)
+  const personaChats = effectivePersonaId
+    ? chatItems.filter((c) => c.personaId === effectivePersonaId)
     : chatItems;
   const filteredChats = personaChats.filter((c) =>
     !chatQuery ||
