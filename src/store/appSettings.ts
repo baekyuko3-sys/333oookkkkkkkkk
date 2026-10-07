@@ -33,8 +33,6 @@ export interface AppSettings {
   contextLength: number;
   maxOutputTokens: number;
   autoSave: boolean;
-  autoMemoryEnabled: boolean;
-  autoMemoryEveryMessages: number;
   temperature: number;
   memoryEnabled: boolean;
   memoryMode: 'hybrid' | 'diary' | 'facts' | 'relationship';
@@ -96,8 +94,6 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   contextLength: 24,
   maxOutputTokens: 1200,
   autoSave: true,
-  autoMemoryEnabled: true,
-  autoMemoryEveryMessages: 20,
   temperature: 0.85,
   memoryEnabled: true,
   memoryMode: 'hybrid',
