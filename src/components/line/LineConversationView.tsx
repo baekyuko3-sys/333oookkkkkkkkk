@@ -576,20 +576,38 @@ export function LineConversationView({
   const [selectedWorldBookId, setSelectedWorldBookId] = usePersistentState<string>(`line:selected-worldbook:${conversationStorageId}`, 'all');
   const [selectedWorldBookEntries, setSelectedWorldBookEntries] = usePersistentState<Record<string, string[]>>(`line:selected-worldbook-entries:${conversationStorageId}`, {});
   const [showLorebookInspector, setShowLorebookInspector] = useState(false);
-  const activeWorldbooks = (selectedWorldBookId === 'all'
-    ? worldbooks
-    : selectedWorldBookId === 'none'
-      ? []
-      : worldbooks.filter(book => book.id === selectedWorldBookId))
-    .map(book => ({
-      ...book,
-      entries: (Array.isArray(book.entries) ? book.entries : []).filter(entry => {
-        const selected = selectedWorldBookEntries && typeof selectedWorldBookEntries === 'object'
-          ? selectedWorldBookEntries[book.id]
-          : undefined;
-        return selected === undefined ? entry.enabled !== false : selected.includes(entry.id);
-      }),
-    }));
+  const activeWorldbooks = (() => {
+    const globalBooks = selectedWorldBookId === 'all'
+      ? worldbooks
+      : selectedWorldBookId === 'none'
+        ? []
+        : worldbooks.filter(book => book.id === selectedWorldBookId);
+
+    // Character-card lorebooks belong to the character itself and must travel with
+    // the character into the AI context. Global/chat-selected books are layered on top.
+    const embeddedBooks = importedCharacter?.embeddedWorldBooks || (importedCharacter?.embeddedWorldBook ? [importedCharacter.embeddedWorldBook] : []);
+    const merged = [...embeddedBooks, ...globalBooks];
+    const seen = new Set<string>();
+
+    return merged
+      .filter(book => {
+        const key = book.id || 'book:' + book.name;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map(book => ({
+        ...book,
+        entries: (Array.isArray(book.entries) ? book.entries : []).filter(entry => {
+          const selected = selectedWorldBookEntries && typeof selectedWorldBookEntries === 'object'
+            ? selectedWorldBookEntries[book.id]
+            : undefined;
+          // Embedded character-card entries remain enabled unless explicitly disabled
+          // by their own card data; global books still obey the chat selection UI.
+          return selected === undefined ? entry.enabled !== false : selected.includes(entry.id);
+        }),
+      }));
+  })();
 
   // 酒馆思维链预设系统 (Chain of Thought Presets)
   const [showCotPresetModal, setShowCotPresetModal] = useState(false);
