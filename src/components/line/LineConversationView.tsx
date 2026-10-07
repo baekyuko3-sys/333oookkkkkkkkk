@@ -2811,12 +2811,13 @@ export function LineConversationView({
               <div
                 className={`max-w-[78%] relative touch-pan-y transition-transform duration-200 ${isMe ? 'items-end' : 'items-start'}`}
                 style={{ transform: swipedMessageId === msg.id ? (swipeAction === 'edit' ? 'translateX(-46px)' : 'translateX(46px)') : 'translateX(0)' }}
-                onTouchStart={(e) => {
-                  swipeStartXRef.current = e.touches[0]?.clientX ?? null;
+                onPointerDown={(e) => {
+                  swipeStartXRef.current = e.clientX;
+                  (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
                 }}
-                onTouchEnd={(e) => {
+                onPointerUp={(e) => {
                   const startX = swipeStartXRef.current;
-                  const endX = e.changedTouches[0]?.clientX ?? startX ?? 0;
+                  const endX = e.clientX;
                   swipeStartXRef.current = null;
                   const delta = endX - (startX ?? endX);
                   if (delta < -30) {
