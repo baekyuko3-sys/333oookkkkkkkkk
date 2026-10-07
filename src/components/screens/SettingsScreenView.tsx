@@ -73,6 +73,7 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
   const [notice, setNotice] = useState('');
   const [openSection, setOpenSection] = useState<'ai' | 'voice' | 'image' | 'data' | 'sound' | 'background'>('ai');
   const [testing, setTesting] = useState(false);
+  const [aiConnection, setAiConnection] = useState<{ status: 'idle' | 'success' | 'error'; message: string }>({ status: 'idle', message: '' });
   const [loadingModels, setLoadingModels] = useState(false);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [mediaModels, setMediaModels] = useState<{ voice: string[]; stt: string[]; image: string[] }>({ voice: [], stt: [], image: [] });
@@ -410,12 +411,23 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
                 </div>
               </label>
               {availableModels.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1.5">
-                  {availableModels.slice(0, 18).map(model => (
-                    <button key={model} onClick={() => update('model', model)} className="px-2 py-1 rounded-full bg-white/60 border border-black/5 text-[8px] font-mono text-[#675f58]">
-                      {model}
-                    </button>
-                  ))}
+                <div className="mt-1.5 rounded-xl bg-white/60 border border-black/5 overflow-hidden">
+                  <div className="px-2.5 py-1.5 text-[8px] text-[#938b83] border-b border-black/5 flex items-center justify-between">
+                    <span>模型列表 · {availableModels.length} 个</span>
+                    <span>可下滑选择</span>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto overscroll-contain p-1.5 space-y-1">
+                    {availableModels.map(model => (
+                      <button
+                        key={model}
+                        type="button"
+                        onClick={() => update('model', model)}
+                        className={"w-full text-left px-2.5 py-2 rounded-lg text-[9px] font-mono truncate transition-colors " + (settings.model === model ? 'bg-[#292724] text-white' : 'bg-white/50 text-[#675f58] hover:bg-white')}
+                      >
+                        {model}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
               <div className="grid grid-cols-4 gap-2">
@@ -563,11 +575,16 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
             <div className="grid grid-cols-2 gap-2 mt-3">
               <button disabled={testing} onClick={async () => {
                 setTesting(true);
+                setAiConnection({ status: 'idle', message: '正在测试连接…' });
                 try {
                   const result = await testAiConnection(settings);
-                  notify(result.text || 'AI 连接成功');
+                  const message = result.text || 'AI 连接成功';
+                  setAiConnection({ status: 'success', message });
+                  notify(message);
                 } catch (error) {
-                  notify(error instanceof Error ? error.message : 'AI 连接失败');
+                  const message = error instanceof Error ? error.message : 'AI 连接失败';
+                  setAiConnection({ status: 'error', message });
+                  notify(message);
                 } finally {
                   setTesting(false);
                 }
@@ -578,6 +595,12 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
                 自动保存 · {settings.autoSave ? 'ON' : 'OFF'}
               </button>
             </div>
+            {aiConnection.status !== 'idle' && (
+              <div className={"mt-2.5 rounded-xl border px-3 py-2 text-[9px] " + (aiConnection.status === 'success' ? 'bg-[#eef8f0] border-[#cce8d1] text-[#3d7650]' : 'bg-[#fff1f1] border-[#f0cccc] text-[#9a4d4d]')}>
+                <div className="font-semibold">{aiConnection.status === 'success' ? '● 连接成功' : '● 连接失败'}</div>
+                <div className="mt-0.5 font-mono break-all">{aiConnection.message}</div>
+              </div>
+            )}
           </section>
         )}
 
