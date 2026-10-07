@@ -527,11 +527,11 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
                   <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">MEMORY / 自动长期记忆</div>
                   <div className="mt-1 text-[9px] text-[#6f6860]">聊天达到指定消息数后，AI 会整理值得长期保留的关系、经历与偏好。</div>
                 </div>
-                <button onClick={() => update('autoMemoryEnabled', !settings.autoMemoryEnabled)} className="text-[9px] font-mono text-[#8b7560]">
-                  {settings.autoMemoryEnabled ? 'ON' : 'OFF'}
+                <button onClick={() => update('memoryEnabled', !settings.memoryEnabled)} className="text-[9px] font-mono text-[#8b7560]">
+                  {settings.memoryEnabled ? 'ON' : 'OFF'}
                 </button>
               </div>
-              {settings.autoMemoryEnabled && (
+              {settings.memoryEnabled && (
                 <>
                   <label className="block mt-2.5 text-[8px] text-[#8b8782]">记忆整理模型
                     <input value={settings.memoryModel} onChange={e => update('memoryModel', e.target.value)} placeholder={settings.model} className="w-full mt-1 bg-white/75 rounded-xl p-2.5 text-[10px] font-mono outline-none" />
