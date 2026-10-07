@@ -3318,20 +3318,6 @@ export function LineConversationView({
                 <span>线下邀约</span>
               </button>
 
-              {/* 日程 */}
-              <button
-                onClick={() => {
-                  setShowPlusSheet(false);
-                  setShowScheduleModal(true);
-                }}
-                className="flex flex-col items-center gap-1.5 cursor-pointer"
-              >
-                <div className="w-12 h-12 rounded-[14px] bg-[#f7f7f8] flex items-center justify-center text-[#666] hover:bg-[#f0f0f2]">
-                  <Calendar className="w-5 h-5" />
-                </div>
-                <span>角色日程</span>
-              </button>
-
               {/* D20 判定骰子 */}
               <button
                 onClick={handleRollDice}
