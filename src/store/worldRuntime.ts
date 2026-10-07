@@ -6,6 +6,7 @@ const MAX_EVENTS = 80;
 
 export type WorldEventType =
   | 'character.message'
+  | 'character.moment'
   | 'offline.invite'
   | 'offline.accepted'
   | 'offline.started'
