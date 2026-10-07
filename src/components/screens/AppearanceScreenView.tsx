@@ -31,6 +31,7 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
   const [schemes, setSchemes] = useState<AppearanceScheme[]>(() => getAppearanceSchemes());
   const [schemeName, setSchemeName] = useState('');
   const [notice, setNotice] = useState('');
+  const fontInputRef = useState<HTMLInputElement | null>(null)[0];
   const [selectedApp, setSelectedApp] = useState('line');
   const [appBeauty, setAppBeauty] = useState(() => readAppearance().appBeauty || {});
   const appItems = [
@@ -166,11 +167,56 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
                 </button>
               ))}
             </div>
-            <div className="p-3 rounded-2xl bg-white/65 border border-black/5">
-              <label className="text-[9px] block">壁纸 / 背景图片 URL
-                <input value={appearance.wallpaper} onChange={event => update('wallpaper', event.target.value)} placeholder="留空使用当前纸张背景" className="mt-1 w-full p-2.5 rounded-xl bg-white/80 text-[9px] outline-none" />
+            <div className="p-3 rounded-2xl bg-white/65 border border-black/5 space-y-3">
+              <div>
+                <div className="text-[9px] font-mono tracking-[1.5px] text-[#8b8782]">PHONE COLOR SYSTEM</div>
+                <div className="mt-1 text-[11px] font-semibold">手机主背景色</div>
+                <div className="mt-1 text-[8px] text-[#777069]">统一控制手机的大部分页面；LINE / 聊天保持纯白，不跟随这里改变。</div>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  ['#ffffff','纯白'],['#f7f4ee','暖纸'],['#f2f4f7','雾灰'],['#eef2f1','鼠尾草'],
+                  ['#eef3f8','冰蓝'],['#f2edf1','灰粉'],['#f4efe7','燕麦'],['#e9edf0','银灰']
+                ].map(([color,label]) => (
+                  <button key={color} onClick={() => update('globalBackground', color)} className="p-1.5 rounded-xl border border-black/5 bg-white/70">
+                    <div className="h-8 rounded-lg border border-black/5" style={{background:color}} />
+                    <div className="mt-1 text-[7px] text-[#777069]">{label}</div>
+                  </button>
+                ))}
+              </div>
+              <label className="text-[9px] block">自定义颜色
+                <div className="mt-1 flex gap-2">
+                  <input type="color" value={appearance.globalBackground || '#f7f4ee'} onChange={event => update('globalBackground', event.target.value)} className="w-10 h-9 rounded-lg border-0 bg-transparent p-0" />
+                  <input value={appearance.globalBackground || '#f7f4ee'} onChange={event => update('globalBackground', event.target.value)} className="flex-1 p-2.5 rounded-xl bg-white/80 text-[9px] outline-none font-mono" />
+                </div>
               </label>
-              <div className="mt-2 text-[8px] text-[#8b8782]">后续可以扩展为图片资源库；现在先保留轻量 URL 配置。</div>
+              <label className="text-[9px] block">壁纸 / 背景图片 URL
+                <input value={appearance.wallpaper} onChange={event => update('wallpaper', event.target.value)} placeholder="留空使用当前背景色" className="mt-1 w-full p-2.5 rounded-xl bg-white/80 text-[9px] outline-none" />
+              </label>
+            </div>
+            <div className="p-3 rounded-2xl bg-white/65 border border-black/5 space-y-3">
+              <div>
+                <div className="text-[9px] font-mono tracking-[1.5px] text-[#8b8782]">CUSTOM TYPEFACE</div>
+                <div className="mt-1 text-[11px] font-semibold">上传字体</div>
+                <div className="mt-1 text-[8px] text-[#777069]">支持 .woff / .woff2 / .ttf / .otf。字体只保存在本机浏览器。</div>
+              </div>
+              <label className="block p-3 rounded-xl border border-dashed border-[#d7d2ca] bg-white/45 cursor-pointer">
+                <div className="text-[9px] font-medium">{appearance.customFontName || '选择字体文件'}</div>
+                <div className="text-[8px] text-[#aaa] mt-1">点击上传并立即预览</div>
+                <input type="file" accept=".woff,.woff2,.ttf,.otf,font/woff,font/woff2,font/ttf,font/otf" className="hidden" onChange={event => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    update('customFont', String(reader.result || ''));
+                    update('customFontName', file.name);
+                    notify('字体已保存并应用');
+                  };
+                  reader.readAsDataURL(file);
+                  event.currentTarget.value = '';
+                }} />
+              </label>
+              {appearance.customFont && <button onClick={() => { update('customFont',''); update('customFontName',''); notify('已恢复默认字体'); }} className="w-full py-2 rounded-xl bg-[#f5f3ef] text-[#777069] text-[9px]">恢复默认字体</button>}
             </div>
           </>
         )}
