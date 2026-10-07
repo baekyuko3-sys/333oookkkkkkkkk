@@ -179,6 +179,10 @@ export function PresetResourceManager({
                   <input value={(selected as StatusBarPreset).inputFormat || '{{status:状态内容}}'} onChange={e=>updateSelected({inputFormat:e.target.value})} placeholder="{{status:地点｜时间｜活动｜心情}}" className="w-full mt-1 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px] font-mono"/>
                   <div className="text-[8px] text-[#aaa] mt-1">告诉 AI：它最终必须输出成什么“原始文字格式”。</div>
                 </label>
+                <label className="block text-[8px] text-[#999]">Prompt 后缀 · AI 输出指令
+                  <textarea value={(selected as StatusBarPreset).promptSuffix || ''} onChange={e=>updateSelected({promptSuffix:e.target.value})} placeholder="例如：请在回复最后严格按照以下格式输出状态栏……" className="w-full mt-1 h-24 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px] leading-relaxed font-mono resize-y"/>
+                  <div className="text-[8px] text-[#aaa] mt-1">这是预设自带的 AI 指令。应用到 LINE 后会自动带入，不需要在聊天设置里再次填写。</div>
+                </label>
                 <label className="block text-[8px] text-[#999]">提取正则 · Find Regex
                   <input value={(selected as StatusBarPreset).regex} onChange={e=>updateSelected({regex:e.target.value})} placeholder="/\\{\\{status:(.*?)\\}\\}/gs" className="w-full mt-1 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px] font-mono"/>
                 </label>
