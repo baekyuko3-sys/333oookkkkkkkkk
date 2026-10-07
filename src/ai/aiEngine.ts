@@ -69,23 +69,23 @@ export interface AiReplyResult {
 }
 
 export function parseAiReplyPayload(rawText: string): Pick<AiReplyResult, 'text' | 'thinkingSummary' | 'actionDescription'> {
-  const raw = String(rawText || '').replace(/\\r\\n/g, '\\n').trim();
+  const raw = String(rawText || '').replace(/\r\n/g, '\n').trim();
   const withoutHiddenThinking = raw
-    .replace(/<think>[\\s\\S]*?<\\/think>/gi, '')
-    .replace(/<thought>[\\s\\S]*?<\\/thought>/gi, '');
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<thought>[\s\S]*?<\/thought>/gi, '');
 
   const readTag = (name: string): string => {
-    const match = withoutHiddenThinking.match(new RegExp('<' + name + '>\\\\s*([\\s\\S]*?)\\\\s*</' + name + '>', 'i'));
+    const match = withoutHiddenThinking.match(new RegExp('<' + name + '>\\s*([\\s\\S]*?)\\s*</' + name + '>', 'i'));
     return match ? match[1].trim() : '';
   };
 
   const thinkingSummary = readTag('summary');
   const actionDescription = readTag('action');
-  const messageMatch = withoutHiddenThinking.match(/<message>\\s*([\\s\\S]*?)\\s*<\\/message>/i);
+  const messageMatch = withoutHiddenThinking.match(/<message>\s*([\s\S]*?)\s*<\/message>/i);
 
   const text = (messageMatch?.[1] || withoutHiddenThinking
-    .replace(/<summary>[\\s\\S]*?<\\/summary>/gi, '')
-    .replace(/<action>[\\s\\S]*?<\\/action>/gi, ''))
+    .replace(/<summary>[\s\S]*?<\/summary>/gi, '')
+    .replace(/<action>[\s\S]*?<\/action>/gi, ''))
     .trim();
 
   return {
