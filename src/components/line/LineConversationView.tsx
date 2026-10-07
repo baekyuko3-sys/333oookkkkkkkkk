@@ -828,6 +828,7 @@ export function LineConversationView({
   const [statusBarHistory, setStatusBarHistory] = useState<StatusBarSnapshot[]>(() => getStatusBarHistory(conversationStorageId));
   const [statusBarHistoryIndex, setStatusBarHistoryIndex] = useState(Math.max(0, getStatusBarHistory(conversationStorageId).length - 1));
   const [statusBarRandomMode, setStatusBarRandomMode] = useState(() => getStatusBarRandomMode(conversationStorageId));
+  const [statusBarEnabled, setStatusBarEnabled] = usePersistentState<boolean>(`line:status-bar-enabled:${conversationStorageId}`, true);
   const [htmlInterludeEnabled, setHtmlInterludeEnabled] = usePersistentState<boolean>(`line:html-interlude-enabled:${conversationStorageId}`, false);
   const [htmlInterludeChance, setHtmlInterludeChance] = usePersistentState<number>(`line:html-interlude-chance:${conversationStorageId}`, 25);
   const [htmlInterludeTemplate, setHtmlInterludeTemplate] = usePersistentState<string>(
@@ -910,6 +911,7 @@ export function LineConversationView({
   }, [conversationStorageId]);
 
   const createStatusBarSnapshot = async (replyText: string, sourceMessageId: string | number) => {
+    if (!statusBarEnabled) return;
     const presets = statusBarPresets.filter(preset => preset.targets.includes('line'));
     if (!presets.length) return;
     const chosen = statusBarRandomMode
@@ -5479,10 +5481,17 @@ export function LineConversationView({
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="font-semibold text-[11px] text-[#333]">回复后生成状态</div>
-                      <div className="text-[9px] text-[#aaa] mt-0.5">每次角色回复都会保存一张新的状态快照</div>
+                      <div className="text-[9px] text-[#aaa] mt-0.5">{statusBarEnabled ? '每次角色回复都会保存一张新的状态快照' : '已关闭，不生成状态栏'}</div>
                     </div>
-                    <button
-                      onClick={() => {
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setStatusBarEnabled(prev => !prev)}
+                        className={`px-2.5 py-1.5 rounded-full text-[9px] ${statusBarEnabled ? 'bg-[#292724] text-white' : 'bg-[#f1f1f2] text-[#777]'}`}
+                      >
+                        {statusBarEnabled ? '已开启' : '已关闭'}
+                      </button>
+                      <button
+                        onClick={() => {
                         const next = !statusBarRandomMode;
                         setStatusBarRandomMode(next);
                         saveStatusBarRandomMode(conversationStorageId, next);
