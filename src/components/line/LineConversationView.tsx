@@ -57,6 +57,17 @@ function splitGeneratedLineMessages(text: string): string[] {
   return [normalized];
 }
 
+function formatLineMessageClock(message: any, timezone: string): string {
+  const raw = message?.createdAt || message?.timestamp;
+  const date = raw ? new Date(raw) : new Date();
+  if (Number.isNaN(date.getTime())) return String(message?.time || '刚刚');
+  try {
+    return new Intl.DateTimeFormat('zh-CN', { timeZone: timezone, hour: 'numeric', minute: '2-digit', hour12: false }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat('zh-CN', { hour: 'numeric', minute: '2-digit', hour12: false }).format(date);
+  }
+}
+
 function currentUserNameFallback(): string {
   if (typeof window === 'undefined') return '';
   try {
@@ -247,6 +258,8 @@ export function LineConversationView({
   const [bilingualMode, setBilingualMode] = usePersistentState<'off' | 'auto'>(`line:bilingual-mode:${conversationStorageId}`, 'off');
   const [chatTimeMode, setChatTimeMode] = usePersistentState<'current' | 'virtual'>(`line:chat-time-mode:${conversationStorageId}`, 'current');
   const [virtualChatTime, setVirtualChatTime] = usePersistentState<string>(`line:virtual-chat-time:${conversationStorageId}`, new Date().toISOString().slice(0, 16));
+  const [chatTimezone, setChatTimezone] = usePersistentState<string>(`line:chat-timezone:${conversationStorageId}`, Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai');
+  const [characterLanguage, setCharacterLanguage] = usePersistentState<string>(`line:character-language:${conversationStorageId}`, 'auto');
   const [characterTimeSensitivity, setCharacterTimeSensitivity] = usePersistentState<'sensitive' | 'insensitive'>(`line:character-time-sensitivity:${conversationStorageId}`, 'sensitive');
   const [chatApiOverride, setChatApiOverride] = usePersistentState<ChannelAiSettings>(`line:chat-api-override:${conversationStorageId}`, {
     ...readAppSettings().chatApiOverride,
@@ -272,7 +285,8 @@ export function LineConversationView({
   const lineConversationRules = [
     '【最高优先级·用户边界】绝对不要替用户编造台词、动作、表情、想法、决定、经历或未提供的事实；用户没有说或做的事情，不得写成用户已经说过或做过。',
     bilingualMode === 'auto' ? '【双语模式】除普通话/国语/简体中文与繁体中文外，角色使用其他主要语言时，回复采用自然双语表达：保留角色原语言，并附自然中文对应，不要逐句机械翻译。' : '',
-    chatTimeMode === 'current' ? '【时间】聊天时间跟随现实当前时间；涉及现在、今天、今晚、明天等相对时间时，以当前真实日期时间为准。' : `【虚拟时间】本聊天时间固定为 ${virtualChatTime}；涉及现在、今天、今晚、明天等相对时间时，只能依据这个虚拟时间推算。`,
+    characterLanguage !== 'auto' ? `【角色语言】本聊天角色主要使用 ${characterLanguage}。除非剧情或用户明确要求其他语言，不要擅自切换语言。` : '【角色语言】跟随角色卡/当前对话自然选择语言，不要无故切换语言。',
+    chatTimeMode === 'current' ? `【时间】聊天时间跟随现实当前时间；当前时区为 ${chatTimezone}。涉及现在、今天、今晚、明天等相对时间时，以这个时区的真实日期时间为准。` : `【虚拟时间】本聊天时间固定为 ${virtualChatTime}，时间显示/理解时区为 ${chatTimezone}；涉及现在、今天、今晚、明天等相对时间时，只能依据这个虚拟时间推算。`,
     characterTimeSensitivity === 'sensitive' ? '【角色时间感】角色对时间敏感：应留意日期、时段、前后顺序，不要无故跳过时间。' : '【角色时间感】角色对时间不敏感：不要为了显示时间而强行报时；只有剧情自然涉及时间时才提及，并允许使用模糊时间表达。',
   ].filter(Boolean).join('\n');
 
@@ -291,6 +305,7 @@ export function LineConversationView({
   };
   const [showVideoCall, setShowVideoCall] = useState(false);
   const [showReroll, setShowReroll] = useState(false);
+  const [rerollTargetId, setRerollTargetId] = useState<number | string | null>(null);
   const [rerollPrompt, setRerollPrompt] = useState('');
   const [showTranscriptMap, setShowTranscriptMap] = useState<Record<number, boolean>>({});
 
@@ -2213,8 +2228,10 @@ export function LineConversationView({
       showToast('告诉 AI 这一轮怎么改');
       return;
     }
-    const targetIndex = [...messages].map((m, index) => ({ m, index })).reverse().find(item => item.m.sender === 'other' && item.m.type !== 'system-nudge')?.index;
-    if (targetIndex === undefined || !importedCharacter) {
+    const targetIndex = rerollTargetId !== null
+      ? messages.findIndex(m => String(m.id) === String(rerollTargetId))
+      : [...messages].map((m, index) => ({ m, index })).reverse().find(item => item.m.sender === 'other' && item.m.type !== 'system-nudge')?.index;
+    if (targetIndex === undefined || targetIndex < 0 || !importedCharacter) {
       showToast('还没有可以重新生成的角色消息');
       return;
     }
@@ -2222,8 +2239,8 @@ export function LineConversationView({
     const previousUser = [...messages.slice(0, targetIndex)].reverse().find(m => m.sender === 'me' && m.text)?.text || inputText;
     setShowReroll(false);
     setRerollPrompt('');
+    setRerollTargetId(null);
     setIsTyping(true);
-    setMessages(prev => prev.filter((_, i) => i !== targetIndex));
     try {
       let streamed = '';
       const result = await generateCharacterReply({
@@ -2252,14 +2269,11 @@ export function LineConversationView({
         temperature: Number(presetTemp) || 0.85,
         onDelta: delta => {
           streamed += delta;
-          setMessages(prev => {
-          const next = [...prev];
-          const existingIndex = next.findIndex(m => m.id === target.id);
-          const nextMessage = { ...target, text: streamed, status: 'sending', error: undefined, edited: true };
-          if (existingIndex >= 0) next[existingIndex] = nextMessage;
-          else next.splice(Math.min(targetIndex, next.length), 0, nextMessage);
-          return next;
-        });
+          setMessages(prev => prev.map(message =>
+            String(message.id) === String(target.id)
+              ? { ...message, text: streamed, status: 'sending', error: undefined, edited: true }
+              : message
+          ));
         },
       });
       const rerolledText = splitGeneratedLineMessages(String(result.text || streamed)).filter(Boolean)[0] || String(result.text || streamed || '').trim();
@@ -2271,7 +2285,7 @@ export function LineConversationView({
         else next.splice(Math.min(targetIndex, next.length), 0, nextMessage);
         return next;
       });
-      appendLineMessage(conversationStorageId, { id: target.id, sender: 'other', text: rerolledText, kind: 'text', status: 'delivered', createdAt: new Date().toISOString() });
+      updateLineMessage(conversationStorageId, target.id, { text: rerolledText, status: 'delivered', error: undefined, edited: true, editedAt: new Date().toISOString() });
       showToast('这一条已经重新生成');
     } catch (error) {
       const message = error instanceof Error ? error.message : '重新生成失败';
@@ -3182,12 +3196,12 @@ export function LineConversationView({
                       return (
                         <>
                           <span className={msg.isRead ? "text-[#ae7e89] font-medium" : "text-[#b8b8bb] font-medium"}>{readLabel}</span>
-                          <span>{msg.time}</span>
+                          <span>{formatLineMessageClock(msg, chatTimezone)}</span>
                         </>
                       );
                     })()
                   ) : (
-                    <span>{msg.time}</span>
+                    <span>{formatLineMessageClock(msg, chatTimezone)}</span>
                   )}
                 </div>
               )}
@@ -3614,6 +3628,7 @@ export function LineConversationView({
               <button
                 onClick={() => {
                   setShowPlusSheet(false);
+                  setRerollTargetId(null);
                   setShowReroll(true);
                 }}
                 className="flex flex-col items-center gap-1.5 cursor-pointer"
@@ -5799,11 +5814,25 @@ export function LineConversationView({
                 </div>
               )}
 
+              {/* 单条 Reroll：只作用于当前长按的这一条角色消息 */}
+              {contextMenuMsg.sender !== 'me' && contextMenuMsg.type !== 'system-nudge' && contextMenuMsg.text && (
+                <div onClick={() => {
+                  setRerollTargetId(contextMenuMsg.id);
+                  setRerollPrompt('只重新生成这一条消息，不要重写同一轮的其他消息。');
+                  setShowReroll(true);
+                  setContextMenuMsg(null);
+                }} className="py-3 flex items-center gap-3 cursor-pointer hover:bg-neutral-50 px-2 text-[#ae7e89]">
+                  <RefreshCw className="w-4 h-4" />
+                  <span className="text-[#333]">只重抽这一条</span>
+                </div>
+              )}
+
               {/* 失败消息重试 */}
               {contextMenuMsg.status === 'failed' && (
                 <div
                   onClick={() => {
-                    setRerollPrompt('请基于上一轮上下文重新发送，保持角色设定与语气。');
+                    setRerollTargetId(contextMenuMsg.id);
+                    setRerollPrompt('请基于这一条消息之前的上下文重新生成这一条，保持角色设定与语气。');
                     setShowReroll(true);
                     setContextMenuMsg(null);
                   }}
