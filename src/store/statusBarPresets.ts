@@ -147,6 +147,56 @@ export interface StatusBarSnapshot {
   createdAt: string;
 }
 
+export interface StatusBarSnapshot {
+  id: string;
+  presetId: string;
+  presetName: string;
+  html: string;
+  sourceMessageId: string | number;
+  sourceText: string;
+  createdAt: string;
+}
+
+const HISTORY_KEY_PREFIX = 'line:status-bar-history:';
+const RANDOM_KEY_PREFIX = 'line:status-bar-random:';
+
+export function getStatusBarHistory(conversationId: string): StatusBarSnapshot[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(HISTORY_KEY_PREFIX + conversationId) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+
+export function saveStatusBarHistory(conversationId: string, history: StatusBarSnapshot[]) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(HISTORY_KEY_PREFIX + conversationId, JSON.stringify(history.slice(-100)));
+  window.dispatchEvent(new CustomEvent('sane333:status-bar-history-changed', { detail: { conversationId } }));
+}
+
+export function appendStatusBarSnapshot(conversationId: string, snapshot: StatusBarSnapshot) {
+  saveStatusBarHistory(conversationId, [...getStatusBarHistory(conversationId), snapshot]);
+}
+
+export function deleteStatusBarSnapshot(conversationId: string, snapshotId: string) {
+  saveStatusBarHistory(conversationId, getStatusBarHistory(conversationId).filter(item => item.id !== snapshotId));
+}
+
+export function clearStatusBarHistory(conversationId: string) {
+  saveStatusBarHistory(conversationId, []);
+}
+
+export function getStatusBarRandomMode(conversationId: string): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(RANDOM_KEY_PREFIX + conversationId) === 'true';
+}
+
+export function saveStatusBarRandomMode(conversationId: string, enabled: boolean) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(RANDOM_KEY_PREFIX + conversationId, String(enabled));
+  window.dispatchEvent(new CustomEvent('sane333:status-bar-random-changed', { detail: { conversationId, enabled } }));
+}
+
 export type StatusBarAssignments = Partial<Record<StatusBarTarget, string>>;
 const ASSIGN_KEY = 'line:status-bar-assignments';
 export function getStatusBarAssignments(): StatusBarAssignments { if (typeof window === 'undefined') return {}; try { return JSON.parse(window.localStorage.getItem(ASSIGN_KEY) || '{}'); } catch { return {}; } }
