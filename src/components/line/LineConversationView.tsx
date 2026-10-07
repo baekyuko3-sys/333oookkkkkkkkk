@@ -83,6 +83,7 @@ interface LineConversationViewProps {
   isPinned?: boolean;
   isMuted?: boolean;
   relationshipContext?: string;
+  friendDeleted?: boolean;
   openingContext?: string;
   onTogglePin?: () => void;
   onToggleMute?: () => void;
@@ -102,6 +103,7 @@ export function LineConversationView({
   isPinned = false,
   isMuted = false,
   relationshipContext = '',
+  friendDeleted = false,
   openingContext = '',
   onTogglePin,
   onToggleMute,
@@ -2157,6 +2159,9 @@ export function LineConversationView({
                         : tx('离线 · 点击查看主页', 'オフライン · プロフィール')}
                     </span>
                   </div>
+                  {friendDeleted && (
+                    <div className="text-[9px] text-[#aaa] mt-0.5">对方不是你的好友</div>
+                  )}
                 </div>
               </div>
             </div>
