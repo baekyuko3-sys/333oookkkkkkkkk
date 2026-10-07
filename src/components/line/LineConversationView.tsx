@@ -1085,14 +1085,15 @@ export function LineConversationView({
         ].filter(Boolean).join('\n'),
         stylePreset: activeCotPreset?.title || selectedPreset,
         typingHabit: [
-            typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
-            '标点：' + typingPunctuation,
-            'emoji/表情：' + typingEmoji,
-            '消息分条：' + typingSplit,
-            '换行：' + typingLineBreak,
-            '句子长度：' + typingLength,
-            '语气词：' + typingFillers,
-          ].join('；'),
+          typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
+          '标点：' + typingPunctuation,
+          'emoji/表情：' + typingEmoji,
+          '消息分条：' + typingSplit,
+          '换行：' + typingLineBreak,
+          '句子长度：' + typingLength,
+          '语气词：' + typingFillers,
+          '断句：' + typingSentenceBreak,
+        ].join('；'),
         temperature: Number(presetTemp) || 0.85,
         onDelta: (delta) => {
           streamedText += delta;
@@ -1737,6 +1738,16 @@ export function LineConversationView({
           '不要重复上一条已经说过的内容，也不要突然改变话题；像真实聊天一样自然补完。',
         ].filter(Boolean).join('\\n'),
         stylePreset: activeCotPreset?.title || selectedPreset,
+        typingHabit: [
+          typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
+          '标点：' + typingPunctuation,
+          'emoji/表情：' + typingEmoji,
+          '消息分条：' + typingSplit,
+          '换行：' + typingLineBreak,
+          '句子长度：' + typingLength,
+          '语气词：' + typingFillers,
+          '断句：' + typingSentenceBreak,
+        ].join('；'),
         temperature: Number(presetTemp) || 0.85,
         onDelta: delta => {
           streamedText += delta;
@@ -1969,6 +1980,16 @@ export function LineConversationView({
               isGroup,
               authorNote: authorsNote,
               stylePreset: activeCotPreset?.title || selectedPreset,
+              typingHabit: [
+          typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
+          '标点：' + typingPunctuation,
+          'emoji/表情：' + typingEmoji,
+          '消息分条：' + typingSplit,
+          '换行：' + typingLineBreak,
+          '句子长度：' + typingLength,
+          '语气词：' + typingFillers,
+          '断句：' + typingSentenceBreak,
+        ].join('；'),
               temperature: Number(presetTemp) || 0.85,
               onDelta: delta => {
                 streamed += delta;
@@ -2070,7 +2091,7 @@ export function LineConversationView({
     setShowReroll(false);
     setRerollPrompt('');
     setIsTyping(true);
-    setMessages(prev => prev.map((m, i) => i === targetIndex ? { ...m, text: '', error: undefined } : m));
+    setMessages(prev => prev.filter((_, i) => i !== targetIndex));
     try {
       let streamed = '';
       const result = await generateCharacterReply({
@@ -2086,17 +2107,49 @@ export function LineConversationView({
         isGroup,
         authorNote: [authorsNote, '重新生成要求：' + instruction].filter(Boolean).join('\\n'),
         stylePreset: activeCotPreset?.title || selectedPreset,
+        typingHabit: [
+          typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
+          '标点：' + typingPunctuation,
+          'emoji/表情：' + typingEmoji,
+          '消息分条：' + typingSplit,
+          '换行：' + typingLineBreak,
+          '句子长度：' + typingLength,
+          '语气词：' + typingFillers,
+          '断句：' + typingSentenceBreak,
+        ].join('；'),
         temperature: Number(presetTemp) || 0.85,
         onDelta: delta => {
           streamed += delta;
-          setMessages(prev => prev.map((m, i) => i === targetIndex ? { ...m, text: streamed } : m));
+          setMessages(prev => {
+          const next = [...prev];
+          const existingIndex = next.findIndex(m => m.id === target.id);
+          const nextMessage = { ...target, text: streamed, status: 'sending', error: undefined, edited: true };
+          if (existingIndex >= 0) next[existingIndex] = nextMessage;
+          else next.splice(Math.min(targetIndex, next.length), 0, nextMessage);
+          return next;
+        });
         },
       });
-      setMessages(prev => prev.map((m, i) => i === targetIndex ? { ...m, text: result.text, status: 'delivered', editedAt: new Date().toISOString(), aiModel: result.model } : m));
+      setMessages(prev => {
+        const next = [...prev];
+        const existingIndex = next.findIndex(m => m.id === target.id);
+        const nextMessage = { ...target, text: result.text, status: 'delivered', editedAt: new Date().toISOString(), aiModel: result.model, error: undefined, edited: true };
+        if (existingIndex >= 0) next[existingIndex] = nextMessage;
+        else next.splice(Math.min(targetIndex, next.length), 0, nextMessage);
+        return next;
+      });
+      appendLineMessage(conversationStorageId, { id: target.id, sender: 'other', text: result.text, kind: 'text', status: 'delivered', createdAt: new Date().toISOString() });
       showToast('这一条已经重新生成');
     } catch (error) {
       const message = error instanceof Error ? error.message : '重新生成失败';
-      setMessages(prev => prev.map((m, i) => i === targetIndex ? { ...m, status: 'failed', error: message } : m));
+      setMessages(prev => {
+        const next = [...prev];
+        const existingIndex = next.findIndex(m => m.id === target.id);
+        const failed = { ...target, status: 'failed', error: message, text: target.text || '回复失败：' + message };
+        if (existingIndex >= 0) next[existingIndex] = failed;
+        else next.splice(Math.min(targetIndex, next.length), 0, failed);
+        return next;
+      });
       markLineMessageFailed(conversationStorageId, target.id, message);
       showToast(message.length > 60 ? message.slice(0, 60) + '…' : message);
     } finally {
