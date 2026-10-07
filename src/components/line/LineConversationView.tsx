@@ -1956,7 +1956,7 @@ export function LineConversationView({
     }
     setScheduleList((prev) => [
       ...prev,
-      { id: String(Date.now()), time: newScheduleTime, title: newScheduleTitle.trim(), kind: newScheduleKind, location: newScheduleLocation.trim(), theme: newScheduleTheme.trim() },
+      { id: String(Date.now()), time: newScheduleTime, title: newScheduleTitle.trim(), kind: newScheduleKind, location: newScheduleLocation.trim(), theme: newScheduleTheme.trim(), conversationId: conversationStorageId },
     ]);
     setNewScheduleTitle('');
     setNewScheduleLocation('');
@@ -4017,6 +4017,17 @@ export function LineConversationView({
                     <span className={`w-9 h-5 rounded-full p-0.5 ${value ? 'bg-[#d4aab5]' : 'bg-[#d9d9db]'}`}><span className={`block w-4 h-4 rounded-full bg-white shadow-sm ${value ? 'translate-x-4' : ''}`} /></span>
                   </button>
                 ))}
+              </div>
+            <details className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
+              <summary className="list-none cursor-pointer p-3.5 flex items-center justify-between">
+                <div><div className="font-medium text-[#333]">主动行为日程</div><div className="text-[10px] text-[#999]">在这里安排主动消息、VROOM 和线下邀约</div></div>
+                <span className="text-[10px] text-[#aaa]">展开</span>
+              </summary>
+              <div className="px-3.5 pb-3.5">
+                <button type="button" onClick={() => setShowScheduleModal(true)} className="w-full py-2.5 rounded-xl bg-[#faf1f3] border border-[#f0dee3] text-[10px] text-[#8c5f6b] font-medium">
+                  打开主动行为日程
+                </button>
+                <div className="mt-2 text-[9px] text-[#aaa]">当前聊天已有 {scheduleList.length} 项安排 · 每项会读取上方的角色行为权限。</div>
               </div>
             </details>
 
