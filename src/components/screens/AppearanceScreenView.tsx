@@ -224,7 +224,22 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
                   event.currentTarget.value = '';
                 }} />
               </label>
-              {(appearance.customFont || appearance.customFontUrl) && <button onClick={() => { update('customFont',''); update('customFontUrl',''); update('customFontName',''); notify('已恢复默认字体'); }} className="w-full py-2 rounded-xl bg-[#f5f3ef] text-[#777069] text-[9px]">恢复默认字体</button>}
+              <div className="p-3 rounded-xl bg-[#f7f4ee] border border-[#e5dfd6] space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-[9px] font-semibold">字体大小</div>
+                    <div className="text-[8px] text-[#999]">调整整个手机文字比例</div>
+                  </div>
+                  <span className="text-[9px] font-mono">{Math.round((appearance.customFontSize || 1) * 100)}%</span>
+                </div>
+                <input type="range" min="0.75" max="1.5" step="0.05" value={appearance.customFontSize || 1} onChange={event => update('customFontSize', Number(event.target.value))} className="w-full" />
+                <div className="flex justify-between text-[7px] text-[#aaa]"><span>75%</span><span>100%</span><span>125%</span><span>150%</span></div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => { update('customFont',''); update('customFontUrl',''); update('customFontName',''); notify('已恢复默认字体'); }} className="py-2.5 rounded-xl bg-[#f5f3ef] text-[#777069] text-[9px]">恢复默认字体</button>
+                <button onClick={() => { saveAppearance({}); notify('字体设置已保存'); }} className="py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">保存字体设置</button>
+              </div>
+              <div className="text-[8px] text-[#aaa] leading-relaxed">字体、链接、大小都会保存到当前设备。上传字体会保存在浏览器本地，不会上传到服务器。</div>
             </div>
           </>
         )}
