@@ -117,10 +117,13 @@ export function LineConversationView({
   const ja = lineLocale === 'ja-JP';
   const tx = (zh: string, jp: string) => ja ? jp : zh;
   const hasImportedCharacter = hasImportedCharacterInStorage(contactName, characterId);
-  const [messages, setMessages] = usePersistentState<any[]>(
+  const [storedMessages, setMessages] = usePersistentState<any[]>(
     `line:conversation:${conversationStorageId}`,
     hasImportedCharacter ? [] : getInitialChatMessages(contactName),
   );
+  // Old/local data can be malformed. A bad conversation record must never prevent
+  // the chat screen itself from opening.
+  const messages = Array.isArray(storedMessages) ? storedMessages : [];
 
   // LINE keeps the complete conversation in storage, but only renders the newest
   // page at first. Older messages load naturally as you scroll upward.
@@ -512,8 +515,12 @@ export function LineConversationView({
     window.setTimeout(() => document.querySelector<HTMLTextAreaElement>('[data-line-composer="true"]')?.focus(), 0);
   };
 
-  const [worldbooks] = usePersistentState<WorldBook[]>('phone:worldbooks', []);
-  const [lineFriends] = usePersistentState<Array<{ name: string; characterId?: string; note?: string; online?: boolean; pinyin?: string }>>('line:friends-list', []);
+  const [storedWorldbooks] = usePersistentState<WorldBook[]>('phone:worldbooks', []);
+  const worldbooks = Array.isArray(storedWorldbooks)
+    ? storedWorldbooks.filter((book): book is WorldBook => !!book && typeof book === 'object' && Array.isArray(book.entries))
+    : [];
+  const [storedLineFriends] = usePersistentState<Array<{ name: string; characterId?: string; note?: string; online?: boolean; pinyin?: string }>>('line:friends-list', []);
+  const lineFriends = Array.isArray(storedLineFriends) ? storedLineFriends : [];
   const forwardRecipients = Array.from(new Set([
     ...lineFriends.map(friend => friend.name).filter(Boolean),
     ...getLineGroups().filter(group => group.id !== activeGroup?.id).map(group => group.name).filter(Boolean),
@@ -525,10 +532,15 @@ export function LineConversationView({
   const projectManifest = getProjectManifest();
 
   // 酒馆角色核心档案
-  const [characterProfile, setCharacterProfile] = usePersistentState(
+  const [storedCharacterProfile, setCharacterProfile] = usePersistentState(
     `line:character-profile:${conversationStorageId}`,
     getCharacterProfile(contactName, characterId),
   );
+  // Recover gracefully from an old/null profile record.
+  const characterProfile =
+    storedCharacterProfile && typeof storedCharacterProfile === 'object'
+      ? storedCharacterProfile
+      : getCharacterProfile(contactName, characterId);
 
   // 聊天设定使用真正的全局世界书；选择结果按聊天保存。
   const [selectedWorldBookId, setSelectedWorldBookId] = usePersistentState<string>(`line:selected-worldbook:${conversationStorageId}`, 'all');
@@ -541,9 +553,11 @@ export function LineConversationView({
       : worldbooks.filter(book => book.id === selectedWorldBookId))
     .map(book => ({
       ...book,
-      entries: book.entries.filter(entry => {
-        const selected = selectedWorldBookEntries[book.id];
-        return selected === undefined ? entry.enabled : selected.includes(entry.id);
+      entries: (Array.isArray(book.entries) ? book.entries : []).filter(entry => {
+        const selected = selectedWorldBookEntries && typeof selectedWorldBookEntries === 'object'
+          ? selectedWorldBookEntries[book.id]
+          : undefined;
+        return selected === undefined ? entry.enabled !== false : selected.includes(entry.id);
       }),
     }));
 
