@@ -567,12 +567,35 @@ export function LineConversationView({
     storedCharacterProfile && typeof storedCharacterProfile === 'object'
       ? storedCharacterProfile
       : getCharacterProfile(contactName, characterId);
+  const characterProfileBase = getCharacterProfile(
+    importedCharacter?.name || contactName,
+    importedCharacter?.id || characterId,
+  );
+  const characterIdentity = importedCharacter?.name || contactName || '角色';
+  const storedProfileCharacterId = String((rawCharacterProfile as any)?.characterId || '');
+  const profileBelongsToCurrentCharacter =
+    !storedProfileCharacterId ||
+    !importedCharacter?.id ||
+    storedProfileCharacterId === importedCharacter.id;
+
+  // The imported Character Card is the source of truth for identity.
+  // A conversation-level profile may override relationship/bio settings, but it
+  // must never make the AI think this chat belongs to a different character.
   const characterProfile = {
-    ...getCharacterProfile(contactName, characterId),
-    ...rawCharacterProfile,
-    nickname: String((rawCharacterProfile as any).nickname || contactName || '角色'),
-    relationship: String((rawCharacterProfile as any).relationship || '刚认识'),
-    callMe: String((rawCharacterProfile as any).callMe || contactName || '你'),
+    ...characterProfileBase,
+    ...(profileBelongsToCurrentCharacter ? rawCharacterProfile : {}),
+    characterId: importedCharacter?.id || characterId || undefined,
+    nickname: characterIdentity,
+    relationship: String(
+      (profileBelongsToCurrentCharacter ? (rawCharacterProfile as any)?.relationship : '') ||
+      characterProfileBase.relationship ||
+      '刚认识'
+    ),
+    callMe: String(
+      (profileBelongsToCurrentCharacter ? (rawCharacterProfile as any)?.callMe : '') ||
+      characterProfileBase.callMe ||
+      '你'
+    ),
   };
 
   // 聊天设定使用真正的全局世界书；选择结果按聊天保存。
