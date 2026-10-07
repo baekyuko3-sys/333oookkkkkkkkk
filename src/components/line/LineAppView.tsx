@@ -50,6 +50,8 @@ interface LineFriend {
   online: boolean;
   pinyin: string;
   relationship?: 'new-friend' | 'old-friend' | 'readded';
+  deleted?: boolean;
+  deletionVisibility?: 'visible' | 'hidden';
 }
 
 interface LineUserProfile {
@@ -284,6 +286,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [momentsBeautyOpen, setMomentsBeautyOpen] = useState(false);
   const [momentsManageOpen, setMomentsManageOpen] = useState(false);
   const [friendProfile, setFriendProfile] = useState<LineFriend | null>(null);
+  const [deleteFriendChoiceOpen, setDeleteFriendChoiceOpen] = useState(false);
   const [friendSettingsOpen, setFriendSettingsOpen] = useState(false);
   const [friendEditing, setFriendEditing] = useState(false);
   const [addCharacterChatFriend, setAddCharacterChatFriend] = useState<LineFriend | null>(null);
@@ -431,6 +434,19 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   // If a chat is open, render the detail view
   if (activeChatId) {
     const activeItem = chatItems.find((c) => c.id === activeChatId);
+    if (activeItem?.chatAvailability === 'temporarily-unavailable') {
+      return (
+        <div className="w-full h-full pt-[30px] bg-white flex items-center justify-center">
+          <div className="text-center px-8">
+            <div className="w-14 h-14 mx-auto rounded-full bg-[#f5f4f2] grid place-items-center text-[#8d857d] text-xl">⌁</div>
+            <div className="mt-4 text-[15px] font-semibold text-[#333]">聊天暂时无法打开</div>
+            <div className="mt-2 text-[11px] leading-5 text-[#aaa]">这段好友关系已经删除。聊天内容会保留，但当前暂时无法进入对话。</div>
+            <button onClick={() => setActiveChatId(null)} className="mt-5 px-5 py-2.5 rounded-full bg-[#292724] text-white text-xs">返回聊天</button>
+          </div>
+        </div>
+      );
+    }
+
     if (!activeItem) {
       // A stale chat id can survive a localStorage migration/deletion.
       // Never render a broken conversation screen for it.
@@ -573,7 +589,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               <div
                 key={item.id}
                 onClick={() => {
-                  // Clear unread on open
+                  if (item.chatAvailability === 'temporarily-unavailable') {
+                    setActiveChatId(item.id);
+                    return;
+                  }
                   setChatItems((prev) =>
                     prev.map((c) => (c.id === item.id ? { ...c, unread: 0 } : c))
                   );
@@ -1486,16 +1505,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                   </button>
                 </div>
                 <button
-                  onClick={() => {
-                    if (!window.confirm(`确定删除好友「${friendProfile.name}」吗？聊天记录和角色卡不会被删除。`)) return;
-                    setFriendsList(prev => prev.filter(item =>
-                      friendProfile.characterId
-                        ? item.characterId !== friendProfile.characterId
-                        : item.name !== friendProfile.name
-                    ));
-                    setFriendProfile(null);
-                    showToast('已删除好友');
-                  }}
+                  onClick={() => setDeleteFriendChoiceOpen(true)}
                   className="w-full h-10 mt-2 rounded-xl border border-[#ead4d4] bg-[#fff8f8] text-[#a15f5f] text-[10px] font-medium"
                 >
                   删除好友
@@ -1518,6 +1528,60 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           </div>
         );
       })()}
+
+      {deleteFriendChoiceOpen && friendProfile && (
+        <div className="absolute inset-0 z-[90] bg-black/20 flex items-end">
+          <div className="w-full bg-white rounded-t-[24px] p-5 pb-7 shadow-[0_-8px_30px_rgba(0,0,0,.08)]">
+            <div className="text-[15px] font-semibold text-[#222]">删除好友</div>
+            <div className="mt-1 text-[10px] leading-5 text-[#999]">删除后聊天入口保留，但当前暂时无法打开。选择好友是否继续显示在好友列表。</div>
+            <div className="mt-4 space-y-2">
+              <button
+                onClick={() => {
+                  const characterId = friendProfile.characterId;
+                  setFriendsList(prev => prev.map(item =>
+                    (characterId ? item.characterId === characterId : item.name === friendProfile.name)
+                      ? { ...item, deleted: true, deletionVisibility: 'visible' }
+                      : item
+                  ));
+                  setChatItems(prev => prev.map(item =>
+                    (characterId ? item.characterId === characterId : item.name === friendProfile.name)
+                      ? { ...item, chatAvailability: 'temporarily-unavailable', deletionVisibility: 'visible', preview: '聊天暂时无法打开', unread: 0 }
+                      : item
+                  ));
+                  setDeleteFriendChoiceOpen(false);
+                  setFriendProfile(null);
+                  showToast('已删除好友 · 仍显示');
+                }}
+                className="w-full p-4 rounded-2xl border border-[#e8e8e9] text-left"
+              >
+                <div className="text-xs font-semibold text-[#333]">删除后仍可见</div>
+                <div className="mt-1 text-[10px] text-[#999]">好友继续留在好友列表，并显示已删除状态；聊天暂时无法打开。</div>
+              </button>
+              <button
+                onClick={() => {
+                  const characterId = friendProfile.characterId;
+                  setFriendsList(prev => prev.filter(item =>
+                    characterId ? item.characterId !== characterId : item.name !== friendProfile.name
+                  ));
+                  setChatItems(prev => prev.map(item =>
+                    (characterId ? item.characterId === characterId : item.name === friendProfile.name)
+                      ? { ...item, chatAvailability: 'temporarily-unavailable', deletionVisibility: 'hidden', preview: '聊天暂时无法打开', unread: 0 }
+                      : item
+                  ));
+                  setDeleteFriendChoiceOpen(false);
+                  setFriendProfile(null);
+                  showToast('已删除好友 · 已隐藏');
+                }}
+                className="w-full p-4 rounded-2xl border border-[#e8e8e9] text-left"
+              >
+                <div className="text-xs font-semibold text-[#333]">删除后不可见</div>
+                <div className="mt-1 text-[10px] text-[#999]">从好友列表移除，但聊天入口保留；打开时显示“聊天暂时无法打开”。</div>
+              </button>
+              <button onClick={() => setDeleteFriendChoiceOpen(false)} className="w-full h-11 rounded-xl bg-[#f5f5f5] text-xs text-[#666]">取消</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {postDetail && (
         <div className="absolute inset-0 z-[70] bg-white animate-in slide-in-from-right">
