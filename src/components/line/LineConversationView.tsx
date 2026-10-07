@@ -1403,13 +1403,21 @@ export function LineConversationView({
           selectedOpeningContext.trim() ? '【角色卡开场白 / 前情提要】\n' + selectedOpeningContext.trim() : '',
         ].filter(Boolean).join('\n'),
         stylePreset: activeCotPreset?.title || selectedPreset,
-        cotTarget: activeCotPreset ? 'line' : undefined,
-        cotPreset: activeCotPreset ? {
+        cotTarget: enableChainOfThought && activeCotPreset ? 'line' : undefined,
+        cotPreset: enableChainOfThought && activeCotPreset ? {
           id: activeCotPreset.id,
           title: activeCotPreset.title,
           template: customCotTemplate || activeCotPreset.template,
           tag: activeCotPreset.tag,
         } : undefined,
+        authorNote: [
+          lineConversationRules,
+          authorsNote,
+          relationshipContext.trim() ? '【你们过去的关系背景】\\n' + relationshipContext.trim() : '',
+          selectedOpeningContext.trim() ? '【角色卡开场白 / 前情提要】\\n' + selectedOpeningContext.trim() : '',
+          enableChainOfThought ? '【COT 输出：开启】本轮必须输出 <cot>...</cot> 高层角色决策记录，正文放入 <message>...</message>。禁止输出隐藏思维链。' : '【COT 输出：关闭】不要输出 <cot>、<thinking>、<think>、<summary> 标签。',
+          lineActionDescriptionsEnabled ? '【线上动作描写：开启】本轮如果有动作/反应必须输出 <action>...</action>，动作与正文分离。' : '【线上动作描写：关闭】不要输出 <action> 标签。',
+        ].filter(Boolean).join('\\n'),
         typingHabit: [
           typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
           '标点：' + typingPunctuation,
@@ -1451,6 +1459,8 @@ export function LineConversationView({
           thinkingSummary: replyMetadata.thinkingSummary,
           actionDescription: replyMetadata.actionDescription,
           showThinking: Boolean(enableChainOfThought && replyMetadata.thinkingSummary),
+          hasThinking: Boolean(replyMetadata.thinkingSummary),
+          hasAction: Boolean(replyMetadata.actionDescription),
           metadata: {
             ...(replyMetadata.thinkingSummary ? { thinkingSummary: replyMetadata.thinkingSummary } : {}),
             ...(replyMetadata.actionDescription ? { actionDescription: replyMetadata.actionDescription } : {}),
