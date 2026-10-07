@@ -876,7 +876,7 @@ export async function listOpenAiCompatibleModels(
 export async function generateStatusBarContent(
   settings: AiSettings,
   characterName: string,
-  preset: { name: string; inputFormat?: string; regex: string; html: string },
+  preset: { name: string; inputFormat?: string; promptSuffix?: string; regex: string; html: string },
   conversation: Array<{ sender: string; text?: string; transcript?: string }>,
 ): Promise<string> {
   const recent = conversation.slice(-16).map(message => {
@@ -894,6 +894,7 @@ export async function generateStatusBarContent(
     '状态内容必须来自当前聊天上下文。',
     '【状态栏名称】' + preset.name,
     '【文字输入格式】' + (preset.inputFormat || '{{status:状态内容}}'),
+    '【Prompt 后缀】' + (preset.promptSuffix || '无；请仅依据文字输入格式生成状态。'),
     '【Find Regex】' + preset.regex,
     '【Replace With / HTML】' + preset.html,
   ].join('\n');
