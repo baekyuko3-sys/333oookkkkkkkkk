@@ -66,6 +66,7 @@ export function PresetResourceManager({
       const item: StatusBarPreset = {
         id: 'status-' + Date.now().toString(36), name:'新的状态栏', description:'',
         html:'<div class="sane-status"><div>{{location}}</div><div>{{time}} · {{activity}}</div><div>{{mood}}</div></div>',
+        inputFormat:'{{status:地点｜时间｜活动｜心情}}',
         regex:'/\\{\\{status:(.*?)\\}\\}/gs', targets:['line'], createdAt:now, updatedAt:now,
       };
       const next=[item,...statusPresets]; setStatusPresets(next); saveStatusBarPresets(next); setSelectedId(item.id);
@@ -174,12 +175,39 @@ export function PresetResourceManager({
                 <label className="block text-[8px] text-[#999]">Name
                   <input value={(selected as StatusBarPreset).name} onChange={e=>updateSelected({name:e.target.value})} placeholder="例如：状态栏 / Status Card" className="w-full mt-1 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px]"/>
                 </label>
-                <label className="block text-[8px] text-[#999]">Find Regex
+                <label className="block text-[8px] text-[#999]">文字输入格式
+                  <input value={(selected as StatusBarPreset).inputFormat || '{{status:状态内容}}'} onChange={e=>updateSelected({inputFormat:e.target.value})} placeholder="{{status:地点｜时间｜活动｜心情}}" className="w-full mt-1 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px] font-mono"/>
+                  <div className="text-[8px] text-[#aaa] mt-1">告诉 AI：它最终必须输出成什么“原始文字格式”。</div>
+                </label>
+                <label className="block text-[8px] text-[#999]">提取正则 · Find Regex
                   <input value={(selected as StatusBarPreset).regex} onChange={e=>updateSelected({regex:e.target.value})} placeholder="/\\{\\{status:(.*?)\\}\\}/gs" className="w-full mt-1 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px] font-mono"/>
                 </label>
-                <label className="block text-[8px] text-[#999]">Replace With · HTML
+                <label className="block text-[8px] text-[#999]">HTML 模板 · Replace With
                   <textarea value={(selected as StatusBarPreset).html} onChange={e=>updateSelected({html:e.target.value})} placeholder="<div class=&quot;status&quot;>{{match}}</div>" className="w-full mt-1 h-32 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px] font-mono"/>
                 </label>
+
+                <div className="rounded-xl bg-[#f5f7fa] border border-[#e5e8ed] p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-[9px] font-semibold text-[#444]">实时渲染预览</div>
+                      <div className="text-[8px] text-[#aaa]">输入符合上方格式的状态原文，直接查看最终 HTML</div>
+                    </div>
+                    <span className="text-[8px] font-mono text-[#aaa]">RENDER PREVIEW</span>
+                  </div>
+                  <textarea
+                    value={regexTestInput}
+                    onChange={e=>setRegexTestInput(e.target.value)}
+                    placeholder={(selected as StatusBarPreset).inputFormat || '{{status:地点｜时间｜活动｜心情}}'}
+                    className="w-full h-20 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[9px] outline-none resize-none"
+                  />
+                  <div className="rounded-lg bg-white border border-[#e8e8e8] p-3 min-h-[70px] overflow-visible">
+                    {regexTestInput
+                      ? renderStatusBarHtml(selected as StatusBarPreset, regexTestInput)
+                        ? <div dangerouslySetInnerHTML={{__html: renderStatusBarHtml(selected as StatusBarPreset, regexTestInput)}} className="w-full text-[10px] text-[#333]"/>
+                        : <div className="text-[9px] text-[#b36f78]">格式不匹配：只有完整符合提取正则的文字才会渲染。</div>
+                      : <span className="text-[8px] text-[#aaa]">这里显示最终 HTML 渲染效果</span>}
+                  </div>
+                </div>
                 <label className="block text-[8px] text-[#999]">Description
                   <input value={(selected as StatusBarPreset).description} onChange={e=>updateSelected({description:e.target.value})} placeholder="可选" className="w-full mt-1 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px]"/>
                 </label>
