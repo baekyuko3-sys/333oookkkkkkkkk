@@ -2,12 +2,12 @@ import { useState, useRef, useEffect, type PointerEvent } from 'react';
 import { usePersistentState } from '../../store/usePersistentState';
 import type { ImportedCharacter } from '../../data/characterImport';
 import type { ScreenType, WorldBook } from '../../types';
-import { generateCharacterReply, generateCreativeText, readStoredAiSettings, resolveChannelAiSettings, listOpenAiCompatibleModels, testAiConnection, summarizeConversationMemory, type AiSettings } from '../../ai/aiEngine';
+import { generateCharacterReply, generateCreativeText, readStoredAiSettings, resolveChannelAiSettings, listOpenAiCompatibleModels, testAiConnection, summarizeConversationMemory, mergeRecentMemoryBatch, type AiSettings } from '../../ai/aiEngine';
 import { generateImage, generateSpeech, transcribeAudio } from '../../ai/mediaEngine';
 import { readAppSettings } from '../../store/appSettings';
 import type { ChannelAiSettings } from '../../store/appSettings';
 import { getMedia, putMedia } from '../../store/mediaVault';
-import { addRecentMemorySummary, getCharacterMemory } from '../../store/characterMemory';
+import { addRecentMemorySummary, applyMemoryMergeResult, getCharacterMemory } from '../../store/characterMemory';
 import { getProjectManifest } from '../../store/projectManifest';
 import { getCharacterProfile } from '../../data/characterProfiles';
 import { getInitialChatMessages } from '../../data/characterChatSeeds';
@@ -875,6 +875,7 @@ export function LineConversationView({
   const recordingStreamRef = useRef<MediaStream | null>(null);
   const recordingDiscardRef = useRef(false);
   const avatarClickTimerRef = useRef<number | null>(null);
+  const memoryMergeBusyRef = useRef(false);
 
   const handleMessageAvatarClick = () => {
     if (avatarClickTimerRef.current) window.clearTimeout(avatarClickTimerRef.current);
@@ -1365,10 +1366,10 @@ export function LineConversationView({
 
       const totalConversationMessages = messages.length + 2;
 
-      // LINE feeds the shared Memory pipeline. Chat boundaries never write
-      // directly into long-term memory; only valid AI-selected summaries enter
-      // the Recent Memory Pool, which is merged in batches of 100 summaries.
-      if (importedCharacter) {
+      // Memory candidate generation happens after a chat segment, not on every reply.
+      // Ten messages form a lightweight segment; valid candidates enter the shared
+      // Recent Memory Pool. Every 100 valid summaries are sent to the AI Merge Engine.
+      if (importedCharacter && totalConversationMessages > 0 && totalConversationMessages % 10 === 0) {
         void summarizeConversationMemory(
           conversationAiSettings(),
           contactName,
@@ -1385,8 +1386,45 @@ export function LineConversationView({
               { source: 'line', importance: item.importance }
             );
           }
+
+          const latestMemory = getCharacterMemory(importedCharacter.id, importedCharacter.name);
+          const pending = latestMemory.recentSummaries || [];
+          if (pending.length >= 100 && !memoryMergeBusyRef.current) {
+            memoryMergeBusyRef.current = true;
+            const batch = pending.slice(-100);
+            void mergeRecentMemoryBatch(
+              conversationAiSettings(),
+              importedCharacter.name,
+              latestMemory,
+              batch
+            ).then(mergeResult => {
+              applyMemoryMergeResult(
+                importedCharacter.id,
+                importedCharacter.name,
+                batch.map(item => item.id),
+                mergeResult
+              );
+              window.dispatchEvent(new CustomEvent('sane333:memory-merged', {
+                detail: {
+                  characterId: importedCharacter.id,
+                  source: 'line',
+                  processed: batch.length,
+                },
+              }));
+            }).catch(() => {
+              // A failed merge leaves the 100 summaries untouched for retry.
+            }).finally(() => {
+              memoryMergeBusyRef.current = false;
+            });
+          }
+
           window.dispatchEvent(new CustomEvent('sane333:memory-updated', {
-            detail: { characterId: importedCharacter.id, source: 'line', messageCount: totalConversationMessages },
+            detail: {
+              characterId: importedCharacter.id,
+              source: 'line',
+              messageCount: totalConversationMessages,
+              recentSummaryCount: pending.length,
+            },
           }));
         }).catch(() => {
           // Memory maintenance must never interrupt the conversation.
