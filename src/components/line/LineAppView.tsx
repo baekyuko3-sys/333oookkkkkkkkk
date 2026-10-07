@@ -10,11 +10,20 @@ import { markCharacterRead } from '../../store/worldRuntime';
 import { getLineConversationMeta, markLineConversationRead, markLineNotificationsReadForConversation } from '../../store/lineRuntime';
 import { generateCreativeText, listOpenAiCompatibleModels, resolveChannelAiSettings, testAiConnection, type AiSettings } from '../../ai/aiEngine';
 import { readAppSettings, saveAppSettings, type ChannelAiSettings } from '../../store/appSettings';
+import { fetchLineWeather, formatLineWeather, type LineWeatherSnapshot } from '../../store/lineReality';
 import {
   Pin, BellOff, Bookmark, Heart, MessageCircle, Share2, Plus, Search,
   Check, Trash2, X, Sliders, ChevronRight, UserCheck, Shield, Volume2,
   Smartphone, Settings
 } from 'lucide-react';
+
+function getCharacterStoryAge(character: any): string {
+  const direct = character?.age ?? character?.extensions?.age ?? character?.extensions?.characterAge;
+  if (direct !== undefined && direct !== null && String(direct).trim()) return String(direct).trim();
+  const text = [character?.description, character?.personality, character?.scenario, character?.onlinePersona].filter(Boolean).join('\n');
+  const match = text.match(/(?:年龄|age)\s*[:：=]?\s*(\d{1,3})\s*(?:岁|years?\s*old)?/i);
+  return match?.[1] || '';
+}
 
 interface LineAppViewProps {
   onNavigateHome: () => void;
@@ -342,7 +351,9 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [activePersonaId, setActivePersonaId] = usePersistentState<string | null>('line:active-persona', null);
   const [personaEditorOpen, setPersonaEditorOpen] = useState(false);
   const [personaEditorIndex, setPersonaEditorIndex] = useState(0);
-  const [personaDraft, setPersonaDraft] = useState<any>({ name: '', age: '', profession: '', region: '', timezone: '', birthday: '', setting: '', avatar: '', boundCharacterIds: [] });
+  const [personaDraft, setPersonaDraft] = useState<any>({ name: '', age: '', ageMode: 'manual', ageReferenceCharacterId: '', profession: '', region: '', timezone: '', birthday: '', setting: '', avatar: '', boundCharacterIds: [] });
+  const [personaWeather, setPersonaWeather] = useState<LineWeatherSnapshot | null>(null);
+  const [personaWeatherBusy, setPersonaWeatherBusy] = useState(false);
   const activePersona = userPersonas.find((p) => p.id === activePersonaId) || userPersonas[0] || null;
   const effectivePersonaId = activePersonaId || userPersonas[0]?.id || null;
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
@@ -1100,7 +1111,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               <button
                 onClick={() => {
                   setPersonaEditorIndex(userPersonas.length);
-                  setPersonaDraft({ name: '', age: '', profession: '', region: '', timezone: '', birthday: '', setting: '', avatar: '', boundCharacterIds: [] });
+                  setPersonaDraft({ name: '', age: '', ageMode: 'manual', ageReferenceCharacterId: '', profession: '', region: '', timezone: '', birthday: '', setting: '', avatar: '', boundCharacterIds: [] });
+                  setPersonaWeather(null);
                   setPersonaEditorOpen(true);
                 }}
                 className="px-3 py-1.5 rounded-full bg-[#292724] text-white text-[10px]"
@@ -1114,7 +1126,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                   key={persona.id}
                   onClick={() => {
                     setPersonaEditorIndex(index);
-                    setPersonaDraft({ ...persona, boundCharacterIds: Array.isArray(persona.boundCharacterIds) ? persona.boundCharacterIds : (persona.boundCharacterId ? [persona.boundCharacterId] : []) });
+                    setPersonaDraft({ ...persona, ageMode: persona.ageMode || 'manual', ageReferenceCharacterId: persona.ageReferenceCharacterId || persona.boundCharacterIds?.[0] || persona.boundCharacterId || '', boundCharacterIds: Array.isArray(persona.boundCharacterIds) ? persona.boundCharacterIds : (persona.boundCharacterId ? [persona.boundCharacterId] : []) });
+                    setPersonaWeather(null);
                     setPersonaEditorOpen(true);
                   }}
                   className="w-full flex items-center gap-3 p-2.5 bg-white rounded-[12px] border border-[#eeeeef] text-left"
@@ -1200,7 +1213,18 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               <div className="text-[9px] text-[#aaa]">PERSONA · 你的聊天身份</div>
             </div>
             <button onClick={() => {
-              const persona = { ...personaDraft, id: personaDraft.id || crypto.randomUUID(), boundCharacterIds: Array.isArray(personaDraft.boundCharacterIds) ? personaDraft.boundCharacterIds : [] };
+              const referenceCharacter = importedCharacters.find(character => character.id === personaDraft.ageReferenceCharacterId);
+              const resolvedAge = personaDraft.ageMode === 'follow-character' ? getCharacterStoryAge(referenceCharacter) : String(personaDraft.age || '');
+              const persona = {
+                ...personaDraft,
+                id: personaDraft.id || crypto.randomUUID(),
+                age: resolvedAge,
+                ageMode: personaDraft.ageMode || 'manual',
+                ageReferenceCharacterId: personaDraft.ageReferenceCharacterId || '',
+                weather: personaWeather ? formatLineWeather(personaWeather) : (personaDraft.weather || ''),
+                regionResolved: personaWeather?.location || personaDraft.regionResolved || '',
+                boundCharacterIds: Array.isArray(personaDraft.boundCharacterIds) ? personaDraft.boundCharacterIds : [],
+              };
               setUserPersonas(prev => prev.some(p => p.id === persona.id) ? prev.map(p => p.id === persona.id ? persona : p) : [persona, ...prev]);
               setActivePersonaId(persona.id);
               setPersonaEditorOpen(false);
@@ -1363,7 +1387,18 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
 
             <button
               onClick={() => {
-                const persona = { ...personaDraft, id: personaDraft.id || crypto.randomUUID(), boundCharacterIds: Array.isArray(personaDraft.boundCharacterIds) ? personaDraft.boundCharacterIds : [] };
+                const referenceCharacter = importedCharacters.find(character => character.id === personaDraft.ageReferenceCharacterId);
+              const resolvedAge = personaDraft.ageMode === 'follow-character' ? getCharacterStoryAge(referenceCharacter) : String(personaDraft.age || '');
+              const persona = {
+                ...personaDraft,
+                id: personaDraft.id || crypto.randomUUID(),
+                age: resolvedAge,
+                ageMode: personaDraft.ageMode || 'manual',
+                ageReferenceCharacterId: personaDraft.ageReferenceCharacterId || '',
+                weather: personaWeather ? formatLineWeather(personaWeather) : (personaDraft.weather || ''),
+                regionResolved: personaWeather?.location || personaDraft.regionResolved || '',
+                boundCharacterIds: Array.isArray(personaDraft.boundCharacterIds) ? personaDraft.boundCharacterIds : [],
+              };
                 setUserPersonas(prev => prev.some(p => p.id === persona.id) ? prev.map(p => p.id === persona.id ? persona : p) : [persona, ...prev]);
                 setActivePersonaId(persona.id);
                 setPersonaEditorOpen(false);
