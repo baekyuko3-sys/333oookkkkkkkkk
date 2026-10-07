@@ -130,7 +130,11 @@ export function renderStatusBarHtml(
   extracted?.captures.forEach((value, index) => { values[String(index + 1)] = value; });
   Object.assign(values, extracted?.groups || {});
   values.match = extracted?.match || '';
-  return String(preset.html || '').replace(/\{\{([\w-]+)\}\}/g, (_, key: string) => values[key] ?? '');
+  let html = String(preset.html || '');
+  html = html.replace(/\{\{match\}\}/g, values.match || '');
+  html = html.replace(/\{\{([\w-]+)\}\}/g, (_, key: string) => values[key] ?? '');
+  html = html.replace(/\$(\d+)/g, (_, index: string) => values[index] ?? '');
+  return html;
 }
 
 export type StatusBarAssignments = Partial<Record<StatusBarTarget, string>>;
