@@ -1216,7 +1216,29 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                 </div>
                 <div className="text-[9px] text-[#aaa]">{userPersonas.length ? Math.min(personaEditorIndex + 1, userPersonas.length) : 1} / {Math.max(userPersonas.length, 1)}</div>
               </div>
-              <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-2" style={{ touchAction: 'pan-x' }}>
+              <div
+                className="flex gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-2"
+                style={{ touchAction: 'pan-x' }}
+                onScroll={(event) => {
+                  const target = event.currentTarget;
+                  const first = target.firstElementChild as HTMLElement | null;
+                  if (!first || !userPersonas.length) return;
+                  const step = first.offsetWidth + 12;
+                  const nextIndex = Math.max(0, Math.min(userPersonas.length - 1, Math.round(target.scrollLeft / step)));
+                  if (nextIndex !== personaEditorIndex) {
+                    setPersonaEditorIndex(nextIndex);
+                    const nextPersona = userPersonas[nextIndex];
+                    if (nextPersona) {
+                      setPersonaDraft({
+                        ...nextPersona,
+                        boundCharacterIds: Array.isArray(nextPersona.boundCharacterIds)
+                          ? nextPersona.boundCharacterIds
+                          : (nextPersona.boundCharacterId ? [nextPersona.boundCharacterId] : []),
+                      });
+                    }
+                  }
+                }}
+              >
                 {userPersonas.map((persona, index) => (
                   <button
                     key={persona.id}
