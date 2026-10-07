@@ -237,6 +237,7 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
                 <button onClick={()=>{saveAppearance({});notify('当前字体设置已保存')}} className="py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">保存当前设置</button>
               </div>
             </div>
+            </div>
           </>
         )}
 
