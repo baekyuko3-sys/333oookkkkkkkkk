@@ -26,54 +26,119 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   const [worldUnread, setWorldUnread] = useState(0);
 
   type DesktopItem = { id: string; x: number; y: number };
+  type DesktopPage = 1 | 2;
+
   const defaultPage1Layout: DesktopItem[] = [
-    { id: 'widget-date', x: 26, y: 148 }, { id: 'widget-photo', x: 278, y: 181 },
-    { id: 'widget-weather', x: 20, y: 306 }, { id: 'widget-note', x: 188, y: 306 }, { id: 'widget-music', x: 20, y: 424 },
-    { id: 'app-line', x: 18, y: 565 }, { id: 'app-moments', x: 104, y: 565 }, { id: 'app-music', x: 190, y: 565 }, { id: 'app-offline-story', x: 276, y: 565 },
-    { id: 'app-character-profile', x: 18, y: 670 }, { id: 'app-world-book', x: 104, y: 670 }, { id: 'app-appearance', x: 190, y: 670 }, { id: 'app-settings', x: 276, y: 670 },
+    { id: 'widget-date', x: 26, y: 148 },
+    { id: 'widget-photo', x: 260, y: 181 },
+    { id: 'widget-weather', x: 20, y: 306 },
+    { id: 'widget-note', x: 188, y: 306 },
+    { id: 'widget-music', x: 20, y: 424 },
+    { id: 'app-line', x: 18, y: 535 },
+    { id: 'app-moments', x: 104, y: 535 },
+    { id: 'app-music', x: 190, y: 535 },
+    { id: 'app-offline-story', x: 276, y: 535 },
+    { id: 'app-character-profile', x: 18, y: 615 },
+    { id: 'app-world-book', x: 104, y: 615 },
+    { id: 'app-appearance', x: 190, y: 615 },
+    { id: 'app-settings', x: 276, y: 615 },
   ];
   const defaultPage2Layout: DesktopItem[] = [
-    { id: 'widget-threads', x: 20, y: 300 }, { id: 'app-threads', x: 22, y: 515 }, { id: 'app-npc', x: 104, y: 515 },
-    { id: 'app-group-presets', x: 186, y: 515 }, { id: 'app-spy-phone', x: 268, y: 515 }, { id: 'app-memory', x: 104, y: 590 }, { id: 'app-studio', x: 186, y: 590 },
+    { id: 'widget-threads', x: 20, y: 250 },
+    { id: 'app-threads', x: 18, y: 390 },
+    { id: 'app-npc', x: 104, y: 390 },
+    { id: 'app-group-presets', x: 190, y: 390 },
+    { id: 'app-spy-phone', x: 276, y: 390 },
+    { id: 'app-memory', x: 104, y: 480 },
+    { id: 'app-studio', x: 190, y: 480 },
   ];
+
   const [desktopLayouts, setDesktopLayouts] = useState(() => readAppearance().desktopLayouts || { page1: {}, page2: {} });
+  const [desktopHidden, setDesktopHidden] = useState(() => readAppearance().desktopHidden || { page1: [], page2: [] });
   const [desktopEditing, setDesktopEditing] = useState(false);
   const [draggingDesktopItem, setDraggingDesktopItem] = useState<string | null>(null);
-  const getDefaultLayout = (page: 1 | 2) => page === 1 ? defaultPage1Layout : defaultPage2Layout;
-  const getLayout = (page: 1 | 2): DesktopItem[] => getDefaultLayout(page).map(item => ({ ...item, ...(desktopLayouts[page === 1 ? 'page1' : 'page2'][item.id] || {}) }));
-  const saveDesktopLayout = (page: 1 | 2, next: DesktopItem[]) => {
-    const key = page === 1 ? 'page1' : 'page2';
+
+  const getDefaultLayout = (page: DesktopPage) => page === 1 ? defaultPage1Layout : defaultPage2Layout;
+  const pageKey = (page: DesktopPage) => page === 1 ? 'page1' : 'page2';
+  const getLayout = (page: DesktopPage): DesktopItem[] =>
+    getDefaultLayout(page).map(item => ({ ...item, ...(desktopLayouts[pageKey(page)][item.id] || {}) }));
+
+  const isHidden = (page: DesktopPage, id: string) => desktopHidden[pageKey(page)].includes(id);
+
+  const itemMetrics = (id: string) => {
+    if (id.startsWith('app-')) return { width: 64, height: 82 };
+    if (id === 'widget-photo') return { width: 84, height: 106 };
+    if (id === 'widget-music' || id === 'widget-threads') return { width: 320, height: 96 };
+    if (id === 'widget-date') return { width: 220, height: 105 };
+    return { width: 155, height: 105 };
+  };
+
+  const overlaps = (a: DesktopItem, b: DesktopItem) => {
+    const am = itemMetrics(a.id), bm = itemMetrics(b.id);
+    return a.x < b.x + bm.width && a.x + am.width > b.x && a.y < b.y + bm.height && a.y + am.height > b.y;
+  };
+
+  const resolvePosition = (page: DesktopPage, moving: DesktopItem): DesktopItem => {
+    const current = getLayout(page).filter(item => item.id !== moving.id && !isHidden(page, item.id));
+    const candidates = [moving, ...Array.from({ length: 12 }, (_, i) => ({ ...moving, x: moving.x + (i + 1) * 8 })), ...Array.from({ length: 12 }, (_, i) => ({ ...moving, y: moving.y + (i + 1) * 8 }))];
+    const phone = document.querySelector('[data-sane333-phone]') as HTMLElement | null;
+    const maxX = Math.max(12, (phone?.clientWidth || 360) - itemMetrics(moving.id).width - 12);
+    const maxY = Math.max(120, (phone?.clientHeight || 800) - 135 - itemMetrics(moving.id).height);
+    for (const candidate of candidates) {
+      const safe = { ...candidate, x: Math.max(12, Math.min(maxX, candidate.x)), y: Math.max(120, Math.min(maxY, candidate.y)) };
+      if (!current.some(other => overlaps(safe, other))) return safe;
+    }
+    return { ...moving, x: Math.max(12, Math.min(maxX, moving.x)), y: Math.max(120, Math.min(maxY, moving.y)) };
+  };
+
+  const saveDesktopLayout = (page: DesktopPage, next: DesktopItem[]) => {
+    const key = pageKey(page);
     const saved = Object.fromEntries(next.map(item => [item.id, { x: item.x, y: item.y }]));
     const nextLayouts = { ...desktopLayouts, [key]: saved };
     setDesktopLayouts(nextLayouts);
     saveAppearance({ desktopLayouts: nextLayouts });
   };
-  const moveDesktopItem = (page: 1 | 2, id: string, clientX: number, clientY: number) => {
+
+  const moveDesktopItem = (page: DesktopPage, id: string, clientX: number, clientY: number) => {
     const phone = document.querySelector('[data-sane333-phone]') as HTMLElement | null;
-    if (!phone) return;
+    if (!phone || isHidden(page, id)) return;
     const rect = phone.getBoundingClientRect();
-    const isApp = id.startsWith('app-');
-    const width = isApp ? 60 : id === 'widget-photo' ? 84 : id === 'widget-music' || id === 'widget-threads' ? 320 : 155;
-    const height = isApp ? 72 : id === 'widget-date' ? 105 : id === 'widget-photo' ? 106 : id === 'widget-music' || id === 'widget-threads' ? 96 : 105;
-    const x = Math.max(12, Math.min(rect.width - width - 12, clientX - rect.left - width / 2));
-    const y = Math.max(120, Math.min(rect.height - 155 - height, clientY - rect.top - height / 2));
-    saveDesktopLayout(page, getLayout(page).map(item => item.id === id ? { ...item, x: Math.round(x / 2) * 2, y: Math.round(y / 2) * 2 } : item));
+    const metrics = itemMetrics(id);
+    const raw = {
+      id,
+      x: Math.round(Math.max(12, Math.min(rect.width - metrics.width - 12, clientX - rect.left - metrics.width / 2)) / 2) * 2,
+      y: Math.round(Math.max(120, Math.min(rect.height - 135 - metrics.height, clientY - rect.top - metrics.height / 2)) / 2) * 2,
+    };
+    const next = getLayout(page).map(item => item.id === id ? resolvePosition(page, raw) : item);
+    saveDesktopLayout(page, next);
   };
-  const itemPosition = (page: 1 | 2, id: string) => getLayout(page).find(item => item.id === id) || getDefaultLayout(page).find(item => item.id === id)!;
-  const resetDesktopLayout = (page: 1 | 2) => saveDesktopLayout(page, getDefaultLayout(page));
-  const page2Layout = getLayout(2);
-  const page2Editing = desktopEditing;
-  const setPage2Editing = setDesktopEditing;
-  const draggingPage2Item = draggingDesktopItem;
-  const setDraggingPage2Item = setDraggingDesktopItem;
-  const movePage2Item = (id: string, x: number, y: number) => moveDesktopItem(2, id, x, y);
-  const resetPage2Layout = () => resetDesktopLayout(2);
-  const beginDesktopDrag = (page: 1 | 2, id: string, event: ReactPointerEvent) => {
-    if (!desktopEditing) return;
+
+  const itemPosition = (page: DesktopPage, id: string) => getLayout(page).find(item => item.id === id) || getDefaultLayout(page).find(item => item.id === id)!;
+  const resetDesktopLayout = (page: DesktopPage) => saveDesktopLayout(page, getDefaultLayout(page));
+
+  const hideDesktopItem = (page: DesktopPage, id: string) => {
+    const key = pageKey(page);
+    const nextHidden = { ...desktopHidden, [key]: [...new Set([...desktopHidden[key], id])] };
+    setDesktopHidden(nextHidden);
+    saveAppearance({ desktopHidden: nextHidden });
+  };
+
+  const showAllDesktopItems = (page: DesktopPage) => {
+    const key = pageKey(page);
+    const nextHidden = { ...desktopHidden, [key]: [] };
+    setDesktopHidden(nextHidden);
+    saveAppearance({ desktopHidden: nextHidden });
+  };
+
+  const beginDesktopDrag = (page: DesktopPage, id: string, event: ReactPointerEvent) => {
+    if (!desktopEditing || isHidden(page, id)) return;
+    event.preventDefault();
+    event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
     setDraggingDesktopItem(id);
   };
-  const continueDesktopDrag = (page: 1 | 2, id: string, event: React.PointerEvent) => {
+
+  const continueDesktopDrag = (page: DesktopPage, id: string, event: ReactPointerEvent) => {
     if (desktopEditing && draggingDesktopItem === id) moveDesktopItem(page, id, event.clientX, event.clientY);
   };
 
@@ -125,6 +190,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
       setAppearance(next);
       setCurrentGreeting(next.greeting);
       setDesktopLayouts(next.desktopLayouts || { page1: {}, page2: {} });
+      setDesktopHidden(next.desktopHidden || { page1: [], page2: [] });
     };
     window.addEventListener('sane333:appearance-changed', syncAppearance);
     return () => window.removeEventListener('sane333:appearance-changed', syncAppearance);
@@ -255,6 +321,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
             className={`absolute z-10 w-[84px] h-[106px] rotate-[4deg] p-[5px_5px_15px] bg-[var(--paper,#eee9df)] shadow-[0_7px_18px_rgba(45,37,30,.09)] opacity-90 cursor-pointer hover:rotate-0 hover:scale-105 transition-all group ${desktopEditing ? "ring-1 ring-[#b7a59a]/45 cursor-grab active:cursor-grabbing touch-none" : ""}`} style={{ left: itemPosition(1, "widget-photo").x, top: itemPosition(1, "widget-photo").y }} onPointerDown={e=>beginDesktopDrag(1,"widget-photo",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-photo",e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)}
             title="点击翻转拍立得相纸"
           >
+            {desktopEditing && <button onPointerDown={e=>e.stopPropagation()} onClick={()=>hideDesktopItem(1,'widget-photo')} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px]">×</button>}
             {isPhotoFlipped ? (
               <div className="h-[82px] p-1.5 bg-[#fbf9f5] border border-neutral-200/80 rounded flex flex-col justify-between text-left">
                 <span className="text-[6px] font-mono text-[#8b8782]">MEMO</span>
@@ -301,6 +368,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               className="pointer-events-auto relative overflow-hidden min-h-[105px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] text-left cursor-pointer active:scale-98 transition-all group"
               title="点击切换城市天气"
             >
+              {desktopEditing && <button onPointerDown={e=>e.stopPropagation()} onClick={()=>hideDesktopItem(1,'widget-weather')} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px]">×</button>}
               <div className="absolute -right-7 -top-8 w-24 h-24 border border-[rgba(67,58,49,.09)] rounded-full pointer-events-none" />
               <div className="text-[10px] text-[#8b8782] tracking-[1.6px] font-mono">
                 {currentCity.city}
@@ -330,6 +398,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               onClick={() => { if (!desktopEditing) onNavigate('notes'); }}
               className="pointer-events-auto relative overflow-hidden min-h-[105px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] text-left cursor-pointer active:scale-98 transition-all"
             >
+              {desktopEditing && <button onPointerDown={e=>e.stopPropagation()} onClick={()=>hideDesktopItem(1,'widget-note')} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px]">×</button>}
               <div className="text-[10px] text-[#8b8782] tracking-[1.6px] font-mono">
                 NOTE
               </div>
@@ -350,8 +419,9 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
             <div 
                style={{ transform: `translate(${itemPosition(1, "widget-music").x - 20}px, ${itemPosition(1, "widget-music").y - 306}px)` }}
                onPointerDown={e=>beginDesktopDrag(1,"widget-music",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-music",e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)}
-              className="pointer-events-auto col-span-2 min-h-[84px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] flex items-center gap-3 transition-all"
+              className="pointer-events-auto col-span-2 min-h-[84px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] flex items-center gap-3 transition-all relative"
             >
+              {desktopEditing && <button onPointerDown={e=>e.stopPropagation()} onClick={()=>hideDesktopItem(1,'widget-music')} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px]">×</button>}
               <div 
                 onClick={() => { if (!desktopEditing) onNavigate('music'); }}
                 className={`w-[54px] h-[54px] rounded-[13px] shrink-0 grid place-items-center text-white font-serif text-[21px] shadow-[0_5px_13px_rgba(40,32,26,.15)] cursor-pointer hover:scale-105 transition-transform ${
@@ -392,7 +462,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               ['moments','IG','ig','bg-[#9b8068] text-white','moments'],
               ['music','音乐','music','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','music'],
               ['offline-story','线下剧情','book','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','offline-story'],
-            ].map(([id,label,symbol,iconClass,screen]) => { const pos=itemPosition(1,'app-'+id); return <button key={id} onClick={()=>{if(!desktopEditing) onNavigate(screen as ScreenType)}} onPointerDown={e=>beginDesktopDrag(1,'app-'+id,e)} onPointerMove={e=>continueDesktopDrag(1,'app-'+id,e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)} className={`absolute pointer-events-auto flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] select-none touch-none ${desktopEditing?'cursor-grab active:cursor-grabbing':''}`} style={{left:pos.x,top:pos.y}}>
+            ].map(([id,label,symbol,iconClass,screen]) => { if (isHidden(1,'app-'+id)) return null; const pos=itemPosition(1,'app-'+id); return <button key={id} onClick={()=>{if(!desktopEditing) onNavigate(screen as ScreenType)}} onPointerDown={e=>beginDesktopDrag(1,'app-'+id,e)} onPointerMove={e=>continueDesktopDrag(1,'app-'+id,e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)} className={`absolute pointer-events-auto flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] select-none touch-none ${desktopEditing?'cursor-grab active:cursor-grabbing':''}`} style={{left:pos.x,top:pos.y}}>
                 <div className={`w-[64px] h-[64px] rounded-[21px] shadow-[0_6px_18px_rgba(52,43,34,.055)] grid place-items-center ${iconClass}`}>{renderAppIcon(id,symbol,'w-6 h-6')}{id==='line'&&worldUnread>0&&<span className="absolute -top-1 right-[-2px] w-4 h-4 rounded-full bg-[#9b625b] text-white text-[9px] font-bold flex items-center justify-center">{worldUnread>99?'99+':worldUnread}</span>}</div><span className="font-medium">{label}</span>
               </button>; })}
           </section>
@@ -405,124 +475,62 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
       {/* ========================================================================= */}
       {currentPage === 2 && (
         <div className="absolute inset-0 animate-in fade-in duration-300">
-          <div className="absolute z-10 top-[70px] left-[25px] right-[25px] flex items-end justify-between">
-            <div>
-              <div className="text-[9px] text-[#8b8782] tracking-[2px] font-mono">PAGE 02 · PRIVATE DESKTOP</div>
-              <div className="mt-1 text-[22px] font-serif text-[var(--ink)]">深夜</div>
-            </div>
-            <div className="flex gap-1.5">
-              {page2Editing && (
-                <button onClick={resetPage2Layout} className="px-2.5 h-8 rounded-full bg-white/75 border border-black/5 text-[9px] font-mono text-[#777]">
-                  重置
-                </button>
-              )}
-              <button
-                onClick={() => setPage2Editing(value => !value)}
-                className={`px-3 h-8 rounded-full border text-[9px] font-mono transition-all ${
-                  page2Editing ? 'bg-[#242220] text-white border-[#242220]' : 'bg-white/75 text-[#555] border-black/5'
-                }`}
-              >
-                {page2Editing ? '完成' : '整理桌面'}
-              </button>
-            </div>
-          </div>
-
-          {page2Editing && (
-            <div className="absolute z-10 top-[120px] left-[25px] right-[25px] text-[8px] font-mono text-[#999]">
-              拖动 App / 小组件 · 自动保存位置
-            </div>
-          )}
-
-          {(() => {
-            const item = page2Item('widget-threads');
+          {!isHidden(2, 'widget-threads') && (() => {
+            const item = itemPosition(2, 'widget-threads');
             return (
               <div
-                className={`absolute z-10 w-[320px] h-[96px] rounded-[20px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl p-[14px_16px] shadow-[0_6px_22px_rgba(40,35,30,.045)] ${
-                  page2Editing ? 'ring-1 ring-[#b7a59a]/45 cursor-grab active:cursor-grabbing touch-none' : 'cursor-pointer'
-                }`}
+                className={`absolute z-10 w-[320px] h-[96px] rounded-[20px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl p-[14px_16px] shadow-[0_6px_22px_rgba(40,35,30,.045)] ${desktopEditing ? 'ring-1 ring-[#b7a59a]/45 cursor-grab active:cursor-grabbing touch-none' : 'cursor-pointer'}`}
                 style={{ left: item.x, top: item.y }}
-                onPointerDown={(event) => {
-                  if (!page2Editing) {
-                    onNavigate('threads');
-                    return;
-                  }
-                  event.currentTarget.setPointerCapture(event.pointerId);
-                  setDraggingPage2Item('widget-threads');
-                }}
-                onPointerMove={(event) => {
-                  if (draggingPage2Item === 'widget-threads') movePage2Item('widget-threads', event.clientX, event.clientY);
-                }}
-                onPointerUp={() => setDraggingPage2Item(null)}
-                onPointerCancel={() => setDraggingPage2Item(null)}
+                onPointerDown={e => desktopEditing ? beginDesktopDrag(2, 'widget-threads', e) : onNavigate('threads')}
+                onPointerMove={e => continueDesktopDrag(2, 'widget-threads', e)}
+                onPointerUp={() => setDraggingDesktopItem(null)}
+                onPointerCancel={() => setDraggingDesktopItem(null)}
               >
+                {desktopEditing && <button onPointerDown={e => e.stopPropagation()} onClick={() => hideDesktopItem(2, 'widget-threads')} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px]">×</button>}
                 <div className="flex items-center justify-between text-[9px] font-mono text-[#8b8782] mb-1.5">
-                  <span className="flex items-center gap-1.5 text-[#1a1a1a] font-bold">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#1a1a1a]" />THREADS · PRIVATE
-                  </span>
+                  <span className="flex items-center gap-1.5 text-[#1a1a1a] font-bold"><span className="w-1.5 h-1.5 rounded-full bg-[#1a1a1a]" />THREADS · PRIVATE</span>
                   <span>PRIVATE DESKTOP</span>
                 </div>
-                <p className="font-serif-sc text-[12px] leading-relaxed text-[var(--ink)] line-clamp-2">
-                  暂无动态。导入角色后，Threads 会在这里显示内容。
-                </p>
+                <p className="font-serif-sc text-[12px] leading-relaxed text-[var(--ink)] line-clamp-2">暂无动态。导入角色后，Threads 会在这里显示内容。</p>
                 <div className="mt-2 text-[9px] font-mono text-[#8b7560]">点击进入 Threads 查阅互动 →</div>
               </div>
             );
           })()}
 
-          {[
-            ['threads', 'Threads', 'threads', 'bg-[#1a1a1a] text-white', '3'],
-            ['npc', 'NPC', 'npc', 'bg-[#ebe2dc] text-[#5f554f] border border-black/5', ''],
-            ['group-presets', '预设', 'group-presets', 'bg-[#f0ebe5] text-[#63584f] border border-black/5', ''],
-            ['spy-phone', '查手机', 'spy-phone', 'bg-[#9b625b] text-white', ''],
-            ['memory', 'Memory', 'memory', 'bg-[#292724] text-white', ''],
-            ['studio', 'STUDIO', 'studio', 'bg-[#242220] text-white', ''],
-          ].map(([id, label, symbol, iconClass, badge]) => {
-            const item = page2Item('app-' + id);
-            const screen = id === 'studio' ? 'project-studio' : id;
-            return (
-              <button
-                key={id}
-                onPointerDown={(event) => {
-                  if (!page2Editing) {
-                    onNavigate(screen as ScreenType);
-                    return;
-                  }
-                  event.currentTarget.setPointerCapture(event.pointerId);
-                  setDraggingPage2Item('app-' + id);
-                }}
-                onPointerMove={(event) => {
-                  if (draggingPage2Item === 'app-' + id) movePage2Item('app-' + id, event.clientX, event.clientY);
-                }}
-                onPointerUp={() => setDraggingPage2Item(null)}
-                onPointerCancel={() => setDraggingPage2Item(null)}
-                className={`absolute z-10 w-[60px] flex flex-col items-center gap-2 text-[9px] tracking-[0.25px] text-[var(--sub,#68625b)] select-none touch-none ${
-                  page2Editing ? 'cursor-grab active:cursor-grabbing' : ''
-                }`}
-                style={{ left: item.x, top: item.y }}
-              >
-                <div className={`relative w-[60px] h-[60px] rounded-[18px] shadow-[0_6px_18px_rgba(52,43,34,.07)] grid place-items-center transition-transform ${
-                  page2Editing && draggingPage2Item === 'app-' + id ? 'scale-110' : ''
-                } ${iconClass}`}>
-                  {appearance.appIcons[id]
-                    ? renderAppIcon(id, symbol, 'w-[25px] h-[25px]')
-                    : id === 'npc'
-                      ? <span className="text-[20px] font-serif">人</span>
-                      : id === 'group-presets'
-                        ? <span className="text-[18px] font-serif">预</span>
-                        : id === 'memory'
-                          ? <span className="font-serif text-[20px]">M</span>
-                          : renderAppIcon(id, symbol, 'w-[25px] h-[25px]')}
-                  {badge && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#9b625b] text-white text-[8px] font-bold flex items-center justify-center">{badge}</span>}
-                </div>
-                <span className="font-semibold tracking-tight text-[var(--ink)] whitespace-nowrap">{label}</span>
-              </button>
-            );
-          })}
+          <section className="absolute z-10 inset-0 pointer-events-none">
+            {[
+              ['threads','Threads','threads','bg-[#1a1a1a] text-white','threads'],
+              ['npc','NPC','npc','bg-[#ebe2dc] text-[#5f554f] border border-black/5','npc'],
+              ['group-presets','预设','group-presets','bg-[#f0ebe5] text-[#63584f] border border-black/5','group-presets'],
+              ['spy-phone','查手机','spy-phone','bg-[#9b625b] text-white','spy-phone'],
+              ['memory','Memory','memory','bg-[#292724] text-white','memory'],
+              ['studio','STUDIO','studio','bg-[#242220] text-white','project-studio'],
+            ].map(([id,label,symbol,iconClass,screen]) => {
+              const itemId='app-'+id;
+              if (isHidden(2,itemId)) return null;
+              const item=itemPosition(2,itemId);
+              return (
+                <button key={id}
+                  onClick={() => { if (!desktopEditing) onNavigate(screen as ScreenType); }}
+                  onPointerDown={e => beginDesktopDrag(2,itemId,e)}
+                  onPointerMove={e => continueDesktopDrag(2,itemId,e)}
+                  onPointerUp={() => setDraggingDesktopItem(null)}
+                  onPointerCancel={() => setDraggingDesktopItem(null)}
+                  className={`absolute pointer-events-auto w-[64px] flex flex-col items-center gap-2 text-[10px] tracking-[0.25px] text-[var(--sub,#68625b)] select-none touch-none ${desktopEditing ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                  style={{ left:item.x, top:item.y }}
+                >
+                  <div className={`relative w-[64px] h-[64px] rounded-[20px] shadow-[0_6px_18px_rgba(52,43,34,.07)] grid place-items-center ${iconClass}`}>
+                    {appearance.appIcons[id] ? renderAppIcon(id,symbol,'w-6 h-6') : id==='npc' ? <span className="text-[20px] font-serif">人</span> : id==='group-presets' ? <span className="text-[18px] font-serif">预</span> : id==='memory' ? <span className="font-serif text-[20px]">M</span> : renderAppIcon(id,symbol,'w-6 h-6')}
+                  </div>
+                  <span className="font-semibold tracking-tight text-[var(--ink)] whitespace-nowrap">{label}</span>
+                  {desktopEditing && <button onPointerDown={e=>e.stopPropagation()} onClick={()=>hideDesktopItem(2,itemId)} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px]">×</button>}
+                </button>
+              );
+            })}
+          </section>
 
-          {page2Editing && (
-            <div className="absolute z-10 left-[25px] right-[25px] bottom-[132px] text-center text-[8px] font-mono text-[#999] pointer-events-none">
-              桌面布局自动保存 · App 统一 60px
-            </div>
+          {desktopEditing && desktopHidden.page2.length > 0 && (
+            <button onClick={() => showAllDesktopItems(2)} className="absolute z-20 bottom-[150px] left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-white/80 border border-black/5 text-[8px] font-mono text-[#777]">恢复隐藏</button>
           )}
         </div>
       )}
@@ -547,32 +555,11 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
         />
       </div>
 
-      {/* Bottom dock background — apps remain freely draggable in desktop edit mode */}
-      <div className="absolute z-20 left-[16px] right-[16px] bottom-[28px] h-[108px] rounded-[30px] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_14px_38px_rgba(48,40,32,.08)] backdrop-blur-2xl pointer-events-none" style={{ background: 'var(--glass, rgba(248,246,242,.72))' }} />
-      <section className="absolute z-25 inset-0 pointer-events-none">
-        {[
-          ['character-profile','角色档案','card','character-profile'],
-          ['world-book','世界书','book','world-book'],
-          ['appearance','外观','look','appearance'],
-          ['settings','设置','gear','settings'],
-        ].map(([id,label,symbol,screen]) => {
-          const pos = itemPosition(1, 'app-' + id);
-          return <button key={id}
-            onClick={() => { if (!desktopEditing) onNavigate(screen as ScreenType); }}
-            onPointerDown={e => beginDesktopDrag(1, 'app-' + id, e)}
-            onPointerMove={e => continueDesktopDrag(1, 'app-' + id, e)}
-            onPointerUp={() => setDraggingDesktopItem(null)}
-            onPointerCancel={() => setDraggingDesktopItem(null)}
-            className={`absolute pointer-events-auto flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] select-none touch-none ${desktopEditing ? 'cursor-grab active:cursor-grabbing' : ''}`}
-            style={{ left: pos.x, top: pos.y }}
-          >
-            <div className="w-[64px] h-[64px] rounded-[21px] bg-[var(--icon,rgba(248,245,239,.72))] border border-[var(--edge,rgba(255,255,255,.6))] shadow-[0_6px_18px_rgba(52,43,34,.055)] grid place-items-center">
-              {renderAppIcon(id, symbol, 'w-6 h-6')}
-            </div>
-            <span className="font-medium">{label}</span>
-          </button>;
-        })}
-      </section>
+      {desktopEditing && desktopHidden.page1.length > 0 && (
+        <button onClick={() => showAllDesktopItems(1)} className="absolute z-20 bottom-[112px] left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-white/80 border border-black/5 text-[8px] font-mono text-[#777]">
+          恢复隐藏项目
+        </button>
+      )}
 
     </div>
   );
