@@ -78,28 +78,31 @@ export interface AiReplyResult {
 
 export function parseAiReplyPayload(rawText: string): Pick<AiReplyResult, 'text' | 'thinkingSummary' | 'actionDescription'> {
   const raw = String(rawText || '').replace(/\r\n/g, '\n').trim();
-  const cotMatch = raw.match(/<(?:cot|summary)>\s*([\s\S]*?)\s*<\/(?:cot|summary)>/i);
-  const cotSummary = cotMatch ? cotMatch[1].trim() : '';
-  const withoutHiddenThinking = raw
+
+  const readTag = (name: string, source: string = raw): string => {
+    const match = source.match(new RegExp('<' + name + '>\\s*([\\s\\S]*?)\\s*</' + name + '>', 'i'));
+    return match ? match[1].trim() : '';
+  };
+
+  const thinkingSummary =
+    readTag('cot') ||
+    readTag('summary') ||
+    '';
+
+  // Remove all non-message metadata before building the visible LINE message.
+  const withoutMetadata = raw
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
     .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
     .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
     .replace(/<cot>[\s\S]*?<\/cot>/gi, '')
     .replace(/<summary>[\s\S]*?<\/summary>/gi, '');
 
-  const readTag = (name: string): string => {
-    const match = withoutHiddenThinking.match(new RegExp('<' + name + '>\\s*([\\s\\S]*?)\\s*</' + name + '>', 'i'));
-    return match ? match[1].trim() : '';
-  };
+  const actionDescription = readTag('action', withoutMetadata);
+  const messageMatch = withoutMetadata.match(/<message>\s*([\s\S]*?)\s*<\/message>/i);
 
-  const thinkingSummary = cotSummary || readTag('summary');
-  const actionDescription = readTag('action');
-  const messageMatch = withoutHiddenThinking.match(/<message>\s*([\s\S]*?)\s*<\/message>/i);
-
-  const text = (messageMatch?.[1] || withoutHiddenThinking
-    .replace(/<(?:cot|thinking|think|thought)>[\s\S]*?<\/(?:cot|thinking|think|thought)>/gi, '')
-    .replace(/<summary>[\s\S]*?<\/summary>/gi, '')
-    .replace(/<action>[\s\S]*?<\/action>/gi, ''))
+  const text = (messageMatch?.[1] || withoutMetadata
+    .replace(/<action>[\s\S]*?<\/action>/gi, '')
+    .replace(/<message>[\s\S]*?<\/message>/gi, ''))
     .trim();
 
   return {
@@ -347,7 +350,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '',
     '【输出约束】',
     '禁止输出原始 <think>、<thought> 或隐藏推理。COT 不是原始内部思维链，而是给用户看的简短“角色决策记录”：只写高层次判断，不写隐性推理细节。',
-    input.cotTarget ? '【COT 显示】本轮必须输出 <cot>...</cot>。这是用户要求显示的高层角色决策记录，不是隐藏推理；严格按当前 COT 预设组织，每个 STEP 尽量短，只写高层判断，不得省略 COT。最终聊天正文必须放在 <message>...</message> 中。' : '',
+    input.cotTarget ? '【COT 显示】先输出极短的 <cot>...</cot> 高层角色决策记录（最多 3 个短句，不展开逐步推理），随后必须立即输出 <message>...</message>。COT 与聊天正文必须严格分离。' : '',
     '不要描述用户尚未明确做出的动作。',
     '不要把聊天回复写成旁白长文；保持手机消息的阅读节奏。',
     '不要用“角色动作 + 长段心理描写 + 一大段台词”代替聊天消息；动作描写如果开启必须单独放进 <action>...</action>，正文仍然是正常聊天消息。',
@@ -596,7 +599,15 @@ async function callGemini(input: AiReplyInput): Promise<string> {
   if (!response.ok) throw new Error('AI_GEMINI_' + response.status + ': ' + await readError(response));
 
   if (settings.streaming) {
-    return parseSseResponse(response, extractGeminiText, input.onDelta);
+    let rawStream = '';
+    const revealMessage = (delta: string) => {
+      rawStream += delta;
+      const match = rawStream.match(/<message>\s*([\s\S]*)$/i);
+      if (match) {
+        input.onDelta?.(match[1].replace(/<\/message>[\s\S]*$/i, ''));
+      }
+    };
+    return parseSseResponse(response, extractGeminiText, revealMessage);
   }
 
   const data = await response.json();
@@ -673,7 +684,15 @@ async function callOpenAiCompatible(input: AiReplyInput): Promise<string> {
   if (!response.ok) throw new Error('AI_OPENAI_' + response.status + ': ' + await readError(response));
 
   if (input.settings.streaming) {
-    return parseSseResponse(response, extractOpenAiText, input.onDelta);
+    let rawStream = '';
+    const revealMessage = (delta: string) => {
+      rawStream += delta;
+      const match = rawStream.match(/<message>\s*([\s\S]*)$/i);
+      if (match) {
+        input.onDelta?.(match[1].replace(/<\/message>[\s\S]*$/i, ''));
+      }
+    };
+    return parseSseResponse(response, extractOpenAiText, revealMessage);
   }
 
   const data = await response.json();
