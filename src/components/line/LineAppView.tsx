@@ -1019,8 +1019,13 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
       )}
 
       {personaEditorOpen && (
-        <div className="absolute inset-0 z-[80] bg-black/25 flex items-end">
-          <div className="w-full bg-white rounded-t-[22px] p-5 pb-7 space-y-3">
+        <div className="absolute inset-0 z-[100] bg-white flex flex-col">
+          <div className="h-[60px] border-b border-[#ededee] flex items-center justify-between px-4 shrink-0">
+            <button onClick={() => setPersonaEditorOpen(false)} className="text-2xl text-[#555] px-2">‹</button>
+            <div className="text-center"><div className="font-semibold text-sm text-[#333]">我的人设</div><div className="text-[9px] text-[#aaa]">完整手机页面 · 设定聊天身份</div></div>
+            <div className="w-8" />
+          </div>
+          <div className="flex-1 overflow-y-auto p-5 pb-10 space-y-4">
             <div className="flex items-center justify-between"><div className="font-semibold text-sm">编辑我的人设</div><button onClick={() => setPersonaEditorOpen(false)} className="text-[#aaa]">×</button></div>
             {[
               ['name','名字'],
