@@ -406,7 +406,8 @@ export function LineConversationView({
 
   // 我的人设管理器 (User Persona Manager)
   const [showPersonaManager, setShowPersonaManager] = useState(false);
-  const [userPersonas, setUserPersonas] = usePersistentState<any[]>('line:user-personas', []);
+  const [storedUserPersonas, setUserPersonas] = usePersistentState<any[]>('line:user-personas', []);
+  const userPersonas = Array.isArray(storedUserPersonas) ? storedUserPersonas : [];
   const [activePersonaId, setActivePersonaId] = usePersistentState<string | null>('line:active-persona', null);
   const [editingPersonaId, setEditingPersonaId] = useState<string | null>(null);
   const [showMyAvatar, setShowMyAvatar] = usePersistentState<boolean>(`line:show-my-avatar:${conversationStorageId}`, true);
@@ -456,10 +457,11 @@ export function LineConversationView({
 }`);
 
   // 导入角色卡与全局世界书：真正 AI 回复从这里读取角色核心资料。
-  const [importedCharacters] = usePersistentState<ImportedCharacter[]>('phone:characters', []);
+  const [storedImportedCharacters] = usePersistentState<ImportedCharacter[]>('phone:characters', []);
+  const importedCharacters = Array.isArray(storedImportedCharacters) ? storedImportedCharacters : [];
   const importedCharacter = characterId
-    ? importedCharacters.find(character => character.id === characterId) || null
-    : importedCharacters.find(character => character.name === contactName) || null;
+    ? importedCharacters.find(character => character && character.id === characterId) || null
+    : importedCharacters.find(character => character && character.name === contactName) || null;
   const activeGroup = isGroup ? getLineGroupByName(contactName) : null;
   const groupAiMembers = activeGroup?.members
     .map(member => ({ member, character: importedCharacters.find(character => character.id === member.characterId || character.name === member.name) || null }))
@@ -564,9 +566,10 @@ export function LineConversationView({
   // 酒馆思维链预设系统 (Chain of Thought Presets)
   const [showCotPresetModal, setShowCotPresetModal] = useState(false);
   const [showPresetResourceManager, setShowPresetResourceManager] = useState<'status' | 'cot' | null>(null);
-  const [cotPresets, setCotPresets] = usePersistentState<CotPreset[]>('line:cot-presets', getCotPresets());
+  const [storedCotPresets, setCotPresets] = usePersistentState<CotPreset[]>('line:cot-presets', getCotPresets());
+  const cotPresets = Array.isArray(storedCotPresets) ? storedCotPresets.filter(Boolean) : [];
   const [activeCotPresetId, setActiveCotPresetId] = usePersistentState(`line:cot-active:${conversationStorageId}`, 'cot-1');
-  const activeCotPreset = cotPresets.find((p) => p.id === activeCotPresetId) || cotPresets[0] || { id: 'cot-fallback', title: '默认预设', description: '', template: '' };
+  const activeCotPreset = cotPresets.find((p) => p && p.id === activeCotPresetId) || cotPresets[0] || { id: 'cot-fallback', title: '默认预设', description: '', template: '' };
   const [customCotTemplate, setCustomCotTemplate] = usePersistentState(`line:cot-custom:${conversationStorageId}`, activeCotPreset.template);
 
   // 酒馆预设 (Presets)
