@@ -162,6 +162,12 @@ export function PhoneSimulator({
           style={{
             fontSize: appBeauty.fontScale ? `${appBeauty.fontScale}em` : undefined,
             background: appBeauty.background || globalBg,
+            ['--phone-bg' as any]: globalBg,
+            ['--paper' as any]: globalBg,
+            ['--screen' as any]: globalBg,
+            ['--page' as any]: globalBg,
+            ['--glass' as any]: 'color-mix(in srgb, ' + globalBg + ' 78%, white 22%)',
+            ['--icon' as any]: 'color-mix(in srgb, ' + globalBg + ' 86%, white 14%)',
             ['--app-accent' as any]: appBeauty.accent || '#292724',
             ['--app-radius' as any]: `${appBeauty.radius ?? 18}px`,
           }}
