@@ -1,20 +1,61 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Brain, Clock3, Heart, Plus, Trash2, BookOpen, Sparkles, Link2, Tag } from 'lucide-react';
+import { ArrowLeft, Brain, Clock3, Heart, Plus, Trash2, BookOpen, Sparkles, Link2, Tag, UserRound, HelpCircle, CheckCircle2, ListTodo, ChevronRight } from 'lucide-react';
 import type { ScreenType } from '../../types';
 import type { ImportedCharacter } from '../../data/characterImport';
-import { addCharacterMemoryItem, deleteCharacterMemoryItem, getCharacterMemory, saveCharacterMemory, type CharacterMemory } from '../../store/characterMemory';
+import {
+  addCharacterMemoryItem,
+  deleteCharacterMemoryItem,
+  getCharacterMemory,
+  saveCharacterMemory,
+  type CharacterMemory,
+  type MemorySection,
+} from '../../store/characterMemory';
 
 const ACTIVE_MEMORY_KEY = 'phone:memory-active-character';
 
+const sections: Array<{ id: MemorySection; label: string; en: string; hint: string; icon: typeof Brain }> = [
+  { id:'stage', label:'阶段记忆', en:'STORY', hint:'你们最近真正经历过的事情', icon:BookOpen },
+  { id:'about-you', label:'关于你', en:'ABOUT YOU', hint:'角色已经知道的你的事实、习惯与偏好', icon:UserRound },
+  { id:'relationship', label:'关系记忆', en:'RELATIONSHIP', hint:'你们关系中已经发生、确认或改变的事', icon:Heart },
+  { id:'understanding', label:'对你的看法', en:'UNDERSTANDING', hint:'这个角色对你的主观理解，不是通用模板', icon:Brain },
+  { id:'confirm', label:'想确认的事', en:'TO CONFIRM', hint:'角色还不确定、以后想从你这里确认的事', icon:HelpCircle },
+  { id:'todo', label:'想做的事', en:'TO DO', hint:'角色或你们共同想做、还没完成的事', icon:ListTodo },
+  { id:'done', label:'已完成的事', en:'DONE', hint:'已经完成并值得保留的事情', icon:CheckCircle2 },
+];
+
+function fallbackSection(item: CharacterMemory['items'][number]): MemorySection {
+  if (item.section) return item.section;
+  if (item.kind === 'event' || item.kind === 'diary') return 'stage';
+  if (item.kind === 'relationship') return 'relationship';
+  if (item.kind === 'preference' || item.kind === 'fact') return 'about-you';
+  return 'stage';
+}
+
+function sectionKind(section: MemorySection): CharacterMemory['items'][number]['kind'] {
+  if (section === 'stage' || section === 'done') return 'event';
+  if (section === 'relationship') return 'relationship';
+  if (section === 'about-you') return 'fact';
+  if (section === 'understanding') return 'fact';
+  return 'fact';
+}
+
 export function MemoryScreenView({ onNavigate }: { onNavigate: (screen: ScreenType) => void }) {
   const [characters] = useState<ImportedCharacter[]>(() => {
-    try { const raw = window.localStorage.getItem('phone:characters'); return raw ? JSON.parse(raw) : []; } catch { return []; }
+    try {
+      const raw = window.localStorage.getItem('phone:characters');
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
   });
   const [activeId, setActiveId] = useState<string | null>(() => {
     try { return window.localStorage.getItem(ACTIVE_MEMORY_KEY); } catch { return null; }
   });
   const selected = characters.find(c => c.id === activeId) || characters[0] || null;
-  const [memory, setMemory] = useState<CharacterMemory>(() => selected ? getCharacterMemory(selected.id, selected.name) : { characterId:'', characterName:'', summary:'', items:[], updatedAt:new Date().toISOString() });
+  const [memory, setMemory] = useState<CharacterMemory>(() =>
+    selected
+      ? getCharacterMemory(selected.id, selected.name)
+      : { characterId:'', characterName:'', summary:'', items:[], updatedAt:new Date().toISOString() }
+  );
+  const [activeSection, setActiveSection] = useState<MemorySection>('stage');
 
   useEffect(() => {
     if (!selected) return;
@@ -23,35 +64,48 @@ export function MemoryScreenView({ onNavigate }: { onNavigate: (screen: ScreenTy
   }, [selected?.id, selected?.name]);
 
   useEffect(() => {
-    const refresh = () => { if (selected) setMemory(getCharacterMemory(selected.id, selected.name)); };
+    const refresh = () => {
+      if (selected) setMemory(getCharacterMemory(selected.id, selected.name));
+    };
     window.addEventListener('sane333:memory-changed', refresh);
+    window.addEventListener('sane333:memory-updated', refresh);
     window.addEventListener('sane333:world-event', refresh);
-    return () => { window.removeEventListener('sane333:memory-changed', refresh); window.removeEventListener('sane333:world-event', refresh); };
+    return () => {
+      window.removeEventListener('sane333:memory-changed', refresh);
+      window.removeEventListener('sane333:memory-updated', refresh);
+      window.removeEventListener('sane333:world-event', refresh);
+    };
   }, [selected?.id, selected?.name]);
-
-  const [filter, setFilter] = useState<'all' | 'fact' | 'diary' | 'relationship' | 'preference' | 'event'>('all');
-  const items = useMemo(() => [...memory.items]
-    .filter(item => filter === 'all' || (item.kind || 'fact') === filter)
-    .sort((a,b) => b.importance - a.importance || b.updatedAt.localeCompare(a.updatedAt)), [memory.items, filter]);
-
-  const kindMeta = {
-    fact: { label:'事实', icon:Tag },
-    diary: { label:'日记', icon:BookOpen },
-    relationship: { label:'关系', icon:Heart },
-    preference: { label:'偏好', icon:Sparkles },
-    event: { label:'事件', icon:Link2 },
-  } as const;
 
   const notifyMemory = (next: CharacterMemory) => {
     setMemory(next);
-    window.dispatchEvent(new CustomEvent('sane333:memory-changed', { detail: { characterId: next.characterId } }));
+    window.dispatchEvent(new CustomEvent('sane333:memory-changed', { detail:{ characterId:next.characterId } }));
   };
+
+  const items = useMemo(() => {
+    return [...memory.items]
+      .filter(item => fallbackSection(item) === activeSection)
+      .sort((a,b) => b.importance - a.importance || b.updatedAt.localeCompare(a.updatedAt));
+  }, [memory.items, activeSection]);
+
+  const counts = useMemo(() => {
+    const result = Object.fromEntries(sections.map(section => [section.id, 0])) as Record<MemorySection, number>;
+    memory.items.forEach(item => { result[fallbackSection(item)] += 1; });
+    return result;
+  }, [memory.items]);
 
   const addMemory = () => {
     if (!selected) return;
-    const content = window.prompt('写下一件你希望这个角色长期记住的事：');
+    const current = sections.find(section => section.id === activeSection)!;
+    const content = window.prompt(`添加到「${current.label}」：\n\n${current.hint}\n\n写下这件事：`);
     if (!content?.trim()) return;
-    notifyMemory(addCharacterMemoryItem(selected.id, selected.name, content, { source:'manual', importance:70 }));
+    const next = addCharacterMemoryItem(selected.id, selected.name, content, {
+      source:'manual',
+      importance:70,
+      kind:sectionKind(activeSection),
+      section:activeSection,
+    });
+    notifyMemory(next);
   };
 
   const removeMemory = (id: string) => {
@@ -61,53 +115,147 @@ export function MemoryScreenView({ onNavigate }: { onNavigate: (screen: ScreenTy
   };
 
   return (
-    <div className="relative w-full h-full flex flex-col overflow-hidden" style={{background:'var(--paper)',color:'var(--ink)'}}>
+    <div className="relative w-full h-full flex flex-col overflow-hidden" style={{ background:'var(--paper)', color:'var(--ink)' }}>
       <div className="absolute inset-0 opacity-15 bg-paper-noise pointer-events-none" />
-      <header className="relative z-10 px-5 pt-12 pb-3.5 border-b border-[rgba(40,36,31,.12)] bg-[rgba(247,244,238,.88)] backdrop-blur-xl flex items-center justify-between">
-        <div className="flex items-center gap-3 min-w-0">
-          <button onClick={() => onNavigate('home')} className="w-8 h-8 rounded-full bg-white/50 border border-white/70 grid place-items-center text-[#292724]"><ArrowLeft className="w-4 h-4"/></button>
-          <div><div className="text-[8px] font-mono tracking-[2px] text-[#817a72]">PRIVATE MEMORY · LOCAL</div><h2 className="font-serif font-bold text-base">记忆</h2></div>
+
+      <header className="relative z-10 px-5 pt-11 pb-3 border-b border-[rgba(40,36,31,.10)] bg-[rgba(247,244,238,.94)] backdrop-blur-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => onNavigate('home')} className="w-8 h-8 rounded-full bg-white/70 border border-[rgba(40,36,31,.10)] grid place-items-center text-[#292724]">
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="min-w-0">
+              <div className="text-[8px] font-mono tracking-[2.2px] text-[#8b847c]">PRIVATE MEMORY / LOCAL</div>
+              <h2 className="mt-0.5 font-serif font-bold text-[18px] leading-tight">Memory</h2>
+            </div>
+          </div>
+          <button onClick={addMemory} disabled={!selected} className="w-8 h-8 rounded-full bg-[#292724] text-white grid place-items-center disabled:opacity-30">
+            <Plus className="w-4 h-4" />
+          </button>
         </div>
-        <button onClick={addMemory} disabled={!selected} className="w-8 h-8 rounded-full bg-[#292724] text-white grid place-items-center disabled:opacity-30"><Plus className="w-4 h-4"/></button>
+
+        {selected && (
+          <div className="mt-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full overflow-hidden bg-[#ddd6cc] border border-white shadow-sm shrink-0">
+              {selected.avatar
+                ? <img src={selected.avatar} alt="" className="w-full h-full object-cover" />
+                : <div className="w-full h-full grid place-items-center font-serif text-sm">{selected.name?.slice(0,1) || '?'}</div>}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[12px] font-semibold truncate">{selected.name || '未命名角色'}</div>
+              <div className="mt-0.5 text-[8px] font-mono tracking-[1px] text-[#8d867e]">{memory.items.length} MEMORIES · UPDATED {new Date(memory.updatedAt).toLocaleDateString()}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-[17px] font-serif font-semibold">{memory.items.length}</div>
+              <div className="text-[7px] font-mono tracking-[1px] text-[#999189]">ENTRIES</div>
+            </div>
+          </div>
+        )}
       </header>
 
-      <div className="relative z-10 flex-1 overflow-y-auto no-scrollbar p-4 space-y-3">
-        {characters.length === 0 ? (
-          <div className="h-full flex items-center justify-center"><div className="w-full rounded-2xl bg-[#ebe7df] border border-[rgba(40,36,31,.12)] p-6 text-center">
-            <Brain className="w-7 h-7 mx-auto text-[#8b7560]" strokeWidth={1.4}/><h3 className="mt-3 font-serif text-lg">还没有角色记忆</h3>
-            <p className="mt-2 text-[10px] leading-relaxed text-[#777069]">导入角色并发生对话后，这里会保存你们共同经历过的事情。</p>
-          </div></div>
-        ) : <>
+      {characters.length > 0 && (
+        <div className="relative z-10 px-4 pt-3">
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
             {characters.map(c => {
-              const count=getCharacterMemory(c.id,c.name).items.length, active=selected?.id===c.id;
-              return <button key={c.id} onClick={()=>setActiveId(c.id)} className={`shrink-0 flex items-center gap-2 px-3 py-2 rounded-full border text-[10px] ${active?'bg-[#292724] text-white border-[#292724]':'bg-white/55 text-[#655f59] border-[rgba(40,36,31,.12)]'}`}>
-                <span className="w-5 h-5 rounded-full overflow-hidden bg-[#d8d0c6] grid place-items-center font-serif">{c.avatar?<img src={c.avatar} alt="" className="w-full h-full object-cover"/>:(c.name?.slice(0,1)||'?')}</span>
-                {c.name||'未命名'} · {count}
-              </button>;
+              const active = selected?.id === c.id;
+              const count = getCharacterMemory(c.id, c.name).items.length;
+              return (
+                <button key={c.id} onClick={() => setActiveId(c.id)} className={`shrink-0 flex items-center gap-2 px-3 py-2 rounded-full border text-[9px] transition ${active ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/65 text-[#655f59] border-[rgba(40,36,31,.10)]'}`}>
+                  <span className="w-5 h-5 rounded-full overflow-hidden bg-[#d8d0c6] grid place-items-center font-serif">
+                    {c.avatar ? <img src={c.avatar} alt="" className="w-full h-full object-cover" /> : (c.name?.slice(0,1) || '?')}
+                  </span>
+                  {c.name || '未命名'} <span className={active ? 'text-white/55' : 'text-[#aaa29a]'}>{count}</span>
+                </button>
+              );
             })}
           </div>
+        </div>
+      )}
 
-          {selected && <>
-            <section className="rounded-2xl bg-[#ebe7df] border border-[rgba(40,36,31,.12)] p-4">
-              <div className="flex items-center gap-2 text-[8px] font-mono tracking-[1.5px] text-[#8b8782]"><Heart className="w-3.5 h-3.5"/> {selected.name||'角色'} · LONG-TERM MEMORY</div>
-              <textarea value={memory.summary} onChange={e=>notifyMemory(saveCharacterMemory({...memory,summary:e.target.value,characterId:selected.id,characterName:selected.name}))} placeholder="关系摘要、共同经历、重要约定、不能忘记的事实……" className="mt-3 w-full min-h-[92px] rounded-xl bg-white/65 border border-[rgba(40,36,31,.1)] p-3 outline-none resize-y text-[11px] leading-relaxed font-serif-sc"/>
-              <div className="mt-2 text-[8px] text-[#8b8782] font-mono">UPDATED · {new Date(memory.updatedAt).toLocaleString()}</div>
+      <div className="relative z-10 flex-1 overflow-y-auto no-scrollbar px-4 pt-3 pb-5">
+        {characters.length === 0 ? (
+          <div className="h-full flex items-center justify-center">
+            <div className="w-full rounded-3xl bg-[#ebe7df] border border-[rgba(40,36,31,.10)] p-7 text-center">
+              <Brain className="w-8 h-8 mx-auto text-[#8b7560]" strokeWidth={1.25} />
+              <h3 className="mt-3 font-serif text-lg">还没有角色记忆</h3>
+              <p className="mt-2 text-[10px] leading-relaxed text-[#777069]">导入角色并发生对话后，这里会保存真正值得长期保留的内容。</p>
+            </div>
+          </div>
+        ) : selected && (
+          <>
+            <section className="grid grid-cols-2 gap-2.5">
+              {sections.map(section => {
+                const active = activeSection === section.id;
+                const Icon = section.icon;
+                return (
+                  <button key={section.id} onClick={() => setActiveSection(section.id)} className={`text-left rounded-2xl border p-3.5 transition ${active ? 'bg-[#292724] text-white border-[#292724] shadow-[0_8px_24px_rgba(40,36,31,.12)]' : 'bg-white/58 border-[rgba(40,36,31,.09)] text-[#403b36]'}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className={`w-7 h-7 rounded-full grid place-items-center ${active ? 'bg-white/10' : 'bg-[#eee9e1]'}`}><Icon className="w-3.5 h-3.5" /></div>
+                      <span className={`text-[18px] font-serif leading-none ${active ? 'text-white' : 'text-[#4b4640]'}`}>{counts[section.id]}</span>
+                    </div>
+                    <div className="mt-3 font-serif text-[13px]">{section.label}</div>
+                    <div className={`mt-0.5 text-[7px] font-mono tracking-[1.1px] ${active ? 'text-white/45' : 'text-[#9a9289]'}`}>{section.en}</div>
+                  </button>
+                );
+              })}
             </section>
-            <section className="rounded-2xl bg-white/55 border border-[rgba(40,36,31,.1)] p-4">
-              <div className="flex items-center justify-between mb-3"><div><div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">MEMORY ENTRIES</div><div className="mt-1 font-serif text-sm">{items.length} 条长期记忆</div></div><button onClick={addMemory} className="px-2.5 py-1.5 rounded-full bg-[#292724] text-white text-[9px]">＋ 记一件事</button></div>
-              <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-2">
-                {([['all','全部'],['fact','事实'],['diary','日记'],['relationship','关系'],['preference','偏好'],['event','事件']] as const).map(([key,label]) =>
-                  <button key={key} onClick={() => setFilter(key)} className={`shrink-0 px-2.5 py-1 rounded-full text-[8px] border ${filter===key?'bg-[#292724] text-white border-[#292724]':'bg-white/55 text-[#777069] border-[rgba(40,36,31,.1)]'}`}>{label}</button>
-                )}
+
+            <section className="mt-3 rounded-3xl bg-[#ebe7df] border border-[rgba(40,36,31,.10)] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[8px] font-mono tracking-[1.7px] text-[#8b847c]">{sections.find(s => s.id === activeSection)?.en}</div>
+                  <div className="mt-1 font-serif text-[15px]">{sections.find(s => s.id === activeSection)?.label}</div>
+                </div>
+                <button onClick={addMemory} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#292724] text-white text-[8px]">
+                  <Plus className="w-3 h-3" /> 记一件事
+                </button>
               </div>
-              {items.length===0 ? <div className="py-8 text-center text-[10px] text-[#8b8782] font-serif-sc">还没有单独记录的记忆。</div> :
-                <div className="space-y-2">{items.map(item=><article key={item.id} className="rounded-xl bg-[#f7f4ee] border border-[rgba(40,36,31,.08)] p-3"><div className="flex gap-3"><div className="mt-0.5 text-[#8b7560]"><Clock3 className="w-3.5 h-3.5"/></div><div className="flex-1 min-w-0"><p className="text-[10.5px] leading-relaxed text-[#443f3a] whitespace-pre-wrap font-serif-sc">{item.content}</p><div className="mt-2 flex items-center gap-2 text-[7px] font-mono text-[#9a938b]">
-  <span>{item.source.toUpperCase()}</span><span>·</span><span>{(item.kind || 'fact').toUpperCase()}</span><span>·</span><span>IMPORTANCE {item.importance}</span>
-</div></div><button onClick={()=>removeMemory(item.id)} className="self-start text-[#a46b64]" title="删除记忆"><Trash2 className="w-3.5 h-3.5"/></button></div></article>)}</div>}
+              <p className="mt-2 text-[9px] leading-relaxed text-[#777069]">{sections.find(s => s.id === activeSection)?.hint}</p>
             </section>
-          </>}
-        </>}
+
+            <section className="mt-2.5 space-y-2.5">
+              {activeSection === 'relationship' && memory.summary.trim() && (
+                <article className="rounded-2xl bg-white/72 border border-[rgba(40,36,31,.09)] p-4">
+                  <div className="text-[7px] font-mono tracking-[1.5px] text-[#9a9289]">RELATIONSHIP SUMMARY</div>
+                  <textarea
+                    value={memory.summary}
+                    onChange={e => notifyMemory(saveCharacterMemory({ ...memory, summary:e.target.value, characterId:selected.id, characterName:selected.name }))}
+                    className="mt-2 w-full min-h-[72px] bg-transparent outline-none resize-y text-[10.5px] leading-relaxed font-serif-sc"
+                    placeholder="记录你们关系目前最重要的状态……"
+                  />
+                </article>
+              )}
+
+              {items.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-[rgba(40,36,31,.16)] bg-white/35 p-8 text-center">
+                  <div className="text-[10px] font-serif text-[#777069]">这里暂时没有记忆</div>
+                  <div className="mt-1 text-[8px] text-[#a09890]">这不是假的模板数据；当聊天、线下剧情或你手动记录产生对应内容后，它会出现在这里。</div>
+                  <button onClick={addMemory} className="mt-4 px-4 py-2 rounded-full bg-[#292724] text-white text-[9px]">＋ 添加到「{sections.find(s => s.id === activeSection)?.label}」</button>
+                </div>
+              ) : items.map(item => (
+                <article key={item.id} className="rounded-2xl bg-white/72 border border-[rgba(40,36,31,.08)] p-4">
+                  <div className="flex gap-3">
+                    <div className="mt-0.5 w-7 h-7 rounded-full bg-[#eee9e1] text-[#8b7560] grid place-items-center shrink-0"><Clock3 className="w-3.5 h-3.5" /></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10.5px] leading-[1.75] text-[#443f3a] whitespace-pre-wrap font-serif-sc">{item.content}</p>
+                      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                        <span className="px-2 py-1 rounded-full bg-[#eee9e1] text-[7px] font-mono text-[#766f67]">{item.source === 'manual' ? '手动' : item.source === 'ai-summary' ? 'AI' : '聊天'}</span>
+                        <span className="px-2 py-1 rounded-full bg-[#f4f0ea] text-[7px] font-mono text-[#8e877f]">重要度 {item.importance}</span>
+                        <span className="text-[7px] font-mono text-[#aaa199]">{new Date(item.updatedAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <button onClick={() => removeMemory(item.id)} className="self-start w-7 h-7 rounded-full grid place-items-center text-[#a46b64] hover:bg-[#f3e8e5]" title="删除记忆"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
+                </article>
+              ))}
+            </section>
+
+            <section className="mt-3 rounded-2xl bg-white/45 border border-[rgba(40,36,31,.08)] p-4">
+              <div className="flex items-center gap-2 text-[7px] font-mono tracking-[1.5px] text-[#9a9289]"><Sparkles className="w-3 h-3" /> MEMORY ENGINE</div>
+              <p className="mt-1.5 text-[8.5px] leading-relaxed text-[#8a837b]">这里展示的是这个角色自己的长期记忆。聊天与线下剧情写入后会自动刷新；「对你的看法」与「关系记忆」不会被当成通用人格模板。</p>
+            </section>
+          </>
+        )}
       </div>
     </div>
   );

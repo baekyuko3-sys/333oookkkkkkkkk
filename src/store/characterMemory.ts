@@ -1,3 +1,12 @@
+export type MemorySection =
+  | 'stage'
+  | 'about-you'
+  | 'relationship'
+  | 'understanding'
+  | 'confirm'
+  | 'todo'
+  | 'done';
+
 export interface CharacterMemoryItem {
   id: string;
   content: string;
@@ -6,6 +15,8 @@ export interface CharacterMemoryItem {
   updatedAt: string;
   importance: number;
   kind?: 'fact' | 'diary' | 'relationship' | 'preference' | 'event';
+  /** New Memory UI section. Optional so all existing saved memories remain compatible. */
+  section?: MemorySection;
 }
 
 export interface CharacterMemory {
@@ -56,9 +67,7 @@ export function saveCharacterMemory(memory: CharacterMemory): CharacterMemory {
   if (typeof window !== 'undefined') {
     try {
       window.localStorage.setItem(keyFor(memory.characterId), JSON.stringify(next));
-    } catch {
-      // Keep the application usable when local storage is unavailable.
-    }
+    } catch {}
   }
   return next;
 }
@@ -84,6 +93,7 @@ export function addCharacterMemoryItem(
     source?: CharacterMemoryItem['source'];
     importance?: number;
     kind?: CharacterMemoryItem['kind'];
+    section?: CharacterMemoryItem['section'];
   },
 ): CharacterMemory {
   const trimmed = content.trim();
@@ -103,7 +113,15 @@ export function addCharacterMemoryItem(
     const mergedContent = trimmed.length > duplicate.content.length ? trimmed : duplicate.content;
     const updatedItems = current.items.map(item =>
       item.id === duplicate.id
-        ? { ...item, content: mergedContent, updatedAt: now, importance: Math.max(item.importance, importance), source: options?.source || item.source, kind: options?.kind || item.kind }
+        ? {
+            ...item,
+            content: mergedContent,
+            updatedAt: now,
+            importance: Math.max(item.importance, importance),
+            source: options?.source || item.source,
+            kind: options?.kind || item.kind,
+            section: options?.section || item.section,
+          }
         : item
     );
     return saveCharacterMemory({ ...current, items: updatedItems });
@@ -117,6 +135,7 @@ export function addCharacterMemoryItem(
     updatedAt: now,
     importance,
     kind: options?.kind || 'fact',
+    section: options?.section,
   };
 
   return saveCharacterMemory({ ...current, items: [item, ...current.items].slice(0, 120) });
@@ -130,7 +149,7 @@ export function updateCharacterMemoryItem(
   characterId: string,
   characterName: string,
   itemId: string,
-  patch: Partial<Pick<CharacterMemoryItem, 'content' | 'importance' | 'kind'>>,
+  patch: Partial<Pick<CharacterMemoryItem, 'content' | 'importance' | 'kind' | 'section'>>,
 ): CharacterMemory {
   const current = getCharacterMemory(characterId, characterName);
   const now = new Date().toISOString();
@@ -159,35 +178,32 @@ export function mergeCharacterMemoryItems(
   const keep = selected.slice().sort((a, b) => b.importance - a.importance)[0];
   const ids = new Set(selected.map(item => item.id));
   const nextItems = current.items.filter(item => !ids.has(item.id));
-  nextItems.unshift({ ...keep, content: merged, importance: Math.max(...selected.map(item => item.importance)), updatedAt: new Date().toISOString() });
+  nextItems.unshift({
+    ...keep,
+    content: merged,
+    importance: Math.max(...selected.map(item => item.importance)),
+    updatedAt: new Date().toISOString(),
+  });
   return saveCharacterMemory({ ...current, items: nextItems.slice(0, 120) });
 }
 
 export function deleteCharacterMemoryItem(characterId: string, itemId: string): CharacterMemory | null {
   if (typeof window === 'undefined') return null;
   const current = getCharacterMemory(characterId, '');
-  const next = {
-    ...current,
-    items: current.items.filter(item => item.id !== itemId),
-  };
+  const next = { ...current, items: current.items.filter(item => item.id !== itemId) };
   return saveCharacterMemory(next);
 }
 
 export function buildMemoryContext(memory: CharacterMemory, maxItems = 20): string {
   const sections: string[] = [];
-  if (memory.summary.trim()) {
-    sections.push('【长期记忆摘要】\n' + memory.summary.trim());
-  }
+  if (memory.summary.trim()) sections.push('【长期记忆摘要】\n' + memory.summary.trim());
 
   const items = [...memory.items]
     .sort((a, b) => b.importance - a.importance || b.updatedAt.localeCompare(a.updatedAt))
     .slice(0, maxItems);
 
   if (items.length) {
-    sections.push(
-      '【长期记忆条目】\n' +
-      items.map(item => `- [重要度 ${item.importance}] ${item.content}`).join('\n')
-    );
+    sections.push('【长期记忆条目】\n' + items.map(item => `- [重要度 ${item.importance}] ${item.content}`).join('\n'));
   }
 
   return sections.join('\n\n') || '当前没有已保存的长期记忆。';
