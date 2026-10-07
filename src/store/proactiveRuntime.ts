@@ -337,7 +337,7 @@ export async function runProactiveCatchup() {
           status: 'delivered',
           metadata: { offlineEventId: event.id, location: event.location, time: event.time },
         });
-        emitWorldEvent('offline.invite', { characterId: character.id, characterName: character.name, eventId: event.id, data: event });
+        emitWorldEvent('offline.invite', { characterId: character.id, characterName: character.name, eventId: event.id, data: event as unknown as Record<string, unknown> });
         notificationBody = '💌 ' + event.title;
       } else {
         if (!behaviorAllowed('message')) {
