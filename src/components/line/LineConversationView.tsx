@@ -622,6 +622,14 @@ export function LineConversationView({
   // The imported Character Card is the source of truth for identity.
   // A conversation-level profile may override relationship/bio settings, but it
   // must never make the AI think this chat belongs to a different character.
+  const storedCallMe = String(
+    (profileBelongsToCurrentCharacter ? (rawCharacterProfile as any)?.callMe : '') || ''
+  ).trim();
+  const templateCallMe = new Set(['你', '角色', '小朋友', '阿念', '小摄影师', '我家小朋友', '小祖宗']);
+  const characterCallMe = storedCallMe && storedCallMe !== characterIdentity && !templateCallMe.has(storedCallMe)
+    ? storedCallMe
+    : '';
+
   const characterProfile = {
     ...characterProfileBase,
     ...(profileBelongsToCurrentCharacter ? rawCharacterProfile : {}),
@@ -630,12 +638,13 @@ export function LineConversationView({
     relationship: String(
       (profileBelongsToCurrentCharacter ? (rawCharacterProfile as any)?.relationship : '') ||
       characterProfileBase.relationship ||
-      '刚认识'
+      '尚未形成'
     ),
-    callMe: String(
-      (profileBelongsToCurrentCharacter ? (rawCharacterProfile as any)?.callMe : '') ||
-      characterProfileBase.callMe ||
-      '你'
+    callMe: characterCallMe,
+    canCharacterSelfJudge: Boolean(
+      (profileBelongsToCurrentCharacter ? (rawCharacterProfile as any)?.canCharacterSelfJudge : undefined)
+      ?? characterProfileBase.canCharacterSelfJudge
+      ?? true
     ),
   };
 
@@ -1337,10 +1346,8 @@ export function LineConversationView({
         });
       }
 
-      // 角色好感度微增
-      if (characterProfile.canAutoChangeRelation) {
-        setStatusData((prev) => ({ ...prev, favor: String(Number(prev.favor) + 1) }));
-      }
+      // 这里不再由系统因为“收到回复”自动修改关系/好感度。
+      // 角色自主判断只影响角色自己的关系认知；真正的关系变化应有剧情或角色判断依据。
     } catch (error) {
       const message = error instanceof Error ? error.message : 'AI 请求失败';
       ensureReplyMessage(`发送失败：${message}`);
@@ -1741,8 +1748,8 @@ export function LineConversationView({
     showToast('已暂缓本次邀约');
   };
 
-  // AI 动态推演角色与用户关系、称呼：真正读取当前聊天、记忆与世界书。
-  const handleAiUpdateRelationship = async () => {
+  // 由角色自己判断关系与称呼：依据角色卡、聊天、记忆、世界书，而不是随机模板。
+  const handleAiUpdateCharacterJudgment = async () => {
     if (!importedCharacter) {
       showToast('当前聊天没有绑定角色');
       return;
@@ -1753,11 +1760,12 @@ export function LineConversationView({
       const raw = await generateCreativeText({
         settings,
         systemPrompt: [
-          '你是一个私人虚拟手机中的关系档案分析器。',
-          '只分析当前角色与用户已经发生的互动，不要编造没有发生的事件。',
-          '根据最近聊天、角色设定、长期记忆、世界书和当前关系档案，判断关系状态与角色自然称呼。',
-          'relationship 要短而有画面感；callMe 要像这个角色真实会使用的称呼。',
-          '不要因为一次聊天就极端跳跃，保持关系连续性。',
+          '你正在替当前角色判断自己的关系与称呼。',
+          '判断必须站在角色自己的立场，而不是站在系统或旁观者立场。',
+          '只依据角色卡、当前聊天、长期记忆、世界书与已有关系记录；没有依据就保持未形成，不要编造。',
+          'relationship 是角色对你们关系的真实判断；callMe 是这个角色真实会使用的对用户称呼。',
+          '禁止使用固定昵称模板、随机昵称或为了好听而虚构称呼。',
+          '如果角色没有形成专属称呼，callMe 返回空字符串。',
           '严格输出 JSON：{"relationship":"...","callMe":"..."}',
         ].join('\\n'),
         userPrompt: [
@@ -1775,7 +1783,7 @@ export function LineConversationView({
       const parsed = JSON.parse(raw.trim().replace(/^```json\s*/i, '').replace(/```$/i, ''));
       const relationship = String(parsed.relationship || '').trim();
       const callMe = String(parsed.callMe || '').trim();
-      if (!relationship && !callMe) throw new Error('AI 没有返回有效关系档案');
+      if (!relationship && !callMe) throw new Error('角色目前没有形成新的关系判断或专属称呼');
       setCharacterProfile(prev => ({
         ...prev,
         ...(relationship ? { relationship } : {}),
@@ -4808,7 +4816,7 @@ export function LineConversationView({
                 
                 <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-[#444] font-medium">角色昵称 / 备注</span>
+                    <span className="text-[#444] font-medium">角色名称 / 聊天备注</span>
                     <input
                       value={characterProfile.nickname}
                       onChange={(e) => setCharacterProfile({ ...characterProfile, nickname: e.target.value })}
@@ -4832,11 +4840,11 @@ export function LineConversationView({
                         <span className="text-[9.5px] text-[#aaa] ml-1.5">(自己填写或让角色更新)</span>
                       </div>
                       <button
-                        onClick={handleAiUpdateRelationship}
+                        onClick={handleAiUpdateCharacterJudgment}
                         className="text-[10px] text-[#ae7e89] hover:underline flex items-center gap-1 cursor-pointer font-medium"
                       >
                         <Sparkles className="w-3 h-3" />
-                        <span>角色自主更新关系</span>
+                        <span>让角色判断关系</span>
                       </button>
                     </div>
                     <input
@@ -4849,23 +4857,23 @@ export function LineConversationView({
 
                   <div className="flex items-center justify-between border-t border-[#f2f2f3] pt-2.5">
                     <div>
-                      <div className="font-medium text-[#333]">角色可以自己更改关系</div>
-                      <div className="text-[10px] text-[#aaa]">角色可随聊天好感度或情节自主提出推进或改变关系</div>
+                      <div className="font-medium text-[#333]">角色自主判断关系</div>
+                      <div className="text-[10px] text-[#aaa]">由角色根据自己的性格、聊天、记忆与剧情判断你们的关系，不由系统自动替换</div>
                     </div>
                     <div
                       onClick={() =>
                         setCharacterProfile({
                           ...characterProfile,
-                          canAutoChangeRelation: !characterProfile.canAutoChangeRelation,
+                          canCharacterSelfJudge: !characterProfile.canCharacterSelfJudge,
                         })
                       }
                       className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors ${
-                        characterProfile.canAutoChangeRelation ? 'bg-[#d4a3ad]' : 'bg-[#ddd]'
+                        characterProfile.canCharacterSelfJudge ? 'bg-[#d4a3ad]' : 'bg-[#ddd]'
                       }`}
                     >
                       <div
                         className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${
-                          characterProfile.canAutoChangeRelation ? 'left-4.5' : 'left-0.5'
+                          characterProfile.canCharacterSelfJudge ? 'left-4.5' : 'left-0.5'
                         }`}
                       />
                     </div>
@@ -4903,25 +4911,21 @@ export function LineConversationView({
                   <div className="border-t border-[#f2f2f3] pt-2.5 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-[#444] font-medium">角色对我的昵称 / 专属备注</span>
-                        <span className="text-[9.5px] text-[#aaa] ml-1.5">(对方叫我什么)</span>
+                        <span className="text-[#444] font-medium">角色对我的称呼</span>
+                        <span className="text-[9.5px] text-[#aaa] ml-1.5">(由角色自己形成，不使用模板)</span>
                       </div>
                       <button
-                        onClick={() => {
-                          const nicknames = ['小朋友', '阿念', '小摄影师', '我家小朋友', '小祖宗'];
-                          const picked = nicknames[Math.floor(Math.random() * nicknames.length)];
-                          setCharacterProfile((prev) => ({ ...prev, callMe: picked }));
-                          showToast(`角色已自拟对你的专属称呼：「${picked}」✨`);
-                        }}
+                        onClick={handleAiUpdateCharacterJudgment}
                         className="text-[10px] text-[#ae7e89] hover:underline flex items-center gap-1 cursor-pointer font-medium"
                       >
                         <Sparkles className="w-3 h-3" />
-                        <span>角色自拟称呼</span>
+                        <span>让角色判断称呼</span>
                       </button>
                     </div>
                     <input
                       value={characterProfile.callMe}
                       onChange={(e) => setCharacterProfile({ ...characterProfile, callMe: e.target.value })}
+                      placeholder="尚未形成专属称呼，由角色自己判断"
                       className="w-full p-2 bg-[#fafafa] border border-[#e8e8e9] rounded-md text-xs text-[#333]"
                     />
                   </div>
