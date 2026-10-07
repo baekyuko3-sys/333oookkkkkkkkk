@@ -2496,13 +2496,6 @@ export function LineConversationView({
                 </div>
               )}
 
-              {/* Time for me */}
-              {isMe && (
-                <span className="text-[9px] text-[#b8b8bb] pb-0.5">
-                  {msg.time}
-                </span>
-              )}
-
               {/* Bubble content container */}
               <div className="max-w-[78%] space-y-1.5">
                 
@@ -2949,30 +2942,34 @@ export function LineConversationView({
                   )}
                 </div>
 
-              </div>
-
-              {/* Time & LINE Iconic "已读" status for me */}
-              {isMe && !msg.isRecalled && (
-                (() => {
-                  const msgIndex = messages.findIndex((candidate) => String(candidate.id) === String(msg.id));
-                  const hasRoleReply = msgIndex >= 0 && messages.slice(msgIndex + 1).some((candidate) =>
-                    candidate.sender !== 'me' && candidate.type !== 'system-nudge'
-                  );
-                  const readLabel = !msg.isRead
-                    ? '未读'
-                    : hasRoleReply
-                      ? '已读'
-                      : '已读 · 暂未回复';
-                  return (
-                    <div className="flex flex-col items-end text-[9px] text-[#b8b8bb] pb-0.5 leading-none shrink-0">
-                      <span className={msg.isRead ? "text-[8.5px] text-[#ae7e89] font-medium mb-0.5" : "text-[8.5px] text-[#b8b8bb] font-medium mb-0.5"}>
-                        {readLabel}
-                      </span>
-                      <span>{msg.time}</span>
-                    </div>
-                  );
-                })()
+              {/* Message meta is kept under the bubble so every row stays aligned. */}
+              {!msg.isRecalled && (
+                <div className={`mt-1 flex items-center gap-1 px-1 text-[8.5px] leading-none text-[#b8b8bb] ${isMe ? 'justify-end' : 'justify-start'}`}>
+                  {isMe ? (
+                    (() => {
+                      const msgIndex = messages.findIndex((candidate) => String(candidate.id) === String(msg.id));
+                      const hasRoleReply = msgIndex >= 0 && messages.slice(msgIndex + 1).some((candidate) =>
+                        candidate.sender !== 'me' && candidate.type !== 'system-nudge'
+                      );
+                      const readLabel = !msg.isRead
+                        ? '未读'
+                        : hasRoleReply
+                          ? '已读'
+                          : '已读 · 暂未回复';
+                      return (
+                        <>
+                          <span className={msg.isRead ? "text-[#ae7e89] font-medium" : "text-[#b8b8bb] font-medium"}>{readLabel}</span>
+                          <span>{msg.time}</span>
+                        </>
+                      );
+                    })()
+                  ) : (
+                    <span>{msg.time}</span>
+                  )}
+                </div>
               )}
+
+              </div>
 
               {/* Optional user avatar */}
               {isMe && showMyAvatar && (
@@ -2988,12 +2985,6 @@ export function LineConversationView({
                 </div>
               )}
 
-              {/* Time for other */}
-              {!isMe && !msg.isRecalled && (
-                <span className="text-[9px] text-[#b8b8bb] pb-0.5">
-                  {msg.time}
-                </span>
-              )}
               </div>
             </div>
               </div>
