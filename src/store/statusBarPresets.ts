@@ -5,6 +5,7 @@ export interface StatusBarPreset {
   name: string;
   description: string;
   html: string;
+  inputFormat: string;
   regex: string;
   targets: StatusBarTarget[];
   createdAt: string;
@@ -19,6 +20,7 @@ export const DEFAULT_STATUS_BAR_PRESETS: StatusBarPreset[] = [
     name: '极简日常',
     description: '轻量地点、时间与当前状态。',
     html: '<div class="sane-status"><div class="sane-status__line"><span>📍 {{location}}</span><span>·</span><span>{{time}}</span></div><div class="sane-status__activity">{{activity}}</div><div class="sane-status__mood">{{mood}}</div></div>',
+    inputFormat: '{{status:地点｜时间｜活动｜心情}}',
     regex: '/\\{\\{status:(.*?)\\}\\}/gs',
     targets: ['line', 'offline', 'character-profile'],
     createdAt: '2026-10-04T00:00:00.000Z',
@@ -29,6 +31,7 @@ export const DEFAULT_STATUS_BAR_PRESETS: StatusBarPreset[] = [
     name: '关系记录',
     description: '适合恋爱 / 羁绊剧情的轻量状态卡。',
     html: '<article class="sane-status romance"><div class="sane-status__title">{{location}}</div><div class="sane-status__meta">{{time}} · {{activity}}</div><div class="sane-status__mood">{{mood}}</div><div class="sane-status__favor">♡ {{favor}}</div></article>',
+    inputFormat: '{{status:地点｜时间｜活动｜心情｜好感度}}',
     regex: '/\\{\\{status:(.*?)\\}\\}/gs',
     targets: ['line', 'offline'],
     createdAt: '2026-10-04T00:00:00.000Z',
@@ -82,6 +85,7 @@ export function importStatusBarPresets(raw: string): StatusBarPreset[] {
     name: String(item.name || '未命名状态栏'),
     description: String(item.description || ''),
     html: String(item.html || ''),
+    inputFormat: String(item.inputFormat || '{{status:状态内容}}'),
     regex: String(item.regex || '/\\\\{\\\\{status:(.*?)\\\\}\\\\}/gs'),
     targets: Array.isArray(item.targets) ? item.targets : ['line'],
     createdAt: String(item.createdAt || new Date().toISOString()),
