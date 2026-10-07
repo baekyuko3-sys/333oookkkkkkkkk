@@ -698,10 +698,16 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
   // Parse structured output only after the provider finishes. Raw <summary>/<action>
   // tags must never be streamed directly into the chat bubble.
   const providerInput: AiReplyInput = { ...input, onDelta: undefined };
-  const rawText =
-    input.settings.provider === 'gemini'
+  let rawText = '';
+  try {
+    rawText = input.settings.provider === 'gemini'
       ? await callGemini(providerInput)
       : await callOpenAiCompatible(providerInput);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    pushAiDebugLog({ level:'error', event:'request:error', message, provider:input.settings.provider, model:input.settings.model, durationMs:Date.now()-startedAt });
+    throw error;
+  }
 
   const parsed = parseAiReplyPayload(rawText);
   if (!parsed.text) {
