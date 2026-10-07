@@ -314,7 +314,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [isRefreshingMoments, setIsRefreshingMoments] = useState(false);
 
   // User / Mask State
-  const [importedCharacters, setImportedCharacters] = usePersistentState<ImportedCharacter[]>('phone:characters', []);
+  const [importedCharactersRaw, setImportedCharacters] = usePersistentState<ImportedCharacter[]>('phone:characters', []);
+  const importedCharacters = Array.isArray(importedCharactersRaw) ? importedCharactersRaw : [];
 
   const [currentUser, setCurrentUser] = usePersistentState<LineUserProfile>('line:current-user', {
     name: '',
@@ -324,7 +325,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
     background: '',
   });
   const [profileDraft, setProfileDraft] = useState<LineUserProfile>(currentUser);
-  const [userPersonas, setUserPersonas] = usePersistentState<any[]>('line:user-personas', []);
+  const [userPersonasRaw, setUserPersonas] = usePersistentState<any[]>('line:user-personas', []);
+  const userPersonas = Array.isArray(userPersonasRaw) ? userPersonasRaw : [];
   const [activePersonaId, setActivePersonaId] = usePersistentState<string | null>('line:active-persona', null);
   const [personaEditorOpen, setPersonaEditorOpen] = useState(false);
   const [personaDraft, setPersonaDraft] = useState<any>({ name: '', age: '', profession: '', setting: '', avatar: '', boundCharacterId: '' });
@@ -333,7 +335,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
 
   const [masks, setMasks] = usePersistentState<Array<{ name: string; id: string; desc: string }>>('line:masks', []);
   // Chat Data with Pin, Mute, Draft, and Group capabilities
-  const [chatItems, setChatItems] = usePersistentState<LineChatItem[]>('line:chat-items', []);
+  const [chatItemsRaw, setChatItems] = usePersistentState<LineChatItem[]>('line:chat-items', []);
+  const chatItems = Array.isArray(chatItemsRaw) ? chatItemsRaw : [];
 
   // Background proactive messages can update the chat list without reopening LINE.
   useEffect(() => {
@@ -413,13 +416,16 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   }, [importedCharacters]);
 
   // Global Favorites start empty; favorites are created by the user.
-  const [globalFavorites, setGlobalFavorites] = usePersistentState<any[]>('line:global-favorites', []);
+  const [globalFavoritesRaw, setGlobalFavorites] = usePersistentState<any[]>('line:global-favorites', []);
+  const globalFavorites = Array.isArray(globalFavoritesRaw) ? globalFavoritesRaw : [];
 
   // Friends Data
-  const [friendsList, setFriendsList] = usePersistentState<LineFriend[]>('line:friends-list', []);
+  const [friendsListRaw, setFriendsList] = usePersistentState<LineFriend[]>('line:friends-list', []);
+  const friendsList = Array.isArray(friendsListRaw) ? friendsListRaw : [];
 
   // Moments Posts are created by the user and imported characters; start empty.
-  const [momentsPosts, setMomentsPosts] = usePersistentState<any[]>('line:moments-posts', []);
+  const [momentsPostsRaw, setMomentsPosts] = usePersistentState<any[]>('line:moments-posts', []);
+  const momentsPosts = Array.isArray(momentsPostsRaw) ? momentsPostsRaw : [];
 
   // Filtered & Sorted Chats (Pinned items always float to the top)
   const filteredChats = chatItems.filter((c) =>
