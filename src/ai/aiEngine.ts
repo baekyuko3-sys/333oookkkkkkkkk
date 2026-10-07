@@ -72,11 +72,12 @@ export interface AiReplyResult {
 
 export function parseAiReplyPayload(rawText: string): Pick<AiReplyResult, 'text' | 'thinkingSummary' | 'actionDescription'> {
   const raw = String(rawText || '').replace(/\r\n/g, '\n').trim();
-  const cotMatch = raw.match(/<cot>\s*([\s\S]*?)\s*<\/cot>/i);
+  const cotMatch = raw.match(/<(?:cot|thinking)>\s*([\s\S]*?)\s*<\/(?:cot|thinking)>/i);
   const cotSummary = cotMatch ? cotMatch[1].trim() : '';
   const withoutHiddenThinking = raw
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
-    .replace(/<thought>[\s\S]*?<\/thought>/gi, '');
+    .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
+    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '');
 
   const readTag = (name: string): string => {
     const match = withoutHiddenThinking.match(new RegExp('<' + name + '>\\s*([\\s\\S]*?)\\s*</' + name + '>', 'i'));
@@ -88,7 +89,7 @@ export function parseAiReplyPayload(rawText: string): Pick<AiReplyResult, 'text'
   const messageMatch = withoutHiddenThinking.match(/<message>\s*([\s\S]*?)\s*<\/message>/i);
 
   const text = (messageMatch?.[1] || withoutHiddenThinking
-    .replace(/<cot>[\s\S]*?<\/cot>/gi, '')
+    .replace(/<(?:cot|thinking)>[\s\S]*?<\/(?:cot|thinking)>/gi, '')
     .replace(/<summary>[\s\S]*?<\/summary>/gi, '')
     .replace(/<action>[\s\S]*?<\/action>/gi, ''))
     .trim();
@@ -327,7 +328,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '不要描述用户尚未明确做出的动作。',
     '不要把聊天回复写成旁白长文；保持手机消息的阅读节奏。',
     '不要用“角色动作 + 长段心理描写 + 一大段台词”代替聊天消息；动作描写如果开启必须单独放进 <action>...</action>，正文仍然是正常聊天消息。',
-    input.authorNote?.includes('【动作描写：开启】') ? '【动作描写】开启。角色可以在有表现力、有必要时给出简短动作描写，并严格输出为 <action>动作</action>，动作与消息正文分离。不要把动作写进消息气泡正文。' : '【动作描写】关闭。不要输出 <action> 标签，也不要额外写动作旁白。',
+    input.authorNote?.includes('【线上动作描写：开启】') ? '【动作描写】开启。角色可以在有表现力、有必要时给出简短动作描写，并严格输出为 <action>动作</action>，动作与消息正文分离。不要把动作写进消息气泡正文。' : '【动作描写】关闭。不要输出 <action> 标签，也不要额外写动作旁白。',
     input.authorNote?.includes('【思考摘要：开启】') ? '【思考摘要】开启。只允许提供一句或两句高层次摘要，例如“判断她在开玩笑，所以语气放松一些”，不要输出逐步推理或隐藏思维链。摘要应使用 <summary>...</summary>，最终消息正文放在标签之外。' : '【思考摘要】关闭。不要输出 <summary> 标签。',
     '',
     '【LINE 聊天设定 · 最高优先级格式约束】',
