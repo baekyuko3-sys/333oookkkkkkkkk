@@ -90,6 +90,49 @@ export function importStatusBarPresets(raw: string): StatusBarPreset[] {
   return normalized;
 }
 
+
+
+function parseRegex(source: string): RegExp | null {
+  const raw = String(source || '').trim();
+  if (!raw) return null;
+  try {
+    if (raw.startsWith('/') && raw.lastIndexOf('/') > 0) {
+      const end = raw.lastIndexOf('/');
+      return new RegExp(raw.slice(1, end), raw.slice(end + 1));
+    }
+    return new RegExp(raw, 'gs');
+  } catch {
+    return null;
+  }
+}
+
+export function extractStatusMatch(text: string, regexSource: string): { match: string; captures: string[]; groups: Record<string,string> } | null {
+  const regex = parseRegex(regexSource);
+  if (!regex) return null;
+  regex.lastIndex = 0;
+  const match = regex.exec(String(text || ''));
+  if (!match) return null;
+  return {
+    match: match[0] || '',
+    captures: match.slice(1).map(value => String(value ?? '')),
+    groups: Object.fromEntries(Object.entries(match.groups || {}).map(([key, value]) => [key, String(value ?? '')])),
+  };
+}
+
+export function renderStatusBarHtml(
+  preset: StatusBarPreset | null,
+  sourceText: string,
+  fallbackValues: Record<string,string> = {},
+): string {
+  if (!preset) return '';
+  const extracted = extractStatusMatch(sourceText, preset.regex);
+  const values: Record<string,string> = { ...fallbackValues };
+  extracted?.captures.forEach((value, index) => { values[String(index + 1)] = value; });
+  Object.assign(values, extracted?.groups || {});
+  values.match = extracted?.match || '';
+  return String(preset.html || '').replace(/\{\{([\w-]+)\}\}/g, (_, key: string) => values[key] ?? '');
+}
+
 export type StatusBarAssignments = Partial<Record<StatusBarTarget, string>>;
 const ASSIGN_KEY = 'line:status-bar-assignments';
 export function getStatusBarAssignments(): StatusBarAssignments { if (typeof window === 'undefined') return {}; try { return JSON.parse(window.localStorage.getItem(ASSIGN_KEY) || '{}'); } catch { return {}; } }
