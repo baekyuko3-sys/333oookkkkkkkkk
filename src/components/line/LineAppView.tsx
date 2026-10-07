@@ -336,7 +336,17 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [masks, setMasks] = usePersistentState<Array<{ name: string; id: string; desc: string }>>('line:masks', []);
   // Chat Data with Pin, Mute, Draft, and Group capabilities
   const [chatItemsRaw, setChatItems] = usePersistentState<LineChatItem[]>('line:chat-items', []);
-  const chatItems = Array.isArray(chatItemsRaw) ? chatItemsRaw : [];
+  const chatItems = Array.isArray(chatItemsRaw)
+    ? chatItemsRaw.filter((c): c is LineChatItem => !!c && typeof c === 'object' && typeof c.id === 'string')
+      .map(c => ({
+        ...c,
+        name: typeof c.name === 'string' ? c.name : '未命名聊天',
+        preview: typeof c.preview === 'string' ? c.preview : '',
+        draft: typeof c.draft === 'string' ? c.draft : '',
+        time: typeof c.time === 'string' ? c.time : '',
+        unread: Number.isFinite(c.unread) ? c.unread : 0,
+      }))
+    : [];
 
   // Background proactive messages can update the chat list without reopening LINE.
   useEffect(() => {
@@ -395,6 +405,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
     // online=false. Real Add Friend rows use online=true.
     if (importedCharacters.length) {
       setFriendsList(prev => {
+        if (!Array.isArray(prev)) return [];
         const importedIds = new Set(importedCharacters.map(character => character.id));
         return prev.filter(friend =>
           !friend.characterId ||
@@ -408,6 +419,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
     // Explicitly created chats use their own generated id and are left untouched.
     if (importedCharacters.length) {
       setChatItems(prev => {
+        if (!Array.isArray(prev)) return [];
         const importedIds = new Set(importedCharacters.map(character => character.id));
         const next = prev.filter(item => !(item.characterId && importedIds.has(item.characterId) && item.id === item.characterId));
         return next.length === prev.length ? prev : next;
@@ -421,17 +433,24 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
 
   // Friends Data
   const [friendsListRaw, setFriendsList] = usePersistentState<LineFriend[]>('line:friends-list', []);
-  const friendsList = Array.isArray(friendsListRaw) ? friendsListRaw : [];
+  const friendsList = Array.isArray(friendsListRaw)
+    ? friendsListRaw.filter((f): f is LineFriend => !!f && typeof f === 'object' && typeof f.name === 'string')
+      .map(f => ({ ...f, note: typeof f.note === 'string' ? f.note : '', pinyin: typeof f.pinyin === 'string' ? f.pinyin : '' }))
+    : [];
 
   // Moments Posts are created by the user and imported characters; start empty.
   const [momentsPostsRaw, setMomentsPosts] = usePersistentState<any[]>('line:moments-posts', []);
-  const momentsPosts = Array.isArray(momentsPostsRaw) ? momentsPostsRaw : [];
+  const momentsPosts = Array.isArray(momentsPostsRaw)
+    ? momentsPostsRaw.filter((p): p is Record<string, any> => !!p && typeof p === 'object')
+    : [];
 
   // Filtered & Sorted Chats (Pinned items always float to the top)
+  const chatQuery = chatSearch.trim().toLowerCase();
   const filteredChats = chatItems.filter((c) =>
-    c.name.toLowerCase().includes(chatSearch.toLowerCase()) ||
-    c.preview.toLowerCase().includes(chatSearch.toLowerCase()) ||
-    c.draft.toLowerCase().includes(chatSearch.toLowerCase())
+    !chatQuery ||
+    c.name.toLowerCase().includes(chatQuery) ||
+    c.preview.toLowerCase().includes(chatQuery) ||
+    c.draft.toLowerCase().includes(chatQuery)
   );
 
   const sortedChats = [...filteredChats].sort((a, b) => {
