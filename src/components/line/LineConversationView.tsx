@@ -436,7 +436,7 @@ export function LineConversationView({
 
   // 思维链只显示安全的高层摘要，不显示隐藏推理
   const [enableChainOfThought, setEnableChainOfThought] = usePersistentState<boolean>(`line:show-thinking-summary:${conversationStorageId}`, true);
-  const [showActionDescriptions, setShowActionDescriptions] = usePersistentState<boolean>(`line:show-action-descriptions:${conversationStorageId}`, false);
+  const [lineActionDescriptionsEnabled, setLineActionDescriptionsEnabled] = usePersistentState<boolean>(`line:show-action-descriptions:${conversationStorageId}`, false);
   const [preventUserFabrication, setPreventUserFabrication] = usePersistentState<boolean>(`line:prevent-user-fabrication:${conversationStorageId}`, true);
 
   // 酒馆作者注释 (Author's Note / A/N)
@@ -4678,8 +4678,8 @@ export function LineConversationView({
               <div className="border-t border-[#f2f2f3] mt-2 pt-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <div><div className="text-[10px] font-medium text-[#444]">角色动作描写</div><div className="text-[8.5px] text-[#aaa] mt-0.5">与消息正文分开显示，例如“指尖停了一下”</div></div>
-                  <button type="button" onClick={() => setShowActionDescriptions(!showActionDescriptions)} className={"w-9 h-5 rounded-full relative " + (showActionDescriptions ? 'bg-[#d4aab5]' : 'bg-[#ddd]')}>
-                    <span className={"w-4 h-4 rounded-full bg-white absolute top-0.5 " + (showActionDescriptions ? 'translate-x-4' : 'translate-x-0.5')} />
+                  <button type="button" onClick={() => setLineActionDescriptionsEnabled(!lineActionDescriptionsEnabled)} className={"w-9 h-5 rounded-full relative " + (lineActionDescriptionsEnabled ? 'bg-[#d4aab5]' : 'bg-[#ddd]')}>
+                    <span className={"w-4 h-4 rounded-full bg-white absolute top-0.5 " + (lineActionDescriptionsEnabled ? 'translate-x-4' : 'translate-x-0.5')} />
                   </button>
                 </div>
                 <div className="flex items-center justify-between">
