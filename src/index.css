@@ -68,3 +68,17 @@
 }
 
 
+
+:root[data-theme="ocean-breeze"], .ocean-breeze-theme {
+  --ink: #25313a;
+  --muted: #71808b;
+  --screen: #eaf1f6;
+  --glass: rgba(240, 246, 249, 0.78);
+  --icon: rgba(232, 241, 246, 0.86);
+  --edge: rgba(255,255,255,.82);
+  --page: #d9e4ea;
+  --frame: #24313a;
+  --paper: #eaf1f6;
+  --sub: #62727d;
+  --accent: #6f8fa3;
+}
