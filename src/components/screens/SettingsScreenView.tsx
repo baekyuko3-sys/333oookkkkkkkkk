@@ -562,11 +562,6 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
                       <label className="text-[8px] text-[#8b8782]">关系<input value={settings.memoryRelationshipModel} onChange={e => update('memoryRelationshipModel', e.target.value)} placeholder="同记忆模型" className="w-full mt-1 bg-white/75 rounded-lg p-2 text-[9px] font-mono outline-none" /></label>
                     </div>
                   </div>
-                  <label className="block mt-2.5 text-[8px] text-[#8b8782]">整理频率
-                  <select value={settings.autoMemoryEveryMessages} onChange={e => update('autoMemoryEveryMessages', Number(e.target.value))} className="w-full mt-1 bg-white/75 rounded-xl p-2.5 text-[10px] outline-none">
-                    {[10, 20, 30, 40, 60].map(value => <option key={value} value={value}>每 {value} 条聊天消息</option>)}
-                  </select>
-                </label>
 
                 </>
               )}
