@@ -230,6 +230,7 @@ export function LineConversationView({
   const [typingLineBreak, setTypingLineBreak] = usePersistentState<string>(`line:typing-linebreak:${conversationStorageId}`, 'natural');
   const [typingLength, setTypingLength] = usePersistentState<string>(`line:typing-length:${conversationStorageId}`, 'medium');
   const [typingFillers, setTypingFillers] = usePersistentState<string>(`line:typing-fillers:${conversationStorageId}`, 'natural');
+  const [typingSentenceBreak, setTypingSentenceBreak] = usePersistentState<string>(`line:typing-sentence-break:${conversationStorageId}`, 'natural');
   const [chatApiOverride, setChatApiOverride] = usePersistentState<ChannelAiSettings>(`line:chat-api-override:${conversationStorageId}`, {
     ...readAppSettings().chatApiOverride,
     enabled: false,
@@ -395,7 +396,7 @@ export function LineConversationView({
   const [editingMessageText, setEditingMessageText] = useState('');
 
   // 思维链 (Chain of Thought) 全局开关
-  const [enableChainOfThought, setEnableChainOfThought] = useState(true);
+  const [enableChainOfThought, setEnableChainOfThought] = usePersistentState<boolean>(`line:show-thinking-summary:${conversationStorageId}`, true);
 
   // 酒馆作者注释 (Author's Note / A/N)
   const [authorsNote, setAuthorsNote] = usePersistentState(`line:authors-note:${conversationStorageId}`, '');
@@ -999,6 +1000,7 @@ export function LineConversationView({
             '换行：' + typingLineBreak,
             '句子长度：' + typingLength,
             '语气词：' + typingFillers,
+            '断句：' + typingSentenceBreak,
           ].join('；'),
           temperature: Number(presetTemp) || 0.85,
           onDelta: delta => {
@@ -2362,8 +2364,13 @@ export function LineConversationView({
       {/* 2. MESSAGES STREAM */}
       <div
         ref={messagesViewportRef}
-        onScroll={() => {}}
-        className="flex-1 overflow-y-auto px-3.5 py-4 space-y-4 no-scrollbar relative"
+        onScroll={(event) => {
+          const viewport = event.currentTarget;
+          if (viewport.scrollTop <= 24 && loadedMessageCount < messages.length) {
+            loadOlderMessages();
+          }
+        }}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y px-3.5 py-4 space-y-4 no-scrollbar relative"
       >
         {showUnreadJump && unreadAnchorId !== null && (
           <button
@@ -2540,7 +2547,7 @@ export function LineConversationView({
                         className="flex items-center gap-1.5 cursor-pointer hover:opacity-80"
                       >
                         <Brain className="w-3.5 h-3.5 text-[#d4aab5]" />
-                        <span>思维链预设 · {resolvedCotPreset.title.replace('预设', '')}</span>
+                        <span>思考摘要 · {resolvedCotPreset.title.replace('预设', '')}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <button
@@ -2563,7 +2570,7 @@ export function LineConversationView({
                           }
                           className="text-[10px] text-[#b88c97] cursor-pointer"
                         >
-                          {msg.showThinking ? '收起 ▴' : '展开内心OS ▾'}
+                          {msg.showThinking ? '收起 ▴' : '展开思考摘要 ▾'}
                         </span>
                       </div>
                     </div>
@@ -4167,7 +4174,22 @@ export function LineConversationView({
                     {[['none','基本不用'],['natural','自然使用'],['often','喜欢用“嗯、啊、诶、嘛”等']].map(([id,title]) => <button key={id} type="button" onClick={() => setTypingFillers(id)} className={"px-2.5 py-1.5 rounded-full border text-[8.5px] " + (typingFillers === id ? 'bg-[#f7eef0] border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#fafafa] border-[#eee] text-[#777]')}>{title}</button>)}
                   </div>
                 </div>
-                <div className="text-[8.5px] leading-relaxed text-[#aaa]">这些只控制“怎么打字”，不会改变角色性格、世界书和剧情。</div>
+                <div>
+                  <div className="text-[9.5px] font-medium text-[#666] mb-1.5">断句习惯</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      ['natural','自然断句'],
+                      ['space','用空格连接'],
+                      ['line','分行断句'],
+                      ['short-pause','短句多断'],
+                      ['long-pause','长句少断'],
+                    ].map(([id,title]) => (
+                      <button key={id} type="button" onClick={() => setTypingSentenceBreak(id)} className={"px-2.5 py-1.5 rounded-full border text-[8.5px] " + (typingSentenceBreak === id ? 'bg-[#f7eef0] border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#fafafa] border-[#eee] text-[#777]')}>{title}</button>
+                    ))}
+                  </div>
+                  <div className="text-[8px] text-[#aaa] mt-1">控制一句话内部怎么断开，例如“嗯 我知道了”或“嗯，\n我知道了”。</div>
+                </div>
+                                <div className="text-[8.5px] leading-relaxed text-[#aaa]">这些只控制“怎么打字”，不会改变角色性格、世界书和剧情。</div>
               </div>
             </details>
             <details className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
@@ -4344,20 +4366,20 @@ export function LineConversationView({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 font-medium text-[#333]">
                   <Brain className="w-4 h-4 text-[#ae7e89]" />
-                  <span>角色思维链预设 (CoT Presets)</span>
+                  <span>思考摘要显示</span>
                 </div>
-                <div
+                <button
+                  type="button"
                   onClick={() => setEnableChainOfThought(!enableChainOfThought)}
                   className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors ${
                     enableChainOfThought ? 'bg-[#d4aab5]' : 'bg-[#ddd]'
                   }`}
+                  aria-label={enableChainOfThought ? '隐藏思考摘要' : '显示思考摘要'}
                 >
-                  <div
-                    className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${
-                      enableChainOfThought ? 'left-4.5' : 'left-0.5'
-                    }`}
-                  />
-                </div>
+                  <span className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${
+                    enableChainOfThought ? 'translate-x-4' : 'translate-x-0.5'
+                  }`} />
+                </button>
               </div>
 
               {/* 点击进入思维链预设管理器 */}
@@ -4373,7 +4395,7 @@ export function LineConversationView({
                     当前预设：{activeCotPreset.title}
                   </div>
                   <div className="text-[10px] text-[#888] mt-0.5 leading-snug">
-                    {resolvedCotPreset.description}
+                    {enableChainOfThought ? '回复上方显示可展开的思考摘要（默认折叠）' : '聊天中隐藏思考摘要'}
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-[#aaa] shrink-0 ml-2" />
@@ -4712,19 +4734,39 @@ export function LineConversationView({
                 <details open={showOpeningSettings} onToggle={(e) => setShowOpeningSettings((e.currentTarget as HTMLDetailsElement).open)} className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
                   <summary className="list-none cursor-pointer p-3 flex items-center justify-between"><div className="text-[10px] text-[#555] font-medium">角色开场白</div><span className="text-[9px] text-[#aaa]">{showOpeningSettings ? '收起' : '展开'}</span></summary>
                   <div className="px-3 pb-3">
-                  <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3">
-                    <select
-                      value={currentOpening}
-                      onChange={(e) => setSelectedOpeningContext(e.target.value)}
-                      className="w-full p-2 bg-[#f8f8fa] border border-[#e8e8e9] rounded-[10px] text-xs text-[#333]"
+                  <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3 space-y-2">
+                    <div className="text-[9px] text-[#aaa] leading-relaxed">每条开场白都会完整保留。点击即可展开；选中的内容会作为前情提要提供给 AI。</div>
+                    <div className="space-y-2">
+                      {greetings.map((greeting, index) => {
+                        const selected = currentOpening === greeting;
+                        return (
+                          <details key={index} className={`rounded-xl border overflow-hidden ${selected ? 'border-[#d4aab5] bg-[#fdf8fa]' : 'border-[#e7e7e8] bg-white'}`}>
+                            <summary className="list-none cursor-pointer px-3 py-2.5 flex items-center justify-between">
+                              <span className="text-[10px] font-medium text-[#444]">开场白 {index + 1}</span>
+                              <span className="text-[8.5px] text-[#aaa]">展开 / 收起</span>
+                            </summary>
+                            <div className="px-3 pb-3">
+                              <div className="text-[9.5px] leading-[1.75] whitespace-pre-wrap break-words text-[#555] max-h-[260px] overflow-y-auto">{greeting}</div>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedOpeningContext(selected ? '' : greeting)}
+                                className={`mt-2 w-full py-2 rounded-lg text-[9px] ${selected ? 'bg-[#f0dfe4] text-[#8c5f6b]' : 'bg-[#292724] text-white'}`}
+                              >
+                                {selected ? '✓ 已作为前情提要' : '设为前情提要'}
+                              </button>
+                            </div>
+                          </details>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedOpeningContext('')}
+                      className={`w-full py-2 rounded-lg border text-[9px] ${!currentOpening ? 'border-[#d4aab5] bg-[#faf1f3] text-[#8c5f6b]' : 'border-[#e5e5e6] text-[#777]'}`}
                     >
-                      <option value="">当前聊天已选择的开场白</option>
-                      {greetings.map((greeting,index) => <option key={index} value={greeting}>开场白 {index + 1}</option>)}
-                    </select>
-                    <div className="mt-2 text-[9px] text-[#aaa] leading-relaxed">开场白作为前情介绍提供给 AI，不会自动伪装成你已经发送过的消息。</div>
+                      不使用开场白作为前情提要
+                    </button>
                   </div>
-                  </div>
-                </details>
               ) : null;
             })()}
 
