@@ -4004,6 +4004,8 @@ export function LineConversationView({
                   </button>
                 ))}
               </div>
+            </details>
+            
             <details className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
               <summary className="list-none cursor-pointer p-3.5 flex items-center justify-between">
                 <div><div className="font-medium text-[#333]">主动行为日程</div><div className="text-[10px] text-[#999]">在这里安排主动消息、VROOM 和线下邀约</div></div>
