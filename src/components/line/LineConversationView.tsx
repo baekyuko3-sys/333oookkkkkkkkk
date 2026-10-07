@@ -589,8 +589,27 @@ export function LineConversationView({
     ? storedCotPresets.filter((preset): preset is CotPreset => !!preset && typeof preset === 'object')
     : [];
   const [activeCotPresetId, setActiveCotPresetId] = usePersistentState(`line:cot-active:${conversationStorageId}`, 'cot-1');
-  const activeCotPreset = cotPresets.find((p) => p && p.id === activeCotPresetId) || cotPresets[0] || { id: 'cot-fallback', title: '默认预设', description: '', template: '' };
-  const [customCotTemplate, setCustomCotTemplate] = usePersistentState(`line:cot-custom:${conversationStorageId}`, activeCotPreset.template);
+  // Avoid Array.find here: this value is created during the first render and must not
+  // close over a minified/hoisted binding while the conversation screen initializes.
+  let activeCotPreset: CotPreset | undefined;
+  for (const preset of cotPresets) {
+    if (preset && preset.id === activeCotPresetId) {
+      activeCotPreset = preset;
+      break;
+    }
+  }
+  const resolvedCotPreset = activeCotPreset || cotPresets[0] || {
+    id: 'cot-fallback',
+    title: '默认预设',
+    description: '',
+    template: '',
+    tag: '<think>...</think>',
+    exampleThinking: '',
+    targets: ['line'] as CotPresetTarget[],
+    createdAt: '',
+    updatedAt: '',
+  };
+  const [customCotTemplate, setCustomCotTemplate] = usePersistentState(`line:cot-custom:${conversationStorageId}`, resolvedCotPreset.template);
 
   // 酒馆预设 (Presets)
   const [selectedPreset, setSelectedPreset] = usePersistentState(`line:preset:${conversationStorageId}`, 'immersive' as 'immersive' | 'casual' | 'slowburn' | 'sweet');
