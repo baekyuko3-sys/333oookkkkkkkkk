@@ -136,6 +136,7 @@ async function callModel(options: AgentOptions, messages: any[], temperature = 0
     },
     systemPrompt: systemPrompt + '\n\nReturn JSON only. No Markdown fences.',
     history,
+    userPrompt: request,
     temperature,
   });
   return { raw, parsed: extractJson(raw) };
