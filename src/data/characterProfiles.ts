@@ -18,10 +18,11 @@ function getImportedProfile(name: string, characterId?: string): CharacterProfil
       nickname: character.name || name || '角色',
       birthday: '未设置',
       relationship: '刚导入 · 等待建立关系',
+      canCharacterSelfJudge: true,
       canAutoChangeRelation: true,
       canBlockUser: true,
       isBlockedByCharacter: false,
-      callMe: character.name || name || '角色',
+      callMe: '',
       selectedLorebook: '',
       bio: character.description || '已从角色卡导入。',
     };
@@ -35,10 +36,11 @@ export function getCharacterProfile(name: string, characterId?: string): Charact
     nickname: name || '角色',
     birthday: '未设置',
     relationship: '刚认识',
+    canCharacterSelfJudge: true,
     canAutoChangeRelation: true,
     canBlockUser: true,
     isBlockedByCharacter: false,
-    callMe: name || '你',
+    callMe: '',
     selectedLorebook: '',
   };
 }
