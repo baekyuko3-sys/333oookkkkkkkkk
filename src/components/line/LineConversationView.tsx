@@ -199,7 +199,9 @@ export function LineConversationView({
       text: message.text || message.content,
       kind: message.type,
       createdAt: message.createdAt || message.timestamp,
-      status: message.status || (message.sender === 'me' ? 'sent' : 'delivered'),
+      status: message.sender === 'other'
+        ? 'read'
+        : (message.status || 'sent'),
       replyToId: message.replyToId,
       reactions: Array.isArray(message.reactions)
         ? Object.fromEntries(message.reactions.map((emoji: string) => [emoji, 1]))
