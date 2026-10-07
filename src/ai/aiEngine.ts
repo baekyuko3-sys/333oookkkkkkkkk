@@ -8,6 +8,7 @@ import { getCharacterAiProfile, mergeCharacterAiSettings } from '../store/charac
 import { resolveCharacterContext, selectWorldBookEntries } from './contextEngine';
 import { getCotForTarget, type CotPreset } from '../store/cotPresets';
 import { buildLineHumanBehaviorPrompt } from '../store/lineReality';
+import { pushAiDebugLog } from '../store/aiDebug';
 
 export type AiSettings = Pick<AppSettings, 'provider' | 'apiBaseUrl' | 'apiKey' | 'model' | 'streaming' | 'contextLength' | 'maxOutputTokens' | 'autoSave' | 'temperature' | 'topP' | 'topK' | 'frequencyPenalty' | 'presencePenalty' | 'seed'>;
 
@@ -136,6 +137,11 @@ export function resolveChannelAiSettings(channel: 'chat' | 'moments'): AiSetting
     contextLength: override.contextLength,
     maxOutputTokens: override.maxOutputTokens,
     temperature: override.temperature,
+    topP: override.topP,
+    topK: override.topK,
+    frequencyPenalty: override.frequencyPenalty,
+    presencePenalty: override.presencePenalty,
+    seed: override.seed,
   };
 }
 
@@ -676,6 +682,8 @@ async function callOpenAiCompatible(input: AiReplyInput): Promise<string> {
 
 export async function generateCharacterReply(input: AiReplyInput): Promise<AiReplyResult> {
   requireApiKey(input.settings);
+  const startedAt = Date.now();
+  pushAiDebugLog({ level:'info', event:'request:start', message:'开始角色回复请求', provider:input.settings.provider, model:input.settings.model, meta:{ contextLength:input.settings.contextLength, temperature:input.temperature ?? input.settings.temperature, topP:input.topP ?? input.settings.topP, topK:input.topK ?? input.settings.topK, maxOutputTokens:input.settings.maxOutputTokens, worldbooks:(input.worldbooks||[]).length, messages:input.messages.length, cot:Boolean(input.cotPreset), action:input.authorNote?.includes('【线上动作描写：开启】') } });
 
   const worldbooks = input.worldbooks || [];
   const scanDepth = Math.max(1, Math.min(50, Math.max(12, ...worldbooks.flatMap(book => book.entries.map(entry => Number(entry.scanDepth || 0))))));
@@ -696,10 +704,14 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
       : await callOpenAiCompatible(providerInput);
 
   const parsed = parseAiReplyPayload(rawText);
-  if (!parsed.text) throw new Error('AI_EMPTY_RESPONSE');
+  if (!parsed.text) {
+    pushAiDebugLog({ level:'error', event:'response:empty', message:'模型返回为空', provider:input.settings.provider, model:input.settings.model, durationMs:Date.now()-startedAt });
+    throw new Error('AI_EMPTY_RESPONSE');
+  }
 
   input.onDelta?.(parsed.text);
 
+  pushAiDebugLog({ level:'success', event:'request:success', message:'角色回复成功', provider:input.settings.provider, model:input.settings.model, durationMs:Date.now()-startedAt, meta:{ textLength:parsed.text.length, hasCot:Boolean(parsed.thinkingSummary), hasAction:Boolean(parsed.actionDescription), matchedWorldbookEntries } });
   return {
     text: parsed.text,
     thinkingSummary: parsed.thinkingSummary,
