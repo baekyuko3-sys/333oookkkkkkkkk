@@ -73,7 +73,7 @@ export function PresetResourceManager({
       const next=[item,...statusPresets]; setStatusPresets(next); saveStatusBarPresets(next); setSelectedId(item.id);
     } else {
       const item: CotPreset = {
-        id:'cot-'+Date.now().toString(36), title:'新的生成摘要预设', tag:'<think>...</think>',
+        id:'cot-'+Date.now().toString(36), title:'COT', displayTitle:'COT', displayStyle:'minimal', tag:'<think>...</think>',
         description:'', template:'', exampleThinking:'', targets:['line'], createdAt:now, updatedAt:now,
       };
       const next=[item,...cotPresets]; setCotPresets(next); saveCotPresets(next); setSelectedId(item.id);
@@ -210,7 +210,20 @@ export function PresetResourceManager({
                   </div>
                 </div>
               </> : <>
-                <input value={(selected as CotPreset).title} onChange={e=>updateSelected({title:e.target.value})} className="w-full p-2 rounded-lg bg-white border border-[#eee] text-[10px]"/>
+                <label className="block text-[8px] text-[#999]">预设名称
+                  <input value={(selected as CotPreset).title} onChange={e=>updateSelected({title:e.target.value})} className="w-full mt-1 p-2 rounded-lg bg-white border border-[#eee] text-[10px]"/>
+                </label>
+                <label className="block text-[8px] text-[#999]">聊天里显示的 COT 名称
+                  <input value={(selected as CotPreset).displayTitle || (selected as CotPreset).title || 'COT'} onChange={e=>updateSelected({displayTitle:e.target.value})} placeholder="例如：COT / 角色判断 / 内心记录" className="w-full mt-1 p-2 rounded-lg bg-white border border-[#eee] text-[10px]"/>
+                </label>
+                <label className="block text-[8px] text-[#999]">COT 显示样式
+                  <select value={(selected as CotPreset).displayStyle || 'minimal'} onChange={e=>updateSelected({displayStyle:e.target.value})} className="w-full mt-1 p-2 rounded-lg bg-white border border-[#eee] text-[10px]">
+                    <option value="minimal">iMessage · 极简</option>
+                    <option value="soft">Soft · 柔和卡片</option>
+                    <option value="mono">Mono · 编辑器</option>
+                    <option value="outline">Outline · 细线框</option>
+                  </select>
+                </label>
                 <input value={(selected as CotPreset).tag} onChange={e=>updateSelected({tag:e.target.value})} className="w-full p-2 rounded-lg bg-white border border-[#eee] text-[10px] font-mono"/>
                 <input value={(selected as CotPreset).description} onChange={e=>updateSelected({description:e.target.value})} placeholder="描述" className="w-full p-2 rounded-lg bg-white border border-[#eee] text-[10px]"/>
                 <textarea value={(selected as CotPreset).template} onChange={e=>updateSelected({template:e.target.value})} className="w-full h-32 p-2 rounded-lg bg-white border border-[#eee] text-[10px] font-mono"/>
