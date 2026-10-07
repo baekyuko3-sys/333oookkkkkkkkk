@@ -603,6 +603,10 @@ export function LineConversationView({
     `line:character-profile:${conversationStorageId}`,
     getCharacterProfile(contactName, characterId),
   );
+  const [characterChatNote, setCharacterChatNote] = usePersistentState<string>(
+    `line:character-chat-note:${conversationStorageId}`,
+    '',
+  );
   // Recover gracefully from an old/null profile record.
   const rawCharacterProfile =
     storedCharacterProfile && typeof storedCharacterProfile === 'object'
@@ -4818,8 +4822,9 @@ export function LineConversationView({
                   <div className="flex items-center justify-between">
                     <span className="text-[#444] font-medium">角色名称 / 聊天备注</span>
                     <input
-                      value={characterProfile.nickname}
-                      onChange={(e) => setCharacterProfile({ ...characterProfile, nickname: e.target.value })}
+                      value={characterChatNote}
+                      onChange={(e) => setCharacterChatNote(e.target.value)}
+                      placeholder={characterIdentity}
                       className="p-1 px-2 text-right bg-[#fafafa] border border-[#e8e8e9] rounded-md text-xs w-36 text-[#333]"
                     />
                   </div>
