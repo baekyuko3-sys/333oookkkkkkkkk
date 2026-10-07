@@ -5545,6 +5545,7 @@ export function LineConversationView({
                     >
                       {statusBarRandomMode ? '随机选择' : '固定选择'}
                     </button>
+                    </div>
                   </div>
 
                   <div className="rounded-[12px] bg-[#fafafa] border border-[#eee] p-3">
