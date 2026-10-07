@@ -125,6 +125,7 @@ export interface WorldBook {
   sourceCharacterId?: string;
   sourceCharacterName?: string;
   sourceType?: 'character-card' | 'manual' | 'imported';
+  globalScopes?: Array<'online-chat' | 'offline-story'>;
 }
 
 export interface OfflineEvent {

@@ -55,7 +55,18 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
   const [activeNowOpen, setActiveNowOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [entryDetailOpen, setEntryDetailOpen] = useState(false);
-  const [globalWorldBookEnabled, setGlobalWorldBookEnabled] = usePersistentState<boolean>('phone:worldbook:global-enabled', true);
+  const [onlineGlobalIds, setOnlineGlobalIds] = usePersistentState<string[]>('phone:worldbook:global-online-ids', []);
+  const [offlineGlobalIds, setOfflineGlobalIds] = usePersistentState<string[]>('phone:worldbook:global-offline-ids', []);
+  const isOnlineGlobal = !!book && onlineGlobalIds.includes(book.id);
+  const isOfflineGlobal = !!book && offlineGlobalIds.includes(book.id);
+  const toggleGlobalScope = (scope: 'online-chat' | 'offline-story') => {
+    if (!book) return;
+    const setter = scope === 'online-chat' ? setOnlineGlobalIds : setOfflineGlobalIds;
+    setter(prev => prev.includes(book.id) ? prev.filter(id => id !== book.id) : [...prev, book.id]);
+    setBooks(prev => prev.map(item => item.id === book.id
+      ? { ...item, globalScopes: Array.from(new Set([...(item.globalScopes || []).filter(v => v !== scope), ...(scope === 'online-chat' ? (!onlineGlobalIds.includes(item.id) ? [scope] : []) : (!offlineGlobalIds.includes(item.id) ? [scope] : []))])) as WorldBook['globalScopes'], updatedAt: new Date().toISOString() }
+      : item));
+  };
 
   const book = books.find(item => item.id === selectedBookId) || books[0] || null;
   const selectedEntry = book?.entries.find(item => item.id === selectedEntryId) || book?.entries[0] || null;
@@ -86,6 +97,10 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
   }, [book, search, categoryFilter]);
 
   const enabledCount = book?.entries.filter(entry => entry.enabled).length || 0;
+  const globalIds = new Set([...onlineGlobalIds, ...offlineGlobalIds]);
+  const localBooks = books.filter(item => !globalIds.has(item.id));
+  const onlineGlobals = books.filter(item => onlineGlobalIds.includes(item.id));
+  const offlineGlobals = books.filter(item => offlineGlobalIds.includes(item.id));
 
   const matchingEntries = useMemo(() => {
     if (!book) return [];
@@ -183,7 +198,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
   };
 
   return (
-    <div className="relative w-full h-full flex flex-col overflow-hidden" style={{ background: 'var(--paper)', color: 'var(--ink)' }}>
+    <div className="relative w-full h-full min-w-0 flex flex-col overflow-hidden" style={{ background: 'var(--paper)', color: 'var(--ink)' }}>
       <div className="absolute inset-0 opacity-15 bg-paper-noise pointer-events-none" />
 
       <header className="relative z-10 px-5 pt-12 pb-3.5 border-b border-[rgba(40,36,31,.12)] bg-[color-mix(in_srgb,var(--paper)_92%,white_8%)] backdrop-blur-xl flex items-center justify-between">
@@ -204,7 +219,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
         </button>
       </header>
 
-      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto no-scrollbar">
+      <div className="relative z-10 flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden no-scrollbar">
         <div className="px-4 pt-3 pb-2">
           <div className="flex items-center justify-between mb-2">
             <div>
@@ -213,11 +228,14 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
             </div>
             <div className="flex items-center gap-1.5">
               <button
-                onClick={() => setGlobalWorldBookEnabled(value => !value)}
+                onClick={() => toggleGlobalScope('online-chat')}
                 className={`px-2.5 py-1.5 rounded-full border text-[8px] inline-flex items-center gap-1.5 ${globalWorldBookEnabled ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/65 text-[#777] border-[rgba(40,36,31,.12)]'}`}
               >
-                {globalWorldBookEnabled ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
-                全局 {globalWorldBookEnabled ? '启用' : '停用'}
+                {isOnlineGlobal ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
+                线上全局 {isOnlineGlobal ? '已加入' : '加入'}
+              </button>
+              <button onClick={() => toggleGlobalScope('offline-story')} className={`px-2.5 py-1.5 rounded-full border text-[8px] inline-flex items-center gap-1.5 ${isOfflineGlobal ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/65 text-[#777] border-[rgba(40,36,31,.12)]'}`}>
+                {isOfflineGlobal ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />} 线下全局 {isOfflineGlobal ? '已加入' : '加入'}
               </button>
               <button
                 onClick={() => setManageBooks(value => !value)}
@@ -227,8 +245,8 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
               </button>
             </div>
           </div>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-            {books.map(item => (
+          <div className="space-y-2"><div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+            {localBooks.map(item => (
               <div key={item.id} className={`shrink-0 w-[145px] rounded-2xl border p-3 transition-all ${item.id === book?.id ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/60 text-[#4f4943] border-[rgba(40,36,31,.12)]'}`}>
                 <button
                   onClick={() => { setSelectedBookId(item.id); setSelectedEntryId(item.entries[0]?.id || ''); setManageBooks(false); setEntryDetailOpen(false); }}
@@ -263,6 +281,18 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
               </div>
             )}
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-2xl border border-[rgba(40,36,31,.12)] bg-white/45 p-2.5">
+              <div className="text-[7px] font-mono tracking-[1.2px] text-[#8b847d]">ONLINE CHAT · GLOBAL</div>
+              <div className="mt-1 text-[8px] text-[#716a63]">{onlineGlobals.length ? onlineGlobals.length + ' 本已加入' : '未加入任何全局世界书'}</div>
+              <div className="mt-2 flex gap-1 overflow-x-auto no-scrollbar">{onlineGlobals.map(item => <button key={item.id} onClick={() => { setSelectedBookId(item.id); setSelectedEntryId(item.entries[0]?.id || ''); setEntryDetailOpen(false); }} className="shrink-0 px-2 py-1 rounded-full bg-[#292724] text-white text-[7px]">{item.name}</button>)}</div>
+            </div>
+            <div className="rounded-2xl border border-[rgba(40,36,31,.12)] bg-white/45 p-2.5">
+              <div className="text-[7px] font-mono tracking-[1.2px] text-[#8b847d]">OFFLINE STORY · GLOBAL</div>
+              <div className="mt-1 text-[8px] text-[#716a63]">{offlineGlobals.length ? offlineGlobals.length + ' 本已加入' : '未加入任何全局世界书'}</div>
+              <div className="mt-2 flex gap-1 overflow-x-auto no-scrollbar">{offlineGlobals.map(item => <button key={item.id} onClick={() => { setSelectedBookId(item.id); setSelectedEntryId(item.entries[0]?.id || ''); setEntryDetailOpen(false); }} className="shrink-0 px-2 py-1 rounded-full bg-[#292724] text-white text-[7px]">{item.name}</button>)}</div>
+            </div>
+          </div></div>
         </div>
 
         <div className="px-4 pb-2">
@@ -312,12 +342,12 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
           )}
         </div>
 
-        <div className="min-h-0 px-4 pb-4 grid grid-rows-[auto_auto_1fr] gap-2">
+        <div className="min-h-0 min-w-0 px-4 pb-4 grid grid-rows-[auto_auto_1fr] gap-2 overflow-hidden">
           <div className="rounded-2xl bg-[#292724] text-white overflow-hidden">
             <button onClick={() => setActiveNowOpen(value => !value)} className="w-full p-3 flex items-center justify-between text-left">
               <div>
                 <div className="text-[8px] font-mono tracking-[1.5px] text-white/45">WORLD BOOK · STATUS</div>
-                <div className="mt-1 text-[12px] font-serif font-bold">{globalWorldBookEnabled ? `${enabledCount} / ${book?.entries.length || 0} 条目参与检索` : '全局世界书已停用'}</div>
+                <div className="mt-1 text-[12px] font-serif font-bold">{(isOnlineGlobal || isOfflineGlobal) ? `${enabledCount} / ${book?.entries.length || 0} 条目参与全局检索` : `${enabledCount} / ${book?.entries.length || 0} 条目 · 仅在被选中的场景使用`}</div>
               </div>
               {activeNowOpen ? <ChevronUp className="w-3.5 h-3.5 text-white/50" /> : <ChevronDown className="w-3.5 h-3.5 text-white/50" />}
             </button>
@@ -330,7 +360,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
             </div>}
           </div>
 
-          <div className="min-h-0 px-4 pb-4 grid grid-rows-[auto_1fr] gap-2">
+          <div className="min-h-0 min-w-0 px-0 pb-4 grid grid-rows-[auto_1fr] gap-2 overflow-hidden">
           <div className="flex gap-2 items-center">
             <select
               value={categoryFilter}
@@ -422,7 +452,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
 
             <div className="min-h-0">
               {selectedEntry && entryDetailOpen ? (
-                <div className="absolute inset-0 z-40 overflow-y-auto no-scrollbar bg-[var(--paper)] px-4 pb-6">
+                <div className="absolute inset-0 z-40 min-w-0 max-w-full overflow-x-hidden overflow-y-auto no-scrollbar bg-[var(--paper)] px-4 pb-6">
                   <div className="sticky top-0 z-10 -mx-4 px-4 pt-4 pb-3 bg-[color-mix(in_srgb,var(--paper)_96%,white_4%)] backdrop-blur-xl border-b border-[rgba(40,36,31,.1)] flex items-center justify-between">
                     <div>
                       <div className="text-[8px] font-mono tracking-[1.2px] text-[#8b8782]">WORLD BOOK ENTRY</div>
