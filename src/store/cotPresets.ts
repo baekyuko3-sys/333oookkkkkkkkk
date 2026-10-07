@@ -77,7 +77,7 @@ export function getCotPresets(): CotPreset[] {
     if (!Array.isArray(parsed)) return DEFAULT_COT_PRESETS;
     const defaultsById = new Map(DEFAULT_COT_PRESETS.map(item => [item.id, item]));
     const migrated = parsed.map((item: CotPreset) => {
-      const isLegacyDefault = item?.id === 'cot-1' || ['深度心理侧写与情感博弈预设', '深度心理侧写与情感博弈', 'SANE333 角色决策链'].includes(item?.title);
+      const isLegacyDefault = ['深度心理侧写与情感博弈预设', '深度心理侧写与情感博弈'].includes(item?.title);
       if (!isLegacyDefault) return item;
       return {
         ...defaultsById.get('cot-1'),
