@@ -113,9 +113,12 @@ After every tool result, continue working. Do not ask the user to copy code manu
 
 async function callModel(options: AgentOptions, messages: any[], temperature = 0.1) {
   const systemPrompt = String(messages.find(message => message.role === 'system')?.content || '');
-  const history = messages
+  const history: Array<{ role: 'assistant' | 'user'; content: string }> = messages
     .filter(message => message.role !== 'system')
-    .map(message => ({ role: message.role === 'assistant' ? 'assistant' : 'user', content: String(message.content || '') }));
+    .map(message => ({
+      role: (message.role === 'assistant' ? 'assistant' : 'user') as 'assistant' | 'user',
+      content: String(message.content || ''),
+    }));
 
   // Use the same model transport as the rest of the app, including Gemini.
   // Studio must not depend on the character/roleplay engine.
