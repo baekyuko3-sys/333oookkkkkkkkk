@@ -25,6 +25,9 @@ export interface CharacterMemory {
   summary: string;
   items: CharacterMemoryItem[];
   updatedAt: string;
+  /** The user persona explicitly chosen for this character. */
+  personaId?: string;
+  personaName?: string;
 }
 
 const keyFor = (characterId: string) => `phone:character-memory:${characterId}`;

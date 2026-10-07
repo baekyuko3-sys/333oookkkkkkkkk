@@ -56,6 +56,23 @@ export function MemoryScreenView({ onNavigate }: { onNavigate: (screen: ScreenTy
       : { characterId:'', characterName:'', summary:'', items:[], updatedAt:new Date().toISOString() }
   );
   const [activeSection, setActiveSection] = useState<MemorySection>('stage');
+  const [personas] = useState<any[]>(() => {
+    try {
+      const raw = window.localStorage.getItem('line:user-personas');
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
+  const selectedPersona = personas.find(p => p.id === memory.personaId) || null;
+
+  const choosePersona = (personaId: string) => {
+    if (!selected) return;
+    const persona = personas.find(p => p.id === personaId);
+    notifyMemory(saveCharacterMemory({
+      ...memory,
+      personaId: persona?.id || undefined,
+      personaName: persona?.name || undefined,
+    }));
+  };
 
   useEffect(() => {
     if (!selected) return;
@@ -135,6 +152,21 @@ export function MemoryScreenView({ onNavigate }: { onNavigate: (screen: ScreenTy
         </div>
 
         {selected && (
+          <div className="mt-3 rounded-2xl border border-[rgba(40,36,31,.10)] bg-white/70 px-3.5 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[8px] font-mono tracking-[1.4px] text-[#918a82]">USER PERSONA · 当前角色使用的我的人设</div>
+                <div className="mt-1 text-[11px] font-semibold truncate">{selectedPersona?.name || '尚未选择'}</div>
+                <div className="mt-0.5 text-[8px] text-[#9a938b]">这不是 Memory，而是这名角色对应的固定“我是谁”。</div>
+              </div>
+              <select value={memory.personaId || ''} onChange={e => choosePersona(e.target.value)} className="max-w-[130px] rounded-full border border-[#ddd7cf] bg-white px-2.5 py-1.5 text-[9px] outline-none">
+                <option value="">不指定</option>
+                {personas.map(p => <option key={p.id} value={p.id}>{p.name || '未命名人设'}</option>)}
+              </select>
+            </div>
+          </div>
+        )}
+        {selected && (
           <div className="mt-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full overflow-hidden bg-[#ddd6cc] border border-white shadow-sm shrink-0">
               {selected.avatar
@@ -142,7 +174,7 @@ export function MemoryScreenView({ onNavigate }: { onNavigate: (screen: ScreenTy
                 : <div className="w-full h-full grid place-items-center font-serif text-sm">{selected.name?.slice(0,1) || '?'}</div>}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[12px] font-semibold truncate">{selected.name || '未命名角色'}</div>
+              <div className="text-[12px] font-semibold truncate">{selected.name || '未命名角色'} · 对你的记忆</div>
               <div className="mt-0.5 text-[8px] font-mono tracking-[1px] text-[#8d867e]">{memory.items.length} MEMORIES · UPDATED {new Date(memory.updatedAt).toLocaleDateString()}</div>
             </div>
             <div className="text-right">
