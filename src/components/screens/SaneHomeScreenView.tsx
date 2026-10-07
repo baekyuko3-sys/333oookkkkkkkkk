@@ -31,13 +31,13 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   const defaultPage1Layout: DesktopItem[] = [
     { id: 'widget-date', x: 26, y: 148 },
     { id: 'widget-photo', x: 260, y: 181 },
-    { id: 'widget-weather', x: 20, y: 306 },
-    { id: 'widget-note', x: 188, y: 306 },
-    { id: 'widget-music', x: 20, y: 424 },
-    { id: 'app-line', x: 18, y: 535 },
-    { id: 'app-moments', x: 104, y: 535 },
-    { id: 'app-music', x: 190, y: 535 },
-    { id: 'app-offline-story', x: 276, y: 535 },
+    { id: 'widget-weather', x: 26, y: 312 },
+    { id: 'widget-note', x: 201, y: 312 },
+    { id: 'widget-music', x: 26, y: 441 },
+    { id: 'app-line', x: 32, y: 577 },
+    { id: 'app-moments', x: 120, y: 577 },
+    { id: 'app-music', x: 208, y: 577 },
+    { id: 'app-offline-story', x: 296, y: 577 },
   ];
   const defaultPage2Layout: DesktopItem[] = [
     { id: 'widget-threads', x: 20, y: 250 },
@@ -74,8 +74,10 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   const itemMetrics = (id: string) => {
     if (id.startsWith('app-')) return { width: 64, height: 82 };
     if (id === 'widget-photo') return { width: 84, height: 106 };
-    if (id === 'widget-music' || id === 'widget-threads') return { width: 320, height: 96 };
+    if (id === 'widget-music') return { width: 334, height: 84 };
+    if (id === 'widget-threads') return { width: 320, height: 96 };
     if (id === 'widget-date') return { width: 220, height: 105 };
+    if (id === 'widget-weather' || id === 'widget-note') return { width: 160, height: 112 };
     return { width: 155, height: 105 };
   };
 
@@ -371,101 +373,73 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
             </div>
           </div>
 
-          {/* Widgets (Weather, Note & Music Player) */}
-          <div className="absolute z-10 left-[20px] top-[306px] w-[320px] grid grid-cols-2 gap-[13px] pointer-events-none">
-            
+          {/* Widgets — each card has its own desktop position */}
+          <div className="absolute inset-0 z-10 pointer-events-none">
+
             {/* Weather Card */}
-            <button 
-               style={{ transform: `translate(${itemPosition(1, "widget-weather").x - 20}px, ${itemPosition(1, "widget-weather").y - 306}px)` }}
-               onPointerDown={e=>beginDesktopDrag(1,"widget-weather",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-weather",e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)}
-              onClick={() => { if (!desktopEditing) setCityIndex((prev) => (prev + 1) % cities.length); }}
-              className="pointer-events-auto relative overflow-hidden min-h-[105px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] text-left cursor-pointer active:scale-98 transition-all group"
-              title="点击切换城市天气"
-            >
-              {desktopEditing && <span onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();hideDesktopItem(1,'widget-weather')}} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px] grid place-items-center cursor-pointer">×</span>}
-              <div className="absolute -right-7 -top-8 w-24 h-24 border border-[rgba(67,58,49,.09)] rounded-full pointer-events-none" />
-              <div className="text-[10px] text-[#8b8782] tracking-[1.6px] font-mono">
-                {currentCity.city}
-              </div>
-              <div className="flex items-end justify-between mt-3">
-                <div>
-                  <div className="text-[27px] font-light tracking-[-1px] text-[var(--ink)] leading-none">
-                    {currentCity.temp}
+            {!isHidden(1, 'widget-weather') && (
+              <button
+                style={{ left: itemPosition(1, 'widget-weather').x, top: itemPosition(1, 'widget-weather').y }}
+                onPointerDown={e=>beginDesktopDrag(1,'widget-weather',e)}
+                onPointerMove={e=>continueDesktopDrag(1,'widget-weather',e)}
+                onPointerUp={()=>{setDraggingDesktopItem(null);dragStartRef.current=null}}
+                onPointerCancel={()=>{setDraggingDesktopItem(null);dragStartRef.current=null}}
+                onClick={() => { if (!desktopEditing) setCityIndex((prev) => (prev + 1) % cities.length); }}
+                className={`pointer-events-auto absolute w-[160px] h-[112px] overflow-hidden border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] text-left cursor-pointer active:scale-98 transition-all ${desktopEditing ? 'ring-1 ring-[#b7a59a]/45 cursor-grab active:cursor-grabbing touch-none' : ''}`}
+                title="点击切换城市天气"
+              >
+                {desktopEditing && <span onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();hideDesktopItem(1,'widget-weather')}} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px] grid place-items-center cursor-pointer">×</span>}
+                <div className="absolute -right-7 -top-8 w-24 h-24 border border-[rgba(67,58,49,.09)] rounded-full pointer-events-none" />
+                <div className="text-[10px] text-[#8b8782] tracking-[1.6px] font-mono">{currentCity.city}</div>
+                <div className="flex items-end justify-between mt-3">
+                  <div>
+                    <div className="text-[27px] font-light tracking-[-1px] text-[var(--ink)] leading-none">{currentCity.temp}</div>
+                    <div className="text-[9px] text-[#8b8782] tracking-[1px] mt-1 font-mono">{currentCity.sky}</div>
+                    <div className="text-[8px] text-[#9b8f84] tracking-[.5px] mt-1 font-mono">{currentCity.note}</div>
                   </div>
-                  <div className="text-[9px] text-[#8b8782] tracking-[1px] mt-1 font-mono">
-                    {currentCity.sky}
-                  </div>
-                  <div className="text-[8px] text-[#9b8f84] tracking-[.5px] mt-1 font-mono">
-                    {currentCity.note}
-                  </div>
+                  <div className="text-[28px] text-[#8b7560] leading-none">{currentCity.icon}</div>
                 </div>
-                <div className="text-[28px] text-[#8b7560] leading-none">
-                  {currentCity.icon}
-                </div>
-              </div>
-            </button>
+              </button>
+            )}
 
             {/* Private Memory Note */}
-            <button 
-               style={{ transform: `translate(${itemPosition(1, "widget-note").x - 20}px, ${itemPosition(1, "widget-note").y - 306}px)` }}
-               onPointerDown={e=>beginDesktopDrag(1,"widget-note",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-note",e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)}
-              onClick={() => { if (!desktopEditing) onNavigate('notes'); }}
-              className="pointer-events-auto relative overflow-hidden min-h-[105px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] text-left cursor-pointer active:scale-98 transition-all"
-            >
-              {desktopEditing && <span onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();hideDesktopItem(1,'widget-note')}} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px] grid place-items-center cursor-pointer">×</span>}
-              <div className="text-[10px] text-[#8b8782] tracking-[1.6px] font-mono">
-                NOTE
-              </div>
-              <div className="mt-3 font-serif text-[14px] leading-[1.35] text-[var(--ink)] line-clamp-2">
-                {appearance.widget.quoteContent || '此刻正在发生'}
-              </div>
-              <div className="mt-1 text-[8px] text-[#8b8782] font-mono truncate">
-                {appearance.widget.quoteAuthor || 'PRIVATE NOTE'}
-              </div>
-              {appearance.widget.anniversaryDays > 0 && (
-                <div className="absolute bottom-3 left-[15px] right-[15px] text-[7px] text-[#9b625b] font-mono truncate">
-                  {appearance.widget.anniversaryText} · DAY {appearance.widget.anniversaryDays}
-                </div>
-              )}
-            </button>
-
-            {/* Music Player Bar (Full width) */}
-            <div 
-               style={{ transform: `translate(${itemPosition(1, "widget-music").x - 20}px, ${itemPosition(1, "widget-music").y - 306}px)` }}
-               onPointerDown={e=>beginDesktopDrag(1,"widget-music",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-music",e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)}
-              className="pointer-events-auto col-span-2 min-h-[84px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] flex items-center gap-3 transition-all relative"
-            >
-              {desktopEditing && <span onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();hideDesktopItem(1,'widget-music')}} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px] grid place-items-center cursor-pointer">×</span>}
-              <div 
-                onClick={() => { if (!desktopEditing) onNavigate('music'); }}
-                className={`w-[54px] h-[54px] rounded-[13px] shrink-0 grid place-items-center text-white font-serif text-[21px] shadow-[0_5px_13px_rgba(40,32,26,.15)] cursor-pointer hover:scale-105 transition-transform ${
-                  isPlaying ? 'animate-[spin_12s_linear_infinite]' : ''
-                }`}
-                style={{ background: 'linear-gradient(145deg, #9e9489, #38332f)' }}
+            {!isHidden(1, 'widget-note') && (
+              <button
+                style={{ left: itemPosition(1, 'widget-note').x, top: itemPosition(1, 'widget-note').y }}
+                onPointerDown={e=>beginDesktopDrag(1,'widget-note',e)}
+                onPointerMove={e=>continueDesktopDrag(1,'widget-note',e)}
+                onPointerUp={()=>{setDraggingDesktopItem(null);dragStartRef.current=null}}
+                onPointerCancel={()=>{setDraggingDesktopItem(null);dragStartRef.current=null}}
+                onClick={() => { if (!desktopEditing) onNavigate('notes'); }}
+                className={`pointer-events-auto absolute w-[160px] h-[112px] overflow-hidden border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] text-left cursor-pointer active:scale-98 transition-all ${desktopEditing ? 'ring-1 ring-[#b7a59a]/45 cursor-grab active:cursor-grabbing touch-none' : ''}`}
               >
-                ♪
-              </div>
-
-              <div 
-                onClick={() => onNavigate('music')}
-                className="flex-1 min-w-0 cursor-pointer"
-              >
-                <b className="text-[13px] font-semibold text-[var(--ink)] truncate block">
-                  {appearance.widget.musicTitle}
-                </b>
-                <p className="m-0 mt-1 text-[#8b8782] text-[10px] truncate font-mono">
-                  {appearance.widget.musicArtist}
-                </p>
-              </div>
-
-              <button 
-                onClick={() => setIsPlaying(!isPlaying)}
-                className="w-8 h-8 rounded-full bg-[#2d2b29] text-white grid place-items-center text-xs hover:scale-105 active:scale-95 transition-transform shrink-0"
-                title={isPlaying ? "暂停" : "播放"}
-              >
-                {isPlaying ? 'Ⅱ' : '▶'}
+                {desktopEditing && <span onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();hideDesktopItem(1,'widget-note')}} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px] grid place-items-center cursor-pointer">×</span>}
+                <div className="text-[10px] text-[#8b8782] tracking-[1.6px] font-mono">NOTE</div>
+                <div className="mt-3 font-serif text-[14px] leading-[1.35] text-[var(--ink)] line-clamp-2">{appearance.widget.quoteContent || '此刻正在发生'}</div>
+                <div className="mt-1 text-[8px] text-[#8b8782] font-mono truncate">{appearance.widget.quoteAuthor || 'PRIVATE NOTE'}</div>
+                {appearance.widget.anniversaryDays > 0 && <div className="absolute bottom-3 left-[15px] right-[15px] text-[7px] text-[#9b625b] font-mono truncate">{appearance.widget.anniversaryText} · DAY {appearance.widget.anniversaryDays}</div>}
               </button>
-            </div>
+            )}
+
+            {/* Music Player — independent full-width card */}
+            {!isHidden(1, 'widget-music') && (
+              <div
+                style={{ left: itemPosition(1, 'widget-music').x, top: itemPosition(1, 'widget-music').y }}
+                onPointerDown={e=>beginDesktopDrag(1,'widget-music',e)}
+                onPointerMove={e=>continueDesktopDrag(1,'widget-music',e)}
+                onPointerUp={()=>{setDraggingDesktopItem(null);dragStartRef.current=null}}
+                onPointerCancel={()=>{setDraggingDesktopItem(null);dragStartRef.current=null}}
+                className={`pointer-events-auto absolute w-[334px] h-[84px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] flex items-center gap-3 transition-all relative ${desktopEditing ? 'ring-1 ring-[#b7a59a]/45 cursor-grab active:cursor-grabbing touch-none' : ''}`}
+              >
+                {desktopEditing && <span onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();hideDesktopItem(1,'widget-music')}} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px] grid place-items-center cursor-pointer">×</span>}
+                <div onClick={() => { if (!desktopEditing) onNavigate('music'); }} className={`w-[54px] h-[54px] rounded-[13px] shrink-0 grid place-items-center text-white font-serif text-[21px] shadow-[0_5px_13px_rgba(40,32,26,.15)] cursor-pointer hover:scale-105 transition-transform ${isPlaying ? 'animate-[spin_12s_linear_infinite]' : ''}`} style={{ background: 'linear-gradient(145deg, #9e9489, #38332f)' }}>♪</div>
+                <div onClick={() => { if (!desktopEditing) onNavigate('music'); }} className="flex-1 min-w-0 cursor-pointer">
+                  <b className="text-[13px] font-semibold text-[var(--ink)] truncate block">{appearance.widget.musicTitle}</b>
+                  <p className="m-0 mt-1 text-[#8b8782] text-[10px] truncate font-mono">{appearance.widget.musicArtist}</p>
+                </div>
+                <button onClick={() => { if (!desktopEditing) setIsPlaying(!isPlaying); }} className="w-8 h-8 rounded-full bg-[#2d2b29] text-white grid place-items-center text-xs hover:scale-105 active:scale-95 transition-transform shrink-0" title={isPlaying ? "暂停" : "播放"}>{isPlaying ? 'Ⅱ' : '▶'}</button>
+              </div>
+            )}
 
           </div>
 
