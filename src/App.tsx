@@ -4,7 +4,7 @@ import { PhoneSimulator } from './components/PhoneSimulator';
 import { cleanupOldDemoData } from './store/blankPhoneMigration';
 
 export default function App() {
-  const release = '2026.10.06-life-v1';
+  const release = '2026.10.07-chat-settings-v1';
   const [themeMode, setThemeMode] = useState<ThemeMode>('nordic-light');
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
   const [showUpdate, setShowUpdate] = useState(false);
@@ -46,7 +46,7 @@ export default function App() {
     </main>
     {showUpdate && (
       <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/25 px-6 backdrop-blur-sm">
-        <div className="w-full max-w-[360px] rounded-[30px] bg-[#f8f6f1] p-6 shadow-2xl border border-black/5">
+        <div className="w-full max-w-[360px] max-h-[min(88vh,680px)] overflow-hidden rounded-[30px] bg-[#f8f6f1] p-6 shadow-2xl border border-black/5 flex flex-col">
           <div className="flex items-start justify-between">
             <div>
               <div className="text-[9px] font-mono tracking-[2px] text-black/35">SANE333 · UPDATE</div>
@@ -54,17 +54,11 @@ export default function App() {
             </div>
             <button onClick={() => { window.localStorage.setItem('sane333:last-seen-release', release); setShowUpdate(false); }} className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center"><span className="text-lg">×</span></button>
           </div>
-          <div className="mt-5 space-y-3 text-[11px] leading-5 text-black/65">
-            <div><b className="text-black/80">LINE · 聊天发送逻辑</b><br/>Enter / 手机键盘回车只发送你的消息；点击纸飞机才会触发角色回复。修复等待回复时出现空白白气泡的问题，并保留左滑消息操作。</div>
-            <div><b className="text-black/80">LINE · 气泡与输入状态</b><br/>短句会分开成独立气泡，连续长文本保持完整；补回头像显示，并把“texting....”换成真正的三点动态输入状态。</div>
-            <div><b className="text-black/80">LINE · 工具与设置</b><br/>搜索聊天记录、记忆、我的头像显示开关移到聊天设置；“让角色继续说”放进 ＋ 菜单；通话入口保留但未开发时会明确提示。</div>
-            <div><b className="text-black/80">角色卡 · 导入确认</b><br/>导入 PNG / JSON / YAML / YML 后，现在会出现完整确认卡：角色、来源、版本、FIRST MESSAGE、alternate greetings、世界书数量都会直接显示。</div>
-            <div><b className="text-black/80">角色卡 · 开场白</b><br/>保留 first message 与所有 alternate greetings。创建 LINE 聊天时可选择“不读取”或指定某个开场白作为前情提要；不会自动把它冒充成角色消息。</div>
-            <div><b className="text-black/80">LINE · ABOUT</b><br/>好友资料里的 ABOUT 现在统一展示角色简介、性格、当前场景与私人备注，不再拆成重复的角色设定页面。</div>
-            <div><b className="text-black/80">角色头像</b><br/>角色头像只使用你上传的本地图片或你提供的图片链接，不再偷偷替换成预设人物图。</div>
-            <div><b className="text-black/80">世界书 · 条目可见性</b><br/>修复世界书条目区域被布局挤掉的问题，现在可以直接看到条目列表和当前选中的 ENTRY。</div>
-            <div><b className="text-black/80">线下剧情 · Story Openings</b><br/>每次线下剧情都可以从角色卡的任意开场白开始，也可以选择完全不使用。</div>
-            <div><b className="text-black/80">角色主动生活 · Life Schedule</b><br/>聊天设定里的角色日程现在支持三种行为：主动聊天、发朋友圈、发起线下邀约。朋友圈会进入 VROOM，邀约会进入线下剧情存档，并触发现有通知与世界事件。</div>
+          <div className="mt-5 max-h-[min(52vh,390px)] overflow-y-auto pr-1 space-y-3 text-[11px] leading-5 text-black/65">
+            <div><b className="text-black/80">聊天设定 · 主动行为</b><br/>把角色主动发消息、主动发 VROOM、主动发起线下邀约统一放进当前聊天的设定里。</div>
+            <div><b className="text-black/80">聊天设定 · 独立权限</b><br/>这三个行为按“角色 × 当前聊天”分别保存，不再作为全局开关。</div>
+            <div><b className="text-black/80">聊天设定 · 主动行为日程</b><br/>主动消息、VROOM、线下邀约的日程统一从聊天设定进入，加号菜单不再重复放入口。</div>
+            <div><b className="text-black/80">聊天设定 · 折叠</b><br/>API、主动行为、日程、聊天偏好、显示工具、CoT、Author's Note 等设置都可以单独展开或收起。</div>
           </div>
           <div className="mt-5 flex items-center justify-between text-[10px] text-black/35">
             <span>release {release}</span>
