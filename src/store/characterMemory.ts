@@ -7,6 +7,20 @@ export type MemorySection =
   | 'todo'
   | 'done';
 
+export type MemorySummaryLength = 'minimal' | 'short' | 'standard' | 'detailed' | 'very-detailed';
+export type MemorySummaryFocus = 'facts' | 'events' | 'relationship' | 'emotion' | 'details' | 'character-style';
+
+export interface MemoryStylePreset {
+  length: MemorySummaryLength;
+  maxChars: number;
+  focus: MemorySummaryFocus;
+}
+
+export interface CharacterMemoryStyleSettings {
+  personality: 'balanced' | 'observant' | 'diary' | 'analytical' | 'warm' | 'character-style';
+  sections: Record<MemorySection, MemoryStylePreset>;
+}
+
 export interface CharacterMemoryItem {
   id: string;
   content: string;
@@ -38,9 +52,29 @@ export interface CharacterMemory {
   /** The user persona explicitly chosen for this character. */
   personaId?: string;
   personaName?: string;
+  memoryStyle?: CharacterMemoryStyleSettings;
 }
 
 const keyFor = (characterId: string) => `phone:character-memory:${characterId}`;
+
+const DEFAULT_MEMORY_STYLE: CharacterMemoryStyleSettings = {
+  personality: 'character-style',
+  sections: {
+    stage: { length: 'standard', maxChars: 120, focus: 'events' },
+    'about-you': { length: 'detailed', maxChars: 180, focus: 'facts' },
+    relationship: { length: 'standard', maxChars: 140, focus: 'relationship' },
+    understanding: { length: 'detailed', maxChars: 200, focus: 'character-style' },
+    confirm: { length: 'short', maxChars: 90, focus: 'facts' },
+    todo: { length: 'standard', maxChars: 120, focus: 'events' },
+    done: { length: 'minimal', maxChars: 70, focus: 'events' },
+  },
+};
+
+export function getDefaultMemoryStyle(): CharacterMemoryStyleSettings {
+  return JSON.parse(JSON.stringify(DEFAULT_MEMORY_STYLE)) as CharacterMemoryStyleSettings;
+}
+
+
 
 function emptyMemory(characterId: string, characterName: string): CharacterMemory {
   return {
@@ -70,6 +104,7 @@ export function getCharacterMemory(characterId: string, characterName: string): 
       characterName: characterName || parsed.characterName || '',
       items: Array.isArray(parsed.items) ? parsed.items : [],
       recentSummaries: Array.isArray(parsed.recentSummaries) ? parsed.recentSummaries : [],
+      memoryStyle: parsed.memoryStyle ? { ...getDefaultMemoryStyle(), ...parsed.memoryStyle, sections: { ...getDefaultMemoryStyle().sections, ...(parsed.memoryStyle as CharacterMemoryStyleSettings).sections } } : getDefaultMemoryStyle(),
     };
   } catch {
     return emptyMemory(characterId, characterName);
