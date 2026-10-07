@@ -209,7 +209,6 @@ export function PresetResourceManager({
                       : <span className="text-[8px] text-[#aaa] py-8">这里显示最终 HTML 渲染效果</span>}
                   </div>
                 </div>
-                </div>
               </> : <>
                 <input value={(selected as CotPreset).title} onChange={e=>updateSelected({title:e.target.value})} className="w-full p-2 rounded-lg bg-white border border-[#eee] text-[10px]"/>
                 <input value={(selected as CotPreset).tag} onChange={e=>updateSelected({tag:e.target.value})} className="w-full p-2 rounded-lg bg-white border border-[#eee] text-[10px] font-mono"/>
