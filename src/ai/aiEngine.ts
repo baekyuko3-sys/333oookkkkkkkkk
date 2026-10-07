@@ -1,6 +1,6 @@
 import type { ImportedCharacter } from '../data/characterImport';
 import type { ProjectManifest, WorldBook } from '../types';
-import type { CharacterMemory } from '../store/characterMemory';
+import type { CharacterMemory, MemorySection } from '../store/characterMemory';
 import { buildMemoryContext } from '../store/characterMemory';
 import type { AppSettings, ChannelAiSettings } from '../store/appSettings';
 import { readAppSettings } from '../store/appSettings';
@@ -878,7 +878,7 @@ export interface MemoryMergeResult {
     action: 'add' | 'update' | 'delete';
     id?: string;
     content?: string;
-    section?: CharacterMemory['memoryStyle'] extends infer _ ? import('../store/characterMemory').MemorySection : never;
+    section?: MemorySection;
     kind?: 'fact' | 'diary' | 'relationship' | 'preference' | 'event';
     importance?: number;
   }>;
