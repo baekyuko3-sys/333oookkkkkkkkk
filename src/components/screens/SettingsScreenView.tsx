@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft, Bell, CheckCircle2, Database, Download, Image as ImageIcon, KeyRound,
   Mic2, RefreshCw, Save, Server, Shield, SlidersHorizontal, Smartphone, Sparkles,
@@ -94,7 +94,7 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
   const [debugLog, setDebugLog] = useState<AiDebugEntry[]>(() => readAiDebugLog());
 
 
-  useMemo(() => { const fn=()=>setDebugLog(readAiDebugLog()); window.addEventListener('sane333:ai-debug-changed',fn); return () => window.removeEventListener('sane333:ai-debug-changed',fn); }, []);
+  useEffect(() => { const fn=()=>setDebugLog(readAiDebugLog()); window.addEventListener('sane333:ai-debug-changed',fn); return () => window.removeEventListener('sane333:ai-debug-changed',fn); }, []);
 
   const localStats = useMemo(() => {
     const data = collectLocalData();
