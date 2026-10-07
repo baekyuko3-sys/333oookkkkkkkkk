@@ -91,6 +91,8 @@ export function parseAiReplyPayload(rawText: string): Pick<AiReplyResult, 'text'
     .replace(/<think>[\\s\\S]*?<\\/think>/gi, '')
     .replace(/<thought>[\\s\\S]*?<\\/thought>/gi, '')
     .replace(/<thinking>[\\s\\S]*?<\\/thinking>/gi, '')
+    .replace(/<thought>[\\s\\S]*?<\\/thought>/gi, '')
+    .replace(/<think>[\\s\\S]*?<\\/think>/gi, '')
     .replace(/<cot>[\\s\\S]*?<\\/cot>/gi, '')
     .replace(/<summary>[\\s\\S]*?<\\/summary>/gi, '');
 
