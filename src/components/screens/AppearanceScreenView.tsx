@@ -205,6 +205,54 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
             </div>
             <div className="p-3 rounded-2xl bg-white/65 border border-black/5 space-y-3">
               <div>
+                <div className="text-[9px] font-mono tracking-[1.5px] text-[#8b8782]">CUSTOM TYPEFACE</div>
+                <div className="mt-1 text-[11px] font-semibold">上传字体</div>
+                <div className="mt-1 text-[8px] text-[#777069]">支持 .woff / .woff2 / .ttf / .otf。字体只保存在本机浏览器。</div>
+              </div>
+              <label className="block text-[9px]">字体链接
+                <input
+                  value={appearance.customFontUrl || ''}
+                  onChange={event => update('customFontUrl', event.target.value)}
+                  placeholder="https://example.com/font.woff2"
+                  className="mt-1 w-full p-2.5 rounded-xl bg-white/80 text-[9px] outline-none font-mono"
+                />
+                <div className="text-[8px] text-[#aaa] mt-1">支持直接可访问的 .woff / .woff2 / .ttf / .otf 字体链接。</div>
+              </label>
+              <label className="block p-3 rounded-xl border border-dashed border-[#d7d2ca] bg-white/45 cursor-pointer">
+                <div className="text-[9px] font-medium">{appearance.customFontName || '选择字体文件'}</div>
+                <div className="text-[8px] text-[#aaa] mt-1">点击上传并立即预览</div>
+                <input type="file" accept=".woff,.woff2,.ttf,.otf,font/woff,font/woff2,font/ttf,font/otf" className="hidden" onChange={event => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    update('customFont', String(reader.result || ''));
+                    update('customFontName', file.name);
+                    notify('字体已保存并应用');
+                  };
+                  reader.readAsDataURL(file);
+                  event.currentTarget.value = '';
+                }} />
+              </label>
+              <div className="p-3 rounded-xl bg-[#f7f4ee] border border-[#e5dfd6] space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-[9px] font-semibold">字体大小</div>
+                    <div className="text-[8px] text-[#999]">调整整个手机文字比例</div>
+                  </div>
+                  <span className="text-[9px] font-mono">{Math.round((appearance.customFontSize || 1) * 100)}%</span>
+                </div>
+                <input type="range" min="0.75" max="1.5" step="0.05" value={appearance.customFontSize || 1} onChange={event => update('customFontSize', Number(event.target.value))} className="w-full" />
+                <div className="flex justify-between text-[7px] text-[#aaa]"><span>75%</span><span>100%</span><span>125%</span><span>150%</span></div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => { update('customFont',''); update('customFontUrl',''); update('customFontName',''); notify('已恢复默认字体'); }} className="py-2.5 rounded-xl bg-[#f5f3ef] text-[#777069] text-[9px]">恢复默认字体</button>
+                <button onClick={() => { saveAppearance({}); notify('字体设置已保存'); }} className="py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">保存字体设置</button>
+              </div>
+              <div className="text-[8px] text-[#aaa] leading-relaxed">字体、链接、大小都会保存到当前设备。上传字体会保存在浏览器本地，不会上传到服务器。</div>
+            </div>
+            <div className="p-3 rounded-2xl bg-white/65 border border-black/5 space-y-3">
+              <div>
                 <div className="text-[9px] font-mono tracking-[1.5px] text-[#8b8782]">FONT LIBRARY</div>
                 <div className="mt-1 text-[11px] font-semibold">字体收藏与切换</div>
                 <div className="mt-1 text-[8px] text-[#777069]">保存多套字体，随时应用其中一套；不是按 App 分配。</div>
@@ -228,15 +276,6 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
                   <button onClick={()=>{deleteSavedFont(font.id);setSavedFonts(getSavedFonts());if(active){update('customFont','');update('customFontUrl','')}notify('字体已删除')}} className="p-1.5 rounded-lg bg-[#f5f3ef] text-[#999]"><Trash2 className="w-3 h-3"/></button>
                 </div>})}
               </div>
-              <div className="p-3 rounded-xl bg-white/70 border border-black/5 space-y-2">
-                <div className="flex items-center justify-between"><div><div className="text-[9px] font-semibold">字体大小</div><div className="text-[8px] text-[#999]">当前使用字体的整体比例</div></div><span className="text-[9px] font-mono">{Math.round((appearance.customFontSize||1)*100)}%</span></div>
-                <input type="range" min="0.75" max="1.5" step="0.05" value={appearance.customFontSize||1} onChange={e=>update('customFontSize',Number(e.target.value))} className="w-full"/>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={()=>{update('customFont','');update('customFontUrl','');notify('已恢复系统字体')}} className="py-2.5 rounded-xl bg-[#f5f3ef] text-[#777069] text-[9px]">恢复系统字体</button>
-                <button onClick={()=>{saveAppearance({});notify('当前字体设置已保存')}} className="py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">保存当前设置</button>
-              </div>
-            </div>
             </div>
           </>
         )}
