@@ -128,7 +128,7 @@ export function PhoneSimulator({
         className={`relative w-[360px] sm:w-[390px] h-[780px] sm:h-[844px] overflow-hidden rounded-[43px] border-[7px] border-[var(--frame,#1e1d1b)] shadow-[0_30px_100px_rgba(20,18,15,.28)] flex flex-col select-none ${
           isDark ? 'dark-theme-mode' : ''
         }`}
-        style={{ background: globalBg, color: 'var(--ink, #242323)', fontFamily: activeFont ? 'Sane333Custom, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif' : undefined }}
+        style={{ background: globalBg, color: 'var(--ink, #242323)', fontFamily: activeFont ? 'Sane333Custom, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif' : undefined, fontSize: `${appearance.customFontSize || 1}em` }}
       >
         
         {/* Statusbar (Exact from user template) */}
