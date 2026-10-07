@@ -26,6 +26,11 @@ export interface AiReplyInput {
     gender?: string;
     traits?: string;
     background?: string;
+    region?: string;
+    timezone?: string;
+    birthday?: string;
+    profession?: string;
+    age?: string;
   } | null;
   worldbooks?: WorldBook[];
   memory?: CharacterMemory | null;
@@ -184,7 +189,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '实时世界状态优先描述角色此刻在哪里、正在做什么和当前情绪；不要凭空覆盖这些状态。',
     '语言要像真实聊天软件中的人类消息：自然、克制、有上下文，可分成多条短句，但不要写成说明书。',
     input.stylePreset ? '【当前 LINE 预设】' + input.stylePreset + '。保持该预设的节奏与情感强度，但不要让预设覆盖角色卡、长期记忆、关系或世界书。' : '',
-    input.typingHabit ? '【当前聊天打字习惯】' + input.typingHabit + '。严格把它当作消息表达习惯：影响句长、换行、标点、碎片化程度和 emoji 使用，但不要改变角色性格、事实或剧情。' : '',
+    input.typingHabit ? '【当前聊天打字习惯】' + input.typingHabit + '。严格遵守这些表达设置，尤其是标点、emoji、消息分条、换行、句长、语气词和断句；设置为“用空格连接”就优先使用空格连接，设置为“分行断句”就使用换行。不要改变角色性格、事实或剧情。' : '',
     buildLineHumanBehaviorPrompt(),
     input.character?.languageProfile ? [
       '【角色个人语言指纹】',
@@ -213,6 +218,16 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '【角色上下文】\n' + context.character,
     '',
     '【用户人设】\n' + context.persona,
+    input.persona ? [
+      '【用户个人资料】',
+      '姓名：' + (input.persona.name || ''),
+      '年龄：' + (input.persona.age || ''),
+      '职业：' + (input.persona.profession || ''),
+      '地区：' + (input.persona.region || ''),
+      '时区：' + (input.persona.timezone || ''),
+      '生日：' + (input.persona.birthday || ''),
+      '这些资料属于用户本人。相关时自然参考，不要每轮机械提及。'
+    ].join('\n') : '',
     '',
     '【关系状态】\n' + context.relationship,
     '',
