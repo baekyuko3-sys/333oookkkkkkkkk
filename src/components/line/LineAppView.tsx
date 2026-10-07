@@ -1902,7 +1902,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                           ['scenario', '当前场景', character?.scenario || ''],
                           ['onlinePersona', '线上人设', character?.onlinePersona || ''],
                           ['typingHabit', '打字习惯', character?.typingHabit || ''],
-                        ].map(([key, label, value]: [string, string, unknown]) => (
+                        ].map(([key, label, value]) => (
                           <div key={key} className="pt-3">
                             <div className="text-[10px] text-[#999] mb-1.5">{label}</div>
                             {friendEditing ? (
