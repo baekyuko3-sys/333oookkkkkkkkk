@@ -17,11 +17,11 @@ const KEY = 'line:cot-presets';
 export const DEFAULT_COT_PRESETS: CotPreset[] = [
   {
     id: 'cot-1',
-    title: '深度心理侧写与情感博弈预设',
+    title: 'SANE333 角色决策链',
     tag: '<think>...</think>',
-    description: '分析潜台词、心理防御与情感策略。',
-    template: '在每次发言前，分析当前情境、角色真实欲念、关系阶段与台词策略；只将最终角色消息输出给用户。',
-    exampleThinking: '分析潜台词 → 判断关系状态 → 决定情绪暴露尺度 → 形成自然回复。',
+    description: '以角色本人为中心，结合前文、设定、人设与状态决定自然回复。',
+    template: 'STEP 1 CONTEXT: 当前消息 + 角色上一条回复 + 最近前文 + 当前话题 + 未完成事项。\\nSTEP 2 CHARACTER: 角色设定 + 线上人设 + 表达习惯，只使用角色已知信息。\\nSTEP 3 MEANING: 判断用户表面意思与真实意图，不脱离上下文，不过度脑补。\\nSTEP 4 REACTION: 站在角色立场理解，判断当前状态与第一反应。\\nSTEP 5 RESPONSE: 角色自行决定回答、反问、调侃、安慰、延伸、简短回应或不展开，不强制主动。\\nSTEP 6 STATE BAR: 判断当前是否有状态栏；若有，根据本轮聊天更新地点、时间、活动、情绪等真实状态，不凭空创造。\\nSTEP 7 CHECK: 检查角色一致性、前文连续性、知识边界、OOC、禁止事项，以及是否替用户决定行为、想法或反应。\\nFINAL: 只输出角色真正会发送的 LINE 消息，不输出内部分析。',
+    exampleThinking: '前文 → 角色设定 → 用户意思 → 角色反应 → 回复决定 → 状态栏 → 连续性/OOC检查。',
     targets: ['line', 'offline', 'group'],
     createdAt: '2026-10-04T00:00:00.000Z',
     updatedAt: '2026-10-04T00:00:00.000Z',
