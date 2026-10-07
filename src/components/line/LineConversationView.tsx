@@ -915,7 +915,7 @@ export function LineConversationView({
         conversationAiSettings(),
         contactName,
         chosen,
-        messages.map(message => ({ sender: String(message.sender || 'unknown'), text: message.text, transcript: message.transcript })).concat({ sender: 'other', text: replyText }),
+        messages.map(message => ({ sender: String(message.sender || 'unknown'), text: message.text, transcript: message.transcript })).concat({ sender: 'other', text: replyText, transcript: '' }),
       );
       const html = renderStatusBarHtml(chosen, rawStatus);
       // Regex must match the complete generated status text. Otherwise nothing is rendered.
@@ -948,7 +948,7 @@ export function LineConversationView({
         conversationAiSettings(),
         contactName,
         template,
-        messages.map(message => ({ sender: String(message.sender || 'unknown'), text: message.text, transcript: message.transcript })).concat({ sender: 'other', text: replyText }),
+        messages.map(message => ({ sender: String(message.sender || 'unknown'), text: message.text, transcript: message.transcript })).concat({ sender: 'other', text: replyText, transcript: '' }),
       );
       const html = sanitizeHtmlFragment(raw);
       if (!html) return;
