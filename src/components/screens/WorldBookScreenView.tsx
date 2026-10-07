@@ -365,8 +365,8 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
             <input ref={importRef} type="file" accept=".json,.yaml,.yml" className="hidden" onChange={e => importBook(e.target.files?.[0])} />
           </div>
 
-          <div className="min-h-0 grid grid-cols-[116px_minmax(0,1fr)] gap-2">
-            <div className="min-h-0 overflow-y-auto no-scrollbar space-y-1.5 pr-0.5">
+          <div className="min-h-0 overflow-y-auto no-scrollbar space-y-2">
+            <div className="min-h-0 space-y-1.5">
               <div className="sticky top-0 z-10 px-2 py-1.5 rounded-xl bg-[#f7f4ee]/95 backdrop-blur text-[8px] font-mono tracking-[1.2px] text-[#8b847d] border border-[rgba(40,36,31,.08)]">
                 <div className="flex items-center justify-between">
                   <span>条目 · {filteredEntries.length}</span>
@@ -418,7 +418,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
               </button>
             </div>
 
-            <div className="min-h-0 overflow-y-auto no-scrollbar">
+            <div className="min-h-0">
               {selectedEntry ? (
                 <div className="rounded-2xl bg-[#ebe7df] border border-[rgba(40,36,31,.12)] p-3 space-y-3">
                   <div className="flex items-center justify-between gap-2 pb-1">
