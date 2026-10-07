@@ -2830,7 +2830,6 @@ export function LineConversationView({
                   }
                 }}
               >
-
                 {/* 1. 酒馆思维链 (Chain of Thought / 内心独白折叠卡) */}
                 {!isMe && hasThinking && (
                   <div className="thinking-card bg-[#faf8f9] border border-[#f0e4e7] rounded-[12px] p-2 text-xs transition-all">
