@@ -70,7 +70,12 @@ export function getCotPresets(): CotPreset[] {
       return DEFAULT_COT_PRESETS;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : DEFAULT_COT_PRESETS;
+    if (!Array.isArray(parsed)) return DEFAULT_COT_PRESETS;
+    const defaultsById = new Map(DEFAULT_COT_PRESETS.map(item => [item.id, item]));
+    return parsed.map((item: CotPreset) => {
+      if (item?.id !== 'cot-1' || item.title === 'SANE333 角色决策链') return item;
+      return { ...defaultsById.get('cot-1'), ...item, title: DEFAULT_COT_PRESETS[0].title, description: DEFAULT_COT_PRESETS[0].description, template: DEFAULT_COT_PRESETS[0].template, exampleThinking: DEFAULT_COT_PRESETS[0].exampleThinking };
+    });
   } catch {
     return DEFAULT_COT_PRESETS;
   }
