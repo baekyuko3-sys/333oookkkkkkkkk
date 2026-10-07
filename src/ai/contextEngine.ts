@@ -6,8 +6,8 @@ import { getWorldRuntime } from '../store/worldRuntime';
 
 export interface ContextEngineInput {
   character?: ImportedCharacter | null;
-  characterProfile?: { relationship?: string; callMe?: string; bio?: string } | null;
-  persona?: { name?: string; identity?: string; gender?: string; traits?: string; background?: string; region?: string; timezone?: string; birthday?: string; profession?: string; age?: string } | null;
+  characterProfile?: { relationship?: string; callMe?: string; bio?: string; canCharacterSelfJudge?: boolean } | null;
+  persona?: { name?: string; identity?: string; gender?: string; traits?: string; background?: string; setting?: string; region?: string; timezone?: string; birthday?: string; profession?: string; age?: string } | null;
   memory?: CharacterMemory | null;
   project?: ProjectManifest | null;
   worldbooks?: WorldBook[];
@@ -228,6 +228,7 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
         '背景：' + (input.persona.background || '未填写'),
         '职业：' + (input.persona.profession || '未填写'),
         '年龄：' + (input.persona.age || '未填写'),
+        '个人设定：' + (input.persona.setting || '未填写'),
         '地区：' + (input.persona.region || '未填写'),
         '时区：' + (input.persona.timezone || '未填写'),
         '生日：' + (input.persona.birthday || '未填写'),
