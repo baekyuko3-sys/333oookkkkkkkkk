@@ -377,7 +377,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               className="pointer-events-auto relative overflow-hidden min-h-[105px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] text-left cursor-pointer active:scale-98 transition-all group"
               title="点击切换城市天气"
             >
-              {desktopEditing && <button onPointerDown={e=>e.stopPropagation()} onClick={()=>hideDesktopItem(1,'widget-weather')} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px]">×</button>}
+              {desktopEditing && <span onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();hideDesktopItem(1,'widget-weather')}} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px] grid place-items-center cursor-pointer">×</span>}
               <div className="absolute -right-7 -top-8 w-24 h-24 border border-[rgba(67,58,49,.09)] rounded-full pointer-events-none" />
               <div className="text-[10px] text-[#8b8782] tracking-[1.6px] font-mono">
                 {currentCity.city}
@@ -407,7 +407,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               onClick={() => { if (!desktopEditing) onNavigate('notes'); }}
               className="pointer-events-auto relative overflow-hidden min-h-[105px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] text-left cursor-pointer active:scale-98 transition-all"
             >
-              {desktopEditing && <button onPointerDown={e=>e.stopPropagation()} onClick={()=>hideDesktopItem(1,'widget-note')} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px]">×</button>}
+              {desktopEditing && <span onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();hideDesktopItem(1,'widget-note')}} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px] grid place-items-center cursor-pointer">×</span>}
               <div className="text-[10px] text-[#8b8782] tracking-[1.6px] font-mono">
                 NOTE
               </div>
@@ -430,7 +430,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
                onPointerDown={e=>beginDesktopDrag(1,"widget-music",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-music",e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)}
               className="pointer-events-auto col-span-2 min-h-[84px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] flex items-center gap-3 transition-all relative"
             >
-              {desktopEditing && <button onPointerDown={e=>e.stopPropagation()} onClick={()=>hideDesktopItem(1,'widget-music')} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px]">×</button>}
+              {desktopEditing && <span onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();hideDesktopItem(1,'widget-music')}} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px] grid place-items-center cursor-pointer">×</span>}
               <div 
                 onClick={() => { if (!desktopEditing) onNavigate('music'); }}
                 className={`w-[54px] h-[54px] rounded-[13px] shrink-0 grid place-items-center text-white font-serif text-[21px] shadow-[0_5px_13px_rgba(40,32,26,.15)] cursor-pointer hover:scale-105 transition-transform ${
