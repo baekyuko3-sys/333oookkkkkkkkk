@@ -104,7 +104,7 @@ export function importWorldBooks(text: string): WorldBook[] {
 
   const books = rawBooks
     .map((raw: unknown, index: number) => normalizeBook(raw, index))
-    .filter(book => book.entries.length || book.name);
+    .filter((book: WorldBook) => book.entries.length || book.name);
 
   if (!books.length) throw new Error('没有找到可导入的世界书。');
   return books;
