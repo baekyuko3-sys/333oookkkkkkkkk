@@ -10,6 +10,11 @@ export interface ChannelAiSettings {
   contextLength: number;
   maxOutputTokens: number;
   temperature: number;
+  topP: number;
+  topK: number;
+  frequencyPenalty: number;
+  presencePenalty: number;
+  seed: number | null;
 }
 
 export const DEFAULT_CHANNEL_AI_SETTINGS: ChannelAiSettings = {
@@ -22,6 +27,11 @@ export const DEFAULT_CHANNEL_AI_SETTINGS: ChannelAiSettings = {
   contextLength: 24,
   maxOutputTokens: 1200,
   temperature: 0.85,
+  topP: 0.95,
+  topK: 40,
+  frequencyPenalty: 0,
+  presencePenalty: 0,
+  seed: null,
 };
 
 export interface AppSettings {
@@ -34,6 +44,11 @@ export interface AppSettings {
   maxOutputTokens: number;
   autoSave: boolean;
   temperature: number;
+  topP: number;
+  topK: number;
+  frequencyPenalty: number;
+  presencePenalty: number;
+  seed: number | null;
   memoryEnabled: boolean;
   memoryMode: 'hybrid' | 'diary' | 'facts' | 'relationship';
   memoryModel: string;
@@ -95,6 +110,11 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   maxOutputTokens: 1200,
   autoSave: true,
   temperature: 0.85,
+  topP: 0.95,
+  topK: 40,
+  frequencyPenalty: 0,
+  presencePenalty: 0,
+  seed: null,
   memoryEnabled: true,
   memoryMode: 'hybrid',
   memoryModel: 'gemini-2.5-flash',
