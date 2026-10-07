@@ -283,7 +283,7 @@ export function LineConversationView({
     };
   };
   const lineConversationRules = [
-    '【最高优先级·用户边界】绝对不要替用户编造台词、动作、表情、想法、决定、经历或未提供的事实；用户没有说或做的事情，不得写成用户已经说过或做过。',
+    preventUserFabrication ? '【最高优先级·用户边界】绝对不要替用户编造台词、动作、表情、想法、决定、经历或未提供的事实。用户没有明确说、做、表达或提供的信息，一律不得写成用户已经发生过的事实。只能描述角色自己的行为、语言、表情、想法与反应。' : '',
     bilingualMode === 'auto' ? '【双语模式】除普通话/国语/简体中文与繁体中文外，角色使用其他主要语言时，回复采用自然双语表达：保留角色原语言，并附自然中文对应，不要逐句机械翻译。' : '',
     characterLanguage !== 'auto' ? `【角色语言】本聊天角色主要使用 ${characterLanguage}。除非剧情或用户明确要求其他语言，不要擅自切换语言。` : '【角色语言】跟随角色卡/当前对话自然选择语言，不要无故切换语言。',
     chatTimeMode === 'current' ? `【时间】聊天时间跟随现实当前时间；当前时区为 ${chatTimezone}。涉及现在、今天、今晚、明天等相对时间时，以这个时区的真实日期时间为准。` : `【虚拟时间】本聊天时间固定为 ${virtualChatTime}，时间显示/理解时区为 ${chatTimezone}；涉及现在、今天、今晚、明天等相对时间时，只能依据这个虚拟时间推算。`,
@@ -434,8 +434,10 @@ export function LineConversationView({
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editingMessageText, setEditingMessageText] = useState('');
 
-  // 思维链 (Chain of Thought) 全局开关
+  // 思维链只显示安全的高层摘要，不显示隐藏推理
   const [enableChainOfThought, setEnableChainOfThought] = usePersistentState<boolean>(`line:show-thinking-summary:${conversationStorageId}`, true);
+  const [showActionDescriptions, setShowActionDescriptions] = usePersistentState<boolean>(`line:show-action-descriptions:${conversationStorageId}`, false);
+  const [preventUserFabrication, setPreventUserFabrication] = usePersistentState<boolean>(`line:prevent-user-fabrication:${conversationStorageId}`, true);
 
   // 酒馆作者注释 (Author's Note / A/N)
   const [authorsNote, setAuthorsNote] = usePersistentState(`line:authors-note:${conversationStorageId}`, '');
@@ -4675,15 +4677,15 @@ export function LineConversationView({
               </div>
               <div className="border-t border-[#f2f2f3] mt-2 pt-3 space-y-3">
                 <div className="flex items-center justify-between">
-                  <div><div className="text-[10px] font-medium text-[#444]">显示思考摘要</div><div className="text-[8.5px] text-[#aaa] mt-0.5">只显示高层次摘要，不显示模型隐藏思维链</div></div>
-                  <button type="button" onClick={() => setEnableChainOfThought(!enableChainOfThought)} className={"w-9 h-5 rounded-full relative " + (enableChainOfThought ? 'bg-[#d4aab5]' : 'bg-[#ddd]')}>
-                    <span className={"w-4 h-4 rounded-full bg-white absolute top-0.5 " + (enableChainOfThought ? 'translate-x-4' : 'translate-x-0.5')} />
-                  </button>
-                </div>
-                <div className="flex items-center justify-between">
                   <div><div className="text-[10px] font-medium text-[#444]">角色动作描写</div><div className="text-[8.5px] text-[#aaa] mt-0.5">与消息正文分开显示，例如“指尖停了一下”</div></div>
                   <button type="button" onClick={() => setShowActionDescriptions(!showActionDescriptions)} className={"w-9 h-5 rounded-full relative " + (showActionDescriptions ? 'bg-[#d4aab5]' : 'bg-[#ddd]')}>
                     <span className={"w-4 h-4 rounded-full bg-white absolute top-0.5 " + (showActionDescriptions ? 'translate-x-4' : 'translate-x-0.5')} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div><div className="text-[10px] font-medium text-[#444]">禁止编造 User</div><div className="text-[8.5px] text-[#aaa] mt-0.5">不替你补台词、动作、表情、想法、决定或未提供的事实</div></div>
+                  <button type="button" onClick={() => setPreventUserFabrication(!preventUserFabrication)} className={"w-9 h-5 rounded-full relative " + (preventUserFabrication ? 'bg-[#d4aab5]' : 'bg-[#ddd]')}>
+                    <span className={"w-4 h-4 rounded-full bg-white absolute top-0.5 " + (preventUserFabrication ? 'translate-x-4' : 'translate-x-0.5')} />
                   </button>
                 </div>
               </div>
