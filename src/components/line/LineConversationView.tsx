@@ -431,14 +431,6 @@ export function LineConversationView({
   const [lineActionDescriptionsEnabled, setLineActionDescriptionsEnabled] = usePersistentState<boolean>(`line:show-action-descriptions:${conversationStorageId}`, false);
   const [preventUserFabrication, setPreventUserFabrication] = usePersistentState<boolean>(`line:prevent-user-fabrication:${conversationStorageId}`, true);
 
-  const lineConversationRules = [
-    preventUserFabrication ? '【最高优先级·用户边界】绝对不要替用户编造台词、动作、表情、想法、决定、经历或未提供的事实。用户没有明确说、做、表达或提供的信息，一律不得写成用户已经发生过的事实。只能描述角色自己的行为、语言、表情、想法与反应。' : '',
-    bilingualMode === 'auto' ? '【双语模式】除普通话/国语/简体中文与繁体中文外，角色使用其他主要语言时，回复采用自然双语表达：保留角色原语言，并附自然中文对应，不要逐句机械翻译。' : '',
-    characterLanguage !== 'auto' ? `【角色语言】本聊天角色主要使用 ${characterLanguage}。除非剧情或用户明确要求其他语言，不要擅自切换语言。` : '【角色语言】跟随角色卡/当前对话自然选择语言，不要无故切换语言。',
-    chatTimeMode === 'current' ? `【时间】聊天时间跟随现实当前时间；当前时区为 ${chatTimezone}。涉及现在、今天、今晚、明天等相对时间时，以这个时区的真实日期时间为准。` : `【虚拟时间】本聊天时间固定为 ${virtualChatTime}，时间显示/理解时区为 ${chatTimezone}；涉及现在、今天、今晚、明天等相对时间时，只能依据这个虚拟时间推算。`,
-    characterTimeSensitivity === 'sensitive' ? '【角色时间感】角色对时间敏感：应留意日期、时段、前后顺序，不要无故跳过时间。' : '【角色时间感】角色对时间不敏感：不要为了显示时间而强行报时；只有剧情自然涉及时间时才提及，并允许使用模糊时间表达。',
-  ].filter(Boolean).join('\n');
-
   // 酒馆作者注释 (Author's Note / A/N)
   const [authorsNote, setAuthorsNote] = usePersistentState(`line:authors-note:${conversationStorageId}`, '');
   const [authorsNoteDepth, setAuthorsNoteDepth] = useState('3');
@@ -651,6 +643,14 @@ export function LineConversationView({
       ?? true
     ),
   };
+
+  const lineConversationRules = [
+    preventUserFabrication ? '【最高优先级·用户边界】绝对不要替用户编造台词、动作、表情、想法、决定、经历或未提供的事实。用户没有明确说、做、表达或提供的信息，一律不得写成用户已经发生过的事实。只能描述角色自己的行为、语言、表情、想法与反应。' : '',
+    bilingualMode === 'auto' ? '【双语模式】除普通话/国语/简体中文与繁体中文外，角色使用其他主要语言时，回复采用自然双语表达：保留角色原语言，并附自然中文对应，不要逐句机械翻译。' : '',
+    characterLanguage !== 'auto' ? `【角色语言】本聊天角色主要使用 ${characterLanguage}。除非剧情或用户明确要求其他语言，不要擅自切换语言。` : '【角色语言】跟随角色卡/当前对话自然选择语言，不要无故切换语言。',
+    chatTimeMode === 'current' ? `【时间】聊天时间跟随现实当前时间；当前时区为 ${chatTimezone}。涉及现在、今天、今晚、明天等相对时间时，以这个时区的真实日期时间为准。` : `【虚拟时间】本聊天时间固定为 ${virtualChatTime}，时间显示/理解时区为 ${chatTimezone}；涉及现在、今天、今晚、明天等相对时间时，只能依据这个虚拟时间推算。`,
+    characterTimeSensitivity === 'sensitive' ? '【角色时间感】角色对时间敏感：应留意日期、时段、前后顺序，不要无故跳过时间。' : '【角色时间感】角色对时间不敏感：不要为了显示时间而强行报时；只有剧情自然涉及时间时才提及，并允许使用模糊时间表达。',
+  ].filter(Boolean).join('\n');
 
   // 聊天设定使用真正的全局世界书；选择结果按聊天保存。
   const [selectedWorldBookId, setSelectedWorldBookId] = usePersistentState<string>(`line:selected-worldbook:${conversationStorageId}`, 'all');
