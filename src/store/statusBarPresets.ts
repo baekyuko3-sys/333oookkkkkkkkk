@@ -74,30 +74,55 @@ export function deleteStatusBarPreset(id: string) {
   saveStatusBarPresets(getStatusBarPresets().filter(item => item.id !== id));
 }
 
+function toExternalStatusBarPreset(preset: StatusBarPreset) {
+  return {
+    id: preset.id,
+    name: preset.name,
+    promptSuffix: preset.promptSuffix,
+    regexPattern: preset.regex,
+    replacePattern: preset.html,
+  };
+}
+
+export function exportStatusBarPreset(preset: StatusBarPreset): string {
+  return JSON.stringify(toExternalStatusBarPreset(preset), null, 2);
+}
+
 export function exportStatusBarPresets(presets = getStatusBarPresets()): string {
-  return JSON.stringify({ type: 'sane333-status-bar-presets', version: 1, exportedAt: new Date().toISOString(), presets }, null, 2);
+  return JSON.stringify(presets.map(toExternalStatusBarPreset), null, 2);
 }
 
 export function importStatusBarPresets(raw: string): StatusBarPreset[] {
   const parsed = JSON.parse(raw);
-  const incoming = Array.isArray(parsed) ? parsed : parsed?.presets;
-  if (!Array.isArray(incoming)) throw new Error('不是有效的状态栏预设文件。');
-  const normalized = incoming.map((item: any, index: number) => ({
-    ...item,
-    id: String(item.id || `status-import-${Date.now()}-${index}`),
-    name: String(item.name || '未命名状态栏'),
-    description: String(item.description || ''),
-    html: String(item.html || ''),
-    inputFormat: String(item.inputFormat || '{{status:状态内容}}'),
-    promptSuffix: String(item.promptSuffix || ''),
-    regex: String(item.regex || '/\\\\{\\\\{status:(.*?)\\\\}\\\\}/gs'),
-    targets: Array.isArray(item.targets) ? item.targets : ['line'],
-    createdAt: String(item.createdAt || new Date().toISOString()),
-    updatedAt: new Date().toISOString(),
-  })) as StatusBarPreset[];
+  // Accept the exact POME/Tavern-style single object, an array of those objects,
+  // and our older wrapped { presets: [...] } format.
+  const incoming = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(parsed?.presets)
+      ? parsed.presets
+      : parsed && typeof parsed === 'object'
+        ? [parsed]
+        : [];
+  if (!incoming.length) throw new Error('不是有效的状态栏预设文件。');
+
+  const normalized = incoming.map((item: any, index: number) => {
+    const regex = item.regexPattern ?? item.regex ?? '';
+    const html = item.replacePattern ?? item.html ?? '';
+    return {
+      id: String(item.id || `status-import-${Date.now()}-${index}`),
+      name: String(item.name || '未命名状态栏'),
+      description: String(item.description || ''),
+      html: String(html),
+      inputFormat: String(item.inputFormat || ''),
+      promptSuffix: String(item.promptSuffix || ''),
+      regex: String(regex),
+      targets: Array.isArray(item.targets) ? item.targets : ['line'],
+      createdAt: String(item.createdAt || new Date().toISOString()),
+      updatedAt: new Date().toISOString(),
+    };
+  }) as StatusBarPreset[];
   return normalized;
 }
-
 
 
 function parseRegex(source: string): RegExp | null {
