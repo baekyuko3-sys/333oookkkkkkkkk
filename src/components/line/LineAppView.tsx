@@ -333,10 +333,16 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   });
   const [profileDraft, setProfileDraft] = useState<LineUserProfile>(currentUser);
   const [userPersonasRaw, setUserPersonas] = usePersistentState<any[]>('line:user-personas', []);
-  const userPersonas = Array.isArray(userPersonasRaw) ? userPersonasRaw : [];
+  const userPersonas = (Array.isArray(userPersonasRaw) ? userPersonasRaw : []).map((persona: any) => ({
+    ...persona,
+    boundCharacterIds: Array.isArray(persona?.boundCharacterIds)
+      ? persona.boundCharacterIds
+      : (persona?.boundCharacterId ? [persona.boundCharacterId] : []),
+  }));
   const [activePersonaId, setActivePersonaId] = usePersistentState<string | null>('line:active-persona', null);
   const [personaEditorOpen, setPersonaEditorOpen] = useState(false);
-  const [personaDraft, setPersonaDraft] = useState<any>({ name: '', age: '', profession: '', region: '', timezone: '', birthday: '', setting: '', avatar: '', boundCharacterId: '' });
+  const [personaEditorIndex, setPersonaEditorIndex] = useState(0);
+  const [personaDraft, setPersonaDraft] = useState<any>({ name: '', age: '', profession: '', region: '', timezone: '', birthday: '', setting: '', avatar: '', boundCharacterIds: [] });
   const activePersona = userPersonas.find((p) => p.id === activePersonaId) || userPersonas[0] || null;
   const effectivePersonaId = activePersonaId || userPersonas[0]?.id || null;
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
@@ -537,8 +543,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
 
   // Filtered & Sorted Chats (Pinned items always float to the top)
   const chatQuery = chatSearch.trim().toLowerCase();
+  const activePersonaForFilter = userPersonas.find((p: any) => p.id === effectivePersonaId) || null;
+  const boundCharacterIds = activePersonaForFilter?.boundCharacterIds || [];
   const personaChats = effectivePersonaId
-    ? chatItems.filter((c) => c.personaId === effectivePersonaId)
+    ? chatItems.filter((c) => c.personaId === effectivePersonaId || (c.characterId && boundCharacterIds.includes(c.characterId)))
     : chatItems;
   const filteredChats = personaChats.filter((c) =>
     !chatQuery ||
