@@ -4477,6 +4477,31 @@ export function LineConversationView({
                   </select>
                   <div className="text-[8px] text-[#aaa] mt-1">消息下方会显示这个时区的实际时钟，例如 14:11。</div>
                 </div>
+                <div className="border-t border-[#f2f2f3] pt-3">
+                  <div className="text-[9.5px] font-medium text-[#666] mb-1">角色现实地区</div>
+                  <div className="text-[8px] text-[#aaa] leading-relaxed mb-2">给角色一个现实世界中的地区。系统会用真实地理位置查询当地天气，角色可以知道“自己那里”现在是什么天气。</div>
+                  <div className="flex gap-2">
+                    <input
+                      value={characterRegion}
+                      onChange={(e) => setCharacterRegion(e.target.value)}
+                      placeholder="例如 London / Tokyo / 上海"
+                      className="min-w-0 flex-1 px-2.5 py-2 bg-[#fafafa] border border-[#eee] rounded-xl text-[10px] text-[#555] outline-none"
+                    />
+                    <button
+                      type="button"
+                      disabled={characterWeatherBusy || !characterRegion.trim()}
+                      onClick={async () => {
+                        setCharacterWeatherBusy(true);
+                        const weather = await fetchLineWeather(characterRegion);
+                        if (weather) setCharacterWeather(weather);
+                        setCharacterWeatherBusy(false);
+                      }}
+                      className="px-3 rounded-xl bg-[#292724] text-white text-[9px] disabled:opacity-40"
+                    >{characterWeatherBusy ? '查询中…' : '查天气'}</button>
+                  </div>
+                  {characterWeather && <div className="mt-2 p-2.5 rounded-xl bg-[#f7eef0] border border-[#f0dee3] text-[8.5px] text-[#8c5f6b]">📍 {formatLineWeather(characterWeather)}</div>}
+                </div>
+
                 <div>
                   <div className="text-[9.5px] font-medium text-[#666] mb-1.5">角色语言</div>
                   <select value={characterLanguage} onChange={(e) => setCharacterLanguage(e.target.value)} className="w-full px-2.5 py-2 bg-[#fafafa] border border-[#eee] rounded-xl text-[10px] text-[#555] outline-none">
