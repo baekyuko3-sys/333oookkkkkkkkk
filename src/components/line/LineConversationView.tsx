@@ -4806,52 +4806,112 @@ export function LineConversationView({
               </div>
             </details>
 
-            {/* Section 0: 思维链预设系统 (Chain of Thought Presets) */}
-            <details open={false} className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
-              <summary className="list-none cursor-pointer p-3.5 flex items-center justify-between"><div className="flex items-center gap-1.5 font-medium text-[#333]"><Brain className="w-4 h-4 text-[#ae7e89]" /><span>Generation / 回复表现</span></div><span className="text-[10px] text-[#aaa]">展开</span></summary>
-              <div className="p-3.5 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 font-medium text-[#333]">
-                  <Brain className="w-4 h-4 text-[#ae7e89]" />
-                  <span>显示生成摘要</span>
+            {/* Generation / 回复表现 */}
+            <details open={false} className="bg-white rounded-[16px] border border-[#eceaec] overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+              <summary className="list-none cursor-pointer px-4 py-3.5 flex items-center justify-between select-none">
+                <div className="flex items-center gap-2">
+                  <Brain className="w-[17px] h-[17px] text-[#ad7b88]" />
+                  <span className="text-[13px] font-semibold tracking-[-0.01em] text-[#303033]">Generation / 回复表现</span>
                 </div>
-                <button type="button" onClick={() => setEnableChainOfThought(!enableChainOfThought)} className="w-10 h-6 rounded-full relative shrink-0 p-0.5 border border-black/5 shadow-inner cursor-pointer transition-colors duration-200 relative cursor-pointer transition-colors" style={{ backgroundColor: enableChainOfThought ? '#d4aab5' : '#ddd' }} aria-label={enableChainOfThought ? '隐藏生成摘要' : '显示生成摘要'}>
-                  <span className="block w-5 h-5 rounded-full bg-white shadow-sm absolute top-0.5 left-0.5 transition-transform duration-200 absolute top-0.5 transition-transform" style={{ transform: `translateX(${enableChainOfThought ? 16 : 0}px)` }} />
-                </button>
-              </div>
+                <span className="text-[10px] text-[#aaa]">展开</span>
+              </summary>
 
-              {/* 点击进入思维链预设管理器 */}
-              <div
-                onClick={() => {
-                  setShowSettings(false);
-                  setShowCotPresetModal(true);
-                }}
-                className="p-2.5 rounded-[10px] bg-[#faf8f9] border border-[#f0e4e7] flex items-center justify-between cursor-pointer hover:bg-[#f6eff1] transition-colors"
-              >
-                <div>
-                  <div className="font-semibold text-xs text-[#ae7e89]">
-                    当前预设：{(activeCotPreset?.title || '默认预设')}
+              <div className="px-4 pb-4">
+                {/* 生成摘要 */}
+                <div className="flex items-center justify-between py-3">
+                  <div className="min-w-0 pr-4">
+                    <div className="text-[12px] font-semibold text-[#353438]">显示生成摘要</div>
+                    <div className="mt-1 text-[9.5px] leading-[1.45] text-[#a2a0a4]">
+                      回复上方显示轻量生成摘要，默认折叠
+                    </div>
                   </div>
-                  <div className="text-[10px] text-[#888] mt-0.5 leading-snug">
-                    {enableChainOfThought ? '回复上方显示轻量生成摘要（默认折叠）' : '聊天中隐藏生成摘要'}
-                  </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-[#aaa] shrink-0 ml-2" />
-              </div>
-              <div className="border-t border-[#f2f2f3] mt-2 pt-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div><div className="text-[10px] font-medium text-[#444]">角色动作描写</div><div className="text-[8.5px] text-[#aaa] mt-0.5">与消息正文分开显示，例如“指尖停了一下”</div></div>
-                  <button type="button" onClick={() => setLineActionDescriptionsEnabled(!lineActionDescriptionsEnabled)} className="w-9 h-5 rounded-full relative transition-colors" style={{ backgroundColor: lineActionDescriptionsEnabled ? '#d4aab5' : '#ddd' }} aria-label={lineActionDescriptionsEnabled ? '关闭角色动作描写' : '开启角色动作描写'}>
-                    <span className="w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform" style={{ transform: `translateX(${lineActionDescriptionsEnabled ? 16 : 2}px)` }} />
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={enableChainOfThought}
+                    aria-label={enableChainOfThought ? '关闭显示生成摘要' : '开启显示生成摘要'}
+                    onClick={() => setEnableChainOfThought(!enableChainOfThought)}
+                    className="relative w-11 h-6 shrink-0 rounded-full p-0.5 border border-black/[0.04] shadow-inner transition-colors duration-200 focus:outline-none"
+                    style={{ backgroundColor: enableChainOfThought ? '#d5aab6' : '#dedee1' }}
+                  >
+                    <span
+                      className="absolute top-[2px] left-[2px] block w-5 h-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.16)] transition-transform duration-200"
+                      style={{ transform: enableChainOfThought ? 'translateX(20px)' : 'translateX(0)' }}
+                    />
                   </button>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div><div className="text-[10px] font-medium text-[#444]">禁止编造 User</div><div className="text-[8.5px] text-[#aaa] mt-0.5">不替你补台词、动作、表情、想法、决定或未提供的事实</div></div>
-                  <button type="button" onClick={() => setPreventUserFabrication(!preventUserFabrication)} className="w-10 h-6 rounded-full relative shrink-0 p-0.5 border border-black/5 shadow-inner cursor-pointer transition-colors duration-200 relative transition-colors" style={{ backgroundColor: preventUserFabrication ? '#d4aab5' : '#ddd' }} aria-label={preventUserFabrication ? '关闭禁止编造 User' : '开启禁止编造 User'}>
-                    <span className="block w-5 h-5 rounded-full bg-white shadow-sm absolute top-0.5 left-0.5 transition-transform duration-200 absolute top-0.5 transition-transform" style={{ transform: `translateX(${preventUserFabrication ? 16 : 0}px)` }} />
-                  </button>
+
+                {/* 当前生成预设 */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSettings(false);
+                    setShowCotPresetModal(true);
+                  }}
+                  className="w-full text-left rounded-[13px] border border-[#eee3e6] bg-[#fcf8f9] px-3.5 py-3 flex items-center justify-between gap-3 transition-colors hover:bg-[#faf3f5]"
+                >
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-semibold text-[#9d6e7b]">当前预设</div>
+                    <div className="mt-1 text-[12px] font-medium text-[#4a4144] truncate">
+                      {activeCotPreset?.title || '默认预设'}
+                    </div>
+                    <div className="mt-1 text-[9px] text-[#aaa]">
+                      点击选择或管理回复生成预设
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 shrink-0 text-[#b6a4aa]" />
+                </button>
+
+                {/* 回复细节 */}
+                <div className="mt-3 border-t border-[#f1f0f1] pt-1">
+                  <div className="flex items-center justify-between py-3">
+                    <div className="min-w-0 pr-4">
+                      <div className="text-[12px] font-semibold text-[#353438]">角色动作描写</div>
+                      <div className="mt-1 text-[9.5px] leading-[1.45] text-[#a2a0a4]">
+                        与消息正文分开显示，例如“指尖停了一下”
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={lineActionDescriptionsEnabled}
+                      aria-label={lineActionDescriptionsEnabled ? '关闭角色动作描写' : '开启角色动作描写'}
+                      onClick={() => setLineActionDescriptionsEnabled(!lineActionDescriptionsEnabled)}
+                      className="relative w-11 h-6 shrink-0 rounded-full p-0.5 border border-black/[0.04] shadow-inner transition-colors duration-200 focus:outline-none"
+                      style={{ backgroundColor: lineActionDescriptionsEnabled ? '#d5aab6' : '#dedee1' }}
+                    >
+                      <span
+                        className="absolute top-[2px] left-[2px] block w-5 h-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.16)] transition-transform duration-200"
+                        style={{ transform: lineActionDescriptionsEnabled ? 'translateX(20px)' : 'translateX(0)' }}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="border-t border-[#f3f2f3]" />
+
+                  <div className="flex items-center justify-between py-3">
+                    <div className="min-w-0 pr-4">
+                      <div className="text-[12px] font-semibold text-[#353438]">禁止编造 User</div>
+                      <div className="mt-1 text-[9.5px] leading-[1.45] text-[#a2a0a4]">
+                        不替你补台词、动作、表情、想法、决定或未提供的事实
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={preventUserFabrication}
+                      aria-label={preventUserFabrication ? '关闭禁止编造 User' : '开启禁止编造 User'}
+                      onClick={() => setPreventUserFabrication(!preventUserFabrication)}
+                      className="relative w-11 h-6 shrink-0 rounded-full p-0.5 border border-black/[0.04] shadow-inner transition-colors duration-200 focus:outline-none"
+                      style={{ backgroundColor: preventUserFabrication ? '#d5aab6' : '#dedee1' }}
+                    >
+                      <span
+                        className="absolute top-[2px] left-[2px] block w-5 h-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.16)] transition-transform duration-200"
+                        style={{ transform: preventUserFabrication ? 'translateX(20px)' : 'translateX(0)' }}
+                      />
+                    </button>
+                  </div>
                 </div>
-              </div>
               </div>
             </details>
 
