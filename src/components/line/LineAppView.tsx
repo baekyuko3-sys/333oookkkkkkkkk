@@ -426,7 +426,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
         return next;
       });
     } catch {}
-  }, [chatItems, importedCharacters, effectivePersonaId]);
+  }, [importedCharacters, effectivePersonaId]);
 
   // Background proactive messages can update the chat list without reopening LINE.
   useEffect(() => {
