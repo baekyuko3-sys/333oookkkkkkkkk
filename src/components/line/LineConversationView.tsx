@@ -3977,7 +3977,9 @@ export function LineConversationView({
 
           <div className="p-4 space-y-4 flex-1 overflow-y-auto text-xs pb-10">
 
-            <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3">
+            <details open={false} className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
+              <summary className="list-none cursor-pointer p-3.5 flex items-center justify-between"><div><div className="font-medium text-[#333]">Generation / API</div><div className="text-[10px] text-[#999]">当前聊天独立 API 与模型</div></div><span className="text-[10px] text-[#aaa]">展开</span></summary>
+              <div className="p-3.5 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-medium text-[#333]">当前聊天 API</div>
@@ -3996,7 +3998,8 @@ export function LineConversationView({
                 </div>
                 <button onClick={testChatApi} className="w-full py-2 rounded-[9px] bg-[#292724] text-white text-[10px]">{chatApiBusy === 'test' ? '测试中…' : '测试连接'}</button>
               </div>}
-            </div>
+              </div>
+            </details>
 
             <details open={showBehaviourSettings} onToggle={(e) => setShowBehaviourSettings((e.currentTarget as HTMLDetailsElement).open)} className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
               <summary className="list-none cursor-pointer p-3.5 flex items-center justify-between">
@@ -4018,7 +4021,9 @@ export function LineConversationView({
             </details>
 
             {/* Section -1: 聊天偏好 (置顶 / 免打扰 / 背景 / 收藏 / 导出) */}
-            <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3">
+            <details open={false} className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
+              <summary className="list-none cursor-pointer p-3.5 flex items-center justify-between"><div className="font-medium text-[#333]">聊天偏好</div><span className="text-[10px] text-[#aaa]">展开</span></summary>
+              <div className="p-3.5 space-y-3">
               {/* 置顶聊天 */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -4125,11 +4130,13 @@ export function LineConversationView({
                 </div>
                 <span className="text-[10px] text-[#ae7e89]">导出 .txt ›</span>
               </div>
-            </div>
+              </div>
+            </details>
             
             {/* Section -0.5: 聊天显示与工具 */}
-            <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3">
-              <div className="font-medium text-[#333]">聊天显示与工具</div>
+            <details open={false} className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
+              <summary className="list-none cursor-pointer p-3.5 flex items-center justify-between"><div className="font-medium text-[#333]">聊天显示与工具</div><span className="text-[10px] text-[#aaa]">展开</span></summary>
+              <div className="p-3.5 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <UserCheck className="w-4 h-4 text-[#ae7e89]" />
@@ -4164,10 +4171,13 @@ export function LineConversationView({
                   <ChevronRight className="w-4 h-4 text-[#bbb]" />
                 </div>
               )}
-            </div>
+              </div>
+            </details>
 
             {/* Section 0: 思维链预设系统 (Chain of Thought Presets) */}
-            <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3">
+            <details open={false} className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
+              <summary className="list-none cursor-pointer p-3.5 flex items-center justify-between"><div className="flex items-center gap-1.5 font-medium text-[#333]"><Brain className="w-4 h-4 text-[#ae7e89]" /><span>Generation / CoT</span></div><span className="text-[10px] text-[#aaa]">展开</span></summary>
+              <div className="p-3.5 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 font-medium text-[#333]">
                   <Brain className="w-4 h-4 text-[#ae7e89]" />
@@ -4205,10 +4215,13 @@ export function LineConversationView({
                 </div>
                 <ChevronRight className="w-4 h-4 text-[#aaa] shrink-0 ml-2" />
               </div>
-            </div>
+              </div>
+            </details>
 
             {/* Section 0.5: 作者注释 (Author's Note / A/N) */}
-            <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-2">
+            <details open={false} className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
+              <summary className="list-none cursor-pointer p-3.5 flex items-center justify-between"><span className="font-medium text-[#333]">Author's Note / 作者注释</span><span className="text-[10px] text-[#aaa]">展开</span></summary>
+              <div className="p-3.5 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-medium text-[#333] flex items-center gap-1.5">
                   <Compass className="w-4 h-4 text-[#ae7e89]" />
@@ -4222,7 +4235,8 @@ export function LineConversationView({
                 placeholder="[指导原则: ...]"
                 className="w-full h-16 p-2 bg-[#fafafa] border border-[#e8e8e9] rounded-md text-xs font-sans leading-relaxed resize-none"
               />
-            </div>
+              </div>
+            </details>
 
             {/* Section 1: 角色档案与羁绊 OR 群聊专属设定系统 */}
             {isGroup || contactName === '我们的小角落' ? (
