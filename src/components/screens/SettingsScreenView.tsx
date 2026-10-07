@@ -652,7 +652,29 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
               <div className="bg-white/65 rounded-xl p-2.5"><div className="text-[8px] text-[#999]">错误</div><div className="text-base font-semibold">{debugLog.filter(x=>x.level==='error').length}</div></div>
             </div>
             <div className="max-h-[360px] overflow-y-auto space-y-1.5">
-              {debugLog.length ? debugLog.map(item => <div key={item.id} className="bg-white/70 rounded-xl p-2.5 border border-black/5"><div className="flex justify-between gap-2"><span className={`text-[9px] font-semibold ${item.level==='error'?'text-[#b35f6e]':item.level==='success'?'text-[#65856b]':'text-[#756f69']}`}>{item.event}</span><span className="text-[8px] text-[#aaa]">{new Date(item.time).toLocaleTimeString()}</span></div><div className="text-[9px] mt-1 leading-relaxed break-words">{item.message}</div><div className="text-[8px] text-[#999] mt-1">{item.provider||''} · {item.model||''}{item.durationMs ? ' · '+item.durationMs+'ms' : ''}</div>{item.meta && <pre className="mt-1 text-[7px] text-[#8b8580] whitespace-pre-wrap break-words">{JSON.stringify(item.meta,null,2)}</pre>}</div>) : <div className="py-12 text-center text-[10px] text-[#aaa]">还没有 AI 请求记录</div>}
+              {debugLog.length ? (
+                debugLog.map(item => (
+                  <div key={item.id} className="bg-white/70 rounded-xl p-2.5 border border-black/5">
+                    <div className="flex justify-between gap-2">
+                      <span className={`text-[9px] font-semibold ${item.level === 'error' ? 'text-[#b35f6e]' : item.level === 'success' ? 'text-[#65856b]' : 'text-[#756f69]'}`}>
+                        {item.event}
+                      </span>
+                      <span className="text-[8px] text-[#aaa]">{new Date(item.time).toLocaleTimeString()}</span>
+                    </div>
+                    <div className="text-[9px] mt-1 leading-relaxed break-words">{item.message}</div>
+                    <div className="text-[8px] text-[#999] mt-1">
+                      {item.provider || ''} · {item.model || ''}{item.durationMs ? ' · ' + item.durationMs + 'ms' : ''}
+                    </div>
+                    {item.meta && (
+                      <pre className="mt-1 text-[7px] text-[#8b8580] whitespace-pre-wrap break-words">
+                        {JSON.stringify(item.meta, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="py-12 text-center text-[10px] text-[#aaa]">还没有 AI 请求记录</div>
+              )}
             </div>
           </section>
         )}
