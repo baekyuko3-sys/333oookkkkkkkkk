@@ -224,6 +224,12 @@ export function LineConversationView({
   const [allowOfflineInvite, setAllowOfflineInvite] = usePersistentState<boolean>(`line:allow-offline-invite:${conversationStorageId}`, true);
   const [typingHabitPreset, setTypingHabitPreset] = usePersistentState<string>(`line:typing-habit:${conversationStorageId}`, 'natural');
   const [typingHabitCustom, setTypingHabitCustom] = usePersistentState<string>(`line:typing-habit-custom:${conversationStorageId}`, '');
+  const [typingPunctuation, setTypingPunctuation] = usePersistentState<string>(`line:typing-punctuation:${conversationStorageId}`, 'natural');
+  const [typingEmoji, setTypingEmoji] = usePersistentState<string>(`line:typing-emoji:${conversationStorageId}`, 'rare');
+  const [typingSplit, setTypingSplit] = usePersistentState<string>(`line:typing-split:${conversationStorageId}`, 'natural');
+  const [typingLineBreak, setTypingLineBreak] = usePersistentState<string>(`line:typing-linebreak:${conversationStorageId}`, 'natural');
+  const [typingLength, setTypingLength] = usePersistentState<string>(`line:typing-length:${conversationStorageId}`, 'medium');
+  const [typingFillers, setTypingFillers] = usePersistentState<string>(`line:typing-fillers:${conversationStorageId}`, 'natural');
   const [chatApiOverride, setChatApiOverride] = usePersistentState<ChannelAiSettings>(`line:chat-api-override:${conversationStorageId}`, {
     ...readAppSettings().chatApiOverride,
     enabled: false,
@@ -985,7 +991,15 @@ export function LineConversationView({
             '【成员状态】\\n' + (activeGroup?.members || []).map(member => member.name + '：' + [member.online === false ? '离线' : '在线', member.mood || '', member.relationship || ''].filter(Boolean).join(' / ')).join('\\n'),
           ].filter(Boolean).join('\\n'),
           stylePreset: activeCotPreset?.title || selectedPreset,
-          typingHabit: typingHabitPreset === 'custom' ? typingHabitCustom : typingHabitPreset,
+          typingHabit: [
+            typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
+            '标点：' + typingPunctuation,
+            'emoji/表情：' + typingEmoji,
+            '消息分条：' + typingSplit,
+            '换行：' + typingLineBreak,
+            '句子长度：' + typingLength,
+            '语气词：' + typingFillers,
+          ].join('；'),
           temperature: Number(presetTemp) || 0.85,
           onDelta: delta => {
             streamedText += delta;
@@ -1068,7 +1082,15 @@ export function LineConversationView({
           selectedOpeningContext.trim() ? '【角色卡开场白 / 前情提要】\n' + selectedOpeningContext.trim() : '',
         ].filter(Boolean).join('\n'),
         stylePreset: activeCotPreset?.title || selectedPreset,
-        typingHabit: typingHabitPreset === 'custom' ? typingHabitCustom : typingHabitPreset,
+        typingHabit: [
+            typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
+            '标点：' + typingPunctuation,
+            'emoji/表情：' + typingEmoji,
+            '消息分条：' + typingSplit,
+            '换行：' + typingLineBreak,
+            '句子长度：' + typingLength,
+            '语气词：' + typingFillers,
+          ].join('；'),
         temperature: Number(presetTemp) || 0.85,
         onDelta: (delta) => {
           streamedText += delta;
@@ -3209,13 +3231,18 @@ export function LineConversationView({
               {/* Send Button */}
               <button
                 type="button"
-                onClick={() => {
+                aria-label="发送并请求回复"
+                title="发送并让角色回复"
+                onPointerUp={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   if (!inputText.trim()) return;
                   void handleSend(true);
                 }}
-                className="w-[34px] h-[38px] flex items-center justify-center text-[#c98f9d] hover:text-[#ae7e89] cursor-pointer active:scale-95 transition-transform"
+                onClick={(e) => e.stopPropagation()}
+                className="relative z-30 pointer-events-auto w-[34px] h-[38px] flex items-center justify-center text-[#c98f9d] hover:text-[#ae7e89] cursor-pointer active:scale-95 transition-transform"
               >
-                <Send className="w-5 h-5 stroke-[1.65]" />
+                <Send className="w-5 h-5 stroke-[1.65] pointer-events-none" />
               </button>
             </div>
           )}
@@ -4082,49 +4109,67 @@ export function LineConversationView({
               <summary className="list-none cursor-pointer p-3.5 flex items-center justify-between">
                 <div>
                   <div className="font-medium text-[#333]">打字习惯</div>
-                  <div className="text-[10px] text-[#999]">只影响当前角色 × 当前聊天的回复方式</div>
+                  <div className="text-[10px] text-[#999]">把角色平时怎么聊天一项一项设定</div>
                 </div>
-                <span className="text-[10px] text-[#aaa]">{typingHabitPreset === 'custom' ? '自定义' : '已选择'}</span>
+                <span className="text-[10px] text-[#aaa]">可自定义</span>
               </summary>
-              <div className="px-3.5 pb-3.5 space-y-2">
+              <div className="px-3.5 pb-3.5 space-y-3">
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    ['natural', '自然聊天', '像正常聊天，句长和换行随语境变化'],
-                    ['short', '简短利落', '短句为主，少解释，不写长段落'],
-                    ['fragmented', '碎片化', '一句一句发，适当换行，像即时消息'],
-                    ['warm', '轻松活泼', '口语更多，可偶尔用语气词或 emoji'],
-                    ['cold', '冷淡克制', '字少、标点克制，不主动堆情绪'],
-                    ['custom', '自定义', '自己描述这个角色具体怎么打字'],
+                    ['natural', '自然聊天', '自然变化，不刻意统一格式'],
+                    ['short', '简短利落', '短句、少解释'],
+                    ['fragmented', '碎片化', '更像真实即时消息'],
+                    ['warm', '轻松活泼', '口语、语气更轻松'],
+                    ['cold', '冷淡克制', '字少、情绪收着'],
+                    ['custom', '自定义', '自己写整体习惯'],
                   ].map(([id, title, desc]) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setTypingHabitPreset(id)}
-                      className={"text-left p-2.5 rounded-xl border transition-colors " + (
-                        typingHabitPreset === id
-                          ? 'bg-[#faf1f3] border-[#d4aab5] text-[#8c5f6b]'
-                          : 'bg-[#fafafa] border-[#eeeeef] text-[#555] hover:bg-white'
-                      )}
-                    >
+                    <button key={id} type="button" onClick={() => setTypingHabitPreset(id)} className={"text-left p-2.5 rounded-xl border " + (typingHabitPreset === id ? 'bg-[#faf1f3] border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#fafafa] border-[#eeeeef] text-[#555]')}>
                       <div className="text-[10px] font-medium">{title}</div>
-                      <div className="text-[8.5px] leading-relaxed mt-1 text-[#999]">{desc}</div>
+                      <div className="text-[8.5px] mt-1 text-[#999]">{desc}</div>
                     </button>
                   ))}
                 </div>
-                {typingHabitPreset === 'custom' && (
-                  <textarea
-                    value={typingHabitCustom}
-                    onChange={e => setTypingHabitCustom(e.target.value)}
-                    placeholder="例如：很少用句号；喜欢“……”；消息通常一句一句发；开心时会打很多字；不使用 emoji……"
-                    className="w-full min-h-[72px] p-2.5 bg-[#fafafa] border border-[#eeeeef] rounded-xl text-[10px] outline-none resize-none"
-                  />
-                )}
-                <div className="text-[8.5px] leading-relaxed text-[#aaa]">
-                  这是回复风格指令，不会改变角色性格、世界书或剧情设定。
+                {typingHabitPreset === 'custom' && <textarea value={typingHabitCustom} onChange={e => setTypingHabitCustom(e.target.value)} placeholder="例如：很少用句号，喜欢……，开心时会连续发好几条" className="w-full min-h-[60px] p-2.5 bg-[#fafafa] border border-[#eee] rounded-xl text-[10px] outline-none resize-none" />}
+
+                <div>
+                  <div className="text-[9.5px] font-medium text-[#666] mb-1.5">标点符号</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[['natural','自然使用'],['full','喜欢标点'],['minimal','很少标点'],['dots','偏爱……/…'],['exclaim','偏爱！/？']].map(([id,title]) => <button key={id} type="button" onClick={() => setTypingPunctuation(id)} className={"px-2.5 py-1.5 rounded-full border text-[8.5px] " + (typingPunctuation === id ? 'bg-[#f7eef0] border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#fafafa] border-[#eee] text-[#777]')}>{title}</button>)}
+                  </div>
                 </div>
+                <div>
+                  <div className="text-[9.5px] font-medium text-[#666] mb-1.5">emoji / 表情包</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[['none','基本不用'],['rare','偶尔使用'],['often','经常使用'],['sticker','喜欢表情包']].map(([id,title]) => <button key={id} type="button" onClick={() => setTypingEmoji(id)} className={"px-2.5 py-1.5 rounded-full border text-[8.5px] " + (typingEmoji === id ? 'bg-[#f7eef0] border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#fafafa] border-[#eee] text-[#777]')}>{title}</button>)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[9.5px] font-medium text-[#666] mb-1.5">消息分条</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[['single','喜欢一句一句发'],['natural','自然分条'],['combined','喜欢合并成一条']].map(([id,title]) => <button key={id} type="button" onClick={() => setTypingSplit(id)} className={"px-2.5 py-1.5 rounded-full border text-[8.5px] " + (typingSplit === id ? 'bg-[#f7eef0] border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#fafafa] border-[#eee] text-[#777]')}>{title}</button>)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[9.5px] font-medium text-[#666] mb-1.5">换行习惯</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[['frequent','经常换行'],['natural','自然换行'],['rare','很少换行']].map(([id,title]) => <button key={id} type="button" onClick={() => setTypingLineBreak(id)} className={"px-2.5 py-1.5 rounded-full border text-[8.5px] " + (typingLineBreak === id ? 'bg-[#f7eef0] border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#fafafa] border-[#eee] text-[#777]')}>{title}</button>)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[9.5px] font-medium text-[#666] mb-1.5">句子长度</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[['short','短句'],['medium','中等'],['long','偏长']].map(([id,title]) => <button key={id} type="button" onClick={() => setTypingLength(id)} className={"px-2.5 py-1.5 rounded-full border text-[8.5px] " + (typingLength === id ? 'bg-[#f7eef0] border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#fafafa] border-[#eee] text-[#777]')}>{title}</button>)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[9.5px] font-medium text-[#666] mb-1.5">语气词</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[['none','基本不用'],['natural','自然使用'],['often','喜欢用“嗯、啊、诶、嘛”等']].map(([id,title]) => <button key={id} type="button" onClick={() => setTypingFillers(id)} className={"px-2.5 py-1.5 rounded-full border text-[8.5px] " + (typingFillers === id ? 'bg-[#f7eef0] border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#fafafa] border-[#eee] text-[#777]')}>{title}</button>)}
+                  </div>
+                </div>
+                <div className="text-[8.5px] leading-relaxed text-[#aaa]">这些只控制“怎么打字”，不会改变角色性格、世界书和剧情。</div>
               </div>
             </details>
-            
             <details className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
               <summary className="list-none cursor-pointer p-3.5 flex items-center justify-between">
                 <div><div className="font-medium text-[#333]">主动行为日程</div><div className="text-[10px] text-[#999]">在这里安排主动消息、VROOM 和线下邀约</div></div>
