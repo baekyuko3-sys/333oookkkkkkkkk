@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ThemeMode, ScreenType } from '../types';
 import { SaneHomeScreenView } from './screens/SaneHomeScreenView';
 import { ChatScreenView } from './screens/ChatScreenView';
@@ -25,6 +25,35 @@ import { HomeCustomizeSheet } from './modals/HomeCustomizeSheet';
 import { playAppSound, type AppSoundKind } from '../store/soundManager';
 import { runProactiveCatchup } from '../store/proactiveRuntime';
 import { readAppearance } from '../store/appearance';
+
+class PhoneScreenErrorBoundary extends React.Component<
+  { screen: ScreenType; onReset: () => void; children: React.ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('[PhoneScreenErrorBoundary]', this.props.screen, error);
+  }
+
+  render() {
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <div className="absolute inset-0 z-[90] bg-[#f7f5f1] flex items-center justify-center px-8 text-center">
+        <div className="w-full">
+          <div className="text-[10px] tracking-[2px] text-[#aaa]">SANE333 · TEMPORARILY UNAVAILABLE</div>
+          <div className="mt-3 text-[16px] font-semibold text-[#292724]">暂时无法进去</div>
+          <div className="mt-2 text-[10px] leading-5 text-[#999]">这个页面正在等待修复，请稍后再试。</div>
+          <button onClick={this.props.onReset} className="mt-5 h-9 px-5 rounded-full bg-[#292724] text-white text-[10px]">重新打开</button>
+        </div>
+      </div>
+    );
+  }
+}
 
 interface PhoneSimulatorProps {
   themeMode: ThemeMode;
@@ -146,10 +175,22 @@ export function PhoneSimulator({
           )}
 
           {(currentScreen === 'chat' || currentScreen === 'inbox') && (
-            <LineAppView
-              onNavigateHome={() => setCurrentScreen('home')}
-              onNavigateScreen={setCurrentScreen}
-            />
+            <PhoneScreenErrorBoundary
+              screen={currentScreen}
+              onReset={() => {
+                window.localStorage.removeItem('line:chat-items');
+                window.localStorage.removeItem('line:friends-list');
+                window.localStorage.removeItem('line:global-favorites');
+                window.localStorage.removeItem('line:moments-posts');
+                window.localStorage.removeItem('line:moments-screen-posts');
+                window.location.reload();
+              }}
+            >
+              <LineAppView
+                onNavigateHome={() => setCurrentScreen('home')}
+                onNavigateScreen={setCurrentScreen}
+              />
+            </PhoneScreenErrorBoundary>
           )}
 
           {currentScreen === 'character-profile' && (
