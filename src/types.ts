@@ -72,7 +72,10 @@ export interface CharacterProfile {
   nickname: string;
   birthday: string;
   relationship: string;
-  canAutoChangeRelation: boolean;
+  /** 角色是否可以依据角色卡、聊天、记忆与世界书自主判断，而非被固定关系数值牵着走 */
+  canCharacterSelfJudge: boolean;
+  /** 兼容旧版本保存的数据；新 UI 不再把它当作关系数值开关 */
+  canAutoChangeRelation?: boolean;
   canBlockUser?: boolean;
   isBlockedByCharacter?: boolean;
   callMe: string;
