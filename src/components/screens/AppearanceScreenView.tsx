@@ -199,6 +199,15 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
                 <div className="mt-1 text-[11px] font-semibold">上传字体</div>
                 <div className="mt-1 text-[8px] text-[#777069]">支持 .woff / .woff2 / .ttf / .otf。字体只保存在本机浏览器。</div>
               </div>
+              <label className="block text-[9px]">字体链接
+                <input
+                  value={appearance.customFontUrl || ''}
+                  onChange={event => update('customFontUrl', event.target.value)}
+                  placeholder="https://example.com/font.woff2"
+                  className="mt-1 w-full p-2.5 rounded-xl bg-white/80 text-[9px] outline-none font-mono"
+                />
+                <div className="text-[8px] text-[#aaa] mt-1">支持直接可访问的 .woff / .woff2 / .ttf / .otf 字体链接。</div>
+              </label>
               <label className="block p-3 rounded-xl border border-dashed border-[#d7d2ca] bg-white/45 cursor-pointer">
                 <div className="text-[9px] font-medium">{appearance.customFontName || '选择字体文件'}</div>
                 <div className="text-[8px] text-[#aaa] mt-1">点击上传并立即预览</div>
@@ -215,7 +224,7 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
                   event.currentTarget.value = '';
                 }} />
               </label>
-              {appearance.customFont && <button onClick={() => { update('customFont',''); update('customFontName',''); notify('已恢复默认字体'); }} className="w-full py-2 rounded-xl bg-[#f5f3ef] text-[#777069] text-[9px]">恢复默认字体</button>}
+              {(appearance.customFont || appearance.customFontUrl) && <button onClick={() => { update('customFont',''); update('customFontUrl',''); update('customFontName',''); notify('已恢复默认字体'); }} className="w-full py-2 rounded-xl bg-[#f5f3ef] text-[#777069] text-[9px]">恢复默认字体</button>}
             </div>
           </>
         )}
