@@ -38,10 +38,6 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
     { id: 'app-moments', x: 104, y: 535 },
     { id: 'app-music', x: 190, y: 535 },
     { id: 'app-offline-story', x: 276, y: 535 },
-    { id: 'app-character-profile', x: 18, y: 615 },
-    { id: 'app-world-book', x: 104, y: 615 },
-    { id: 'app-appearance', x: 190, y: 615 },
-    { id: 'app-settings', x: 276, y: 615 },
   ];
   const defaultPage2Layout: DesktopItem[] = [
     { id: 'widget-threads', x: 20, y: 250 },
@@ -57,6 +53,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   const [desktopHidden, setDesktopHidden] = useState(() => readAppearance().desktopHidden || { page1: [], page2: [] });
   const [desktopEditing, setDesktopEditing] = useState(false);
   const [draggingDesktopItem, setDraggingDesktopItem] = useState<string | null>(null);
+  const dragStartRef = useRef<{ id: string; x: number; y: number } | null>(null);
 
   const getDefaultLayout = (page: DesktopPage) => page === 1 ? defaultPage1Layout : defaultPage2Layout;
   const pageKey = (page: DesktopPage) => page === 1 ? 'page1' : 'page2';
@@ -144,11 +141,19 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
-    setDraggingDesktopItem(id);
+    dragStartRef.current = { id, x: event.clientX, y: event.clientY };
   };
 
   const continueDesktopDrag = (page: DesktopPage, id: string, event: ReactPointerEvent) => {
-    if (desktopEditing && draggingDesktopItem === id) moveDesktopItem(page, id, event.clientX, event.clientY);
+    if (!desktopEditing || isHidden(page, id)) return;
+    const start = dragStartRef.current;
+    if (!start || start.id !== id) return;
+    if (!draggingDesktopItem) {
+      const distance = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+      if (distance < 8) return;
+      setDraggingDesktopItem(id);
+    }
+    moveDesktopItem(page, id, event.clientX, event.clientY);
   };
 
   useEffect(() => {
@@ -305,7 +310,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
         <div className="animate-in fade-in duration-300">
           
           {/* Date & Literary Section */}
-          <div className={`absolute z-10 ${desktopEditing ? "ring-1 ring-[#b7a59a]/45 rounded-xl cursor-grab active:cursor-grabbing touch-none" : ""}`} style={{ left: itemPosition(1, "widget-date").x, top: itemPosition(1, "widget-date").y }} onPointerDown={e=>beginDesktopDrag(1,"widget-date",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-date",e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)}>
+          <div className={`absolute z-10 ${desktopEditing ? "ring-1 ring-[#b7a59a]/45 rounded-xl cursor-grab active:cursor-grabbing touch-none" : ""}`} style={{ left: itemPosition(1, "widget-date").x, top: itemPosition(1, "widget-date").y }} onPointerDown={e=>beginDesktopDrag(1,"widget-date",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-date",e)} onPointerUp={()=>{setDraggingDesktopItem(null);dragStartRef.current=null}} onPointerCancel={()=>{setDraggingDesktopItem(null);dragStartRef.current=null}}>
             <div className="font-serif text-[55px] leading-[0.9] font-normal tracking-[-3px] text-[var(--ink)]">
               {currentDateNumber}
             </div>
@@ -471,10 +476,6 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               ['moments','IG','ig','bg-[#9b8068] text-white','moments'],
               ['music','音乐','music','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','music'],
               ['offline-story','线下剧情','book','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','offline-story'],
-              ['character-profile','角色档案','card','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','character-profile'],
-              ['world-book','世界书','globe','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','world-book'],
-              ['appearance','外观','look','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','appearance'],
-              ['settings','设置','gear','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','settings'],
             ].map(([id,label,symbol,iconClass,screen]) => { if (isHidden(1,'app-'+id)) return null; const pos=itemPosition(1,'app-'+id); return <button key={id} onClick={()=>{if(!desktopEditing) onNavigate(screen as ScreenType)}} onPointerDown={e=>beginDesktopDrag(1,'app-'+id,e)} onPointerMove={e=>continueDesktopDrag(1,'app-'+id,e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)} className={`absolute pointer-events-auto flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] select-none touch-none ${desktopEditing?'cursor-grab active:cursor-grabbing':''}`} style={{left:pos.x,top:pos.y}}>
                 <div className={`w-[64px] h-[64px] rounded-[21px] shadow-[0_6px_18px_rgba(52,43,34,.055)] grid place-items-center ${iconClass}`}>{renderAppIcon(id,symbol,'w-6 h-6')}{id==='line'&&worldUnread>0&&<span className="absolute -top-1 right-[-2px] w-4 h-4 rounded-full bg-[#9b625b] text-white text-[9px] font-bold flex items-center justify-center">{worldUnread>99?'99+':worldUnread}</span>}</div><span className="font-medium">{label}</span>
               </button>; })}
@@ -496,8 +497,8 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
                 style={{ left: item.x, top: item.y }}
                 onPointerDown={e => desktopEditing ? beginDesktopDrag(2, 'widget-threads', e) : onNavigate('threads')}
                 onPointerMove={e => continueDesktopDrag(2, 'widget-threads', e)}
-                onPointerUp={() => setDraggingDesktopItem(null)}
-                onPointerCancel={() => setDraggingDesktopItem(null)}
+                onPointerUp={() => { setDraggingDesktopItem(null); dragStartRef.current = null; }}
+                onPointerCancel={() => { setDraggingDesktopItem(null); dragStartRef.current = null; }}
               >
                 {desktopEditing && <button onPointerDown={e => e.stopPropagation()} onClick={() => hideDesktopItem(2, 'widget-threads')} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px]">×</button>}
                 <div className="flex items-center justify-between text-[9px] font-mono text-[#8b8782] mb-1.5">
@@ -548,6 +549,27 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
         </div>
       )}
 
+      {/* Fixed Dock — never participates in desktop dragging */}
+      <div className="absolute z-20 bottom-[28px] left-[18px] right-[18px] h-[92px] rounded-[28px] border border-[var(--edge,rgba(255,255,255,.7))] bg-[rgba(250,248,244,.72)] backdrop-blur-2xl shadow-[0_8px_28px_rgba(45,37,30,.055)] px-[10px] flex items-center justify-around">
+        {[
+          ['character-profile','角色档案','card','character-profile'],
+          ['world-book','世界书','globe','world-book'],
+          ['appearance','外观','look','appearance'],
+          ['settings','设置','gear','settings'],
+        ].map(([id,label,symbol,screen]) => (
+          <button
+            key={id}
+            onClick={() => onNavigate(screen as ScreenType)}
+            className="w-[64px] flex flex-col items-center gap-2 text-[10px] text-[var(--sub,#68625b)]"
+          >
+            <div className="w-[50px] h-[50px] rounded-[16px] bg-[rgba(255,255,255,.52)] border border-[var(--edge,rgba(255,255,255,.75))] shadow-[0_4px_14px_rgba(52,43,34,.05)] grid place-items-center text-[var(--ink)]">
+              {renderAppIcon(id,symbol,'w-5 h-5')}
+            </div>
+            <span className="font-medium whitespace-nowrap">{label}</span>
+          </button>
+        ))}
+      </div>
+
       {/* ========================================================================= */}
       {/* Pagination Indicator Dots (● ○  /  ○ ●) */}
       {/* ========================================================================= */}
@@ -569,7 +591,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
       </div>
 
       {desktopEditing && desktopHidden.page1.length > 0 && (
-        <button onClick={() => showAllDesktopItems(1)} className="absolute z-20 bottom-[112px] left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-white/80 border border-black/5 text-[8px] font-mono text-[#777]">
+        <button onClick={() => showAllDesktopItems(1)} className="absolute z-20 bottom-[126px] left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-white/80 border border-black/5 text-[8px] font-mono text-[#777]">
           恢复隐藏项目
         </button>
       )}
