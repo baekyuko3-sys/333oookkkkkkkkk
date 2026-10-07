@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ScreenType } from '../../types';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { getWorldUnreadCount } from '../../store/worldRuntime';
@@ -12,6 +12,7 @@ interface SaneHomeScreenViewProps {
 
 export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: SaneHomeScreenViewProps) {
   const [currentPage, setCurrentPage] = useState<1 | 2>(1);
+  const pageTouchStartX = useRef<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPhotoFlipped, setIsPhotoFlipped] = useState(false);
   const [isPhotoFlippedP2, setIsPhotoFlippedP2] = useState(false);
@@ -152,10 +153,12 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   };
 
   return (
-    <div className="relative w-full h-full overflow-hidden select-none" style={{ background: 'var(--screen, #fff)', color: 'var(--ink, #242323)', backgroundImage: appearance.wallpaper ? `url(${appearance.wallpaper})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+    <div className="relative w-full h-full overflow-hidden select-none" onTouchStart={(e) => { pageTouchStartX.current = e.touches[0]?.clientX ?? null; }} onTouchEnd={(e) => { const start = pageTouchStartX.current; const end = e.changedTouches[0]?.clientX ?? null; pageTouchStartX.current = null; if (desktopEditing || start === null || end === null) return; const dx = end - start; if (Math.abs(dx) < 55) return; setCurrentPage((page) => dx < 0 ? 2 : 1); }} style={{ background: 'var(--screen, #fff)', color: 'var(--ink, #242323)', backgroundImage: appearance.wallpaper ? `url(${appearance.wallpaper})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
       
-      {desktopEditing && <button onClick={() => resetDesktopLayout(currentPage)} 
-      {desktopEditing && <button onClick={() => setDesktopEditing(false)} 
+      {desktopEditing && <>
+        <button onClick={() => resetDesktopLayout(currentPage)} className="absolute z-30 top-[70px] left-[18px] px-3 h-8 rounded-full bg-white/80 border border-black/5 text-[9px] font-mono text-[#777]">重置</button>
+        <button onClick={() => setDesktopEditing(false)} className="absolute z-30 top-[70px] right-[18px] px-3 h-8 rounded-full bg-[#292724] text-white border border-[#292724] text-[9px] font-mono">完成整理</button>
+      </>}
       {/* SVG Icon Definitions */}
       <svg width="0" height="0" className="absolute pointer-events-none" aria-hidden="true">
         <defs>
