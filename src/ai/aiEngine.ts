@@ -960,12 +960,13 @@ export async function generateStatusBarContent(
     '状态快照应包含当前角色最值得展示的状态，例如地点、时间、正在做什么、情绪、关系变化或其他对当前预设有意义的信息。',
     currentStatus ? '【上一状态】' + currentStatus + '。只在当前聊天提供依据时更新它。' : '【上一状态】暂无。',
     '【状态栏名称】' + preset.name,
-    '【状态栏专用 Prompt】' + (preset.promptSuffix || '请按照当前状态栏预设格式输出状态内容。'),
-    '【输入格式】' + (preset.inputFormat || ''),
-    '【HTML 模板】' + preset.html,
-    '【提取正则】' + preset.regex,
-    '【格式优先级】严格服从“状态栏专用 Prompt”和“输入格式”的要求输出；提取正则只用于后台解析，不要自行修改、解释或发明格式。',
-    '输出只能是符合上述状态栏预设的状态内容，不要 Markdown、代码块、HTML、解释或额外文字。',
+    '【状态栏专用 Prompt｜最高优先级】' + (preset.promptSuffix || '请按照当前状态栏预设格式输出状态内容。'),
+    '上面的“状态栏专用 Prompt”就是本预设要求模型生成的真实输出格式。必须严格执行其中的字段、顺序、分隔符、时间格式和内容要求；不要改写成其他状态栏格式。',
+    '【输入格式】' + (preset.inputFormat || '未单独定义；请直接以“状态栏专用 Prompt”指定的格式输出。'),
+    '【提取正则｜仅用于生成后解析】' + preset.regex,
+    '【Replace With / HTML｜仅用于生成后渲染】' + preset.html,
+    '【处理顺序】先严格按照状态栏专用 Prompt 生成原文 → 后台再用提取正则捕获 → 再将 $1、$2、$3……替换进 Replace With / HTML。你本人不要输出 HTML，不要输出正则，不要解释这个处理过程。',
+    '不要自行修改、解释或发明格式。输出只能是状态栏预设要求的原始文本，不要 Markdown、代码块、HTML 或额外文字。',
   ].join('\n');
 
   const userPrompt = [
