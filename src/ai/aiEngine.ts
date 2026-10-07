@@ -6,7 +6,7 @@ import type { AppSettings, ChannelAiSettings } from '../store/appSettings';
 import { readAppSettings } from '../store/appSettings';
 import { getCharacterAiProfile, mergeCharacterAiSettings } from '../store/characterAiProfiles';
 import { resolveCharacterContext, selectWorldBookEntries } from './contextEngine';
-import { getCotForTarget } from '../store/cotPresets';
+import { getCotForTarget, type CotPreset } from '../store/cotPresets';
 import { buildLineHumanBehaviorPrompt } from '../store/lineReality';
 
 export type AiSettings = Pick<AppSettings, 'provider' | 'apiBaseUrl' | 'apiKey' | 'model' | 'streaming' | 'contextLength' | 'maxOutputTokens' | 'autoSave' | 'temperature'>;
@@ -55,6 +55,7 @@ export interface AiReplyInput {
   stylePreset?: string;
   typingHabit?: string;
   cotTarget?: 'line' | 'offline' | 'group';
+  cotPreset?: Pick<CotPreset, 'id' | 'title' | 'template' | 'tag'>;
   temperature?: number;
   onDelta?: (delta: string) => void;
 }
@@ -189,7 +190,9 @@ function buildWorldBookScanResolver(input: AiReplyInput, defaultDepth: number) {
 
 export function buildCharacterSystemPrompt(input: AiReplyInput): string {
   const cotTarget = input.cotTarget || (input.isGroup ? 'group' : 'line');
-  const cotPreset = getCotForTarget(cotTarget);
+  // The chat screen owns the active COT selection. Only fall back to the global
+  // assignment when the caller does not provide the conversation's selected preset.
+  const cotPreset = input.cotPreset || getCotForTarget(cotTarget);
   const applicableWorldBooks = getApplicableWorldBooks(input);
   const scopedInput = { ...input, worldbooks: applicableWorldBooks };
   const scanDepth = Math.max(1, Math.min(50, Math.max(
