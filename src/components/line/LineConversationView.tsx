@@ -431,6 +431,12 @@ export function LineConversationView({
   const [enableChainOfThought, setEnableChainOfThought] = usePersistentState<boolean>(`line:show-thinking-summary:${conversationStorageId}`, false);
   const [lineActionDescriptionsEnabled, setLineActionDescriptionsEnabled] = usePersistentState<boolean>(`line:show-action-descriptions:${conversationStorageId}`, false);
   const [preventUserFabrication, setPreventUserFabrication] = usePersistentState<boolean>(`line:prevent-user-fabrication:${conversationStorageId}`, true);
+  const [naturalAddressing, setNaturalAddressing] = usePersistentState<boolean>(`line:behavior-natural-addressing:${conversationStorageId}`, true);
+  const [stableNicknames, setStableNicknames] = usePersistentState<boolean>(`line:behavior-stable-nicknames:${conversationStorageId}`, true);
+  const [relationshipAwareAddressing, setRelationshipAwareAddressing] = usePersistentState<boolean>(`line:behavior-relationship-addressing:${conversationStorageId}`, true);
+  const [characterAutonomy, setCharacterAutonomy] = usePersistentState<boolean>(`line:behavior-character-autonomy:${conversationStorageId}`, true);
+  const [avoidRepetition, setAvoidRepetition] = usePersistentState<boolean>(`line:behavior-avoid-repetition:${conversationStorageId}`, true);
+  const [emotionContinuity, setEmotionContinuity] = usePersistentState<boolean>(`line:behavior-emotion-continuity:${conversationStorageId}`, true);
 
   // 酒馆作者注释 (Author's Note / A/N)
   const [authorsNote, setAuthorsNote] = usePersistentState(`line:authors-note:${conversationStorageId}`, '');
@@ -650,6 +656,12 @@ export function LineConversationView({
     bilingualMode === 'auto' ? '【双语模式】除普通话/国语/简体中文与繁体中文外，角色使用其他主要语言时，回复采用自然双语表达：保留角色原语言，并附自然中文对应，不要逐句机械翻译。' : '',
     characterLanguage !== 'auto' ? `【角色语言】本聊天角色主要使用 ${characterLanguage}。除非剧情或用户明确要求其他语言，不要擅自切换语言。` : '【角色语言】跟随角色卡/当前对话自然选择语言，不要无故切换语言。',
     chatTimeMode === 'current' ? `【时间】聊天时间跟随现实当前时间；当前时区为 ${chatTimezone}。涉及现在、今天、今晚、明天等相对时间时，以这个时区的真实日期时间为准。` : `【虚拟时间】本聊天时间固定为 ${virtualChatTime}，时间显示/理解时区为 ${chatTimezone}；涉及现在、今天、今晚、明天等相对时间时，只能依据这个虚拟时间推算。`,
+    naturalAddressing ? '【自然称呼】除非当前语境确实需要叫住、强调、认真提醒或表达特殊情绪，普通消息不要机械使用用户姓名。不要为了显得亲密而每句话都喊名字。' : '',
+    stableNicknames ? '【称呼稳定性】不要随机给用户创造多个新外号。角色已有的昵称应保持相对稳定；如果角色卡没有明确外号，不要为了制造亲密感而频繁发明新称呼。' : '',
+    relationshipAwareAddressing ? '【关系语境称呼】判断称呼必须结合角色自己的性格、关系阶段和当前情境。情侣之间自然使用“老公/老婆/哥哥/宝宝”等亲昵称呼时，不要无理由表现惊讶、排斥或说“为什么这样叫我”；只有在双方关系尚未支持该称呼、角色确实不习惯，或上下文存在真实原因时，才可以自然地产生疑惑或调整。用户使用亲昵称呼本身不是异常行为。' : '',
+    characterAutonomy ? '【角色自主判断】角色对称呼、关系、情绪和事件的反应应来自自己的角色设定、经历、关系和当前情境，而不是套用统一模板。不要为了“表现 AI 行为”强行制造反应。' : '',
+    avoidRepetition ? '【避免机械重复】不要连续多条消息重复同一个名字、外号、亲昵称呼、情绪标签或固定句式。一次自然使用即可，下一句应像真人一样继续内容。' : '',
+    emotionContinuity ? '【情绪连续但不循环】角色的情绪可以持续，也可以随着互动缓和、转移或改变；不要因为一次事件就让角色在每条后续消息里重复同一件事、反复翻旧账。' : '',
     characterTimeSensitivity === 'low' ? '【时间敏感度：不在意】角色基本不因用户多久没回复而产生情绪。允许用户长时间甚至很久不出现；再次出现时通常自然继续聊天。不要主动计算、记录或强调失联时长。' : characterTimeSensitivity === 'high' ? '【时间敏感度：高度在意】角色确实很重视联系与陪伴。长时间失联（例如一天、数天、数周，具体程度必须结合角色性格和关系）可以明显影响角色情绪，例如担心、想念、委屈、不满或生气，并能在用户回来后自然表现出来。但严禁把时间变成计时器：不要报具体分钟、小时，不要机械复述“你多久没回”，不要每隔几分钟催促，不要反复翻旧账。短暂聊天间隔仍然正常。' : '【时间敏感度：自然感知（默认）】角色像现实中的人一样感知联系是否中断。短暂不回复（几分钟、十几分钟等）完全正常，不应催促或计时；较长失联（例如一天、数天甚至更久）是否产生想念、担心、委屈、不满或生气，应由角色性格、关系和情境自然判断。时间可以影响角色情绪，但不要把时间本身当成话题，不要精确计算、报时或反复算账。用户回来后优先自然回应当前内容。',
   ].filter(Boolean).join('\n');
 
@@ -4475,10 +4487,48 @@ export function LineConversationView({
                       ['low', '不在意'],
                       ['natural', '自然感知（默认）'],
                       ['high', '高度在意'],
-                    ].map(([id, title]) => <button key={id} type="button" onClick={() => setCharacterTimeSensitivity(id as 'sensitive' | 'insensitive')} className={"px-3 py-1.5 rounded-full border text-[8.5px] " + (characterTimeSensitivity === id ? 'bg-[#f7eef0] border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#fafafa] border-[#eee] text-[#777]')}>{title}</button>)}
+                    ].map(([id, title]) => <button key={id} type="button" onClick={() => setCharacterTimeSensitivity(id as 'low' | 'natural' | 'high')} className={"px-3 py-1.5 rounded-full border text-[8.5px] " + (characterTimeSensitivity === id ? 'bg-[#f7eef0] border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#fafafa] border-[#eee] text-[#777]')}>{title}</button>)}
                   </div>
                   <div className="text-[8px] text-[#aaa] mt-1">时间不敏感 ≠ 可以乱编时间；仍然不能违背聊天里已经明确发生的时间。</div>
                 </div>
+              </div>
+            </details>
+            <details className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
+              <summary className="list-none cursor-pointer p-3.5 flex items-center justify-between">
+                <div><div className="font-medium text-[#333]">AI 行为规则</div><div className="text-[10px] text-[#999]">逐条控制角色的真人感，不是固定模板</div></div>
+                <span className="text-[10px] text-[#aaa]">可单独开启</span>
+              </summary>
+              <div className="px-3.5 pb-3.5 space-y-2">
+                <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-[#fafafa]">
+                  <div><div className="text-[9.5px] font-medium text-[#444]">自然称呼</div><div className="text-[8px] text-[#aaa] mt-0.5">普通聊天不机械喊名字。</div></div>
+                  <button type="button" onClick={() => setNaturalAddressing(!naturalAddressing)} className={"shrink-0 w-9 h-5 rounded-full relative transition-colors " + (naturalAddressing ? 'bg-[#d4aab5]' : 'bg-[#ddd]')}><span className={"absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform " + (naturalAddressing ? 'left-4.5' : 'left-0.5')} /></button>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-[#fafafa]">
+                  <div><div className="text-[9.5px] font-medium text-[#444]">称呼稳定</div><div className="text-[8px] text-[#aaa] mt-0.5">不随机发明一堆外号，已有称呼保持稳定。</div></div>
+                  <button type="button" onClick={() => setStableNicknames(!stableNicknames)} className={"shrink-0 w-9 h-5 rounded-full relative transition-colors " + (stableNicknames ? 'bg-[#d4aab5]' : 'bg-[#ddd]')}><span className={"absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform " + (stableNicknames ? 'left-4.5' : 'left-0.5')} /></button>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-[#fafafa]">
+                  <div><div className="text-[9.5px] font-medium text-[#444]">关系语境称呼</div><div className="text-[8px] text-[#aaa] mt-0.5">根据关系判断“老公/老婆/哥哥”等称呼是否自然。</div></div>
+                  <button type="button" onClick={() => setRelationshipAwareAddressing(!relationshipAwareAddressing)} className={"shrink-0 w-9 h-5 rounded-full relative transition-colors " + (relationshipAwareAddressing ? 'bg-[#d4aab5]' : 'bg-[#ddd]')}><span className={"absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform " + (relationshipAwareAddressing ? 'left-4.5' : 'left-0.5')} /></button>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-[#fafafa]">
+                  <div><div className="text-[9.5px] font-medium text-[#444]">角色自主判断</div><div className="text-[8px] text-[#aaa] mt-0.5">反应来自角色自己，不套统一 AI 模板。</div></div>
+                  <button type="button" onClick={() => setCharacterAutonomy(!characterAutonomy)} className={"shrink-0 w-9 h-5 rounded-full relative transition-colors " + (characterAutonomy ? 'bg-[#d4aab5]' : 'bg-[#ddd]')}><span className={"absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform " + (characterAutonomy ? 'left-4.5' : 'left-0.5')} /></button>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-[#fafafa]">
+                  <div><div className="text-[9.5px] font-medium text-[#444]">避免重复称呼</div><div className="text-[8px] text-[#aaa] mt-0.5">不连续重复名字、外号、固定称呼和句式。</div></div>
+                  <button type="button" onClick={() => setAvoidRepetition(!avoidRepetition)} className={"shrink-0 w-9 h-5 rounded-full relative transition-colors " + (avoidRepetition ? 'bg-[#d4aab5]' : 'bg-[#ddd]')}><span className={"absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform " + (avoidRepetition ? 'left-4.5' : 'left-0.5')} /></button>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-[#fafafa]">
+                  <div><div className="text-[9.5px] font-medium text-[#444]">情绪自然延续</div><div className="text-[8px] text-[#aaa] mt-0.5">情绪可以持续，但不会每句话都翻旧账。</div></div>
+                  <button type="button" onClick={() => setEmotionContinuity(!emotionContinuity)} className={"shrink-0 w-9 h-5 rounded-full relative transition-colors " + (emotionContinuity ? 'bg-[#d4aab5]' : 'bg-[#ddd]')}><span className={"absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform " + (emotionContinuity ? 'left-4.5' : 'left-0.5')} /></button>
+                </div>
+
               </div>
             </details>
             <details className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
