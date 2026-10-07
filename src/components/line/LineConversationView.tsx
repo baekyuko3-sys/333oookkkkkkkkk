@@ -1306,6 +1306,10 @@ export function LineConversationView({
       if (!replyMessageCreated) ensureReplyMessage(finalReplyText);
 
       const replyParts = splitGeneratedLineMessages(finalReplyText);
+      const replyMetadata = {
+        thinkingSummary: result.thinkingSummary,
+        actionDescription: result.actionDescription,
+      };
       setMessages((prev) => {
         const targetIndex = prev.findIndex((m) => m.id === replyMsgId);
         const withoutStreaming = prev.filter((m) => m.id !== replyMsgId);
@@ -1316,6 +1320,12 @@ export function LineConversationView({
           turnId, sender: 'other', text, time: formatLineMessageClock({ createdAt: new Date().toISOString() }, chatTimezone), createdAt: new Date().toISOString(), type: 'ai-reply',
           status: 'delivered', aiModel: result.model,
           matchedWorldbookEntries: result.matchedWorldbookEntries,
+          thinkingSummary: replyMetadata.thinkingSummary,
+          actionDescription: replyMetadata.actionDescription,
+          metadata: {
+            ...(replyMetadata.thinkingSummary ? { thinkingSummary: replyMetadata.thinkingSummary } : {}),
+            ...(replyMetadata.actionDescription ? { actionDescription: replyMetadata.actionDescription } : {}),
+          },
         })));
         return withoutStreaming.map((m) => m.id === msgId ? { ...m, isRead: true } : m);
       });
@@ -2907,6 +2917,15 @@ export function LineConversationView({
                         {msg.thinkingSummary || msg.metadata?.thinkingSummary}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {msg.actionDescription && !msg.isRecalled && (
+                  <div className="w-full max-w-[86%] mb-1.5 ml-0">
+                    <div className="inline-flex items-start gap-1.5 rounded-[10px] border border-[#ece5e7] bg-[#faf9f9] px-2.5 py-1.5 text-[10px] leading-relaxed text-[#777]">
+                      <span className="text-[#b89aa2] shrink-0">·</span>
+                      <span>{msg.actionDescription}</span>
+                    </div>
                   </div>
                 )}
 
