@@ -57,6 +57,8 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
   const [entryDetailOpen, setEntryDetailOpen] = useState(false);
   const [onlineGlobalIds, setOnlineGlobalIds] = usePersistentState<string[]>('phone:worldbook:global-online-ids', []);
   const [offlineGlobalIds, setOfflineGlobalIds] = usePersistentState<string[]>('phone:worldbook:global-offline-ids', []);
+
+  const book = books.find(item => item.id === selectedBookId) || books[0] || null;
   const isOnlineGlobal = !!book && onlineGlobalIds.includes(book.id);
   const isOfflineGlobal = !!book && offlineGlobalIds.includes(book.id);
   const toggleGlobalScope = (scope: 'online-chat' | 'offline-story') => {
@@ -67,8 +69,6 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
       ? { ...item, globalScopes: Array.from(new Set([...(item.globalScopes || []).filter(v => v !== scope), ...(scope === 'online-chat' ? (!onlineGlobalIds.includes(item.id) ? [scope] : []) : (!offlineGlobalIds.includes(item.id) ? [scope] : []))])) as WorldBook['globalScopes'], updatedAt: new Date().toISOString() }
       : item));
   };
-
-  const book = books.find(item => item.id === selectedBookId) || books[0] || null;
   const selectedEntry = book?.entries.find(item => item.id === selectedEntryId) || book?.entries[0] || null;
 
   useEffect(() => {
@@ -229,7 +229,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => toggleGlobalScope('online-chat')}
-                className={`px-2.5 py-1.5 rounded-full border text-[8px] inline-flex items-center gap-1.5 ${globalWorldBookEnabled ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/65 text-[#777] border-[rgba(40,36,31,.12)]'}`}
+                className={`px-2.5 py-1.5 rounded-full border text-[8px] inline-flex items-center gap-1.5 ${isOnlineGlobal ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/65 text-[#777] border-[rgba(40,36,31,.12)]'}`}
               >
                 {isOnlineGlobal ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
                 线上全局 {isOnlineGlobal ? '已加入' : '加入'}
