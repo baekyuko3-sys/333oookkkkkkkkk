@@ -11,6 +11,10 @@ import {
   mergeRecentMemorySummaries,
   type CharacterMemory,
   type MemorySection,
+  type CharacterMemoryStyleSettings,
+  type MemorySummaryLength,
+  type MemorySummaryFocus,
+  getDefaultMemoryStyle,
 } from '../../store/characterMemory';
 
 const ACTIVE_MEMORY_KEY = 'phone:memory-active-character';
@@ -81,6 +85,13 @@ export function MemoryScreenView({ onNavigate }: { onNavigate: (screen: ScreenTy
   );
   const [activeSection, setActiveSection] = useState<MemorySection>('stage');
   const [showSettings, setShowSettings] = useState(false);
+  const memoryStyle = memory.memoryStyle || getDefaultMemoryStyle();
+  const updateMemoryStyle = (patch: Partial<CharacterMemoryStyleSettings>) => {
+    if (!selected) return;
+    const next = saveCharacterMemory({ ...memory, memoryStyle: { ...memoryStyle, ...patch, sections: patch.sections ? { ...memoryStyle.sections, ...patch.sections } : memoryStyle.sections }, characterId: selected.id, characterName: selected.name });
+    notifyMemory(next);
+  };
+  const updateSectionStyle = (section: MemorySection, patch: Partial<CharacterMemoryStyleSettings['sections'][MemorySection]>) => updateMemoryStyle({ sections: { ...memoryStyle.sections, [section]: { ...memoryStyle.sections[section], ...patch } } });
   const [memorySettings, setMemorySettings] = useState<MemorySettings>(loadMemorySettings);
   const updateSettings = (patch: Partial<MemorySettings>) => {
     const next = { ...memorySettings, ...patch };
@@ -354,6 +365,29 @@ export function MemoryScreenView({ onNavigate }: { onNavigate: (screen: ScreenTy
           <div className="mt-3 rounded-2xl bg-white border border-[#e2ddd5] p-4"><div className="text-[9px] font-mono tracking-[1.3px] text-[#8d867e]">WHEN TO REMEMBER</div><div className="mt-2 space-y-2">{[['after-chat','每次对话结束后判断'],['important-only','只有出现重要信息才判断'],['manual','仅手动记录']].map(([id,label])=><button key={id} onClick={()=>updateSettings({trigger:id as MemorySettings['trigger']})} className={`w-full flex items-center justify-between py-2 text-left text-[10px] ${memorySettings.trigger===id?'font-semibold':'text-[#6f6962]'}`}><span>{label}</span><span className={`w-4 h-4 rounded-full border ${memorySettings.trigger===id?'bg-[#292724] border-[#292724]':'border-[#cfc8be]'}`}/></button>)}</div></div>
           <div className="mt-3 rounded-2xl bg-white border border-[#e2ddd5] p-4"><div className="text-[9px] font-mono tracking-[1.3px] text-[#8d867e]">MEMORY SOURCES</div><div className="mt-2 grid grid-cols-2 gap-2">{[['line','LINE CHAT'],['offline','OFFLINE STORY']].map(([id,label])=><button key={id} onClick={()=>updateSettings({sources:{...memorySettings.sources,[id]:!memorySettings.sources[id as 'line'|'offline']}})} className={`rounded-xl border p-3 text-left text-[9px] ${memorySettings.sources[id as 'line'|'offline']?'bg-[#292724] text-white border-[#292724]':'bg-[#f5f1ea] border-[#e2ddd5] text-[#777069]'}`}>{label}<div className="mt-1 text-[7px] opacity-60">{memorySettings.sources[id as 'line'|'offline']?'允许写入':'不写入 Memory'}</div></button>)}</div></div>
           <div className="mt-3 rounded-2xl bg-white border border-[#e2ddd5] p-4"><div className="text-[9px] font-mono tracking-[1.3px] text-[#8d867e]">WHAT CAN BE REMEMBERED</div><div className="mt-2 grid grid-cols-2 gap-x-4">{sections.map(sec=><label key={sec.id} className="flex items-center gap-2 py-2 text-[9px] text-[#625c55]"><input type="checkbox" checked={memorySettings.categories[sec.id]} onChange={e=>updateSettings({categories:{...memorySettings.categories,[sec.id]:e.target.checked}})} />{sec.label}</label>)}</div></div>
+          <div className="mt-3 rounded-2xl bg-white border border-[#e2ddd5] p-4">
+            <div className="text-[9px] font-mono tracking-[1.3px] text-[#8d867e]">HOW THIS CHARACTER REMEMBERS</div>
+            <div className="mt-1 text-[8px] leading-relaxed text-[#9a9289]">控制这个角色“怎么总结”，不改变 Memory 的七层结构。</div>
+            <select value={memoryStyle.personality} onChange={e=>updateMemoryStyle({personality:e.target.value as CharacterMemoryStyleSettings['personality']})} className="w-full mt-2.5 p-2.5 rounded-xl bg-[#f5f1ea] border border-[#e2ddd5] text-[9px] outline-none">
+              <option value="balanced">平衡型</option><option value="observant">观察型</option><option value="diary">日记型</option><option value="analytical">分析型</option><option value="warm">温柔型</option><option value="character-style">角色自己的风格</option>
+            </select>
+            <div className="mt-3 space-y-2">
+              {sections.map(sec => {
+                const p=memoryStyle.sections[sec.id];
+                return <div key={sec.id} className="rounded-xl bg-[#f7f4ee] border border-[#e8e2da] p-3">
+                  <div className="flex items-center justify-between"><div className="text-[9px] font-semibold">{sec.label}</div><span className="text-[7px] font-mono text-[#aaa29a]">{p.maxChars} 字</span></div>
+                  <div className="mt-2 grid grid-cols-3 gap-1.5">
+                    <select value={p.length} onChange={e=>updateSectionStyle(sec.id,{length:e.target.value as MemorySummaryLength})} className="p-2 rounded-lg bg-white border border-[#e2ddd5] text-[8px] outline-none"><option value="minimal">极简</option><option value="short">简短</option><option value="standard">标准</option><option value="detailed">详细</option><option value="very-detailed">很详细</option></select>
+                    <input type="number" min={20} max={600} step={10} value={p.maxChars} onChange={e=>updateSectionStyle(sec.id,{maxChars:Math.max(20,Math.min(600,Number(e.target.value)||20))})} className="p-2 rounded-lg bg-white border border-[#e2ddd5] text-[8px] font-mono outline-none"/>
+                    <select value={p.focus} onChange={e=>updateSectionStyle(sec.id,{focus:e.target.value as MemorySummaryFocus})} className="p-2 rounded-lg bg-white border border-[#e2ddd5] text-[8px] outline-none"><option value="facts">偏事实</option><option value="events">偏事件</option><option value="relationship">偏关系</option><option value="emotion">偏情绪</option><option value="details">偏细节</option><option value="character-style">角色自己的风格</option></select>
+                  </div>
+                  <div className="mt-1 grid grid-cols-3 text-[6.5px] text-[#aaa29a]"><span>总结长度</span><span>字数上限</span><span>总结重点</span></div>
+                </div>;
+              })}
+            </div>
+            <div className="mt-3 p-2.5 rounded-xl bg-[#ebe7df] text-[7.5px] leading-relaxed text-[#817a72]">“角色自己的风格”只决定取舍、语气和细节，不允许编造事实；事实可靠性始终优先。</div>
+          </div>
+
           <div className="mt-3 rounded-2xl bg-white border border-[#e2ddd5] p-4"><div className="text-[9px] font-mono tracking-[1.3px] text-[#8d867e]">MAINTENANCE</div><div className="mt-2 space-y-2 text-[9px]">{[['autoMerge','自动合并重复记忆'],['autoUpdate','发现新信息时更新旧记忆'],['autoDelete','自动删除低价值记忆'],['requireApproval','保存前先让我确认']].map(([id,label])=><label key={id} className="flex items-center justify-between py-2"><span>{label}</span><input type="checkbox" checked={!!memorySettings[id as keyof MemorySettings]} onChange={e=>updateSettings({[id]:e.target.checked} as Partial<MemorySettings>)} /></label>)}</div><div className="mt-3 pt-3 border-t border-[#eee9e1] text-[8px] leading-relaxed text-[#9a9289]">「我的人设」永远由你控制，不属于 Memory，也不会被自动修改。</div></div>
         </div>
       </div>}    </div>
