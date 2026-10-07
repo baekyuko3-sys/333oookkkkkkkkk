@@ -191,7 +191,6 @@ export function LineConversationView({
   }, [conversationStorageId]);
 
   useEffect(() => {
-    if (!messages.length) return;
     const runtimeMessages: LineRuntimeMessage[] = messages.map((message) => ({
       id: message.id,
       sender: message.sender,
@@ -2669,6 +2668,8 @@ export function LineConversationView({
           </button>
         )}
         {visibleMessages.map((msg, messageIndex) => {
+          // Deleted messages must never leave an empty visual row behind.
+          if (!msg || msg.deletedAt || msg.isDeleted) return null;
           const previousMessage = visibleMessages[messageIndex - 1];
           const nextMessage = visibleMessages[messageIndex + 1];
           const sameAsPrevious = Boolean(previousMessage && previousMessage.sender === msg.sender && previousMessage.type !== 'system-nudge' && msg.type !== 'system-nudge');
@@ -6109,7 +6110,7 @@ export function LineConversationView({
               {/* 删除 */}
               <div
                 onClick={() => {
-                  setMessages(messages.filter((m) => m.id !== contextMenuMsg.id));
+                  setMessages((prev) => prev.filter((m) => String(m.id) !== String(contextMenuMsg.id)));
                   setContextMenuMsg(null);
                   showToast('消息已删除');
                 }}
