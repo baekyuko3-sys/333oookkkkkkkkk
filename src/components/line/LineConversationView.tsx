@@ -129,7 +129,7 @@ export function LineConversationView({
 
   // LINE keeps the complete conversation in storage, but only renders the newest
   // page at first. Older messages load naturally as you scroll upward.
-  const LINE_PAGE_SIZE = 60;
+  const LINE_PAGE_SIZE = 100;
   const [loadedMessageCount, setLoadedMessageCount] = useState(LINE_PAGE_SIZE);
   const messagesViewportRef = useRef<HTMLDivElement>(null);
   const visibleMessages = messages.slice(-loadedMessageCount);
@@ -2336,11 +2336,7 @@ export function LineConversationView({
       {/* 2. MESSAGES STREAM */}
       <div
         ref={messagesViewportRef}
-        onScroll={(event) => {
-          if (event.currentTarget.scrollTop <= 48 && loadedMessageCount < messages.length) {
-            loadOlderMessages();
-          }
-        }}
+        onScroll={() => {}}
         className="flex-1 overflow-y-auto px-3.5 py-4 space-y-4 no-scrollbar relative"
       >
         {showUnreadJump && unreadAnchorId !== null && (
@@ -2364,7 +2360,7 @@ export function LineConversationView({
             onClick={loadOlderMessages}
             className="mx-auto block text-[9.5px] text-[#aaa] hover:text-[#ae7e89] py-1.5 px-3 rounded-full hover:bg-[#faf1f3] transition-colors"
           >
-            加载更早的消息 · 还有 {messages.length - loadedMessageCount} 条
+            已折叠更早的消息 · 点击展开 {messages.length - loadedMessageCount} 条
           </button>
         )}
         <div className="text-center text-[10px] text-[#b3b3b7] my-1">
@@ -3214,9 +3210,11 @@ export function LineConversationView({
               {/* Send Button */}
               <button
                 type="button"
-                onClick={() => void handleSend(true)}
-                disabled={isTyping || !inputText.trim()}
-                className="w-[34px] h-[38px] flex items-center justify-center text-[#c98f9d] hover:text-[#ae7e89] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                onClick={() => {
+                  if (!inputText.trim()) return;
+                  void handleSend(true);
+                }}
+                className="w-[34px] h-[38px] flex items-center justify-center text-[#c98f9d] hover:text-[#ae7e89] cursor-pointer active:scale-95 transition-transform"
               >
                 <Send className="w-5 h-5 stroke-[1.65]" />
               </button>
