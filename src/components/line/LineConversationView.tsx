@@ -123,7 +123,9 @@ export function LineConversationView({
   );
   // Old/local data can be malformed. A bad conversation record must never prevent
   // the chat screen itself from opening.
-  const messages = Array.isArray(storedMessages) ? storedMessages : [];
+  const messages = Array.isArray(storedMessages)
+    ? storedMessages.filter((message): message is Record<string, any> => !!message && typeof message === 'object')
+    : [];
 
   // LINE keeps the complete conversation in storage, but only renders the newest
   // page at first. Older messages load naturally as you scroll upward.
@@ -407,7 +409,9 @@ export function LineConversationView({
   // 我的人设管理器 (User Persona Manager)
   const [showPersonaManager, setShowPersonaManager] = useState(false);
   const [storedUserPersonas, setUserPersonas] = usePersistentState<any[]>('line:user-personas', []);
-  const userPersonas = Array.isArray(storedUserPersonas) ? storedUserPersonas : [];
+  const userPersonas = Array.isArray(storedUserPersonas)
+    ? storedUserPersonas.filter((persona): persona is Record<string, any> => !!persona && typeof persona === 'object')
+    : [];
   const [activePersonaId, setActivePersonaId] = usePersistentState<string | null>('line:active-persona', null);
   const [editingPersonaId, setEditingPersonaId] = useState<string | null>(null);
   const [showMyAvatar, setShowMyAvatar] = usePersistentState<boolean>(`line:show-my-avatar:${conversationStorageId}`, true);
@@ -458,15 +462,20 @@ export function LineConversationView({
 
   // 导入角色卡与全局世界书：真正 AI 回复从这里读取角色核心资料。
   const [storedImportedCharacters] = usePersistentState<ImportedCharacter[]>('phone:characters', []);
-  const importedCharacters = Array.isArray(storedImportedCharacters) ? storedImportedCharacters : [];
+  const importedCharacters = Array.isArray(storedImportedCharacters)
+    ? storedImportedCharacters.filter((character): character is ImportedCharacter => !!character && typeof character === 'object')
+    : [];
   const importedCharacter = characterId
     ? importedCharacters.find(character => character && character.id === characterId) || null
     : importedCharacters.find(character => character && character.name === contactName) || null;
   const activeGroup = isGroup ? getLineGroupByName(contactName) : null;
-  const groupAiMembers = activeGroup?.members
+  const safeGroupMembers = Array.isArray(activeGroup?.members)
+    ? activeGroup.members.filter((member: any) => !!member && typeof member === 'object')
+    : [];
+  const groupAiMembers = safeGroupMembers
     .map(member => ({ member, character: importedCharacters.find(character => character.id === member.characterId || character.name === member.name) || null }))
-    .filter(item => item.character && item.member.name !== currentUserNameFallback()) || [];
-  const groupMembers = activeGroup?.members || [];
+    .filter(item => item.character && item.member.name !== currentUserNameFallback());
+  const groupMembers = safeGroupMembers;
   const groupUnreadCount = messages.filter((message) => message.sender !== 'me' && message.isRead === false).length;
 
   // 群聊 @成员：只在输入框当前 @词时显示候选条。
@@ -522,7 +531,9 @@ export function LineConversationView({
     ? storedWorldbooks.filter((book): book is WorldBook => !!book && typeof book === 'object' && Array.isArray(book.entries))
     : [];
   const [storedLineFriends] = usePersistentState<Array<{ name: string; characterId?: string; note?: string; online?: boolean; pinyin?: string }>>('line:friends-list', []);
-  const lineFriends = Array.isArray(storedLineFriends) ? storedLineFriends : [];
+  const lineFriends = Array.isArray(storedLineFriends)
+    ? storedLineFriends.filter((friend): friend is { name: string; characterId?: string; note?: string; online?: boolean; pinyin?: string } => !!friend && typeof friend === 'object')
+    : [];
   const forwardRecipients = Array.from(new Set([
     ...lineFriends.map(friend => friend.name).filter(Boolean),
     ...getLineGroups().filter(group => group.id !== activeGroup?.id).map(group => group.name).filter(Boolean),
@@ -539,10 +550,17 @@ export function LineConversationView({
     getCharacterProfile(contactName, characterId),
   );
   // Recover gracefully from an old/null profile record.
-  const characterProfile =
+  const rawCharacterProfile =
     storedCharacterProfile && typeof storedCharacterProfile === 'object'
       ? storedCharacterProfile
       : getCharacterProfile(contactName, characterId);
+  const characterProfile = {
+    ...getCharacterProfile(contactName, characterId),
+    ...rawCharacterProfile,
+    nickname: String((rawCharacterProfile as any).nickname || contactName || '角色'),
+    relationship: String((rawCharacterProfile as any).relationship || '刚认识'),
+    callMe: String((rawCharacterProfile as any).callMe || contactName || '你'),
+  };
 
   // 聊天设定使用真正的全局世界书；选择结果按聊天保存。
   const [selectedWorldBookId, setSelectedWorldBookId] = usePersistentState<string>(`line:selected-worldbook:${conversationStorageId}`, 'all');
@@ -567,7 +585,9 @@ export function LineConversationView({
   const [showCotPresetModal, setShowCotPresetModal] = useState(false);
   const [showPresetResourceManager, setShowPresetResourceManager] = useState<'status' | 'cot' | null>(null);
   const [storedCotPresets, setCotPresets] = usePersistentState<CotPreset[]>('line:cot-presets', getCotPresets());
-  const cotPresets = Array.isArray(storedCotPresets) ? storedCotPresets.filter(Boolean) : [];
+  const cotPresets = Array.isArray(storedCotPresets)
+    ? storedCotPresets.filter((preset): preset is CotPreset => !!preset && typeof preset === 'object')
+    : [];
   const [activeCotPresetId, setActiveCotPresetId] = usePersistentState(`line:cot-active:${conversationStorageId}`, 'cot-1');
   const activeCotPreset = cotPresets.find((p) => p && p.id === activeCotPresetId) || cotPresets[0] || { id: 'cot-fallback', title: '默认预设', description: '', template: '' };
   const [customCotTemplate, setCustomCotTemplate] = usePersistentState(`line:cot-custom:${conversationStorageId}`, activeCotPreset.template);
