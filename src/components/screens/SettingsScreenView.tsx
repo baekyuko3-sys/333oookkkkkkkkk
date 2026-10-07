@@ -10,6 +10,7 @@ import type { CharacterAiProfile } from '../../store/characterAiProfiles';
 import { buildCharacterAiProfile } from '../../store/characterAiProfiles';
 import { usePersistentState } from '../../store/usePersistentState';
 import { DEFAULT_APP_SETTINGS, type AppSettings, readAppSettings, saveAppSettings } from '../../store/appSettings';
+import { applyApiPreset, deleteApiPreset, readApiPresets, settingsToApiPreset, upsertApiPreset, type ApiPreset } from '../../store/apiPresets';
 import { listOpenAiCompatibleModels, testAiConnection } from '../../ai/aiEngine';
 import { generateImage, generateSpeech } from '../../ai/mediaEngine';
 import { playAppSound, saveSoundFile, type AppSoundKind } from '../../store/soundManager';
@@ -87,6 +88,8 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
   const [characters] = usePersistentState<ImportedCharacter[]>('phone:characters', []);
   const [characterAiProfiles, setCharacterAiProfiles] = usePersistentState<CharacterAiProfile[]>('phone:character-ai-profiles', []);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>('');
+  const [apiPresets, setApiPresets] = useState<ApiPreset[]>(() => readApiPresets());
+  const [apiPresetName, setApiPresetName] = useState('');
 
 
   const localStats = useMemo(() => {
@@ -153,6 +156,21 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
     setSettingsState(next);
   };
 
+  const saveCurrentApiPreset = () => {
+    const name = apiPresetName.trim() || window.prompt('给这个 API 预设起个名字')?.trim();
+    if (!name) return;
+    upsertApiPreset(settingsToApiPreset(settings, name));
+    setApiPresets(readApiPresets()); setApiPresetName(''); notify('API 预设已保存');
+  };
+  const applySavedApiPreset = (preset: ApiPreset) => {
+    const next = saveAppSettings(applyApiPreset(preset)); setSettingsState(next);
+    notify('已切换 API 预设：' + preset.name);
+  };
+  const removeSavedApiPreset = (id: string) => {
+    if (!window.confirm('删除这个 API 预设？')) return;
+    deleteApiPreset(id); setApiPresets(readApiPresets()); notify('API 预设已删除');
+  };
+
   const selectedCharacter = characters.find(character => character.id === selectedCharacterId) || null;
   const selectedCharacterAi = selectedCharacter
     ? characterAiProfiles.find(profile => profile.characterId === selectedCharacter.id) || null
@@ -171,6 +189,11 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
         maxOutputTokens: settings.maxOutputTokens,
         autoSave: settings.autoSave,
         temperature: settings.temperature,
+        topP: settings.topP,
+        topK: settings.topK,
+        frequencyPenalty: settings.frequencyPenalty,
+        presencePenalty: settings.presencePenalty,
+        seed: settings.seed,
       },
       selectedCharacter.id,
       selectedCharacter.name,
@@ -371,6 +394,12 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
               <KeyRound className="w-3.5 h-3.5" /> CHAT AI / LLM
             </div>
             <div className="space-y-2.5">
+              <div className="p-3 rounded-2xl bg-white/55 border border-black/5">
+                <div className="flex items-center justify-between mb-2"><div><div className="text-[10px] font-semibold text-[#403b36]">API 预设</div><div className="text-[8px] text-[#938b83]">保存多套 API 配置，随时切换。</div></div><span className="text-[8px] text-[#8b7560]">{apiPresets.length} 套</span></div>
+                <div className="flex gap-1.5"><input value={apiPresetName} onChange={e=>setApiPresetName(e.target.value)} placeholder="例如 Gemini / Vertex / OpenRouter" className="flex-1 bg-white rounded-xl p-2.5 text-[10px] outline-none" /><button onClick={saveCurrentApiPreset} className="px-3 rounded-xl bg-[#292724] text-white text-[9px]">保存当前</button></div>
+                {apiPresets.length>0 && <div className="mt-2 max-h-32 overflow-y-auto space-y-1">{apiPresets.map(p=><div key={p.id} className="flex items-center gap-1.5 bg-white/70 rounded-xl px-2.5 py-2"><button onClick={()=>applySavedApiPreset(p)} className="flex-1 text-left min-w-0"><div className="text-[9px] font-semibold truncate">{p.name}</div><div className="text-[8px] text-[#999] truncate">{p.provider} · {p.model||'未选模型'}</div></button><button onClick={()=>removeSavedApiPreset(p.id)} className="text-[8px] text-[#b47783] px-1.5">删除</button></div>)}</div>}
+              </div>
+
               <label className="block text-[9px] text-[#7e7770]">Provider
                 <select value={settings.provider} onChange={e => update('provider', e.target.value as AppSettings['provider'])} className="w-full mt-1 bg-white/75 rounded-xl p-2.5 text-xs outline-none">
                   <option value="gemini">Google Gemini</option>
@@ -430,6 +459,13 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
                   </div>
                 </div>
               )}
+              <div className="grid grid-cols-3 gap-2">
+                <label className="bg-white/55 rounded-xl p-2.5 text-[9px]">Top P<input type="number" step="0.05" min={0} max={1} value={settings.topP} onChange={e=>update('topP',Math.max(0,Math.min(1,Number(e.target.value)||0)))} className="w-full mt-1 bg-transparent outline-none font-mono text-xs" /></label>
+                <label className="bg-white/55 rounded-xl p-2.5 text-[9px]">Top K<input type="number" min={1} max={100} value={settings.topK} onChange={e=>update('topK',Math.max(1,Math.min(100,Number(e.target.value)||40)))} className="w-full mt-1 bg-transparent outline-none font-mono text-xs" /></label>
+                <label className="bg-white/55 rounded-xl p-2.5 text-[9px]">Seed<input type="number" value={settings.seed ?? ''} onChange={e=>update('seed',e.target.value===''?null:Number(e.target.value))} className="w-full mt-1 bg-transparent outline-none font-mono text-xs" placeholder="自动" /></label>
+                <label className="bg-white/55 rounded-xl p-2.5 text-[9px]">频率惩罚<input type="number" step="0.05" min={-2} max={2} value={settings.frequencyPenalty} onChange={e=>update('frequencyPenalty',Math.max(-2,Math.min(2,Number(e.target.value)||0)))} className="w-full mt-1 bg-transparent outline-none font-mono text-xs" /></label>
+                <label className="bg-white/55 rounded-xl p-2.5 text-[9px]">存在惩罚<input type="number" step="0.05" min={-2} max={2} value={settings.presencePenalty} onChange={e=>update('presencePenalty',Math.max(-2,Math.min(2,Number(e.target.value)||0)))} className="w-full mt-1 bg-transparent outline-none font-mono text-xs" /></label>
+              </div>
               <div className="grid grid-cols-4 gap-2">
                 <label className="bg-white/55 rounded-xl p-2.5 text-[9px]">上下文
                   <input type="number" min={4} max={200} value={settings.contextLength} onChange={e => update('contextLength', Math.max(4, Math.min(200, Number(e.target.value) || 24)))} className="w-full mt-1 bg-transparent outline-none font-mono text-xs" />
