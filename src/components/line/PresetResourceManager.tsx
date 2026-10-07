@@ -176,6 +176,12 @@ export function PresetResourceManager({
                 <label className="block text-[8px] text-[#999]">Name
                   <input value={(selected as StatusBarPreset).name} onChange={e=>updateSelected({name:e.target.value})} placeholder="例如：状态栏 / Status Card" className="w-full mt-1 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px]"/>
                 </label>
+                <label className="block text-[8px] text-[#999]">状态栏 Prompt · 生成指令
+                  <textarea value={(selected as StatusBarPreset).promptSuffix} onChange={e=>updateSelected({promptSuffix:e.target.value})} placeholder="请严格按照状态栏输入格式输出，不要添加解释。" className="w-full mt-1 h-20 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px] leading-relaxed resize-none"/>
+                </label>
+                <label className="block text-[8px] text-[#999]">输入格式 · Input Format
+                  <input value={(selected as StatusBarPreset).inputFormat} onChange={e=>updateSelected({inputFormat:e.target.value})} placeholder="{{status:地点｜时间｜活动｜心情}}" className="w-full mt-1 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px] font-mono"/>
+                </label>
                 <label className="block text-[8px] text-[#999]">提取正则 · Find Regex
                   <input value={(selected as StatusBarPreset).regex} onChange={e=>updateSelected({regex:e.target.value})} placeholder="/\\{\\{status:(.*?)\\}\\}/gs" className="w-full mt-1 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px] font-mono"/>
                 </label>
@@ -223,6 +229,9 @@ export function PresetResourceManager({
                     <option value="mono">Mono · 编辑器</option>
                     <option value="outline">Outline · 细线框</option>
                   </select>
+                </label>
+                <label className="block text-[8px] text-[#999]">COT Prompt · 决策规则
+                  <textarea value={(selected as CotPreset).template} onChange={e=>updateSelected({template:e.target.value})} className="w-full mt-1 h-44 p-2 rounded-lg bg-white border border-[#eee] text-[10px] leading-relaxed font-mono"/>
                 </label>
                 <input value={(selected as CotPreset).tag} onChange={e=>updateSelected({tag:e.target.value})} className="w-full p-2 rounded-lg bg-white border border-[#eee] text-[10px] font-mono"/>
                 <input value={(selected as CotPreset).description} onChange={e=>updateSelected({description:e.target.value})} placeholder="描述" className="w-full p-2 rounded-lg bg-white border border-[#eee] text-[10px]"/>
