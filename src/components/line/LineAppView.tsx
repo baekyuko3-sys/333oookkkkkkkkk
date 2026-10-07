@@ -615,22 +615,6 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                   className="absolute inset-y-0 left-0 z-10 w-full px-4 flex items-center text-left bg-white transition-transform duration-200 touch-pan-y"
                   style={{ transform: swipedChatId === item.id ? 'translateX(-76px)' : 'translateX(0)' }}
                 >
-                    prev.map((c) => (c.id === item.id ? { ...c, unread: 0 } : c))
-                  );
-                  markLineConversationRead(item.id);
-                  markLineNotificationsReadForConversation(item.id);
-                  setActiveChatId(item.id);
-                }}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  setChatContextMenu(item);
-                }}
-                className={`h-[76px] px-4 flex items-center cursor-pointer transition-colors ${
-                  item.isPinned
-                    ? 'bg-[#faf6f7]/60 hover:bg-[#f8f1f3]'
-                    : 'hover:bg-[#fafafa] active:bg-[#f5f5f5]'
-                }`}
-              >
                 {/* Default Avatar SVG from template */}
                 <div className="relative">
                   <div className="w-[49px] h-[49px] rounded-full bg-[#f1f1f2] border border-[#e8e8e9] flex items-center justify-center shrink-0 overflow-hidden">
