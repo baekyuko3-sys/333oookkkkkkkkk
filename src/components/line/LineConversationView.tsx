@@ -58,6 +58,21 @@ function splitGeneratedLineMessages(text: string): string[] {
   return [normalized];
 }
 
+function formatReplyReasonStatus(message: any): { icon: string; label: string; tone: 'wait' | 'muted' } | null {
+  const status = String(message?.replyStatus || message?.replyDecision || message?.metadata?.replyStatus || '').toUpperCase();
+  if (!status || status === 'REPLY_NOW') return null;
+  const reason = String(message?.replyReason || message?.metadata?.replyReason || '').trim();
+  const defaults: Record<string, string> = {
+    REPLY_LATER: '晚一点再回复',
+    READ_NO_REPLY: '看到了，但暂时没空回复',
+    NOT_SEEN: '还没看到',
+    IGNORE_FOR_NOW: '看到了，暂时不想处理',
+  };
+  if (!reason && !defaults[status]) return null;
+  if (status === 'NOT_SEEN') return { icon: '○', label: reason || defaults[status], tone: 'muted' };
+  return { icon: status === 'REPLY_LATER' ? '⌛' : '🚫', label: reason || defaults[status], tone: 'wait' };
+}
+
 function formatLineMessageClock(message: any, timezone: string): string {
   const raw = message?.createdAt || message?.timestamp;
   const date = raw ? new Date(raw) : new Date();
