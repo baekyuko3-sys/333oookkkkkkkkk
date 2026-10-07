@@ -4917,11 +4917,11 @@ export function LineConversationView({
             </details>
 
             {/* Generation / 回复表现 */}
-            <details open={false} className="bg-white rounded-[16px] border border-[#eceaec] overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+            <details open className="bg-white rounded-[16px] border border-[#eceaec] overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
               <summary className="list-none cursor-pointer px-4 py-3.5 flex items-center justify-between select-none">
                 <div className="flex items-center gap-2">
                   <Brain className="w-[17px] h-[17px] text-[#ad7b88]" />
-                  <span className="text-[13px] font-semibold tracking-[-0.01em] text-[#303033]">Generation / 回复表现</span>
+                  <span className="text-[13px] font-semibold tracking-[-0.01em] text-[#303033]">回复表现 / COT</span>
                 </div>
                 <span className="text-[10px] text-[#aaa]">展开</span>
               </summary>
@@ -4930,16 +4930,16 @@ export function LineConversationView({
                 {/* 生成摘要 */}
                 <div className="flex items-center justify-between py-3">
                   <div className="min-w-0 pr-4">
-                    <div className="text-[12px] font-semibold text-[#353438]">显示生成摘要</div>
+                    <div className="text-[12px] font-semibold text-[#353438]">COT · 角色回复决策</div>
                     <div className="mt-1 text-[9.5px] leading-[1.45] text-[#a2a0a4]">
-                      回复上方显示轻量生成摘要，默认折叠
+                      让角色先按 COT 判断，再决定这一轮真正怎么回复；聊天中可折叠查看
                     </div>
                   </div>
                   <button
                     type="button"
                     role="switch"
                     aria-checked={enableChainOfThought}
-                    aria-label={enableChainOfThought ? '关闭显示生成摘要' : '开启显示生成摘要'}
+                    aria-label={enableChainOfThought ? '关闭 COT' : '开启 COT'}
                     onClick={() => setEnableChainOfThought(!enableChainOfThought)}
                     className="relative w-11 h-6 shrink-0 rounded-full p-0.5 border border-black/[0.04] shadow-inner transition-colors duration-200 focus:outline-none"
                     style={{ backgroundColor: enableChainOfThought ? '#d5aab6' : '#dedee1' }}
@@ -4961,12 +4961,12 @@ export function LineConversationView({
                   className="w-full text-left rounded-[13px] border border-[#eee3e6] bg-[#fcf8f9] px-3.5 py-3 flex items-center justify-between gap-3 transition-colors hover:bg-[#faf3f5]"
                 >
                   <div className="min-w-0">
-                    <div className="text-[11px] font-semibold text-[#9d6e7b]">当前预设</div>
+                    <div className="text-[11px] font-semibold text-[#9d6e7b]">COT 预设</div>
                     <div className="mt-1 text-[12px] font-medium text-[#4a4144] truncate">
                       {activeCotPreset?.title || '默认预设'}
                     </div>
                     <div className="mt-1 text-[9px] text-[#aaa]">
-                      点击选择或管理回复生成预设
+                      点击选择或管理 COT 决策预设
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 shrink-0 text-[#b6a4aa]" />
@@ -5528,37 +5528,15 @@ export function LineConversationView({
               <ChevronRight className="w-4 h-4 text-[#ccc]" />
             </div>
 
-            {/* Section 5: 预设选择 */}
+            {/* Section 5: API 参数 */}
             <div className="space-y-1.5">
               <div className="text-[10px] text-[#aaa] font-medium px-1 flex items-center gap-1">
                 <SlidersHorizontal className="w-3 h-3 text-[#ae7e89]" />
-                <span>生成预设与模型风格 (Presets)</span>
+                <span>API 参数</span>
               </div>
 
-              <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3">
-                <div className="grid grid-cols-2 gap-2 text-center text-xs">
-                  {[
-                    { id: 'immersive', label: '深度细腻沉浸', desc: '心理描写丰富' },
-                    { id: 'casual', label: '日常随性轻快', desc: '像平时微信聊天' },
-                    { id: 'slowburn', label: '高冷克制拉扯', desc: '字字千金，暗涌' },
-                    { id: 'sweet', label: '甜蜜宠溺治愈', desc: '偏爱情绪价值' },
-                  ].map((preset) => (
-                    <button
-                      key={preset.id}
-                      onClick={() => setSelectedPreset(preset.id as any)}
-                      className={`p-2.5 rounded-[10px] border text-left cursor-pointer transition-all ${
-                        selectedPreset === preset.id
-                          ? 'border-[#d4aab5] bg-[#faf1f3] text-[#ae7e89]'
-                          : 'border-[#ededee] bg-[#fafafa] text-[#555]'
-                      }`}
-                    >
-                      <div className="font-semibold text-[11px]">{preset.label}</div>
-                      <div className="text-[9px] text-[#aaa] mt-0.5">{preset.desc}</div>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 border-t border-[#f2f2f3] pt-2.5">
+              <div className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <span className="text-[10px] text-[#999]">随机度 Temperature: {presetTemp}</span>
                     <input
