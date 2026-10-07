@@ -119,6 +119,7 @@ async function callModel(options: AgentOptions, messages: any[], temperature = 0
       role: (message.role === 'assistant' ? 'assistant' : 'user') as 'assistant' | 'user',
       content: String(message.content || ''),
     }));
+  const userPrompt = String([...messages].reverse().find(message => message.role === 'user')?.content || '');
 
   // Use the same model transport as the rest of the app, including Gemini.
   // Studio must not depend on the character/roleplay engine.
@@ -136,7 +137,7 @@ async function callModel(options: AgentOptions, messages: any[], temperature = 0
     },
     systemPrompt: systemPrompt + '\n\nReturn JSON only. No Markdown fences.',
     history,
-    userPrompt: request,
+    userPrompt,
     temperature,
   });
   return { raw, parsed: extractJson(raw) };
