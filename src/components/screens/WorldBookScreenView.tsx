@@ -51,6 +51,7 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
   const [notice, setNotice] = useState('');
   const [manageBooks, setManageBooks] = useState(false);
   const [bookInfoOpen, setBookInfoOpen] = useState(false);
+  const [globalPanelOpen, setGlobalPanelOpen] = useState(false);
   const [activeNowText, setActiveNowText] = useState('');
   const [activeNowOpen, setActiveNowOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -221,25 +222,29 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
 
       <div className="relative z-10 flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden no-scrollbar">
         <div className="px-4 pt-3 pb-2">
-          <div className="flex items-center justify-between mb-2">
-            <div>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="min-w-0">
               <div className="text-[8px] tracking-[1.8px] font-mono text-[#8b847d]">WORLD BOOKS</div>
-              <div className="mt-1 text-sm font-serif font-bold text-[#302d29]">我的世界书</div>
+              <div className="mt-1 text-sm font-serif font-bold text-[#302d29] truncate">我的世界书</div>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5 shrink-0">
               <button
                 onClick={() => toggleGlobalScope('online-chat')}
-                className={`px-2.5 py-1.5 rounded-full border text-[8px] inline-flex items-center gap-1.5 ${isOnlineGlobal ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/65 text-[#777] border-[rgba(40,36,31,.12)]'}`}
+                className={`h-7 min-w-[48px] px-2 rounded-full border text-[8px] inline-flex items-center justify-center gap-1 ${isOnlineGlobal ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/65 text-[#777] border-[rgba(40,36,31,.12)]'}`}
               >
-                {isOnlineGlobal ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
-                线上全局 {isOnlineGlobal ? '已加入' : '加入'}
+                {isOnlineGlobal ? <ToggleRight className="w-3 h-3" /> : <ToggleLeft className="w-3 h-3" />}
+                线上
               </button>
-              <button onClick={() => toggleGlobalScope('offline-story')} className={`px-2.5 py-1.5 rounded-full border text-[8px] inline-flex items-center gap-1.5 ${isOfflineGlobal ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/65 text-[#777] border-[rgba(40,36,31,.12)]'}`}>
-                {isOfflineGlobal ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />} 线下全局 {isOfflineGlobal ? '已加入' : '加入'}
+              <button
+                onClick={() => toggleGlobalScope('offline-story')}
+                className={`h-7 min-w-[48px] px-2 rounded-full border text-[8px] inline-flex items-center justify-center gap-1 ${isOfflineGlobal ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/65 text-[#777] border-[rgba(40,36,31,.12)]'}`}
+              >
+                {isOfflineGlobal ? <ToggleRight className="w-3 h-3" /> : <ToggleLeft className="w-3 h-3" />}
+                线下
               </button>
               <button
                 onClick={() => setManageBooks(value => !value)}
-                className={`px-2.5 py-1.5 rounded-full border text-[8px] inline-flex items-center gap-1.5 ${manageBooks ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/65 text-[#655f59] border-[rgba(40,36,31,.12)]'}`}
+                className={`h-7 min-w-[48px] px-2 rounded-full border text-[8px] inline-flex items-center justify-center gap-1 ${manageBooks ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/65 text-[#655f59] border-[rgba(40,36,31,.12)]'}`}
               >
                 <Settings2 className="w-3 h-3" />{manageBooks ? '完成' : '管理'}
               </button>
@@ -281,17 +286,33 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
               </div>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-2xl border border-[rgba(40,36,31,.12)] bg-white/45 p-2.5">
-              <div className="text-[7px] font-mono tracking-[1.2px] text-[#8b847d]">ONLINE CHAT · GLOBAL</div>
-              <div className="mt-1 text-[8px] text-[#716a63]">{onlineGlobals.length ? onlineGlobals.length + ' 本已加入' : '未加入任何全局世界书'}</div>
-              <div className="mt-2 flex gap-1 overflow-x-auto no-scrollbar">{onlineGlobals.map(item => <button key={item.id} onClick={() => { setSelectedBookId(item.id); setSelectedEntryId(item.entries[0]?.id || ''); setEntryDetailOpen(false); }} className="shrink-0 px-2 py-1 rounded-full bg-[#292724] text-white text-[7px]">{item.name}</button>)}</div>
-            </div>
-            <div className="rounded-2xl border border-[rgba(40,36,31,.12)] bg-white/45 p-2.5">
-              <div className="text-[7px] font-mono tracking-[1.2px] text-[#8b847d]">OFFLINE STORY · GLOBAL</div>
-              <div className="mt-1 text-[8px] text-[#716a63]">{offlineGlobals.length ? offlineGlobals.length + ' 本已加入' : '未加入任何全局世界书'}</div>
-              <div className="mt-2 flex gap-1 overflow-x-auto no-scrollbar">{offlineGlobals.map(item => <button key={item.id} onClick={() => { setSelectedBookId(item.id); setSelectedEntryId(item.entries[0]?.id || ''); setEntryDetailOpen(false); }} className="shrink-0 px-2 py-1 rounded-full bg-[#292724] text-white text-[7px]">{item.name}</button>)}</div>
-            </div>
+          <div className="mt-2 rounded-xl border border-[rgba(40,36,31,.1)] bg-white/45 overflow-hidden">
+            <button
+              onClick={() => setGlobalPanelOpen(value => !value)}
+              className="w-full px-3 py-2 flex items-center justify-between text-left"
+            >
+              <div className="min-w-0">
+                <div className="text-[7px] font-mono tracking-[1.2px] text-[#8b847d]">GLOBAL SCOPE</div>
+                <div className="mt-0.5 text-[9px] text-[#716a63]">
+                  线上 {onlineGlobals.length} 本 · 线下 {offlineGlobals.length} 本
+                </div>
+              </div>
+              {globalPanelOpen ? <ChevronUp className="w-3 h-3 shrink-0 text-[#8b847d]" /> : <ChevronDown className="w-3 h-3 shrink-0 text-[#8b847d]" />}
+            </button>
+            {globalPanelOpen && (
+              <div className="px-2.5 pb-2.5 grid grid-cols-2 gap-2">
+                <div className="rounded-xl bg-white/55 p-2">
+                  <div className="text-[7px] font-mono text-[#8b847d]">ONLINE CHAT</div>
+                  <div className="mt-1 text-[8px] text-[#716a63]">{onlineGlobals.length ? '已加入全局' : '暂无'}</div>
+                  {onlineGlobals.length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{onlineGlobals.map(item => <button key={item.id} onClick={() => { setSelectedBookId(item.id); setSelectedEntryId(item.entries[0]?.id || ''); setEntryDetailOpen(false); }} className="max-w-full truncate px-2 py-1 rounded-full bg-[#292724] text-white text-[7px]">{item.name}</button>)}</div>}
+                </div>
+                <div className="rounded-xl bg-white/55 p-2">
+                  <div className="text-[7px] font-mono text-[#8b847d]">OFFLINE STORY</div>
+                  <div className="mt-1 text-[8px] text-[#716a63]">{offlineGlobals.length ? '已加入全局' : '暂无'}</div>
+                  {offlineGlobals.length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{offlineGlobals.map(item => <button key={item.id} onClick={() => { setSelectedBookId(item.id); setSelectedEntryId(item.entries[0]?.id || ''); setEntryDetailOpen(false); }} className="max-w-full truncate px-2 py-1 rounded-full bg-[#292724] text-white text-[7px]">{item.name}</button>)}</div>}
+                </div>
+              </div>
+            )}
           </div></div>
         </div>
 
@@ -361,11 +382,11 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
           </div>
 
           <div className="min-h-0 min-w-0 px-0 pb-4 grid grid-rows-[auto_1fr] gap-2 overflow-hidden">
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-1.5 items-center min-w-0">
             <select
               value={categoryFilter}
               onChange={e => setCategoryFilter(e.target.value)}
-              className="w-[86px] bg-white/60 border border-[rgba(40,36,31,.12)] rounded-xl px-2 py-2 text-[9px] outline-none text-[#444]"
+              className="w-[72px] shrink-0 bg-white/60 border border-[rgba(40,36,31,.12)] rounded-xl px-2 py-2 text-[9px] outline-none text-[#444]"
             >
               <option value="all">全部资源</option>
               {[...new Set(books.map(item => item.category || '未分类'))].map(category => (
@@ -376,9 +397,9 @@ export function WorldBookScreenView({ onNavigate }: { onNavigate: (screen: Scree
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="搜索条目 / 关键词"
-              className="flex-1 bg-white/60 border border-[rgba(40,36,31,.12)] rounded-xl px-3 py-2 text-xs outline-none text-[#444]"
+              className="min-w-0 flex-1 bg-white/60 border border-[rgba(40,36,31,.12)] rounded-xl px-3 py-2 text-xs outline-none text-[#444]"
             />
-            <button onClick={() => importRef.current?.click()} className="px-3 py-2 rounded-xl bg-[color-mix(in_srgb,var(--paper)_82%,white_18%)] border border-[rgba(40,36,31,.12)] text-[10px] text-[#5d5751]">
+            <button onClick={() => importRef.current?.click()} className="shrink-0 px-2.5 py-2 rounded-xl bg-[color-mix(in_srgb,var(--paper)_82%,white_18%)] border border-[rgba(40,36,31,.12)] text-[9px] text-[#5d5751]">
               导入
             </button>
             <button
