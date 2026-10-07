@@ -23,7 +23,7 @@ export const DEFAULT_STATUS_BAR_PRESETS: StatusBarPreset[] = [
     html: '<div class="sane-status"><div class="sane-status__line"><span>📍 {{location}}</span><span>·</span><span>{{time}}</span></div><div class="sane-status__activity">{{activity}}</div><div class="sane-status__mood">{{mood}}</div></div>',
     inputFormat: '{{status:地点｜时间｜活动｜心情}}',
     promptSuffix: '请在回复最后严格按照以下文字输入格式输出状态栏，不要添加解释：{{status:地点｜时间｜活动｜心情}}',
-    regex: '/\\{\\{status:(.*?)\\}\\}/gs',
+    regex: '/\\{\\{status:([^｜}]+)｜([^｜}]+)｜([^｜}]+)｜([^}]+)\\}\\}/gs',
     targets: ['line', 'offline', 'character-profile'],
     createdAt: '2026-10-04T00:00:00.000Z',
     updatedAt: '2026-10-04T00:00:00.000Z',
@@ -35,7 +35,7 @@ export const DEFAULT_STATUS_BAR_PRESETS: StatusBarPreset[] = [
     html: '<article class="sane-status romance"><div class="sane-status__title">{{location}}</div><div class="sane-status__meta">{{time}} · {{activity}}</div><div class="sane-status__mood">{{mood}}</div><div class="sane-status__favor">♡ {{favor}}</div></article>',
     inputFormat: '{{status:地点｜时间｜活动｜心情｜好感度}}',
     promptSuffix: '请在回复最后严格按照以下文字输入格式输出状态栏，不要添加解释：{{status:地点｜时间｜活动｜心情｜好感度}}',
-    regex: '/\\{\\{status:(.*?)\\}\\}/gs',
+    regex: '/\\{\\{status:([^｜}]+)｜([^｜}]+)｜([^｜}]+)｜([^}]+)\\}\\}/gs',
     targets: ['line', 'offline'],
     createdAt: '2026-10-04T00:00:00.000Z',
     updatedAt: '2026-10-04T00:00:00.000Z',
@@ -184,7 +184,7 @@ export function renderStatusBarHtml(
   values.match = extracted?.match || '';
   let html = String(preset.html || '');
   html = html.replace(/\{\{match\}\}/g, values.match || '');
-  html = html.replace(/\{\{([\w-]+)\}\}/g, (_, key: string) => values[key] ?? '');
+  html = html.replace(/\{\{([\w-]+)\}\}/g, (_, key: string) => { const aliases: Record<string, string> = { location: '1', time: '2', activity: '3', mood: '4', favor: '5' }; return values[key] ?? (aliases[key] ? values[aliases[key]] : '') ?? ''; });
   html = html.replace(/\$(\d+)/g, (_, index: string) => values[index] ?? '');
   return html;
 }
