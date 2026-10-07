@@ -4613,6 +4613,20 @@ export function LineConversationView({
                 </div>
                 <ChevronRight className="w-4 h-4 text-[#aaa] shrink-0 ml-2" />
               </div>
+              <div className="border-t border-[#f2f2f3] mt-2 pt-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div><div className="text-[10px] font-medium text-[#444]">显示思考摘要</div><div className="text-[8.5px] text-[#aaa] mt-0.5">只显示高层次摘要，不显示模型隐藏思维链</div></div>
+                  <button type="button" onClick={() => setEnableChainOfThought(!enableChainOfThought)} className={"w-9 h-5 rounded-full relative " + (enableChainOfThought ? 'bg-[#d4aab5]' : 'bg-[#ddd]')}>
+                    <span className={"w-4 h-4 rounded-full bg-white absolute top-0.5 " + (enableChainOfThought ? 'translate-x-4' : 'translate-x-0.5')} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div><div className="text-[10px] font-medium text-[#444]">角色动作描写</div><div className="text-[8.5px] text-[#aaa] mt-0.5">与消息正文分开显示，例如“指尖停了一下”</div></div>
+                  <button type="button" onClick={() => setShowActionDescriptions(!showActionDescriptions)} className={"w-9 h-5 rounded-full relative " + (showActionDescriptions ? 'bg-[#d4aab5]' : 'bg-[#ddd]')}>
+                    <span className={"w-4 h-4 rounded-full bg-white absolute top-0.5 " + (showActionDescriptions ? 'translate-x-4' : 'translate-x-0.5')} />
+                  </button>
+                </div>
+              </div>
               </div>
             </details>
 
