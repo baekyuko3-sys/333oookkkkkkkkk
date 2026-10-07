@@ -4323,52 +4323,91 @@ export function LineConversationView({
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="w-full max-h-[78%] overflow-y-auto bg-white rounded-t-[24px] shadow-2xl p-4 pb-7 animate-in slide-in-from-bottom"
+            className="w-full max-h-[82%] overflow-y-auto bg-white rounded-t-[24px] shadow-2xl p-4 pb-7 animate-in slide-in-from-bottom"
           >
             <div className="w-9 h-1 rounded-full bg-[#ddd] mx-auto mb-4" />
 
             <div className="flex items-center justify-between mb-3">
               <div>
-                <div className="text-[8px] font-mono tracking-[1.6px] text-[#aaa] uppercase">REGEX / HTML RENDER</div>
+                <div className="text-[8px] font-mono tracking-[1.6px] text-[#aaa] uppercase">STATUS HISTORY</div>
                 <div className="mt-1 text-[13px] font-semibold text-[#252525]">
-                  {activeStatusBarPreset?.name || '未设置正则'}
+                  {currentStatusSnapshot?.presetName || activeStatusBarPreset?.name || '状态栏'}
                 </div>
               </div>
-              <button
-                onClick={() => setShowRenderedStatusBarModal(false)}
-                className="w-7 h-7 rounded-full bg-[#f5f5f7] text-[#777]"
-              >×</button>
+              <button onClick={() => setShowRenderedStatusBarModal(false)} className="w-7 h-7 rounded-full bg-[#f5f5f7] text-[#777]">×</button>
             </div>
 
-            <div className="rounded-[16px] border border-[#ececee] bg-[#fafafa] p-4 overflow-hidden">
-              {activeStatusBarPreset ? (
-                <div
-                  dangerouslySetInnerHTML={{ __html: renderStatusHtml() }}
-                  className="max-w-none text-[11px] text-[#333]"
-                />
+            <div className="rounded-[18px] border border-[#ececee] bg-[#fafafa] p-4 min-h-[120px] overflow-hidden">
+              {currentStatusSnapshot ? (
+                <div dangerouslySetInnerHTML={{ __html: currentStatusSnapshot.html }} className="max-w-none text-[11px] text-[#333]" />
+              ) : activeStatusBarPreset ? (
+                <div dangerouslySetInnerHTML={{ __html: renderStatusHtml() }} className="max-w-none text-[11px] text-[#333]" />
               ) : (
-                <div className="py-8 text-center text-[10px] text-[#aaa]">
-                  还没有可用的 RegEx / HTML 规则
-                </div>
+                <div className="py-8 text-center text-[10px] text-[#aaa]">还没有状态栏</div>
               )}
             </div>
 
             <div className="mt-3 flex items-center justify-between">
-              <div className="min-w-0">
-                <div className="text-[8px] text-[#aaa]">SOURCE</div>
-                <div className="mt-0.5 text-[9px] text-[#777] truncate">
-                  AI Response · {latestCharacterMessageText ? 'matched / rendered' : '暂无匹配内容'}
+              <button
+                disabled={!statusBarHistory.length}
+                onClick={() => setStatusBarHistoryIndex(i => Math.max(0, i - 1))}
+                className="w-9 h-9 rounded-full border border-[#e8e8e8] text-[#555] disabled:opacity-30"
+              >‹</button>
+
+              <div className="text-center">
+                <div className="text-[10px] font-medium text-[#444]">
+                  {statusBarHistory.length ? `${statusBarHistoryIndex + 1} / ${statusBarHistory.length}` : '0 / 0'}
+                </div>
+                <div className="text-[8px] text-[#aaa] mt-0.5">
+                  {currentStatusSnapshot ? new Date(currentStatusSnapshot.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '等待角色回复'}
                 </div>
               </div>
+
+              <button
+                disabled={!statusBarHistory.length}
+                onClick={() => setStatusBarHistoryIndex(i => Math.min(statusBarHistory.length - 1, i + 1))}
+                className="w-9 h-9 rounded-full border border-[#e8e8e8] text-[#555] disabled:opacity-30"
+              >›</button>
+            </div>
+
+            {statusBarHistory.length > 0 && (
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-1 snap-x">
+                {statusBarHistory.map((item, index) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setStatusBarHistoryIndex(index)}
+                    className={`shrink-0 snap-center w-[92px] rounded-xl border p-2 text-left ${index === statusBarHistoryIndex ? 'border-[#d4aab5] bg-[#faf1f3]' : 'border-[#ececee] bg-white'}`}
+                  >
+                    <div className="text-[8px] font-medium text-[#444] truncate">{item.presetName}</div>
+                    <div className="text-[8px] text-[#aaa] mt-1">{new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (!currentStatusSnapshot) return;
+                  deleteStatusBarSnapshot(conversationStorageId, currentStatusSnapshot.id);
+                  const next = getStatusBarHistory(conversationStorageId);
+                  setStatusBarHistory(next);
+                  setStatusBarHistoryIndex(Math.max(0, next.length - 1));
+                }}
+                disabled={!currentStatusSnapshot}
+                className="flex-1 py-2.5 rounded-xl border border-[#eee] text-[#a66d73] text-[9px] disabled:opacity-30"
+              >删除当前状态</button>
               <button
                 onClick={() => {
                   setShowRenderedStatusBarModal(false);
                   setShowPresetResourceManager('status');
                 }}
-                className="shrink-0 ml-3 px-3 py-2 rounded-xl bg-[#292724] text-white text-[9px]"
-              >
-                管理正则
-              </button>
+                className="flex-1 py-2.5 rounded-xl bg-[#292724] text-white text-[9px]"
+              >状态栏设置</button>
+            </div>
+
+            <div className="mt-2 text-center text-[8px] text-[#aaa]">
+              每次角色回复都会生成一条新的状态记录 · 左右滑动查看历史
             </div>
           </div>
         </div>
