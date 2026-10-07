@@ -57,7 +57,7 @@ export function updateOfflineEvent(
         nextEvent.characterId,
         nextEvent.characterName,
         '线下剧情回忆：' + summary,
-        { source: 'offline-story', importance: 0.85, kind: 'event' },
+        { source: 'conversation', importance: 0.85, kind: 'event' },
       );
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('sane333:memory-updated', {
