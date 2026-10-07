@@ -2818,12 +2818,13 @@ export function LineConversationView({
                   const startX = swipeStartXRef.current;
                   const delta = e.clientX - (startX ?? e.clientX);
                   swipeStartXRef.current = null;
-                  if (delta < -30 && !msg.isRecalled && !msg.isRecalledByOther) {
-                    setEditingMessageId(msg.id);
-                    setEditingMessageText(msg.text || '');
+                  if (delta < -30) {
+                    // 左滑：打开当前消息的操作菜单；编辑只是菜单中的一个操作。
+                    setContextMenuMsg(msg);
                     setSwipedMessageId(null);
                     setSwipeAction(null);
                   } else if (delta > 30) {
+                    // 右滑：直接引用当前这一条消息。
                     setReplyingToMsg(msg);
                     setSwipedMessageId(null);
                     setSwipeAction(null);
@@ -2883,15 +2884,27 @@ export function LineConversationView({
 
                 {/* 1.5 引用回复：让聊天真正保留上下文 */}
                 {msg.quote && !msg.isRecalled && (
-                  <div className={`max-w-[240px] rounded-[10px] border px-2.5 py-1.5 text-[9.5px] mb-1 ${
-                    isMe
-                      ? 'bg-[#f8eef1] border-[#ead9de] text-[#8b6871] ml-auto'
-                      : 'bg-[#f7f7f8] border-[#e9e9eb] text-[#777]'
-                  }`}>
-                    <div className="font-medium mb-0.5 truncate">
-                      {msg.quote.sender || '消息'}
+                  <div
+                    className={`w-full max-w-[260px] mb-1.5 rounded-[12px] border overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.03)] ${
+                      isMe
+                        ? 'bg-[#f8eef2] border-[#e5cfd6] ml-auto'
+                        : 'bg-[#f7f7f8] border-[#e2e2e4]'
+                    }`}
+                  >
+                    <div className={`px-2.5 py-1 flex items-center gap-1.5 border-b ${
+                      isMe
+                        ? 'border-[#ead9de] text-[#9d6877]'
+                        : 'border-[#e7e7e9] text-[#777]'
+                    }`}>
+                      <CornerUpLeft className="w-3 h-3 shrink-0" />
+                      <span className="text-[9px] font-semibold">引用消息</span>
+                      <span className="text-[8.5px] opacity-70 truncate">
+                        · {msg.quote.sender || '消息'}
+                      </span>
                     </div>
-                    <div className="truncate opacity-80">
+                    <div className={`px-2.5 py-1.5 text-[10px] leading-[1.45] truncate ${
+                      isMe ? 'text-[#765963]' : 'text-[#666]'
+                    }`}>
                       {msg.quote.text || '多媒体消息'}
                     </div>
                   </div>
