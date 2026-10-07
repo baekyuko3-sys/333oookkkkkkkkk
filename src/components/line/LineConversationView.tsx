@@ -879,6 +879,7 @@ export function LineConversationView({
   const recordingDiscardRef = useRef(false);
   const avatarClickTimerRef = useRef<number | null>(null);
   const memoryMergeBusyRef = useRef(false);
+  const statusSwipeStartXRef = useRef<number | null>(null);
 
   useEffect(() => {
     const refresh = () => {
@@ -4337,7 +4338,18 @@ export function LineConversationView({
               <button onClick={() => setShowRenderedStatusBarModal(false)} className="w-7 h-7 rounded-full bg-[#f5f5f7] text-[#777]">×</button>
             </div>
 
-            <div className="rounded-[18px] border border-[#ececee] bg-[#fafafa] p-4 min-h-[120px] overflow-hidden">
+            <div
+              className="rounded-[18px] border border-[#ececee] bg-[#fafafa] p-4 min-h-[120px] overflow-hidden touch-pan-y"
+              onTouchStart={e => { statusSwipeStartXRef.current = e.changedTouches[0]?.clientX ?? null; }}
+              onTouchEnd={e => {
+                const start = statusSwipeStartXRef.current;
+                const end = e.changedTouches[0]?.clientX;
+                statusSwipeStartXRef.current = null;
+                if (start == null || end == null || Math.abs(end - start) < 45 || !statusBarHistory.length) return;
+                if (end < start) setStatusBarHistoryIndex(i => Math.min(statusBarHistory.length - 1, i + 1));
+                else setStatusBarHistoryIndex(i => Math.max(0, i - 1));
+              }}
+            >
               {currentStatusSnapshot ? (
                 <div dangerouslySetInnerHTML={{ __html: currentStatusSnapshot.html }} className="max-w-none text-[11px] text-[#333]" />
               ) : activeStatusBarPreset ? (
