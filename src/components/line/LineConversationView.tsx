@@ -430,6 +430,8 @@ export function LineConversationView({
   // 消息编辑状态 (In-place Message Edit)
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editingMessageText, setEditingMessageText] = useState('');
+  const [swipedMessageId, setSwipedMessageId] = useState<number | null>(null);
+  const swipeStartXRef = useRef<number | null>(null);
 
   // 思维链只显示安全的高层摘要，不显示隐藏推理
   const [enableChainOfThought, setEnableChainOfThought] = usePersistentState<boolean>(`line:show-thinking-summary:${conversationStorageId}`, false);
@@ -2805,16 +2807,33 @@ export function LineConversationView({
               )}
 
               {/* Bubble content container */}
-              <div className={`max-w-[78%] space-y-1.5 relative ${isMe ? 'items-end' : 'items-start'}`}>
-                {!msg.isRecalled && !msg.isRecalledByOther && (
+              <div
+                className={`max-w-[78%] space-y-1.5 relative touch-pan-y transition-transform duration-200 ${isMe ? 'items-end' : 'items-start'}`}
+                style={{ transform: swipedMessageId === msg.id ? 'translateX(-46px)' : 'translateX(0)' }}
+                onTouchStart={(e) => {
+                  swipeStartXRef.current = e.touches[0]?.clientX ?? null;
+                }}
+                onTouchEnd={(e) => {
+                  const startX = swipeStartXRef.current;
+                  const endX = e.changedTouches[0]?.clientX ?? startX ?? 0;
+                  swipeStartXRef.current = null;
+                  if (startX !== null && startX - endX > 30) {
+                    setSwipedMessageId(msg.id);
+                  } else if (startX !== null && endX - startX > 20) {
+                    setSwipedMessageId(null);
+                  }
+                }}
+              >
+                {!msg.isRecalled && !msg.isRecalledByOther && swipedMessageId === msg.id && (
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       setEditingMessageId(msg.id);
                       setEditingMessageText(msg.text || '');
+                      setSwipedMessageId(null);
                     }}
-                    className={`absolute -top-2 ${isMe ? '-left-14' : '-right-14'} z-10 px-1.5 py-0.5 rounded-full bg-white border border-[#eee] text-[8px] text-[#999] shadow-sm opacity-70 hover:opacity-100 hover:text-[#ae7e89] hover:border-[#e7d3d9] transition-all cursor-pointer`}
+                    className="absolute -right-[52px] top-1/2 -translate-y-1/2 w-11 h-8 rounded-[10px] bg-white border border-[#eadfe2] text-[9px] text-[#9c747f] shadow-sm flex items-center justify-center"
                     title="编辑这一条消息"
                   >
                     编辑
