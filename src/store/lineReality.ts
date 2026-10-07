@@ -152,3 +152,75 @@ export function buildLineHumanBehaviorPrompt() {
     '允许很短的真人式回复，例如“嗯”“好”“我也是”“刚到”“等我一下”，但必须符合上下文。',
   ].join('\\n');
 }
+
+
+export interface LineWeatherSnapshot {
+  location: string;
+  temperatureC: number;
+  apparentTemperatureC: number;
+  precipitationMm: number;
+  weatherCode: number;
+  fetchedAt: string;
+}
+
+function weatherLabel(code: number): string {
+  if (code === 0) return '晴';
+  if ([1, 2, 3].includes(code)) return '多云';
+  if ([45, 48].includes(code)) return '雾';
+  if ([51, 53, 55, 56, 57].includes(code)) return '毛毛雨';
+  if ([61, 63, 65, 66, 67].includes(code)) return '下雨';
+  if ([71, 73, 75, 77].includes(code)) return '下雪';
+  if ([80, 81, 82].includes(code)) return '阵雨';
+  if ([85, 86].includes(code)) return '阵雪';
+  if ([95, 96, 99].includes(code)) return '雷雨';
+  return '天气变化';
+}
+
+export async function fetchLineWeather(location: string): Promise<LineWeatherSnapshot | null> {
+  const query = location.trim();
+  if (!query || typeof window === 'undefined') return null;
+  try {
+    const geoResponse = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(query) + '&count=1&language=zh&format=json');
+    if (!geoResponse.ok) return null;
+    const geo = await geoResponse.json();
+    const place = Array.isArray(geo?.results) ? geo.results[0] : null;
+    if (!place || typeof place.latitude !== 'number' || typeof place.longitude !== 'number') return null;
+    const weatherResponse = await fetch(
+      'https://api.open-meteo.com/v1/forecast?latitude=' + encodeURIComponent(String(place.latitude)) +
+      '&longitude=' + encodeURIComponent(String(place.longitude)) +
+      '&current=temperature_2m,apparent_temperature,precipitation,weather_code&timezone=auto'
+    );
+    if (!weatherResponse.ok) return null;
+    const weather = await weatherResponse.json();
+    const current = weather?.current;
+    if (!current) return null;
+    const snapshot: LineWeatherSnapshot = {
+      location: [place.name, place.admin1, place.country].filter(Boolean).join(' · '),
+      temperatureC: Number(current.temperature_2m),
+      apparentTemperatureC: Number(current.apparent_temperature),
+      precipitationMm: Number(current.precipitation || 0),
+      weatherCode: Number(current.weather_code),
+      fetchedAt: new Date().toISOString(),
+    };
+    window.localStorage.setItem('line:weather:' + query, JSON.stringify(snapshot));
+    return snapshot;
+  } catch {
+    return null;
+  }
+}
+
+export function getCachedLineWeather(location: string): LineWeatherSnapshot | null {
+  if (typeof window === 'undefined' || !location.trim()) return null;
+  try {
+    const raw = window.localStorage.getItem('line:weather:' + location.trim());
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === 'object' ? parsed as LineWeatherSnapshot : null;
+  } catch {
+    return null;
+  }
+}
+
+export function formatLineWeather(snapshot: LineWeatherSnapshot | null): string {
+  if (!snapshot) return '';
+  return snapshot.location + '：' + snapshot.temperatureC + '°C，体感 ' + snapshot.apparentTemperatureC + '°C，' + weatherLabel(snapshot.weatherCode) + '，当前降水 ' + snapshot.precipitationMm + ' mm。';
+}
