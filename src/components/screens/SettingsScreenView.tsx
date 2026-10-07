@@ -381,6 +381,7 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
             ['data', '数据'],
             ['sound', '声音'],
             ['background', '后台'],
+            ['debug', '诊断'],
           ].map(([key, label]) => (
             <button
               key={key}
