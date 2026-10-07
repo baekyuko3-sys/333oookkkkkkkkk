@@ -4418,6 +4418,42 @@ export function LineConversationView({
                   </div>
                   {chatTimeMode === 'virtual' && <input type="datetime-local" value={virtualChatTime} onChange={(e) => setVirtualChatTime(e.target.value)} className="mt-2 w-full px-2.5 py-2 bg-[#fafafa] border border-[#eee] rounded-xl text-[10px] text-[#555] outline-none" />}
                 </div>
+                <div>
+                  <div className="text-[9.5px] font-medium text-[#666] mb-1.5">消息时区</div>
+                  <select value={chatTimezone} onChange={(e) => setChatTimezone(e.target.value)} className="w-full px-2.5 py-2 bg-[#fafafa] border border-[#eee] rounded-xl text-[10px] text-[#555] outline-none">
+                    {[
+                      ['Asia/Shanghai', '中国 / 上海（UTC+8）'],
+                      ['Asia/Tokyo', '日本 / 东京（UTC+9）'],
+                      ['Asia/Seoul', '韩国 / 首尔（UTC+9）'],
+                      ['Europe/London', '英国 / 伦敦'],
+                      ['Europe/Paris', '欧洲中部 / 巴黎'],
+                      ['America/Los_Angeles', '美国 / 洛杉矶'],
+                      ['America/New_York', '美国 / 纽约'],
+                      ['Australia/Sydney', '澳大利亚 / 悉尼'],
+                      ['UTC', 'UTC'],
+                    ].map(([id, title]) => <option key={id} value={id}>{title}</option>)}
+                  </select>
+                  <div className="text-[8px] text-[#aaa] mt-1">消息下方会显示这个时区的实际时钟，例如 14:11。</div>
+                </div>
+                <div>
+                  <div className="text-[9.5px] font-medium text-[#666] mb-1.5">角色语言</div>
+                  <select value={characterLanguage} onChange={(e) => setCharacterLanguage(e.target.value)} className="w-full px-2.5 py-2 bg-[#fafafa] border border-[#eee] rounded-xl text-[10px] text-[#555] outline-none">
+                    {[
+                      ['auto', '自动 / 跟随角色卡'],
+                      ['zh-CN', '中文（简体）'],
+                      ['zh-TW', '中文（繁体）'],
+                      ['en', 'English'],
+                      ['ja', '日本語'],
+                      ['ko', '한국어'],
+                      ['fr', 'Français'],
+                      ['de', 'Deutsch'],
+                      ['es', 'Español'],
+                      ['it', 'Italiano'],
+                      ['ru', 'Русский'],
+                    ].map(([id, title]) => <option key={id} value={id}>{title}</option>)}
+                  </select>
+                  <div className="text-[8px] text-[#aaa] mt-1">这是角色主要聊天语言，会进入 AI 上下文；双语模式仍按上面的规则工作。</div>
+                </div>
                 <div><div className="text-[9.5px] font-medium text-[#666] mb-1.5">角色时间感</div>
                   <div className="flex gap-1.5">
                     {[
