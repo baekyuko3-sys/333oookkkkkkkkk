@@ -31,7 +31,6 @@ export function AppearanceScreenView({ currentTheme, onNavigate, onSelectTheme }
   const [schemes, setSchemes] = useState<AppearanceScheme[]>(() => getAppearanceSchemes());
   const [schemeName, setSchemeName] = useState('');
   const [notice, setNotice] = useState('');
-  const fontInputRef = useState<HTMLInputElement | null>(null)[0];
   const [selectedApp, setSelectedApp] = useState('line');
   const [appBeauty, setAppBeauty] = useState(() => readAppearance().appBeauty || {});
   const appItems = [
