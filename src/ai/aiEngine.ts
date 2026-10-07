@@ -70,6 +70,8 @@ export interface AiReplyResult {
 
 export function parseAiReplyPayload(rawText: string): Pick<AiReplyResult, 'text' | 'thinkingSummary' | 'actionDescription'> {
   const raw = String(rawText || '').replace(/\r\n/g, '\n').trim();
+  const cotMatch = raw.match(/<cot>\s*([\s\S]*?)\s*<\/cot>/i);
+  const cotSummary = cotMatch ? cotMatch[1].trim() : '';
   const withoutHiddenThinking = raw
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
     .replace(/<thought>[\s\S]*?<\/thought>/gi, '');
@@ -79,7 +81,7 @@ export function parseAiReplyPayload(rawText: string): Pick<AiReplyResult, 'text'
     return match ? match[1].trim() : '';
   };
 
-  const thinkingSummary = readTag('summary');
+  const thinkingSummary = cotSummary || readTag('summary');
   const actionDescription = readTag('action');
   const messageMatch = withoutHiddenThinking.match(/<message>\s*([\s\S]*?)\s*<\/message>/i);
 
@@ -298,7 +300,8 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '如果当前消息很短，也先回答它本身，不要为了展示上下文而扩展到无关内容。',
     '',
     '【输出约束】',
-    '禁止输出原始 <think>、思维链、隐藏推理或内部分析。若系统要求显示思考信息，只允许使用独立的高层次“思考摘要”，不能泄露逐步内部推理。',
+    '禁止输出原始 <think>、<thought> 或隐藏推理。COT 不是原始内部思维链，而是给用户看的简短“角色决策记录”：只写高层次判断，不写隐性推理细节。',
+    input.cotTarget ? '【COT 显示】如果当前启用了 COT，本轮必须额外输出 <cot>...</cot>。内容严格按当前 COT 预设组织，尽量短，每个 STEP 只写一句高层次判断；不得泄露隐藏推理。最终聊天正文仍放在 <message>...</message> 中。' : '',
     '不要描述用户尚未明确做出的动作。',
     '不要把聊天回复写成旁白长文；保持手机消息的阅读节奏。',
     '不要用“角色动作 + 长段心理描写 + 一大段台词”代替聊天消息；动作描写如果开启必须单独放进 <action>...</action>，正文仍然是正常聊天消息。',
