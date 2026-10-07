@@ -258,6 +258,7 @@ export function LineConversationView({
   const [showBehaviourSettings, setShowBehaviourSettings] = useState(false);
   const [showWorldbookSettings, setShowWorldbookSettings] = useState(false);
   const [showOpeningSettings, setShowOpeningSettings] = useState(false);
+  const [showHtmlInterludeSettings, setShowHtmlInterludeSettings] = useState(false);
   const [allowRoleInitiatedMessage, setAllowRoleInitiatedMessage] = usePersistentState<boolean>(`line:allow-role-message:${conversationStorageId}`, true);
   const [allowRoleMomentsPost, setAllowRoleMomentsPost] = usePersistentState<boolean>(`line:allow-role-moments:${conversationStorageId}`, true);
   const [allowOfflineInvite, setAllowOfflineInvite] = usePersistentState<boolean>(`line:allow-offline-invite:${conversationStorageId}`, true);
@@ -4377,14 +4378,12 @@ export function LineConversationView({
       {showRenderedStatusBarModal && (
         <div
           onClick={() => setShowRenderedStatusBarModal(false)}
-          className="absolute inset-0 z-[55] bg-black/20 flex items-end animate-in fade-in"
+          className="absolute inset-0 z-[55] bg-black/25 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in"
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="w-full max-h-[82%] overflow-y-auto bg-white rounded-t-[24px] shadow-2xl p-4 pb-7 animate-in slide-in-from-bottom"
+            className="w-full max-w-[420px] max-h-[88vh] overflow-y-auto bg-white rounded-[22px] shadow-2xl p-4 pb-5 animate-in zoom-in-95"
           >
-            <div className="w-9 h-1 rounded-full bg-[#ddd] mx-auto mb-4" />
-
             <div className="flex items-center justify-between mb-3">
               <div>
                 <div className="text-[8px] font-mono tracking-[1.6px] text-[#aaa] uppercase">STATUS HISTORY</div>
@@ -4396,7 +4395,7 @@ export function LineConversationView({
             </div>
 
             <div
-              className="rounded-[18px] border border-[#ececee] bg-[#fafafa] p-4 min-h-[120px] overflow-hidden touch-pan-y"
+              className="w-full overflow-visible touch-pan-y"
               onTouchStart={e => { statusSwipeStartXRef.current = e.changedTouches[0]?.clientX ?? null; }}
               onTouchEnd={e => {
                 const start = statusSwipeStartXRef.current;
@@ -4408,45 +4407,30 @@ export function LineConversationView({
               }}
             >
               {currentStatusSnapshot ? (
-                <div dangerouslySetInnerHTML={{ __html: currentStatusSnapshot.html }} className="max-w-none text-[11px] text-[#333]" />
-              ) : activeStatusBarPreset ? (
-                <div dangerouslySetInnerHTML={{ __html: renderStatusHtml() }} className="max-w-none text-[11px] text-[#333]" />
+                <div
+                  className="w-full px-1 text-[11px] leading-relaxed text-[#333] [&_*]:max-w-full [&_img]:max-w-full [&_img]:h-auto"
+                  dangerouslySetInnerHTML={{ __html: currentStatusSnapshot.html }}
+                />
               ) : (
-                <div className="py-8 text-center text-[10px] text-[#aaa]">还没有状态栏</div>
+                <div className="py-12 text-center text-[10px] text-[#aaa]">
+                  还没有成功匹配的状态栏
+                </div>
               )}
             </div>
 
-            <div className="mt-3 flex items-center justify-between">
-              <button
-                disabled={!statusBarHistory.length}
-                onClick={() => setStatusBarHistoryIndex(i => Math.max(0, i - 1))}
-                className="w-9 h-9 rounded-full border border-[#e8e8e8] text-[#555] disabled:opacity-30"
-              >‹</button>
-
+            <div className="mt-4 flex items-center justify-between border-t border-[#f1f1f2] pt-3">
+              <button disabled={!statusBarHistory.length} onClick={() => setStatusBarHistoryIndex(i => Math.max(0, i - 1))} className="w-9 h-9 rounded-full border border-[#e8e8e8] text-[#555] disabled:opacity-30">‹</button>
               <div className="text-center">
-                <div className="text-[10px] font-medium text-[#444]">
-                  {statusBarHistory.length ? `${statusBarHistoryIndex + 1} / ${statusBarHistory.length}` : '0 / 0'}
-                </div>
-                <div className="text-[8px] text-[#aaa] mt-0.5">
-                  {currentStatusSnapshot ? new Date(currentStatusSnapshot.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '等待角色回复'}
-                </div>
+                <div className="text-[10px] font-medium text-[#444]">{statusBarHistory.length ? `${statusBarHistoryIndex + 1} / ${statusBarHistory.length}` : '0 / 0'}</div>
+                <div className="text-[8px] text-[#aaa] mt-0.5">{currentStatusSnapshot ? new Date(currentStatusSnapshot.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '等待角色回复'}</div>
               </div>
-
-              <button
-                disabled={!statusBarHistory.length}
-                onClick={() => setStatusBarHistoryIndex(i => Math.min(statusBarHistory.length - 1, i + 1))}
-                className="w-9 h-9 rounded-full border border-[#e8e8e8] text-[#555] disabled:opacity-30"
-              >›</button>
+              <button disabled={!statusBarHistory.length} onClick={() => setStatusBarHistoryIndex(i => Math.min(statusBarHistory.length - 1, i + 1))} className="w-9 h-9 rounded-full border border-[#e8e8e8] text-[#555] disabled:opacity-30">›</button>
             </div>
 
             {statusBarHistory.length > 0 && (
               <div className="mt-3 flex gap-2 overflow-x-auto pb-1 snap-x">
                 {statusBarHistory.map((item, index) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setStatusBarHistoryIndex(index)}
-                    className={`shrink-0 snap-center w-[92px] rounded-xl border p-2 text-left ${index === statusBarHistoryIndex ? 'border-[#d4aab5] bg-[#faf1f3]' : 'border-[#ececee] bg-white'}`}
-                  >
+                  <button key={item.id} onClick={() => setStatusBarHistoryIndex(index)} className={`shrink-0 snap-center w-[92px] rounded-xl border p-2 text-left ${index === statusBarHistoryIndex ? 'border-[#d4aab5] bg-[#faf1f3]' : 'border-[#ececee] bg-white'}`}>
                     <div className="text-[8px] font-medium text-[#444] truncate">{item.presetName}</div>
                     <div className="text-[8px] text-[#aaa] mt-1">{new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                   </button>
@@ -4461,22 +4445,12 @@ export function LineConversationView({
                   deleteStatusBarSnapshot(conversationStorageId, currentStatusSnapshot.id);
                   const next = getStatusBarHistory(conversationStorageId);
                   setStatusBarHistory(next);
-                  setStatusBarHistoryIndex(Math.max(0, next.length - 1));
+                  setStatusBarHistoryIndex(Math.max(0, Math.min(statusBarHistoryIndex, next.length - 1)));
                 }}
                 disabled={!currentStatusSnapshot}
                 className="flex-1 py-2.5 rounded-xl border border-[#eee] text-[#a66d73] text-[9px] disabled:opacity-30"
               >删除当前状态</button>
-              <button
-                onClick={() => {
-                  setShowRenderedStatusBarModal(false);
-                  setShowPresetResourceManager('status');
-                }}
-                className="flex-1 py-2.5 rounded-xl bg-[#292724] text-white text-[9px]"
-              >状态栏设置</button>
-            </div>
-
-            <div className="mt-2 text-center text-[8px] text-[#aaa]">
-              每次角色回复都会生成一条新的状态记录 · 左右滑动查看历史
+              <button onClick={() => { setShowRenderedStatusBarModal(false); setShowPresetResourceManager('status'); }} className="flex-1 py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">状态栏设置</button>
             </div>
           </div>
         </div>
