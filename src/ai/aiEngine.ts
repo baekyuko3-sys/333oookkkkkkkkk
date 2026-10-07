@@ -876,7 +876,7 @@ export async function listOpenAiCompatibleModels(
 export async function generateStatusBarContent(
   settings: AiSettings,
   characterName: string,
-  preset: { name: string; regex: string; html: string },
+  preset: { name: string; inputFormat?: string; regex: string; html: string },
   conversation: Array<{ sender: string; text?: string; transcript?: string }>,
 ): Promise<string> {
   const recent = conversation.slice(-16).map(message => {
@@ -893,6 +893,7 @@ export async function generateStatusBarContent(
     '如果没有足够证据改变某个状态，可以合理延续最近已知状态，但不能凭空创造剧情。',
     '状态内容必须来自当前聊天上下文。',
     '【状态栏名称】' + preset.name,
+    '【文字输入格式】' + (preset.inputFormat || '{{status:状态内容}}'),
     '【Find Regex】' + preset.regex,
     '【Replace With / HTML】' + preset.html,
   ].join('\n');
