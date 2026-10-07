@@ -166,16 +166,6 @@ export interface StatusBarSnapshot {
   createdAt: string;
 }
 
-export interface StatusBarSnapshot {
-  id: string;
-  presetId: string;
-  presetName: string;
-  html: string;
-  sourceMessageId: string | number;
-  sourceText: string;
-  createdAt: string;
-}
-
 const HISTORY_KEY_PREFIX = 'line:status-bar-history:';
 const RANDOM_KEY_PREFIX = 'line:status-bar-random:';
 
