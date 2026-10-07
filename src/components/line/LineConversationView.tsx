@@ -17,7 +17,7 @@ import { getGroupPreset, getGroupPresets } from '../../store/groupPresets';
 import { getLineGroups, updateLineGroupMember, addLineGroupMemory, setLineGroupRelationships } from '../../store/lineGroups';
 import { createTogetherMusicSession, type TogetherMusicSession } from '../../store/togetherMusic';
 import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
-import { getStatusBarPresets, type StatusBarPreset } from '../../store/statusBarPresets';
+import { getStatusBarPresets, renderStatusBarHtml, type StatusBarPreset } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset, type CotPresetTarget } from '../../store/cotPresets';
 import { PresetResourceManager } from './PresetResourceManager';
 import { appendLineMessage, editLineMessage, toggleLineReaction, setLineMessageFavorite, recordLineCall, markLineMessageFailed, clearLineConversation, recallLineMessage, updateLineMessage } from '../../store/lineRuntime';
@@ -2398,15 +2398,25 @@ export function LineConversationView({
     }
   };
 
-  // 状态栏 HTML
-  const renderStatusHtml = () => {
-    return statusFormat
-      .replace(/\{\{location\}\}/g, statusData.location)
-      .replace(/\{\{time\}\}/g, statusData.time)
-      .replace(/\{\{activity\}\}/g, statusData.activity)
-      .replace(/\{\{mood\}\}/g, statusData.mood)
-      .replace(/\{\{favor\}\}/g, statusData.favor);
-  };
+  // 酒馆式 RegEx → Replace With → HTML renderer.
+  // Only the latest character message is used as the source for the avatar card.
+  const activeStatusBarPreset = statusBarPresets.find(item => item.id === activeStatusBarPresetId)
+    || statusBarPresets[0]
+    || null;
+  const latestCharacterMessageText = [...messages]
+    .reverse()
+    .find(message => message.sender === 'other' && !message.isRecalled)?.text || '';
+  const renderStatusHtml = () => renderStatusBarHtml(
+    activeStatusBarPreset,
+    latestCharacterMessageText,
+    {
+      location: statusData.location,
+      time: statusData.time,
+      activity: statusData.activity,
+      mood: statusData.mood,
+      favor: statusData.favor,
+    },
+  );
 
   // 背景
   const wallpaperClass =
@@ -4254,127 +4264,59 @@ export function LineConversationView({
         </div>
       )}
 
-      {/* 11. 渲染好的酒馆状态栏抽屉 (点击头像弹出) */}
+      {/* 11. 酒馆 RegEx 渲染卡片：头像点击只显示最终 HTML */}
       {showRenderedStatusBarModal && (
         <div
           onClick={() => setShowRenderedStatusBarModal(false)}
-          className="absolute inset-0 bg-black/25 z-55 flex items-end animate-in fade-in"
+          className="absolute inset-0 z-[55] bg-black/20 flex items-end animate-in fade-in"
         >
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full bg-white rounded-t-[24px] p-5 pb-8 space-y-4 animate-in slide-in-from-bottom max-h-[85%] flex flex-col shadow-2xl"
+            onClick={e => e.stopPropagation()}
+            className="w-full max-h-[78%] overflow-y-auto bg-white rounded-t-[24px] shadow-2xl p-4 pb-7 animate-in slide-in-from-bottom"
           >
-            <div className="w-9 h-1 bg-[#ddd] rounded-full mx-auto" />
+            <div className="w-9 h-1 rounded-full bg-[#ddd] mx-auto mb-4" />
 
-            {/* 角色卡片头部 */}
-            <div className="flex items-center justify-between pb-1">
-              <div className="flex items-center gap-3">
-                <div className="w-[50px] h-[50px] rounded-full bg-[#f1f1f2] border border-[#ededee] flex items-center justify-center overflow-hidden shrink-0 shadow-xs">
-                  <svg className="w-8 h-8 text-[#999]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <circle cx="12" cy="8" r="4" />
-                    <path d="M4 21c.8-4 3.5-6 8-6s7.2 2 8 6" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-[16px] text-[#222]">{characterProfile.nickname}</span>
-                    <span className="text-[9.5px] text-[#ae7e89] bg-[#faf1f3] px-2 py-0.5 rounded-full font-medium border border-[#f0dee3]">
-                      {characterProfile.relationship}
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-[#aaa] mt-0.5">
-                    @guyan.whisper · {characterProfile.birthday}
-                  </div>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div className="text-[8px] font-mono tracking-[1.6px] text-[#aaa] uppercase">REGEX / HTML RENDER</div>
+                <div className="mt-1 text-[13px] font-semibold text-[#252525]">
+                  {activeStatusBarPreset?.name || '未设置正则'}
                 </div>
               </div>
-
               <button
                 onClick={() => setShowRenderedStatusBarModal(false)}
-                className="w-7 h-7 rounded-full bg-[#f5f5f7] hover:bg-[#eaeaea] text-[#777] flex items-center justify-center text-sm cursor-pointer"
-              >
-                ×
-              </button>
+                className="w-7 h-7 rounded-full bg-[#f5f5f7] text-[#777]"
+              >×</button>
             </div>
 
-            {/* 快捷操作栏：查看主页 & 拍一拍 */}
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                onClick={() => {
-                  setShowRenderedStatusBarModal(false);
-                  setShowCharacterProfile(true);
-                }}
-                className="py-2.5 px-3 bg-[#faf1f3] hover:bg-[#f6e6e9] text-[#ae7e89] rounded-[12px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer border border-[#f0dee3] shadow-2xs transition-colors"
-              >
-                <span>📱</span>
-                <span>查看TA的个人主页</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  handleNudge(characterProfile.nickname);
-                  setShowRenderedStatusBarModal(false);
-                }}
-                className="py-2.5 px-3 bg-[#f5f5f7] hover:bg-[#ececee] text-[#555] rounded-[12px] font-medium flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-              >
-                <span>💫</span>
-                <span>拍一拍TA</span>
-              </button>
-            </div>
-
-            {/* 渲染好的酒馆状态栏 (Rendered HTML Status Bar) */}
-            <div className="space-y-2 pt-1">
-              <div className="flex items-center justify-between text-[11px] text-[#777]">
-                <div className="flex items-center gap-1 font-semibold text-[#444]">
-                  <Sparkles className="w-3.5 h-3.5 text-[#ae7e89]" />
-                  <span>实时酒馆状态栏 (HTML已渲染)：</span>
-                </div>
-                <button
-                  onClick={() => {
-                    showToast('AI 正在推演角色最新动态……');
-                    setTimeout(() => {
-                      setStatusData({
-                        location: '书房 · 窗边单人沙发',
-                        time: '23:10',
-                        activity: '泡了一杯热洋甘菊茶，听着你那边的动静',
-                        mood: '温柔而专注，只想把时间留给你',
-                        favor: String(Number(statusData.favor) + 1),
-                      });
-                      showToast('角色状态已结合最新剧情刷新 ✨');
-                    }, 800);
-                  }}
-                  className="text-[10px] text-[#ae7e89] hover:underline flex items-center gap-0.5 cursor-pointer"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  <span>刷新状态</span>
-                </button>
-              </div>
-
-              {/* 渲染容器 */}
-              <div className="p-4 bg-[#fafafa] border border-[#ececee] rounded-[16px] shadow-2xs">
+            <div className="rounded-[16px] border border-[#ececee] bg-[#fafafa] p-4 overflow-hidden">
+              {activeStatusBarPreset ? (
                 <div
                   dangerouslySetInnerHTML={{ __html: renderStatusHtml() }}
-                  className="prose prose-xs max-w-none text-xs text-[#333] [&_.tavern-status]:space-y-2 [&_.badge]:inline-flex [&_.badge]:items-center [&_.badge]:bg-white [&_.badge]:border [&_.badge]:border-[#e5e5e7] [&_.badge]:text-[#444] [&_.badge]:px-2.5 [&_.badge]:py-1 [&_.badge]:rounded-lg [&_.badge]:text-[11px] [&_.badge]:mr-1.5 [&_.badge]:shadow-2xs [&_.badge-pink]:inline-flex [&_.badge-pink]:items-center [&_.badge-pink]:bg-[#faf1f3] [&_.badge-pink]:border [&_.badge-pink]:border-[#f0dee3] [&_.badge-pink]:text-[#ae7e89] [&_.badge-pink]:px-2.5 [&_.badge-pink]:py-1 [&_.badge-pink]:rounded-lg [&_.badge-pink]:text-[11px] [&_.badge-pink]:font-semibold [&_.mood]:text-[11.5px] [&_.mood]:text-[#666] [&_.mood]:mt-2 [&_.mood]:italic"
+                  className="max-w-none text-[11px] text-[#333]"
                 />
-              </div>
+              ) : (
+                <div className="py-8 text-center text-[10px] text-[#aaa]">
+                  还没有可用的 RegEx / HTML 规则
+                </div>
+              )}
             </div>
 
-            {/* 底部跳转设置 */}
-            <div className="pt-2 border-t border-[#f0f0f1] flex items-center justify-between text-xs">
+            <div className="mt-3 flex items-center justify-between">
+              <div className="min-w-0">
+                <div className="text-[8px] text-[#aaa]">SOURCE</div>
+                <div className="mt-0.5 text-[9px] text-[#777] truncate">
+                  AI Response · {latestCharacterMessageText ? 'matched / rendered' : '暂无匹配内容'}
+                </div>
+              </div>
               <button
                 onClick={() => {
                   setShowRenderedStatusBarModal(false);
                   setShowPresetResourceManager('status');
                 }}
-                className="text-[11px] text-[#888] hover:text-[#ae7e89] flex items-center gap-1 cursor-pointer"
+                className="shrink-0 ml-3 px-3 py-2 rounded-xl bg-[#292724] text-white text-[9px]"
               >
-                <Settings className="w-3.5 h-3.5" />
-                <span>管理全部状态栏 / 导入导出 ›</span>
-              </button>
-              <button
-                onClick={() => setShowRenderedStatusBarModal(false)}
-                className="px-4 py-1.5 bg-[#f5f5f7] hover:bg-[#eaeaea] text-[#555] rounded-full text-xs font-medium cursor-pointer"
-              >
-                知道了
+                管理正则
               </button>
             </div>
           </div>
