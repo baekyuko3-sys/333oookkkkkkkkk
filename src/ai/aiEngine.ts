@@ -78,7 +78,7 @@ export interface AiReplyResult {
 
 export function parseAiReplyPayload(rawText: string): Pick<AiReplyResult, 'text' | 'thinkingSummary' | 'actionDescription'> {
   const raw = String(rawText || '').replace(/\r\n/g, '\n').trim();
-  const cotMatch = raw.match(/<(?:cot|thinking)>\s*([\s\S]*?)\s*<\/(?:cot|thinking)>/i);
+  const cotMatch = raw.match(/<(?:cot|thinking|think)>\s*([\s\S]*?)\s*<\/(?:cot|thinking|think)>/i);
   const cotSummary = cotMatch ? cotMatch[1].trim() : '';
   const withoutHiddenThinking = raw
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
