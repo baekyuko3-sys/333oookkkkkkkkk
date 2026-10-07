@@ -351,7 +351,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [activePersonaId, setActivePersonaId] = usePersistentState<string | null>('line:active-persona', null);
   const [personaEditorOpen, setPersonaEditorOpen] = useState(false);
   const [personaEditorIndex, setPersonaEditorIndex] = useState(0);
-  const [personaDraft, setPersonaDraft] = useState<any>({ name: '', age: '', ageMode: 'manual', ageReferenceCharacterId: '', profession: '', region: '', timezone: '', birthday: '', setting: '', avatar: '', boundCharacterIds: [] });
+  const [personaDraft, setPersonaDraft] = useState<any>({ name: '', age: '', ageMode: 'manual', ageReferenceCharacterId: '', ageOffset: 0, profession: '', region: '', timezone: '', birthday: '', setting: '', avatar: '', boundCharacterIds: [] });
   const [personaWeather, setPersonaWeather] = useState<LineWeatherSnapshot | null>(null);
   const [personaWeatherBusy, setPersonaWeatherBusy] = useState(false);
   const activePersona = userPersonas.find((p) => p.id === activePersonaId) || userPersonas[0] || null;
@@ -1126,7 +1126,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                   key={persona.id}
                   onClick={() => {
                     setPersonaEditorIndex(index);
-                    setPersonaDraft({ ...persona, ageMode: persona.ageMode || 'manual', ageReferenceCharacterId: persona.ageReferenceCharacterId || persona.boundCharacterIds?.[0] || persona.boundCharacterId || '', boundCharacterIds: Array.isArray(persona.boundCharacterIds) ? persona.boundCharacterIds : (persona.boundCharacterId ? [persona.boundCharacterId] : []) });
+                    setPersonaDraft({ ...persona, ageMode: persona.ageMode || 'manual', ageReferenceCharacterId: persona.ageReferenceCharacterId || persona.boundCharacterIds?.[0] || persona.boundCharacterId || '', ageOffset: Number(persona.ageOffset || 0), boundCharacterIds: Array.isArray(persona.boundCharacterIds) ? persona.boundCharacterIds : (persona.boundCharacterId ? [persona.boundCharacterId] : []) });
                     setPersonaWeather(null);
                     setPersonaEditorOpen(true);
                   }}
@@ -1215,15 +1215,22 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
             <button onClick={() => {
               const referenceId = personaDraft.ageReferenceCharacterId || (personaDraft.boundCharacterIds || [])[0] || '';
               const referenceCharacter = importedCharacters.find(character => character.id === referenceId);
-              const resolvedAge = personaDraft.ageMode === 'follow-character' ? getCharacterStoryAge(referenceCharacter) : String(personaDraft.age || '');
+              const characterAge = Number(getCharacterStoryAge(referenceCharacter));
+              const offset = Number(personaDraft.ageOffset || 0);
+              const resolvedAge = personaDraft.ageMode === 'relative-character' && Number.isFinite(characterAge)
+                ? String(characterAge + offset)
+                : personaDraft.ageMode === 'follow-character' && Number.isFinite(characterAge)
+                  ? String(characterAge)
+                  : String(personaDraft.age || '');
               const persona = {
                 ...personaDraft,
                 id: personaDraft.id || crypto.randomUUID(),
                 age: resolvedAge,
                 ageMode: personaDraft.ageMode || 'manual',
+                ageOffset: Number(personaDraft.ageOffset || 0),
                 ageReferenceCharacterId: referenceId,
                 weather: personaWeather ? formatLineWeather(personaWeather) : (personaDraft.weather || ''),
-                regionResolved: personaWeather?.location || personaDraft.regionResolved || '',
+                realRegion: personaDraft.realRegion || '', regionResolved: personaWeather?.location || personaDraft.regionResolved || '',
                 boundCharacterIds: Array.isArray(personaDraft.boundCharacterIds) ? personaDraft.boundCharacterIds : [],
               };
               setUserPersonas(prev => prev.some(p => p.id === persona.id) ? prev.map(p => p.id === persona.id ? persona : p) : [persona, ...prev]);
@@ -1312,10 +1319,15 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
 
               <div className="mt-3 p-3 rounded-[14px] bg-[#fafafa] border border-[#eeeeef]">
                 <div className="text-[10px] font-semibold text-[#555]">年龄</div>
-                <div className="text-[8.5px] text-[#aaa] mt-1">可以自己固定年龄，也可以让年龄跟随故事里的参考角色。</div>
-                <div className="flex gap-2 mt-2">
-                  <button type="button" onClick={() => setPersonaDraft((p:any)=>({...p, ageMode:'manual'}))} className={`flex-1 py-2 rounded-[10px] border text-[9px] ${personaDraft.ageMode !== 'follow-character' ? 'bg-white border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#f5f5f5] border-[#eee] text-[#888]'}`}>自己填写</button>
-                  <button type="button" onClick={() => setPersonaDraft((p:any)=>({...p, ageMode:'follow-character'}))} className={`flex-1 py-2 rounded-[10px] border text-[9px] ${personaDraft.ageMode === 'follow-character' ? 'bg-white border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#f5f5f5] border-[#eee] text-[#888]'}`}>跟随故事时间线</button>
+                <div className="text-[8.5px] text-[#aaa] mt-1">年龄可以独立填写，也可以相对于绑定角色设定。比如角色 28 岁，你设定“小 5 岁”，就是 23 岁。</div>
+                <div className="grid grid-cols-3 gap-1.5 mt-2">
+                  {[
+                    ['manual','自己填写'],
+                    ['follow-character','与角色同龄'],
+                    ['relative-character','比角色大 / 小'],
+                  ].map(([id,label]) => (
+                    <button type="button" key={id} onClick={() => setPersonaDraft((p:any)=>({...p, ageMode:id}))} className={`py-2 rounded-[10px] border text-[8.5px] ${personaDraft.ageMode === id ? 'bg-white border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#f5f5f5] border-[#eee] text-[#888]'}`}>{label}</button>
+                  ))}
                 </div>
                 {personaDraft.ageMode === 'follow-character' ? (
                   <div className="mt-2 space-y-2">
@@ -1333,6 +1345,24 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                       当前故事年龄：{getCharacterStoryAge(importedCharacters.find(c => c.id === personaDraft.ageReferenceCharacterId)) || '还无法从角色资料识别年龄'}
                     </div>
                   </div>
+                ) : personaDraft.ageMode === 'relative-character' ? (
+                  <div className="mt-2 space-y-2">
+                    <select value={personaDraft.ageReferenceCharacterId || ''} onChange={e => setPersonaDraft((p:any)=>({...p, ageReferenceCharacterId:e.target.value}))} className="w-full h-9 px-3 bg-white border border-[#e7e7e8] rounded-[10px] text-[10px] text-[#555] outline-none">
+                      <option value="">选择参考角色</option>
+                      {importedCharacters.filter(c => (personaDraft.boundCharacterIds || []).includes(c.id)).map(character => (
+                        <option key={character.id} value={character.id}>{character.name} · {getCharacterStoryAge(character) || '未设置故事年龄'}</option>
+                      ))}
+                    </select>
+                    <div className="flex items-center gap-2">
+                      <select value={Number(personaDraft.ageOffset || 0) < 0 ? 'younger' : Number(personaDraft.ageOffset || 0) > 0 ? 'older' : 'same'} onChange={e => setPersonaDraft((p:any)=>({...p, ageOffset: e.target.value === 'younger' ? -Math.abs(Number(p.ageOffset || 1)) : e.target.value === 'older' ? Math.abs(Number(p.ageOffset || 1)) : 0}))} className="h-9 px-2 bg-white border border-[#e7e7e8] rounded-[10px] text-[9px] text-[#555] outline-none">
+                        <option value="younger">比角色小</option>
+                        <option value="older">比角色大</option>
+                        <option value="same">同龄</option>
+                      </select>
+                      <input type="number" min="0" max="100" value={Math.abs(Number(personaDraft.ageOffset || 0))} disabled={Number(personaDraft.ageOffset || 0) === 0} onChange={e => setPersonaDraft((p:any)=>({...p, ageOffset: Number(e.target.value || 0) * (Number(p.ageOffset || 0) < 0 ? -1 : 1)}))} placeholder="5" className="w-20 h-9 px-3 bg-white border border-[#e7e7e8] rounded-[10px] text-xs text-[#333] outline-none" />
+                      <span className="text-[9px] text-[#999]">岁</span>
+                    </div>
+                  </div>
                 ) : (
                   <input
                     value={personaDraft.age || ''}
@@ -1344,20 +1374,28 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
               </div>
 
               <label className="block mt-3 text-[9px] text-[#999]">
-                现实地区
+                虚拟地区
+                <div className="text-[8px] text-[#aaa] mt-1">故事里显示虚拟地区；下面选择它对应的现实地区，天气会根据现实地区查询。</div>
+                <input
+                  value={personaDraft.region || ''}
+                  onChange={e => setPersonaDraft((p:any) => ({ ...p, region: e.target.value }))}
+                  placeholder="例如：维尔港 / 北境城 / 月湾"
+                  className="mt-1 w-full h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-xs text-[#333] outline-none"
+                />
+                <div className="text-[9px] text-[#999] mt-2">对应现实地区</div>
                 <div className="flex gap-2 mt-1">
                   <input
-                    value={personaDraft.region || ''}
-                    onChange={e => setPersonaDraft((p:any) => ({ ...p, region: e.target.value }))}
+                    value={personaDraft.realRegion || ''}
+                    onChange={e => setPersonaDraft((p:any) => ({ ...p, realRegion: e.target.value }))}
                     placeholder="例如 London / Tokyo / 上海"
                     className="min-w-0 flex-1 h-9 px-3 bg-[#fafafa] border border-[#e7e7e8] rounded-[10px] text-xs text-[#333] outline-none"
                   />
                   <button
                     type="button"
-                    disabled={personaWeatherBusy || !String(personaDraft.region || '').trim()}
+                    disabled={personaWeatherBusy || !String(personaDraft.realRegion || '').trim()}
                     onClick={async () => {
                       setPersonaWeatherBusy(true);
-                      const weather = await fetchLineWeather(String(personaDraft.region || ''));
+                      const weather = await fetchLineWeather(String(personaDraft.realRegion || ''));
                       setPersonaWeather(weather);
                       if (weather) setPersonaDraft((p:any)=>({...p, regionResolved: weather.location, weather: formatLineWeather(weather)}));
                       setPersonaWeatherBusy(false);
