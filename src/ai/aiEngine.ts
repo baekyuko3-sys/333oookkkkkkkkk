@@ -582,14 +582,14 @@ async function callGemini(input: AiReplyInput): Promise<string> {
     },
   };
 
-  const response = await fetch(endpoint, {
+  const response = await fetchWithTimeout(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'x-goog-api-key': settings.apiKey.trim(),
     },
     body: JSON.stringify(body),
-  });
+  }, 30000);
 
   if (!response.ok) throw new Error('AI_GEMINI_' + response.status + ': ' + await readError(response));
 
@@ -659,14 +659,14 @@ async function callOpenAiCompatible(input: AiReplyInput): Promise<string> {
     ],
   };
 
-  const response = await fetch(endpoint, {
+  const response = await fetchWithTimeout(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: 'Bearer ' + input.settings.apiKey.trim(),
     },
     body: JSON.stringify(body),
-  });
+  }, 30000);
 
   if (!response.ok) throw new Error('AI_OPENAI_' + response.status + ': ' + await readError(response));
 
