@@ -427,7 +427,7 @@ export function LineConversationView({
   const [editingMessageText, setEditingMessageText] = useState('');
 
   // 思维链只显示安全的高层摘要，不显示隐藏推理
-  const [enableChainOfThought, setEnableChainOfThought] = usePersistentState<boolean>(`line:show-thinking-summary:${conversationStorageId}`, true);
+  const [enableChainOfThought, setEnableChainOfThought] = usePersistentState<boolean>(`line:show-thinking-summary:${conversationStorageId}`, false);
   const [lineActionDescriptionsEnabled, setLineActionDescriptionsEnabled] = usePersistentState<boolean>(`line:show-action-descriptions:${conversationStorageId}`, false);
   const [preventUserFabrication, setPreventUserFabrication] = usePersistentState<boolean>(`line:prevent-user-fabrication:${conversationStorageId}`, true);
 
@@ -822,7 +822,7 @@ export function LineConversationView({
     setActiveCotPresetId(preset.id);
     setCustomCotTemplate(preset.template);
     setShowPresetResourceManager(null);
-    showToast(`已应用思维链预设：${preset.title}`);
+    showToast(`已应用生成摘要预设：${preset.title}`);
   };
 
   const showToast = (text: string) => {
@@ -2647,7 +2647,7 @@ export function LineConversationView({
           }
 
           const isMe = msg.sender === 'me';
-          const hasThinking = Boolean(msg.thinking) && enableChainOfThought;
+          const hasThinking = Boolean(msg.thinkingSummary || msg.metadata?.thinkingSummary) && enableChainOfThought;
           const hasVariants = msg.variants && msg.variants.length > 1;
 
           return (
@@ -2757,7 +2757,7 @@ export function LineConversationView({
                         className="flex items-center gap-1.5 cursor-pointer hover:opacity-80"
                       >
                         <Brain className="w-3.5 h-3.5 text-[#d4aab5]" />
-                        <span>思考摘要 · {resolvedCotPreset.title.replace('预设', '')}</span>
+                        <span>生成摘要 · {resolvedCotPreset.title.replace('预设', '')}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <button
@@ -2766,7 +2766,7 @@ export function LineConversationView({
                             setShowCotPresetModal(true);
                           }}
                           className="text-[9px] text-[#ae7e89] bg-white border border-[#f0dee3] px-1.5 py-0.5 rounded cursor-pointer hover:bg-[#faf1f3]"
-                          title="切换或自定义思维链预设"
+                          title="切换或自定义生成摘要预设"
                         >
                           ⚙ 预设
                         </button>
@@ -2780,14 +2780,14 @@ export function LineConversationView({
                           }
                           className="text-[10px] text-[#b88c97] cursor-pointer"
                         >
-                          {msg.showThinking ? '收起 ▴' : '展开思考摘要 ▾'}
+                          {msg.showThinking ? '收起 ▴' : '展开生成摘要 ▾'}
                         </span>
                       </div>
                     </div>
 
                     {msg.showThinking && (
                       <div className="mt-2 pt-2 border-t border-[#f2e6e9] text-[11px] leading-relaxed text-[#666] font-mono whitespace-pre-wrap animate-in fade-in">
-                        {msg.thinking}
+                        {msg.thinkingSummary || msg.metadata?.thinkingSummary}
                       </div>
                     )}
                   </div>
@@ -4644,12 +4644,12 @@ export function LineConversationView({
 
             {/* Section 0: 思维链预设系统 (Chain of Thought Presets) */}
             <details open={false} className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
-              <summary className="list-none cursor-pointer p-3.5 flex items-center justify-between"><div className="flex items-center gap-1.5 font-medium text-[#333]"><Brain className="w-4 h-4 text-[#ae7e89]" /><span>Generation / CoT</span></div><span className="text-[10px] text-[#aaa]">展开</span></summary>
+              <summary className="list-none cursor-pointer p-3.5 flex items-center justify-between"><div className="flex items-center gap-1.5 font-medium text-[#333]"><Brain className="w-4 h-4 text-[#ae7e89]" /><span>Generation / 回复表现</span></div><span className="text-[10px] text-[#aaa]">展开</span></summary>
               <div className="p-3.5 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 font-medium text-[#333]">
                   <Brain className="w-4 h-4 text-[#ae7e89]" />
-                  <span>思考摘要显示</span>
+                  <span>显示生成摘要</span>
                 </div>
                 <button
                   type="button"
@@ -4657,7 +4657,7 @@ export function LineConversationView({
                   className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors ${
                     enableChainOfThought ? 'bg-[#d4aab5]' : 'bg-[#ddd]'
                   }`}
-                  aria-label={enableChainOfThought ? '隐藏思考摘要' : '显示思考摘要'}
+                  aria-label={enableChainOfThought ? '隐藏生成摘要' : '显示生成摘要'}
                 >
                   <span className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${
                     enableChainOfThought ? 'translate-x-4' : 'translate-x-0.5'
@@ -4678,7 +4678,7 @@ export function LineConversationView({
                     当前预设：{activeCotPreset.title}
                   </div>
                   <div className="text-[10px] text-[#888] mt-0.5 leading-snug">
-                    {enableChainOfThought ? '回复上方显示可展开的思考摘要（默认折叠）' : '聊天中隐藏思考摘要'}
+                    {enableChainOfThought ? '回复上方显示轻量生成摘要（默认折叠）' : '聊天中隐藏生成摘要'}
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-[#aaa] shrink-0 ml-2" />
