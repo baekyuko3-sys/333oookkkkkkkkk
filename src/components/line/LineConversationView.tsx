@@ -2585,12 +2585,15 @@ export function LineConversationView({
         )}
         {visibleMessages.map((msg, messageIndex) => {
           const previousMessage = visibleMessages[messageIndex - 1];
-          const currentDay = msg.createdAt ? new Date(msg.createdAt).toLocaleDateString() : 'today';
-          const previousDay = previousMessage?.createdAt ? new Date(previousMessage.createdAt).toLocaleDateString() : (messageIndex === 0 ? '' : currentDay);
+          const todayKey = new Date().toLocaleDateString();
+          const currentDate = msg.createdAt ? new Date(msg.createdAt) : new Date();
+          const previousDate = previousMessage?.createdAt ? new Date(previousMessage.createdAt) : (messageIndex === 0 ? null : currentDate);
+          const currentDay = currentDate.toLocaleDateString();
+          const previousDay = previousDate ? previousDate.toLocaleDateString() : '';
           const showDaySeparator = messageIndex === 0 || currentDay !== previousDay;
-          const dayLabel = msg.createdAt
-            ? new Date(msg.createdAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric' })
-            : '今天';
+          const dayLabel = currentDay === todayKey
+            ? '今天'
+            : currentDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
 
           if (msg.type === 'music-together') {
             const session = msg.musicSession as TogetherMusicSession | undefined;
