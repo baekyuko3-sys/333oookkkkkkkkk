@@ -916,6 +916,7 @@ export function LineConversationView({
         contactName,
         chosen,
         messages.map(message => ({ sender: String(message.sender || 'unknown'), text: message.text, transcript: message.transcript })).concat({ sender: 'other', text: replyText, transcript: '' }),
+        currentStatusSnapshot?.sourceText || '',
       );
       const html = renderStatusBarHtml(chosen, rawStatus);
       // Regex must match the complete generated status text. Otherwise nothing is rendered.
