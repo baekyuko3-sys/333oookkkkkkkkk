@@ -260,7 +260,8 @@ export function LineConversationView({
   const [virtualChatTime, setVirtualChatTime] = usePersistentState<string>(`line:virtual-chat-time:${conversationStorageId}`, new Date().toISOString().slice(0, 16));
   const [chatTimezone, setChatTimezone] = usePersistentState<string>(`line:chat-timezone:${conversationStorageId}`, Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai');
   const [characterLanguage, setCharacterLanguage] = usePersistentState<string>(`line:character-language:${conversationStorageId}`, 'auto');
-  const [characterTimeSensitivity, setCharacterTimeSensitivity] = usePersistentState<'low' | 'natural' | 'high'>(`line:character-time-sensitivity:${conversationStorageId}`, 'natural');
+  const [storedCharacterTimeSensitivity, setCharacterTimeSensitivity] = usePersistentState<string>(`line:character-time-sensitivity:${conversationStorageId}`, 'natural');
+  const characterTimeSensitivity = storedCharacterTimeSensitivity === 'sensitive' ? 'high' : storedCharacterTimeSensitivity === 'insensitive' ? 'low' : (storedCharacterTimeSensitivity === 'low' || storedCharacterTimeSensitivity === 'high' || storedCharacterTimeSensitivity === 'natural' ? storedCharacterTimeSensitivity : 'natural');
   const [chatApiOverride, setChatApiOverride] = usePersistentState<ChannelAiSettings>(`line:chat-api-override:${conversationStorageId}`, {
     ...readAppSettings().chatApiOverride,
     enabled: false,
@@ -4471,8 +4472,9 @@ export function LineConversationView({
                 <div><div className="text-[9.5px] font-medium text-[#666] mb-1.5">角色时间感</div>
                   <div className="flex gap-1.5">
                     {[
-                      ['sensitive', '对时间敏感'],
-                      ['insensitive', '对时间不敏感'],
+                      ['low', '不在意'],
+                      ['natural', '自然感知（默认）'],
+                      ['high', '高度在意'],
                     ].map(([id, title]) => <button key={id} type="button" onClick={() => setCharacterTimeSensitivity(id as 'sensitive' | 'insensitive')} className={"px-3 py-1.5 rounded-full border text-[8.5px] " + (characterTimeSensitivity === id ? 'bg-[#f7eef0] border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#fafafa] border-[#eee] text-[#777]')}>{title}</button>)}
                   </div>
                   <div className="text-[8px] text-[#aaa] mt-1">时间不敏感 ≠ 可以乱编时间；仍然不能违背聊天里已经明确发生的时间。</div>
