@@ -296,6 +296,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [openingMode, setOpeningMode] = useState<'none' | 'context'>('none');
   const [openingGreetingIndex, setOpeningGreetingIndex] = useState(0);
   const [postDetail, setPostDetail] = useState<any | null>(null);
+  const [characterMomentsProfile, setCharacterMomentsProfile] = useState<{ characterId: string; name: string } | null>(null);
   const [showMyProfilePage, setShowMyProfilePage] = useState(false);
   const [newPostImage, setNewPostImage] = useState('');
 
@@ -1353,7 +1354,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
         return (
           <div className="absolute inset-0 z-[70] bg-white animate-in slide-in-from-right">
             <div className="h-full overflow-y-auto no-scrollbar">
-              <div className="h-[170px] relative overflow-hidden" style={{ background: characterProfileStyles[character?.id || friendProfile.characterId || '']?.background ? undefined : '#f0efed' }}>
+              <div className="h-[170px] relative overflow-visible" style={{ background: characterProfileStyles[character?.id || friendProfile.characterId || '']?.background ? undefined : '#f0efed' }}>
                 <div className="absolute inset-0" style={{
                   backgroundImage: characterProfileStyles[character?.id || friendProfile.characterId || '']?.background
                     ? `linear-gradient(180deg, rgba(0,0,0,.04), rgba(0,0,0,.18)), url(${characterProfileStyles[character?.id || friendProfile.characterId || '']?.background})`
@@ -1362,7 +1363,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                 }} />
                 <button onClick={() => setFriendProfile(null)} className="absolute top-4 left-4 w-8 h-8 rounded-full bg-white/80 text-[#555] z-10">‹</button>
                 <button onClick={() => setCharacterProfileStyleOpen(true)} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/80 text-[#555] z-10">✦</button>
-                <div className="absolute -bottom-9 left-5 w-[78px] h-[78px] rounded-full border-4 border-white bg-[#f1f1f2] overflow-hidden grid place-items-center shadow-sm">
+                <div className="absolute -bottom-9 left-5 z-20 w-[78px] h-[78px] rounded-full border-4 border-white bg-[#f1f1f2] overflow-hidden grid place-items-center shadow-sm">
                   {(characterProfileStyles[character?.id || friendProfile.characterId || '']?.avatar || character?.avatar) ? <img src={characterProfileStyles[character?.id || friendProfile.characterId || '']?.avatar || character?.avatar} alt="" className="w-full h-full object-cover" /> : <span className="text-xl text-[#aaa]">{friendProfile.name[0] || '·'}</span>}
                 </div>
               </div>
@@ -1399,6 +1400,9 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                       </div>
                       <div className="mt-4 text-[19px] font-semibold text-[#222]">{character.name}</div>
                       <div className="mt-2 text-[11px] leading-5 text-[#666] min-h-[22px]">{profile.signature || '还没有个性签名。可以让角色自己生成。'}</div>
+                      <button onClick={() => setCharacterMomentsProfile({ characterId: character.id, name: character.name })} className="mt-4 w-full h-10 rounded-xl border border-[#e8e4e3] bg-[#faf9f8] text-[10px] font-medium text-[#555] flex items-center justify-center gap-2">
+                        ◎ 查看 {character.name} 的朋友圈
+                      </button>
                     </div>
                   </div>;
                 })()}
@@ -1524,6 +1528,81 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           </div>
         );
       })()}
+
+      {characterMomentsProfile && (
+        <div className="absolute inset-0 z-[75] bg-white animate-in slide-in-from-right">
+          <div className="h-full overflow-y-auto no-scrollbar">
+            <div className="h-[64px] px-5 flex items-center border-b border-[#f0f0f1] bg-white sticky top-0 z-20">
+              <button onClick={() => setCharacterMomentsProfile(null)} className="w-8 h-8 rounded-full bg-[#f5f5f6] text-[#555]">‹</button>
+              <div className="ml-3">
+                <div className="text-[14px] font-semibold text-[#222]">{characterMomentsProfile.name}</div>
+                <div className="text-[9px] text-[#aaa]">VROOM · 朋友圈</div>
+              </div>
+            </div>
+            <div className="px-5 pt-5 pb-8">
+              {(() => {
+                const character = importedCharacters.find(c => c.id === characterMomentsProfile.characterId);
+                const posts = momentsPosts.filter(p => p.characterId === characterMomentsProfile.characterId || (!p.characterId && p.name === characterMomentsProfile.name));
+                const avatar = character?.avatar || '';
+                return (
+                  <>
+                    <div className="flex items-center gap-3 pb-5">
+                      <div className="w-12 h-12 rounded-full overflow-hidden border border-[#e8e8e9] bg-[#f1f1f2] grid place-items-center shrink-0">
+                        {avatar ? <img src={avatar} alt="" className="w-full h-full object-cover" /> : <span className="text-sm text-[#aaa]">{characterMomentsProfile.name[0] || '·'}</span>}
+                      </div>
+                      <div>
+                        <div className="text-[14px] font-semibold text-[#222]">{characterMomentsProfile.name}</div>
+                        <div className="text-[9px] text-[#aaa] mt-0.5">TA 的生活动态</div>
+                      </div>
+                    </div>
+                    {posts.length === 0 ? (
+                      <div className="py-16 text-center">
+                        <div className="text-[12px] text-[#aaa]">还没有朋友圈动态</div>
+                        <div className="text-[9px] text-[#c0c0c2] mt-2">角色发布动态后会出现在这里</div>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {posts.map(post => {
+                          const comments = Array.isArray(post.commentsList) ? post.commentsList : [];
+                          return (
+                            <article key={post.id} className="pb-6 border-b border-[#f0f0f1]">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-10 h-10 rounded-full overflow-hidden bg-[#f1f1f2] border border-[#e8e8e9] shrink-0 grid place-items-center">
+                                  {avatar ? <img src={avatar} alt="" className="w-full h-full object-cover" /> : <span className="text-xs text-[#aaa]">{post.name?.[0] || '·'}</span>}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-[12px] font-semibold text-[#333]">{post.name}</div>
+                                  <div className="text-[9px] text-[#aaa] mt-0.5">{post.time}{post.tag ? ' · ' + post.tag : ''}</div>
+                                </div>
+                              </div>
+                              <div className="ml-[50px] mt-2.5 text-[12px] leading-[1.8] text-[#4b4b4d] whitespace-pre-wrap">{post.text}</div>
+                              {post.image && <img src={post.image} alt="" className="ml-[50px] mt-3 max-w-[82%] max-h-[250px] rounded-[13px] object-cover border border-[#eee]" />}
+                              <div className="ml-[50px] mt-3 flex items-center gap-5 text-[10px] text-[#aaa]">
+                                <span>♡ {post.likes || 0}</span>
+                                <button onClick={() => { setCommentingPostId(post.id); setCommentInputText(''); }} className="hover:text-[#ae7e89]">评论 · {comments.length}</button>
+                              </div>
+                              {comments.length > 0 && (
+                                <div className="ml-[50px] mt-3 rounded-xl bg-[#f7f7f8] px-3 py-2.5 space-y-2">
+                                  {comments.map((comment: any, index: number) => (
+                                    <div key={post.id + '-comment-' + index} className="text-[10px] leading-4">
+                                      <span className="font-semibold text-[#555]">{comment.user || '朋友'}</span>
+                                      <span className="text-[#888]">：{comment.text}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </article>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
 
       {postDetail && (
         <div className="absolute inset-0 z-[70] bg-white animate-in slide-in-from-right">
