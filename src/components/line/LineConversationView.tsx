@@ -431,6 +431,7 @@ export function LineConversationView({
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editingMessageText, setEditingMessageText] = useState('');
   const [swipedMessageId, setSwipedMessageId] = useState<number | null>(null);
+  const [swipeAction, setSwipeAction] = useState<'edit' | 'quote' | null>(null);
   const swipeStartXRef = useRef<number | null>(null);
 
   // 思维链只显示安全的高层摘要，不显示隐藏推理
@@ -2809,7 +2810,7 @@ export function LineConversationView({
               {/* Bubble content container */}
               <div
                 className={`max-w-[78%] space-y-1.5 relative touch-pan-y transition-transform duration-200 ${isMe ? 'items-end' : 'items-start'}`}
-                style={{ transform: swipedMessageId === msg.id ? 'translateX(-46px)' : 'translateX(0)' }}
+                style={{ transform: swipedMessageId === msg.id ? (swipeAction === 'edit' ? 'translateX(-46px)' : 'translateX(46px)') : 'translateX(0)' }}
                 onTouchStart={(e) => {
                   swipeStartXRef.current = e.touches[0]?.clientX ?? null;
                 }}
@@ -2817,14 +2818,20 @@ export function LineConversationView({
                   const startX = swipeStartXRef.current;
                   const endX = e.changedTouches[0]?.clientX ?? startX ?? 0;
                   swipeStartXRef.current = null;
-                  if (startX !== null && startX - endX > 30) {
+                  const delta = endX - (startX ?? endX);
+                  if (delta < -30) {
                     setSwipedMessageId(msg.id);
-                  } else if (startX !== null && endX - startX > 20) {
+                    setSwipeAction('edit');
+                  } else if (delta > 30) {
+                    setSwipedMessageId(msg.id);
+                    setSwipeAction('quote');
+                  } else if (Math.abs(delta) < 20 && swipedMessageId === msg.id) {
                     setSwipedMessageId(null);
+                    setSwipeAction(null);
                   }
                 }}
               >
-                {!msg.isRecalled && !msg.isRecalledByOther && swipedMessageId === msg.id && (
+                {swipedMessageId === msg.id && swipeAction === 'edit' && !msg.isRecalled && !msg.isRecalledByOther && (
                   <button
                     type="button"
                     onClick={(e) => {
@@ -2832,11 +2839,27 @@ export function LineConversationView({
                       setEditingMessageId(msg.id);
                       setEditingMessageText(msg.text || '');
                       setSwipedMessageId(null);
+                      setSwipeAction(null);
                     }}
                     className="absolute -right-[52px] top-1/2 -translate-y-1/2 w-11 h-8 rounded-[10px] bg-white border border-[#eadfe2] text-[9px] text-[#9c747f] shadow-sm flex items-center justify-center"
                     title="编辑这一条消息"
                   >
                     编辑
+                  </button>
+                )}
+                {swipedMessageId === msg.id && swipeAction === 'quote' && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setReplyingToMessage(msg);
+                      setSwipedMessageId(null);
+                      setSwipeAction(null);
+                    }}
+                    className="absolute -left-[52px] top-1/2 -translate-y-1/2 w-11 h-8 rounded-[10px] bg-white border border-[#e2e2e5] text-[9px] text-[#777] shadow-sm flex items-center justify-center"
+                    title="引用这一条消息"
+                  >
+                    引用
                   </button>
                 )}
 
