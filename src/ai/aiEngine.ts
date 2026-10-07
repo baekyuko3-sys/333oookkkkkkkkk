@@ -879,6 +879,7 @@ export async function generateStatusBarContent(
   characterName: string,
   preset: { name: string; inputFormat?: string; promptSuffix?: string; regex: string; html: string },
   conversation: Array<{ sender: string; text?: string; transcript?: string }>,
+  currentStatus?: string,
 ): Promise<string> {
   const recent = conversation.slice(-16).map(message => {
     const speaker = message.sender === 'other' ? characterName : message.sender === 'me' ? '用户' : '系统';
@@ -890,7 +891,9 @@ export async function generateStatusBarContent(
     '每次角色完成一条回复后，根据刚刚发生的聊天内容生成一份新的状态快照。',
     '状态栏不是聊天消息，不要写对白，不要解释。',
     '只输出一条简洁的状态快照文字，内容必须来自当前聊天；可以延续已经明确出现的状态，但不能凭空创造剧情。',
+    '先判断当前是否有值得更新的状态。如果没有明确变化，可以沿用上一状态，不要为了生成而制造变化。',
     '状态快照应包含当前角色最值得展示的状态，例如地点、时间、正在做什么、情绪、关系变化或其他对当前预设有意义的信息。',
+    currentStatus ? '【上一状态】' + currentStatus + '。只在当前聊天提供依据时更新它。' : '【上一状态】暂无。';
     '输出必须是普通文字，不能有 Markdown、代码块、HTML 或解释。',
     '系统会在后台使用这个预设的 RegEx 自动提取状态内容；你不需要解释格式。',
     '为了让 HTML 模板可以读取字段，请根据 HTML 模板中出现的 {{字段名}} 判断应该提供哪些状态信息，并按照当前预设的提取规则输出。',
