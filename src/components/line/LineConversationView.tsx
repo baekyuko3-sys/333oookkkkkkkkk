@@ -1115,6 +1115,7 @@ export function LineConversationView({
           character,
           characterProfile: memberProfile,
           persona: activePersona,
+          characterWeather: characterWeather ? formatLineWeather(characterWeather) : '',
           worldbooks: activeWorldbooks,
           memory: memberMemory,
           project: projectManifest,
