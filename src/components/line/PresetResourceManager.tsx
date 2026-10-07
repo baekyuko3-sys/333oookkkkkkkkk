@@ -70,7 +70,7 @@ export function PresetResourceManager({
       const next=[item,...statusPresets]; setStatusPresets(next); saveStatusBarPresets(next); setSelectedId(item.id);
     } else {
       const item: CotPreset = {
-        id:'cot-'+Date.now().toString(36), title:'新的思维链预设', tag:'<think>...</think>',
+        id:'cot-'+Date.now().toString(36), title:'新的生成摘要预设', tag:'<think>...</think>',
         description:'', template:'', exampleThinking:'', targets:['line'], createdAt:now, updatedAt:now,
       };
       const next=[item,...cotPresets]; setCotPresets(next); saveCotPresets(next); setSelectedId(item.id);
@@ -134,8 +134,8 @@ export function PresetResourceManager({
       <div className="h-[58px] shrink-0 border-b border-[#eee] flex items-center justify-between px-4">
         <button onClick={onClose} className="text-2xl text-[#555]">‹</button>
         <div className="text-center">
-          <div className="font-semibold text-[13px] text-[#252525]">{statuses ? '状态栏资源库' : '思维链预设库'}</div>
-          <div className="text-[8px] text-[#aaa] tracking-[1.5px] uppercase">{statuses ? 'STATUS BAR PRESETS' : 'CHAIN OF THOUGHT PRESETS'}</div>
+          <div className="font-semibold text-[13px] text-[#252525]">{statuses ? '状态栏资源库' : '生成摘要预设库'}</div>
+          <div className="text-[8px] text-[#aaa] tracking-[1.5px] uppercase">{statuses ? 'STATUS BAR PRESETS' : 'GENERATION SUMMARY PRESETS'}</div>
         </div>
         <button onClick={create} className="w-8 h-8 rounded-full bg-[#292724] text-white grid place-items-center"><Plus className="w-4 h-4"/></button>
       </div>
