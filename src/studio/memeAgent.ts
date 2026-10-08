@@ -256,7 +256,7 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
       const root = await inspectTool.run({ path: '' });
       const evidence = JSON.stringify(root).slice(0, 50000);
       history.push({
-        role: 'user',
+        role: 'assistant',
         content:
           'STUDIO PREFLIGHT — REAL GITHUB REPOSITORY ACCESS IS ACTIVE FOR THIS TASK. ' +
           'The following result came directly from the repository tool. Treat it as authoritative. ' +
