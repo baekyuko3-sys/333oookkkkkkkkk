@@ -290,7 +290,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     if (!effectiveOwner || !effectiveRepo || !effectiveBranch || !effectiveToken) return;
     setBusy(true);
     try {
-      const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + item.path.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(effectiveBranch);
+      const url = 'https://api.github.com/repos/' + effectiveOwner + '/' + effectiveRepo + '/contents/' + item.path.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(effectiveBranch);
       const data = await github(url, effectiveToken);
       setFile(item);
       setCode(decodeBase64(data.content));
@@ -311,7 +311,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     if (!file || !effectiveOwner || !effectiveRepo || !effectiveBranch || !effectiveToken) return;
     setSaving(true);
     try {
-      const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + file.path.split('/').map(encodeURIComponent).join('/');
+      const url = 'https://api.github.com/repos/' + effectiveOwner + '/' + effectiveRepo + '/contents/' + file.path.split('/').map(encodeURIComponent).join('/');
       await github(url, effectiveToken, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -386,7 +386,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             description: 'Inspect a repository directory.',
             run: async ({ path: target = '' }) => {
               const clean = String(target).split('/').filter(Boolean).map(encodeURIComponent).join('/');
-              const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + clean + '?ref=' + encodeURIComponent(effectiveBranch);
+              const url = 'https://api.github.com/repos/' + effectiveOwner + '/' + effectiveRepo + '/contents/' + clean + '?ref=' + encodeURIComponent(effectiveBranch);
               const data = await github(url, effectiveToken);
               return Array.isArray(data)
                 ? data.map((item: any) => ({ name: item.name, path: item.path, type: item.type, sha: item.sha }))
@@ -398,7 +398,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             description: 'Read a repository file.',
             run: async ({ path: target }) => {
               const clean = String(target).split('/').filter(Boolean).map(encodeURIComponent).join('/');
-              const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + clean + '?ref=' + encodeURIComponent(effectiveBranch);
+              const url = 'https://api.github.com/repos/' + effectiveOwner + '/' + effectiveRepo + '/contents/' + clean + '?ref=' + encodeURIComponent(effectiveBranch);
               const data = await github(url, effectiveToken);
               if (Array.isArray(data)) return { error: 'Path is a directory', items: data.map((item: any) => item.path) };
               return { path: data.path, sha: data.sha, content: decodeBase64(data.content).slice(0, 60000) };
@@ -408,7 +408,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             name: 'search',
             description: 'Search the repository code.',
             run: async ({ query }) => {
-              const q = encodeURIComponent(String(query) + ' repo:' + owner + '/' + repo);
+              const q = encodeURIComponent(String(query) + ' repo:' + effectiveOwner + '/' + effectiveRepo);
               const data = await github('https://api.github.com/search/code?q=' + q, effectiveToken);
               return (data.items || []).slice(0, 20).map((item: any) => ({ path: item.path, name: item.name, sha: item.sha }));
             },
@@ -585,7 +585,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const buildCIRepairContext = async (ciError: string, failedSha: string) => {
-    const base = 'https://api.github.com/repos/' + owner + '/' + repo;
+    const base = 'https://api.github.com/repos/' + effectiveOwner + '/' + effectiveRepo;
     const errorText = String(ciError || '').slice(-16000);
     const changePaths = changes.map(change => change.path);
     const errorPaths = Array.from(errorText.matchAll(/(?:src|app|lib|components|pages|public|tests?|packages?)\/[A-Za-z0-9_./-]+/g))
@@ -731,7 +731,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             run: async ({ path: target = '' }) => {
               const clean = String(target).split('/').filter(Boolean).map(encodeURIComponent).join('/');
               const data = await github(
-                'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + clean + '?ref=' + encodeURIComponent(effectiveBranch),
+                'https://api.github.com/repos/' + effectiveOwner + '/' + effectiveRepo + '/contents/' + clean + '?ref=' + encodeURIComponent(effectiveBranch),
                 token
               );
               return Array.isArray(data)
@@ -745,7 +745,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             run: async ({ path: target }) => {
               const clean = String(target).split('/').filter(Boolean).map(encodeURIComponent).join('/');
               const data = await github(
-                'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + clean + '?ref=' + encodeURIComponent(effectiveBranch),
+                'https://api.github.com/repos/' + effectiveOwner + '/' + effectiveRepo + '/contents/' + clean + '?ref=' + encodeURIComponent(effectiveBranch),
                 token
               );
               if (Array.isArray(data)) return { error: 'Path is a directory', items: data.map((item: any) => item.path) };
