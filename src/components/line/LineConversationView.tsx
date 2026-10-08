@@ -962,7 +962,7 @@ export function LineConversationView({
     const known = statusBarKnownMessageIdsRef.current;
     const fresh = delivered.filter(message => !known.has(String(message.id)));
     fresh.forEach(message => known.add(String(message.id)));
-    if (!fresh.length || !statusBarEnabled || statusBarProcessingRef.current.size > 0) return;
+    if (!fresh.length || !statusBarEnabled || isGroup || statusBarProcessingRef.current.size > 0) return;
 
     const latest = fresh[fresh.length - 1];
     const turnId = String(latest.turnId || latest.id);
@@ -2317,6 +2317,7 @@ export function LineConversationView({
           lastOther?.text ? '【上一条角色消息】\\n' + lastOther.text : '',
           '不要重复上一条已经说过的内容，也不要突然改变话题；像真实聊天一样自然补完。',
         ].filter(Boolean).join('\\n'),
+        statusBarPreset: statusBarEnabled ? getStatusBarForCharacter(characterId, 'line') || getStatusBarPresets().find(preset => preset.id === activeStatusBarPresetId) || getStatusBarPresets()[0] : undefined,
         stylePreset: activeCotPreset?.title || selectedPreset,
         cotTarget: enableChainOfThought ? 'line' : undefined,
         cotPreset: enableChainOfThought ? {
@@ -2702,6 +2703,7 @@ export function LineConversationView({
         userMessage: previousUser || '继续当前对话',
         isGroup,
         authorNote: [lineConversationRules, '重新生成要求：' + instruction + '；这次只重新生成被选中的这一条消息，不要额外生成其他消息。'].filter(Boolean).join('\\n'),
+        statusBarPreset: statusBarEnabled ? getStatusBarForCharacter(characterId, 'line') || getStatusBarPresets().find(preset => preset.id === activeStatusBarPresetId) || getStatusBarPresets()[0] : undefined,
         stylePreset: activeCotPreset?.title || selectedPreset,
         cotTarget: enableChainOfThought ? 'line' : undefined,
         cotPreset: enableChainOfThought ? {
