@@ -294,6 +294,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
   const aiReady = Boolean(aiSettings.apiBaseUrl.trim() && aiSettings.apiKey.trim() && aiSettings.model.trim());
   const dirty = Boolean(file && code !== original);
+  const activeTaskRequest = currentTask?.request
+    || [...conversation].reverse().find(item => item.role === 'user')?.content
+    || sessionTitle
+    || '未记录任务';
 
   const log = (type: StudioOperationLog['type'], text: string) => { const item={id:'log-'+Date.now(),at:Date.now(),type,text}; setLogs(v=>[item,...v].slice(0,100)); studioStorage.addLog(item); };
 
@@ -781,7 +785,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setMessage('Meme 已完成修复前后验证：' + p.path + '\\n' + (validation?.summary || p.reason));
     log('change', p.operation + ' ' + p.path + ' · validation passed');
     updateCiStatus('changes', 'Meme 已生成并通过自检的 Changes，等待你的批准。');
-    setTab('changes');
+    // Keep the conversation visible like the reference workbench: the user
+    // should still see the original request while Changes are waiting below.
+    // Changes remain a separate review surface opened explicitly by the user.
   };
 
   const readSavedCiStatus = (id: string) => {
@@ -1262,6 +1268,28 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
                 </div>
               </div>
             )}
+            {changes.length > 0 && (
+              <div className="mb-3 p-3 rounded-2xl bg-[#ebe6de] border border-black/5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">MEME · CHANGES READY</div>
+                  <span className="text-[7px] text-[#777069]">{changes.length} file{changes.length > 1 ? 's' : ''}</span>
+                </div>
+                <div className="mt-2 text-[8px] font-medium">本次任务</div>
+                <div className="mt-1 text-[9px] leading-4 text-[#5f5a54] whitespace-pre-wrap">{activeTaskRequest}</div>
+                <div className="mt-2 space-y-1">
+                  {changes.slice(0, 4).map(change => (
+                    <div key={change.path} className="flex items-center gap-2 text-[8px]">
+                      <span className="text-[#8b8782]">›</span>
+                      <span className="font-mono truncate flex-1">{change.path}</span>
+                      <span className="text-[#777069]">{change.operation || 'update'}</span>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={() => setTab('changes')} className="mt-3 w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">
+                  查看 / 审批 Changes
+                </button>
+              </div>
+            )}
             <div className="w-full pt-2 pb-4">
               {!conversation.length ? (
                 <div className="flex flex-col items-center justify-start text-center pt-8 pb-5">
@@ -1358,7 +1386,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
               <div className="mt-1 text-[#777069]">AI 的修改先预览；可以逐文件批准，也可以作为一个原子 commit 一次写入。</div>
               <div className="mt-3 p-3 rounded-xl bg-white/75 border border-black/5">
                 <div className="text-[7px] font-mono tracking-[1.5px] text-[#8b8782]">本次任务</div>
-                <div className="mt-1 text-[9px] leading-4">{currentTask?.request || sessionTitle || '未记录'}</div>
+                <div className="mt-1 text-[9px] leading-4 whitespace-pre-wrap">{activeTaskRequest}</div>
                 <div className="mt-1 text-[7px] text-[#999]">你的原始请求会一直保留在 Changes 页面。先确认这条修改是否真的在解决你的任务，再决定是否提交。</div>
               </div>
               <div className="grid grid-cols-2 gap-1.5 mt-2"><button onClick={() => void loadDiff()} className="py-2 rounded-xl bg-white text-[8px]">Diff</button><button disabled={!changes.length||saving} onClick={() => void approveAllChanges()} className="py-2 rounded-xl bg-[#292724] text-white text-[8px] disabled:opacity-40">Atomic Commit</button></div>
