@@ -501,6 +501,7 @@ async function parseSseResponse(
   response: Response,
   extractText: (data: any) => string,
   onDelta?: (delta: string) => void,
+  idleTimeoutMs = 45000,
 ): Promise<string> {
   if (!response.body) {
     const data = await response.json();
@@ -532,9 +533,17 @@ async function parseSseResponse(
     }
   };
 
+  let lastChunkAt = Date.now();
   while (true) {
-    const { value, done } = await reader.read();
+    const readPromise = reader.read();
+    const timeoutPromise = new Promise<{ value: undefined; done: true }>((_, reject) => {
+      const timer = window.setTimeout(() => reject(new Error('AI_STREAM_TIMEOUT: 流式接口连续 ' + Math.round(idleTimeoutMs / 1000) + ' 秒没有收到新数据')), idleTimeoutMs);
+      readPromise.finally(() => window.clearTimeout(timer));
+    });
+    const { value, done } = await Promise.race([readPromise, timeoutPromise]);
     if (done) break;
+    lastChunkAt = Date.now();
+    void lastChunkAt;
     buffer += decoder.decode(value, { stream: true });
 
     const lines = buffer.split(/\r?\n/);
@@ -621,7 +630,7 @@ async function callGemini(input: AiReplyInput): Promise<string> {
         input.onDelta?.(visible);
       }
     };
-    return parseSseResponse(response, extractGeminiText, revealMessage);
+    return parseSseResponse(response, extractGeminiText, revealMessage, 45000);
   }
 
   const data = await response.json();
@@ -711,7 +720,7 @@ async function callOpenAiCompatible(input: AiReplyInput): Promise<string> {
         input.onDelta?.(visible);
       }
     };
-    return parseSseResponse(response, extractOpenAiText, revealMessage);
+    return parseSseResponse(response, extractOpenAiText, revealMessage, 45000);
   }
 
   const data = await response.json();
