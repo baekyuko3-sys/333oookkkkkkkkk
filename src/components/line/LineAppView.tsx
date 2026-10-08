@@ -612,6 +612,32 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           characterId={activeCharacterId}
           conversationId={conversationId}
           personaId={effectivePersonaId || undefined}
+          personaOptions={userPersonas.map((p: any) => ({ id: p.id, name: p.name, avatar: p.avatar }))}
+          onSelectPersona={(nextPersonaId) => {
+            if (!nextPersonaId || nextPersonaId === effectivePersonaId) return;
+            const target = chatItems.find((chat) =>
+              !chat.isGroup &&
+              (activeItem.characterId ? chat.characterId === activeItem.characterId : chat.name === activeItem.name) &&
+              chat.personaId === nextPersonaId
+            );
+            setActivePersonaId(nextPersonaId);
+            if (target) {
+              setActiveChatId(target.id);
+              return;
+            }
+            const createdId = `c_${Date.now()}`;
+            const cloned: LineChatItem = {
+              ...activeItem,
+              id: createdId,
+              personaId: nextPersonaId,
+              time: '刚刚',
+              preview: '',
+              unread: 0,
+              draft: '',
+            };
+            setChatItems(prev => [cloned, ...prev]);
+            setActiveChatId(createdId);
+          }}
           onBack={(draft?: string) => {
             if (typeof draft === 'string') {
               setChatItems((prev) =>
