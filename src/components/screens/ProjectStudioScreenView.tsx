@@ -205,7 +205,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     void github('https://api.github.com/user', sharedToken)
       .then(async () => github('https://api.github.com/repos/' + encodeURIComponent(sharedOwner) + '/' + encodeURIComponent(sharedRepo), sharedToken))
       .then(async repository => {
-        const targetBranch = repository.default_branch || sharedBranch;
+        if (repository?.permissions && repository.permissions.push === false) {
+          throw new Error('这个 Studio PAT 没有对目标仓库的写权限');
+        }
+        const targetBranch = sharedBranch || repository.default_branch || 'main';
         await github(
           'https://api.github.com/repos/' + encodeURIComponent(sharedOwner) + '/' + encodeURIComponent(sharedRepo) +
           '/contents/?ref=' + encodeURIComponent(targetBranch),
@@ -1195,6 +1198,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     if (!sharedOwner || !sharedRepo || !sharedBranch || !sharedToken) throw new Error('GitHub 仓库连接信息不完整');
     const who = await github('https://api.github.com/user', sharedToken);
     const repository = await github('https://api.github.com/repos/' + encodeURIComponent(sharedOwner) + '/' + encodeURIComponent(sharedRepo), sharedToken);
+    if (repository?.permissions && repository.permissions.push === false) {
+      throw new Error('PAT 有效，但没有对当前 Studio 仓库的写权限');
+    }
     const targetBranch = sharedBranch || repository.default_branch || 'main';
     await github('https://api.github.com/repos/' + encodeURIComponent(sharedOwner) + '/' + encodeURIComponent(sharedRepo) + '/contents/?ref=' + encodeURIComponent(targetBranch), sharedToken);
     setGithubVerified(true);
