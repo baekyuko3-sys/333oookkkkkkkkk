@@ -3,6 +3,7 @@ import { usePersistentState } from '../../store/usePersistentState';
 import type { ImportedCharacter } from '../../data/characterImport';
 import type { ScreenType, WorldBook } from '../../types';
 import { generateCharacterReply, generateCreativeText, generateStatusBarContent, generateHtmlInterlude, readStoredAiSettings, resolveChannelAiSettings, listOpenAiCompatibleModels, testAiConnection, summarizeConversationMemory, mergeRecentMemoryBatch, type AiSettings } from '../../ai/aiEngine';
+import { setMacroContext } from '../../ai/macros';
 import { generateImage, generateSpeech, transcribeAudio } from '../../ai/mediaEngine';
 import { readAppSettings } from '../../store/appSettings';
 import type { ChannelAiSettings } from '../../store/appSettings';
@@ -174,6 +175,13 @@ export function LineConversationView({
   // conversation state, not the render that started the request.
   const messagesRef = useRef<Record<string, any>[]>([]);
   messagesRef.current = messages;
+
+  useEffect(() => {
+    setMacroContext({
+      char: importedCharacter?.name || characterProfile.nickname || contactName,
+      user: activePersona?.name,
+    });
+  }, [importedCharacter?.name, characterProfile.nickname, contactName, activePersona?.name]);
 
   // LINE keeps the complete conversation in storage, but only renders the newest
   // page at first. Older messages load naturally as you scroll upward.
@@ -1908,6 +1916,7 @@ export function LineConversationView({
           '请输出 JSON：{"location":"地点","time":"时间","theme":"邀约主题","letter":"角色写给用户的邀约正文"}',
         ].join('\n\n'),
         temperature: 0.9,
+        macroNames: { char: importedCharacter.name, user: activePersona?.name },
       });
       const cleaned = inviteResult.trim().replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
       const parsed = JSON.parse(cleaned);
@@ -2008,6 +2017,7 @@ export function LineConversationView({
           '自然回复一条手机聊天消息，让这次见面有真实的期待感。',
         ].filter(Boolean).join('\n'),
         temperature: settings.temperature,
+        macroNames: { char: importedCharacter?.name || characterProfile.nickname, user: activePersona?.name },
       });
 
       setMessages(prev => [...prev, {
@@ -2062,6 +2072,7 @@ export function LineConversationView({
           '【最近聊天】' + messages.slice(-20).map(message => (message.sender === 'me' ? '用户' : (message.senderName || importedCharacter.name)) + ': ' + (message.text || message.transcript || '')).join('\\n'),
         ].join('\\n'),
         temperature: Math.min(0.8, Number(presetTemp) || 0.7),
+        macroNames: { char: importedCharacter.name, user: activePersona?.name },
       });
       const parsed = JSON.parse(raw.trim().replace(/^```json\s*/i, '').replace(/```$/i, ''));
       const relationship = String(parsed.relationship || '').trim();
@@ -2107,6 +2118,7 @@ export function LineConversationView({
           '【最近聊天】' + messages.slice(-30).map(message => (message.sender === 'me' ? '我' : (message.senderName || '角色')) + ': ' + (message.text || '')).join('\\n'),
         ].join('\\n'),
         temperature: 0.55,
+        macroNames: { char: importedCharacter?.name || characterProfile.nickname, user: activePersona?.name },
       });
       const parsed = JSON.parse(raw.trim().replace(/^\`\`\`json\\s*/i, '').replace(/\`\`\`$/i, ''));
       const inferred = Array.isArray(parsed)
