@@ -145,7 +145,8 @@ function parseRegex(source: string): RegExp | null {
   try {
     if (raw.startsWith('/') && raw.lastIndexOf('/') > 0) {
       const end = raw.lastIndexOf('/');
-      return new RegExp(raw.slice(1, end), raw.slice(end + 1));
+      const flags = Array.from(new Set((raw.slice(end + 1) + 's').split(''))).join('');
+      return new RegExp(raw.slice(1, end), flags);
     }
     return new RegExp(raw, 'gs');
   } catch {
@@ -161,7 +162,18 @@ export function extractStatusMatch(text: string, regexSource: string): { match: 
   // half-width and full-width vertical separators. Keep the strict match first,
   // then retry these harmless formatting variants.
   const stripped = input.replace(/^```[a-zA-Z0-9_-]*\s*/,'').replace(/\s*```$/,'').trim();
-  const candidates = [input, stripped, stripped.replace(/\|/g, '｜'), stripped.replace(/｜/g, '|')];
+  const normalized = stripped
+    .replace(/[［【]/g, '[')
+    .replace(/[］】]/g, ']')
+    .replace(/：/g, ':')
+    .replace(/，/g, ',')
+    .replace(/、/g, ',')
+    .replace(/\s*=\s*/g, '=')
+    .replace(/\s*,\s*/g, ', ')
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  const candidates = [input, stripped, normalized, stripped.replace(/\|/g, '｜'), stripped.replace(/｜/g, '|'), normalized.replace(/\|/g, '｜'), normalized.replace(/｜/g, '|')];
   let match: RegExpExecArray | null = null;
   for (const candidate of candidates) {
     regex.lastIndex = 0;
