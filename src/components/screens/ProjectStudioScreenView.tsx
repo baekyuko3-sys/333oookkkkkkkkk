@@ -1008,13 +1008,26 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       }, repairRequest, JSON.stringify(context));
 
       if (result.text) setMessage(result.text);
-      setCurrentTask(v => v ? {
-        ...v,
-        status: 'review',
-        updatedAt: Date.now(),
-        steps: v.steps.map((step, i) => ({ ...step, status: i < 2 ? 'done' : i === 2 ? 'working' : 'todo' } as any)),
-      } : v);
-      log('agent', 'CI repair analysis finished; awaiting Changes approval');
+      if (result.proposals.length === 0) {
+        const failure = 'Meme 已读取 CI 失败信息，但没有生成任何修复 Changes，因此不能进入批准阶段。';
+        setMessage(failure);
+        updateCiStatus('failed', failure, failedSha);
+        setCurrentTask(v => v ? {
+          ...v,
+          status: 'failed',
+          updatedAt: Date.now(),
+          steps: v.steps.map(step => ({ ...step, status: 'blocked' } as any)),
+        } : v);
+        log('error', 'CI repair produced no Changes; approval blocked');
+      } else {
+        setCurrentTask(v => v ? {
+          ...v,
+          status: 'review',
+          updatedAt: Date.now(),
+          steps: v.steps.map((step, i) => ({ ...step, status: i < 2 ? 'done' : i === 2 ? 'working' : 'todo' } as any)),
+        } : v);
+        log('agent', 'CI repair analysis finished; Changes awaiting approval');
+      }
     } catch (error) {
       const text = error instanceof Error ? error.message : 'Meme CI 修复失败';
       setMessage(text);
