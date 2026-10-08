@@ -1105,7 +1105,13 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                 <div className="text-[13px] font-semibold text-[#333]">我的人设</div>
                 <div className="text-[9px] text-[#aaa] mt-1">和不同角色聊天时，可以切换不同的“我”</div>
               </div>
-              <button
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPersonaSwitchOpen(true)}
+                  className="px-3 py-1.5 rounded-full border border-[#e7e1e3] bg-white text-[#8d6872] text-[10px] font-medium"
+                >切换</button>
+                <button
                 onClick={() => {
                   setPersonaEditorIndex(userPersonas.length);
                   setPersonaDraft({ name: '', age: '', ageMode: 'manual', ageReferenceCharacterId: '', profession: '', region: '', timezone: '', birthday: '', setting: '', avatar: '', boundCharacterIds: [] });
@@ -1114,6 +1120,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                 }}
                 className="px-3 py-1.5 rounded-full bg-[#292724] text-white text-[10px]"
               >＋ 新建</button>
+              </div>
             </div>
             <div className="mt-3 space-y-2">
               {userPersonas.length === 0 ? (
