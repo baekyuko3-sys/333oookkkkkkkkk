@@ -1556,9 +1556,12 @@ export function LineConversationView({
 
       if (importedCharacter) {
         setCharacterRuntime(importedCharacter.id, {
-          activity: '正在与你聊天',
-          mood: '注意力在你身上',
+          activity: result.actionDescription?.trim() || '正在与你聊天',
+          mood: result.thinkingSummary?.trim() ? '正在思考如何回应你' : '注意力在你身上',
           lastInteractionAt: new Date().toISOString(),
+          lastAction: result.actionDescription?.trim() || '',
+          lastThinkingSummary: result.thinkingSummary?.trim() || '',
+          lastStatusRaw: result.statusBarRaw?.trim() || '',
         }, importedCharacter.name);
         emitWorldEvent('relationship.changed', {
           characterId: importedCharacter.id,
