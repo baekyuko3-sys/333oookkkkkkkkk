@@ -133,6 +133,17 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
   const startNewSession = () => {
     const id = 'session-' + Date.now();
+    const now = Date.now();
+    const nextSession: StudioSession = {
+      id,
+      title: 'New build session',
+      createdAt: now,
+      updatedAt: now,
+      messages: [],
+    };
+    const nextSessions = [nextSession, ...studioStorage.sessions()].slice(0, 30);
+    studioStorage.saveSessions(nextSessions);
+    setSessions(nextSessions);
     setSessionId(id);
     setSessionTitle('New build session');
     setConversation([]);
@@ -962,7 +973,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       <main className="h-[calc(100%-100px)] overflow-y-auto no-scrollbar pb-20">
         {tab === 'chat' && (
           <section className="h-full px-4 pb-28 flex flex-col">
-            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar flex flex-col"><div className="mt-auto w-full">
+            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar"><div className="min-h-full flex flex-col"><div className="mt-auto w-full pb-4">
               {!conversation.length ? (
                 <div className="h-full flex flex-col items-center justify-center text-center pb-6">
                   <div className="w-12 h-12 rounded-[16px] bg-[#292724] text-white grid place-items-center shadow-sm mb-4"><Sparkles className="w-5 h-5" /></div>
@@ -1146,7 +1157,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
           <aside className="absolute top-0 bottom-0 left-0 w-[82%] max-w-[310px] bg-[#f7f4ee] shadow-2xl border-r border-black/10 flex flex-col">
             <div className="pt-11 px-4 pb-4 border-b border-black/10"><div className="flex items-center justify-between"><div><div className="text-[7px] font-mono tracking-[2px] text-[#8b8782]">STUDIO SESSIONS</div><div className="mt-1 text-[22px] font-serif">History</div></div><button onClick={() => setHistoryOpen(false)} className="w-8 h-8 rounded-full bg-white grid place-items-center"><X className="w-4 h-4" /></button></div>
               <button onClick={startNewSession} className="mt-4 w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px]"><Plus className="w-3.5 h-3.5 inline mr-1" /> New session</button></div>
-            <div className="flex-1 overflow-auto p-3 space-y-1.5">{sessions.map(session => <button key={session.id} onClick={() => { const restored=session.messages.map(message=>({role:message.role==='meme'?'assistant' as const:'user' as const,content:message.text})); setSessionId(session.id);setSessionTitle(session.title);setConversation(restored.slice(-24));setMessage(restored.at(-1)?.content||'');setCurrentTask(null);setHistoryOpen(false);setTab('chat'); }} className={'w-full text-left p-3 rounded-2xl border '+(session.id===sessionId?'bg-[#292724] text-white border-[#292724]':'bg-white/75 border-black/5')}><div className="text-[10px] truncate">{session.title||'Untitled session'}</div><div className={'mt-1 text-[7px] '+(session.id===sessionId?'text-white/50':'text-[#999]')}>{new Date(session.updatedAt||session.createdAt).toLocaleString()} · {session.messages.length} messages</div></button>)}{!sessions.length&&<div className="py-16 text-center text-[9px] text-[#888]">还没有历史会话。<br/>开始第一次创作吧。</div>}</div>
+            <div className="flex-1 overflow-auto p-3 space-y-1.5">{sessions.map(session => <button key={session.id} onClick={() => { const restored=session.messages.map(message=>({role:message.role==='meme'?'assistant' as const:'user' as const,content:message.text})); setSessionId(session.id);setSessionTitle(session.title);setConversation(restored.slice(-24));setPrompt('');setMessage('');setCurrentTask(null);setHistoryOpen(false);setTab('chat'); }} className={'w-full text-left p-3 rounded-2xl border '+(session.id===sessionId?'bg-[#292724] text-white border-[#292724]':'bg-white/75 border-black/5')}><div className="text-[10px] truncate">{session.title||'Untitled session'}</div><div className={'mt-1 text-[7px] '+(session.id===sessionId?'text-white/50':'text-[#999]')}>{new Date(session.updatedAt||session.createdAt).toLocaleString()} · {session.messages.length} messages</div></button>)}{!sessions.length&&<div className="py-16 text-center text-[9px] text-[#888]">还没有历史会话。<br/>开始第一次创作吧。</div>}</div>
           </aside>
         </div>
       )}
