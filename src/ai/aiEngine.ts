@@ -346,7 +346,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     input.authorNote ? '【作者注释】\n' + input.authorNote : '【作者注释】无。',
     cotPreset ? [
       '【COT 角色回复决策器】先完成角色判断，再输出角色消息：结合当前消息与最近上下文 → 角色设定/关系 → 用户真实意图 → 角色情绪与立场 → 决定自然回应方式与长度 → 检查 OOC/未知信息/是否替用户行动。不要展示隐藏推理。',
-      '状态栏不是 COT 的 STEP。若状态栏启用，它由独立的状态栏 Prompt 在角色回复后处理，并且每轮必须生成。',
+      '状态栏不是 COT 的 STEP。状态栏属于本轮角色回复的末尾输出层。',
       '原始预设如下：',
       cotPreset.template
     ].join('\\n') : '【内部生成预设】无。',
@@ -399,14 +399,16 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     'COT、动作和正文是三个独立层，不要把 COT 或动作混进正文。',
     '不要输出 Markdown 代码块，不要输出格式说明。',
     input.statusBarPreset ? [
-      '【状态栏｜与本轮回复同一输出】',
-      '本轮状态栏已开启。角色正文发送完成后，必须在同一次回复的末尾执行下面的“状态栏专用 Prompt”。',
-      '状态栏专用 Prompt 是唯一的状态栏生成规则；如果 Prompt 要求严格格式，必须原样遵守。',
-      '不要自行添加 [状态栏] 标签、HTML、解释或其他包装；只有 Prompt 本身要求的格式才可以出现。',
-      '状态栏名称：' + input.statusBarPreset.name,
-      '状态栏专用 Prompt：' + (input.statusBarPreset.promptSuffix || ''),
-      '状态栏只描述角色当前状态，不要替用户编造动作、想法或事实。',
-      'COT、动作、状态栏、聊天正文是四个独立层；状态栏原文由预设 Regex 在应用侧提取并交给 HTML 模板渲染。',
+      '【状态栏｜本轮回复末尾的原始输出】',
+      '本轮状态栏已开启。你必须先正常完成角色聊天正文，然后在同一次 AI 回复的最末尾追加状态栏原文。',
+      '【状态栏 Prompt】是当前预设唯一的内容与格式规则，必须严格执行。不要擅自改成其他字段、JSON、自然语言或固定模板。',
+      '不要额外添加 [状态栏]、<status> 等包装；除非当前 Prompt 自己要求，否则不要添加任何外壳。',
+      '必须让状态栏原文能够被【本次预设 Regex】直接捕获。Regex 每个预设都可能不同，只认当前预设提供的 Regex。',
+      '当前状态栏名称：' + input.statusBarPreset.name,
+      '当前状态栏 Prompt：' + (input.statusBarPreset.promptSuffix || ''),
+      '当前预设 Regex：' + (input.statusBarPreset.regex || ''),
+      '状态栏只描述角色自己的当前状态，不要替用户编造动作、想法或事实。',
+      '输出顺序必须是：角色正常消息 → 状态栏原文。状态栏必须在整次回复的最后。',
     ].join('\n') : '【状态栏】关闭：不要输出状态栏。',
   ].join('\n');
 }
