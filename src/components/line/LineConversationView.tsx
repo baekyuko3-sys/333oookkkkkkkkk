@@ -111,6 +111,7 @@ interface LineConversationViewProps {
   characterId?: string;
   conversationId?: string;
   personaId?: string;
+  onSwitchPersona?: () => void;
   onBack: (draft?: string) => void;
   onNavigateHome: () => void;
   onNavigateScreen?: (screen: ScreenType) => void;
@@ -243,6 +244,7 @@ export function LineConversationView({
   // Sheets & Overlays
   const [showPlusSheet, setShowPlusSheet] = useState(false);
   const [showAiDebugSheet, setShowAiDebugSheet] = useState(false);
+  const [showPersonaPicker, setShowPersonaPicker] = useState(false);
   const [aiDebugLog, setAiDebugLog] = useState<AiDebugEntry[]>(() => readAiDebugLog());
   const [aiDebugTrace, setAiDebugTrace] = useState<AiDebugTrace | null>(() => readAiDebugTrace());
   const [subSheetType, setSubSheetType] = useState<'image' | 'video' | 'file' | null>(null);
@@ -3991,52 +3993,34 @@ export function LineConversationView({
         </div>
       )}
 
-      {/* 7. AI DEBUG SHEET */}
+      {/* 7. AI DEBUG SHEET — show the actual prompt, raw model output and parser result */}
       {showAiDebugSheet && (
-        <div onClick={() => setShowAiDebugSheet(false)} className="absolute inset-0 bg-black/25 z-[60] flex items-end animate-in fade-in">
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-h-[78%] bg-[#faf9f7] rounded-t-[20px] p-4 pb-5 flex flex-col animate-in slide-in-from-bottom">
-            <div className="w-8 h-1 bg-[#ddd] rounded-full mx-auto mb-3" />
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <div>
-                <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">SANE333 CONSOLE / CHAT</div>
-                <div className="text-sm font-semibold text-[#292724]">AI 后台 · 聊天诊断</div>
-                <div className="text-[9px] text-[#8b8782] mt-0.5">检查 AI 请求、模型、耗时和错误。</div>
-              </div>
-              <button type="button" onClick={() => { clearAiDebugLog(); setAiDebugLog([]); }} className="text-[9px] text-[#a06e79] shrink-0">清空</button>
+        <div onClick={() => setShowAiDebugSheet(false)} className="absolute inset-0 bg-black/30 z-[80] flex items-end">
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-h-[88%] bg-[#111] text-[#eee] rounded-t-[22px] p-4 pb-5 flex flex-col">
+            <div className="w-8 h-1 bg-white/20 rounded-full mx-auto mb-3" />
+            <div className="flex items-center justify-between mb-3">
+              <div><div className="text-[8px] tracking-[1.6px] text-white/40 font-mono">AI TRACE · REAL OUTPUT</div><div className="text-sm font-semibold">AI 后台 · 实际代码链路</div></div>
+              <div className="flex gap-2"><button onClick={() => { setAiDebugTrace(readAiDebugTrace()); setAiDebugLog(readAiDebugLog()); }} className="text-[9px] px-2 py-1 rounded-lg bg-white/10">刷新</button><button onClick={() => { clearAiDebugLog(); setAiDebugTrace(null); setAiDebugLog([]); }} className="text-[9px] text-[#f1a9b5]">清空</button></div>
             </div>
-            <div className="flex items-center gap-2 mb-3">
-              <button type="button" onClick={() => setAiDebugLog(readAiDebugLog())} className="px-3 py-1.5 rounded-full bg-white border border-[#e6e1dc] text-[9px] text-[#555]">刷新</button>
-              <div className="text-[9px] text-[#999]">最近 {Math.min(aiDebugLog.length, 20)} 条 · 当前聊天：{contactName}</div>
-            </div>
-            <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-0.5">
-              {aiDebugLog.slice(0, 20).map((entry) => (
-                <div key={entry.id} className="rounded-[12px] border border-[#e8e4df] bg-white px-3 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className={entry.level === 'error' ? 'text-[#b85d6e]' : entry.level === 'success' ? 'text-[#5e8b70]' : 'text-[#8a817a]'}>{entry.level === 'error' ? '●' : entry.level === 'success' ? '●' : '○'}</span>
-                    <span className="text-[10px] font-semibold text-[#383532]">{entry.event}</span>
-                    <span className="ml-auto text-[8px] text-[#aaa]">{new Date(entry.time).toLocaleTimeString()}</span>
-                  </div>
-                  <div className="mt-1 text-[9px] leading-[1.45] text-[#68635f] break-words">{entry.message}</div>
-                  {(entry.model || entry.provider || entry.durationMs !== undefined) && (
-                    <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[8px] text-[#9b9691]">
-                      {entry.provider && <span>{entry.provider}</span>}
-                      {entry.model && <span>{entry.model}</span>}
-                      {entry.durationMs !== undefined && <span>{entry.durationMs}ms</span>}
-                    </div>
-                  )}
-                  {entry.meta && (
-                    <div className="mt-1.5 text-[8px] text-[#aaa] font-mono break-all">
-                      {Object.entries(entry.meta).map(([key, value]) => `${key}: ${String(value)}`).join(' · ')}
-                    </div>
-                  )}
+            {aiDebugTrace ? (
+              <div className="flex-1 overflow-y-auto space-y-2 text-[9px]">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-xl bg-white/5 p-3"><div className="text-white/40 mb-1">开关</div><pre className="whitespace-pre-wrap break-all">{JSON.stringify(aiDebugTrace.switches || {}, null, 2)}</pre></div>
+                  <div className="rounded-xl bg-white/5 p-3"><div className="text-white/40 mb-1">上下文</div><pre className="whitespace-pre-wrap break-all">{JSON.stringify(aiDebugTrace.context || {}, null, 2)}</pre></div>
                 </div>
-              ))}
-              {!aiDebugLog.length && <div className="py-10 text-center text-[10px] text-[#aaa]">还没有 AI 请求记录。点发送，让角色回复一次，这里就会出现诊断记录。</div>}
-            </div>
-            <button type="button" onClick={() => setShowAiDebugSheet(false)} className="w-full mt-3 py-2.5 rounded-[12px] bg-white border border-[#e5e2de] text-[#777] text-xs font-medium">关闭</button>
+                <details open className="rounded-xl bg-white/5 p-3"><summary className="cursor-pointer font-semibold">① 实际发给 AI 的 System Prompt</summary><pre className="mt-2 whitespace-pre-wrap break-words text-[#cfcfcf]">{aiDebugTrace.request?.system || '(无)'}</pre></details>
+                <details className="rounded-xl bg-white/5 p-3"><summary className="cursor-pointer font-semibold">② 实际发给 AI 的 Messages</summary><pre className="mt-2 whitespace-pre-wrap break-words text-[#cfcfcf]">{JSON.stringify(aiDebugTrace.request?.messages || [], null, 2)}</pre></details>
+                <details open className="rounded-xl bg-[#261b1f] p-3"><summary className="cursor-pointer font-semibold text-[#f0b6bf]">③ AI 原始返回（最重要）</summary><pre className="mt-2 whitespace-pre-wrap break-words text-[#f3dfe2]">{aiDebugTrace.rawResponse || '(无)'}</pre></details>
+                <details open className="rounded-xl bg-white/5 p-3"><summary className="cursor-pointer font-semibold">④ Parser 解析结果</summary><pre className="mt-2 whitespace-pre-wrap break-all">{JSON.stringify(aiDebugTrace.parsed || {}, null, 2)}</pre></details>
+                <details open className="rounded-xl bg-white/5 p-3"><summary className="cursor-pointer font-semibold">⑤ 最终进入聊天的数据</summary><pre className="mt-2 whitespace-pre-wrap break-all">{JSON.stringify(aiDebugTrace.final || {}, null, 2)}</pre></details>
+                {aiDebugTrace.error && <details open className="rounded-xl bg-[#301c20] p-3"><summary className="font-semibold text-[#ffadb8]">错误</summary><pre className="mt-2 whitespace-pre-wrap break-all">{JSON.stringify(aiDebugTrace.error, null, 2)}</pre></details>}
+              </div>
+            ) : <div className="flex-1 grid place-items-center text-white/40 text-xs">还没有完整 Trace。发送一次角色消息后，这里会显示真正的 Prompt → 原始返回 → Parser → 最终消息。</div>}
+            <button onClick={() => setShowAiDebugSheet(false)} className="w-full mt-3 py-2.5 rounded-xl bg-white/10 text-white text-xs">关闭</button>
           </div>
         </div>
       )}
+
 
       {/* 7. SUB-SHEET: 真实 VS 文字 双选项 */}
       {subSheetType && (
