@@ -50,6 +50,8 @@ export interface AiDebugTrace {
   rawResponse?: string;
   parsed?: Record<string, unknown>;
   final?: Record<string, unknown>;
+  stage?: string;
+  stages?: Array<{ stage: string; at: string; detail?: string }>;
   error?: { message: string; stack?: string };
 }
 const TRACE_KEY='phone:ai-debug-trace';
