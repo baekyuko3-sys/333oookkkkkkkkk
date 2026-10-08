@@ -475,7 +475,7 @@ export function LineConversationView({
 
   // 思维链只显示安全的高层摘要，不显示隐藏推理
   const [enableChainOfThought, setEnableChainOfThought] = usePersistentState<boolean>(`line:generate-thinking-summary:${conversationStorageId}`, true);
-  const [showChainOfThoughtInChat, setShowChainOfThoughtInChat] = usePersistentState<boolean>(`line:show-thinking-in-chat:${conversationStorageId}`, false);
+  const [showChainOfThoughtInChat, setShowChainOfThoughtInChat] = usePersistentState<boolean>(`line:show-thinking-in-chat:${conversationStorageId}`, true);
   const [lineActionDescriptionsEnabled, setLineActionDescriptionsEnabled] = usePersistentState<boolean>(`line:show-action-descriptions:${conversationStorageId}`, false);
   const [preventUserFabrication, setPreventUserFabrication] = usePersistentState<boolean>(`line:prevent-user-fabrication:${conversationStorageId}`, true);
   const [naturalAddressing, setNaturalAddressing] = usePersistentState<boolean>(`line:behavior-natural-addressing:${conversationStorageId}`, true);
@@ -1417,7 +1417,7 @@ export function LineConversationView({
         messages: [...messages, newMsg].map(message => ({ ...message, sender: message.sender || 'other' })),
         userMessage: userText,
         isGroup,
-        stylePreset: activeCotPreset?.title || selectedPreset,
+        stylePreset: resolvedCotPreset.title || selectedPreset,
         cotTarget: enableChainOfThought ? 'line' : undefined,
         cotPreset: enableChainOfThought ? {
           id: resolvedCotPreset.id,
@@ -5075,7 +5075,7 @@ export function LineConversationView({
                     role="switch"
                     aria-checked={enableChainOfThought}
                     aria-label={enableChainOfThought ? '关闭 COT' : '开启 COT'}
-                    onClick={() => setEnableChainOfThought(!enableChainOfThought)}
+                    onClick={() => { const next = !enableChainOfThought; setEnableChainOfThought(next); if (next) setShowChainOfThoughtInChat(true); }}
                     className="relative w-11 h-6 shrink-0 rounded-full p-0.5 border border-black/[0.04] shadow-inner transition-colors duration-200 focus:outline-none"
                     style={{ backgroundColor: enableChainOfThought ? '#d5aab6' : '#dedee1' }}
                   >
@@ -6014,6 +6014,7 @@ export function LineConversationView({
                       onClick={() => {
                         setActiveCotPresetId(preset.id);
                         setCustomCotTemplate(preset.template);
+                        if (enableChainOfThought) setShowChainOfThoughtInChat(true);
                         // 动态更新消息中的思维链演示
                         setMessages((prev) =>
                           prev.map((m) =>
