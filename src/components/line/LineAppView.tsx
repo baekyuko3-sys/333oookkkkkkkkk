@@ -360,25 +360,23 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   const [personaWeather, setPersonaWeather] = useState<LineWeatherSnapshot | null>(null);
   const [personaWeatherBusy, setPersonaWeatherBusy] = useState(false);
   const activePersona = userPersonas.find((p) => p.id === activePersonaId) || userPersonas[0] || null;
-  const effectivePersonaId = activePersonaId || userPersonas[0]?.id || null;
+  // Always derive the effective persona from the validated active persona object.
+  // This prevents a stale/deleted activePersonaId from becoming a phantom persona.
+  const effectivePersonaId = activePersona?.id || null;
   const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
 
   const [masks, setMasks] = usePersistentState<Array<{ name: string; id: string; desc: string }>>('line:masks', []);
   // Chat Data with Pin, Mute, Draft, and Group capabilities
   const [chatItemsRaw, setChatItems] = usePersistentState<LineChatItem[]>('line:chat-items', []);
 
+  // Legacy chats without personaId are intentionally NOT reassigned on every
+  // persona switch. Reassigning them here would make A/B personas leak into
+  // each other's history. New chats always receive the currently selected persona.
   useEffect(() => {
-    if (!effectivePersonaId) return;
-    setChatItems(prev => {
-      let changed = false;
-      const next = prev.map(chat => {
-        if (chat.personaId) return chat;
-        changed = true;
-        return { ...chat, personaId: effectivePersonaId };
-      });
-      return changed ? next : prev;
-    });
-  }, [effectivePersonaId]);
+    if (!activePersonaId && activePersona?.id) {
+      setActivePersonaId(activePersona.id);
+    }
+  }, [activePersona?.id, activePersonaId]);
   const chatItems = Array.isArray(chatItemsRaw)
     ? chatItemsRaw.filter((c): c is LineChatItem => !!c && typeof c === 'object' && typeof c.id === 'string')
       .map(c => ({
@@ -1523,7 +1521,15 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           <div className="w-full bg-white rounded-t-[22px] p-5 pb-7 space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between"><div className="font-semibold text-sm">选择聊天人设</div><button onClick={() => setPersonaSwitchOpen(false)} className="text-[#aaa]">×</button></div>
             {userPersonas.map(persona => (
-              <button key={persona.id} onClick={() => { setActivePersonaId(persona.id); setActiveChatId(null); setPersonaSwitchOpen(false); }} className="w-full flex items-center gap-3 p-3 rounded-[14px] border border-[#eeeeef] text-left">
+              <button key={persona.id} onClick={() => {
+  if (persona.id === effectivePersonaId) {
+    setPersonaSwitchOpen(false);
+    return;
+  }
+  setActivePersonaId(persona.id);
+  setActiveChatId(null);
+  setPersonaSwitchOpen(false);
+}} className="w-full flex items-center gap-3 p-3 rounded-[14px] border border-[#eeeeef] text-left">
                 <div className="w-10 h-10 rounded-full overflow-hidden bg-[#f1f1f2] flex items-center justify-center">{persona.avatar ? <img src={persona.avatar} className="w-full h-full object-cover" /> : <span>{persona.name?.[0] || '◎'}</span>}</div>
                 <div className="min-w-0 flex-1"><div className="text-xs font-semibold">{persona.name || '未命名人设'}</div><div className="text-[9px] text-[#aaa] truncate">{persona.setting || '暂无设定'}</div></div>
                 {persona.id === activePersonaId && <span className="text-[#ae7e89] text-xs">✓</span>}
