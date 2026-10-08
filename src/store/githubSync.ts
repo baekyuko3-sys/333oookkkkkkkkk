@@ -72,8 +72,34 @@ async function githubRequest(url: string, token: string, init: RequestInit = {})
 }
 
 export async function testGitHubSync(config = getGitHubSyncConfig(), token = getGitHubToken()): Promise<string> {
-  if (!token.trim()) throw new Error('GITHUB_TOKEN_MISSING');
-  const data = await githubRequest('https://api.github.com/user', token);
+  const cleanToken = token.trim();
+  const cleanOwner = config.owner.trim();
+  const cleanRepo = config.repo.trim();
+  const cleanBranch = (config.branch || 'main').trim() || 'main';
+  if (!cleanToken) throw new Error('GITHUB_TOKEN_MISSING');
+  if (!cleanOwner || !cleanRepo) throw new Error('GITHUB_REPO_MISSING');
+
+  // A token can be valid while still having no access to the configured repo.
+  // Do not report "connected" until the exact repository and branch are readable.
+  const data = await githubRequest('https://api.github.com/user', cleanToken);
+  const repository = await githubRequest(
+    'https://api.github.com/repos/' + encodeURIComponent(cleanOwner) + '/' + encodeURIComponent(cleanRepo),
+    cleanToken,
+  );
+  const targetBranch = cleanBranch || repository.default_branch || 'main';
+  await githubRequest(
+    'https://api.github.com/repos/' + encodeURIComponent(cleanOwner) + '/' + encodeURIComponent(cleanRepo) +
+      '/contents/?ref=' + encodeURIComponent(targetBranch),
+    cleanToken,
+  );
+
+  saveGitHubSyncConfig({
+    ...config,
+    enabled: true,
+    owner: cleanOwner,
+    repo: cleanRepo,
+    branch: targetBranch,
+  });
   return data?.login || 'GitHub 已连接';
 }
 
