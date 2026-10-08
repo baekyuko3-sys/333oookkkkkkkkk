@@ -129,7 +129,7 @@ Return JSON with exactly one action:
 After every tool result, continue working. Do not ask the user to copy code manually when Studio can stage it.
 `;
 
-async function callModel(options: AgentOptions, messages: any[], temperature = 0.1) {
+async function callModel(options: AgentOptions, messages: any[], temperature = 0.1, primaryUserPrompt?: string) {
   const systemPrompt = String(messages.find(message => message.role === 'system')?.content || '');
   const history: Array<{ role: 'assistant' | 'user'; content: string }> = messages
     .filter(message => message.role !== 'system')
@@ -137,7 +137,7 @@ async function callModel(options: AgentOptions, messages: any[], temperature = 0
       role: (message.role === 'assistant' ? 'assistant' : 'user') as 'assistant' | 'user',
       content: String(message.content || ''),
     }));
-  const userPrompt = String([...messages].reverse().find(message => message.role === 'user')?.content || '');
+  const userPrompt = primaryUserPrompt ?? String([...messages].reverse().find(message => message.role === 'user')?.content || '');
 
   // Use the same model transport as the rest of the app, including Gemini.
   // Studio must not depend on the character/roleplay engine.
@@ -274,7 +274,7 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
 
   for (let round = 0; round < maxRounds; round++) {
     options.onEvent?.({ type: 'thinking', text: round === 0 ? '正在理解项目…' : '正在继续检查…' });
-    const { raw, parsed } = await callModel(options, history, 0.12);
+    const { raw, parsed } = await callModel(options, history, 0.12, userRequest);
     const action = parsed.action as MemeAction;
     if (!action?.type) throw new Error('Meme 返回了未知 action');
 
