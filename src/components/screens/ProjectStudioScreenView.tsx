@@ -589,30 +589,48 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         setConversation(completedConversation);
         persistSession(completedConversation, request.slice(0, 32));
       }
-      log('agent', 'Finished current pass');
-      setCurrentTask(v => v ? {...v,status:'review',updatedAt:Date.now(),steps:v.steps.map((step,i)=>({...step,status:i<2?'done':i===2?'working':'todo'} as any))} : v);
+      if (/修改|修复|改成|增加|删除|重构|实现|fix|change|update|edit|remove|refactor|implement/i.test(request) && !result.proposals.length) {
+        const blocked = 'Meme 尚未生成可审核的 Changes，因此不会把代码任务标记为完成。请继续检查仓库或修复模型输出。';
+        setMessage(blocked);
+        setCurrentTask(v => v ? {...v,status:'failed',updatedAt:Date.now(),steps:v.steps.map(step => ({...step,status:'blocked'} as any))} : v);
+        updateCiStatus('failed', '代码任务没有产生 Changes，未执行任何 GitHub 写入。');
+        log('error', 'Coding task ended without Changes');
+      } else {
+        log('agent', 'Finished current pass');
+        setCurrentTask(v => v ? {...v,status:'review',updatedAt:Date.now(),steps:v.steps.map((step,i)=>({...step,status:i<2?'done':i===2?'working':'todo'} as any))} : v);
+      }
     } catch (error) {
-      // Meme Agent 不可用时，Studio 仍然应该像普通 AI 助手一样回复，
-      // 尤其是“你好 / 这是什么 / 帮我看看”等非代码请求，不应该落到角色卡逻辑。
-      try {
-        const fallback = await generateCreativeText({
-          settings: { ...aiSettings, streaming: false },
-          systemPrompt: '你是 Studio 内置的 Meme 开发 Agent。你不是普通聊天机器人。Studio 已经提供真实 GitHub 仓库工具；代码、仓库、文件、Bug、构建和配置问题必须通过仓库工具检查和处理。不要声称没有 GitHub、互联网或实时仓库访问能力。不要要求用户手动粘贴代码。普通闲聊才直接回答。',
-          userPrompt: request,
-          temperature: 0.35,
-        });
-        const reply = fallback || '你好，有什么可以帮到你？';
+      const failure = error instanceof Error ? error.message : 'Meme Agent 请求失败';
+      const isCodeTask = /github|仓库|repo|repository|代码|源码|文件|项目|bug|报错|lint|build|构建|修改|修复|连接|链接|commit|提交|重构|实现|implement|refactor/i.test(request);
+      if (isCodeTask) {
+        const reply = 'Meme 开发 Agent 执行失败：' + failure + '\n\n没有执行普通聊天 fallback，也没有写入 GitHub。请查看上面的 MEME · ACTIVITY / Workflow Status。';
         setMessage(reply);
-        const fallbackConversation = [...nextConversation, { role: 'assistant' as const, content: reply }].slice(-24);
-        setConversation(fallbackConversation);
-        persistSession(fallbackConversation, request.slice(0, 32));
-        log('agent', 'Meme Agent fallback → normal model chat');
-      } catch (fallbackError) {
-        const failure = error instanceof Error ? error.message : fallbackError instanceof Error ? fallbackError.message : 'Meme Agent 请求失败';
-      setMessage(failure);
-      const failedConversation = [...nextConversation, { role: 'assistant' as const, content: failure }].slice(-24);
-      setConversation(failedConversation);
-      persistSession(failedConversation, request.slice(0, 32));
+        const failedConversation = [...nextConversation, { role: 'assistant' as const, content: reply }].slice(-24);
+        setConversation(failedConversation);
+        persistSession(failedConversation, request.slice(0, 32));
+        setCurrentTask(v => v ? {...v,status:'failed',updatedAt:Date.now()} : v);
+        updateCiStatus('failed', 'Meme 开发 Agent 执行失败，未写入 GitHub。');
+        log('error', 'Meme coding agent failed without fallback');
+      } else {
+        // Only non-coding conversation may use a normal text fallback.
+        try {
+          const fallback = await generateCreativeText({
+            settings: { ...aiSettings, streaming: false },
+            systemPrompt: '你是 Studio 内置的 Meme 助手。普通闲聊可以直接回答。',
+            userPrompt: request,
+            temperature: 0.35,
+          });
+          const reply = fallback || '你好，有什么可以帮到你？';
+          setMessage(reply);
+          const fallbackConversation = [...nextConversation, { role: 'assistant' as const, content: reply }].slice(-24);
+          setConversation(fallbackConversation);
+          persistSession(fallbackConversation, request.slice(0, 32));
+          log('agent', 'Meme non-coding fallback');
+        } catch (fallbackError) {
+          const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : 'Meme 请求失败';
+          setMessage(fallbackMessage);
+          log('error', fallbackMessage);
+        }
       }
     } finally {
       setAiBusy(false);
