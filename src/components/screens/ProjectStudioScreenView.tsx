@@ -1056,7 +1056,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
                 </div>
               )}
             </div>
-            {!ready && <div className="mx-1 mb-2 px-3 py-2 rounded-xl bg-[#fff4f1] text-[8px] leading-relaxed text-[#8f6f68]"><b>GitHub 尚未验证</b><div className="mt-0.5">Studio：baekyuko3-sys/333oookkkkkkkkk · main</div><div className="mt-0.5">{githubError ? '原因：' + githubError : '请在 Settings 填写 Studio PAT 并测试 GitHub。'}</div></div>}
+            {!ready && <div className="mx-1 mb-2 px-3 py-2 rounded-xl bg-[#fff4f1] text-[8px] leading-relaxed text-[#8f6f68]"><b>GitHub 尚未验证</b><div className="mt-0.5">Studio：{sharedOwner || '未填写 Owner'}/{sharedRepo || '未填写 Repository'} · {sharedBranch || 'main'}</div><div className="mt-0.5">{githubError ? '原因：' + githubError : '请在 Settings 填写 Studio PAT 并测试 GitHub。'}</div></div>}
           </section>
         )}
         {tab === 'git' && (
