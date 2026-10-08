@@ -942,38 +942,33 @@ export function LineConversationView({
   }, [conversationStorageId]);
 
   const createStatusBarSnapshot = async (replyText: string, sourceMessageId: string | number, rawStatusOverride?: string) => {
-    // Read the latest preset data directly from storage. This avoids a stale React
-    // state snapshot after the user edits/imports a status-bar preset.
-    const latestPresets = getStatusBarPresets();
-    if (!statusBarEnabled) {
-      console.warn('[SANE333 STATUS BAR] disabled');
-      return;
-    }
-    if (!latestPresets.length) {
-      showToast('状态栏没有可用预设');
-      console.warn('[SANE333 STATUS BAR] no presets');
-      return;
-    }
-
-    const selectedPreset =
-      latestPresets.find(preset => preset.id === activeStatusBarPresetId) ||
-      statusBarPresets.find(preset => preset.id === activeStatusBarPresetId) ||
-      latestPresets.find(preset => preset.targets.includes('line')) ||
-      latestPresets[0];
-
-    const linePresets = latestPresets.filter(preset => preset.targets.includes('line'));
-    const presets = linePresets.length ? linePresets : latestPresets;
-    const chosen = statusBarRandomMode
-      ? presets[Math.floor(Math.random() * presets.length)]
-      : selectedPreset;
-
     try {
-      console.info('[SANE333 STATUS BAR] creating snapshot', {
-        preset: chosen.name,
+      const latestPresets = getStatusBarPresets();
+      if (!statusBarEnabled) {
+        console.warn('[SANE333 STATUS BAR] disabled');
+        return;
+      }
+      if (!latestPresets.length) {
+        throw new Error('没有可用的状态栏预设');
+      }
+
+      const selectedPreset =
+        latestPresets.find(preset => preset.id === activeStatusBarPresetId) ||
+        statusBarPresets.find(preset => preset.id === activeStatusBarPresetId);
+      const linePresets = latestPresets.filter(preset => preset.targets.includes('line'));
+      const pool = linePresets.length ? linePresets : latestPresets;
+      const chosen = statusBarRandomMode
+        ? pool[Math.floor(Math.random() * pool.length)]
+        : selectedPreset || pool[0];
+
+      console.info('[SANE333 STATUS BAR] snapshot:start', {
+        conversationId: conversationStorageId,
         presetId: chosen.id,
-        hasRegex: Boolean(chosen.regex),
-        hasHtml: Boolean(chosen.html),
-        hasRawOverride: Boolean(rawStatusOverride?.trim()),
+        presetName: chosen.name,
+        hasPrompt: Boolean(chosen.promptSuffix?.trim()),
+        hasRegex: Boolean(chosen.regex?.trim()),
+        hasHtml: Boolean(chosen.html?.trim()),
+        rawOverride: Boolean(rawStatusOverride?.trim()),
       });
 
       const rawStatus = rawStatusOverride?.trim() || await generateStatusBarContent(
@@ -992,14 +987,15 @@ export function LineConversationView({
         activePersona?.name || '用户',
       );
 
-      if (!rawStatus.trim()) {
-        throw new Error('AI 状态栏生成结果为空');
+      if (!rawStatus.trim()) throw new Error('AI 没有返回状态栏内容');
+
+      const extracted = chosen.regex ? extractStatusMatch(rawStatus, chosen.regex) : null;
+      if (chosen.regex?.trim() && !extracted) {
+        throw new Error('AI 返回内容没有匹配当前 Regex');
       }
 
       const html = renderStatusBarHtml(chosen, rawStatus);
-      if (!html.trim()) {
-        throw new Error('状态栏 HTML 渲染结果为空；请检查 HTML Template');
-      }
+      if (!html.trim()) throw new Error('HTML Template 渲染为空');
 
       const snapshot: StatusBarSnapshot = {
         id: `status-snapshot-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -1015,14 +1011,15 @@ export function LineConversationView({
       const next = getStatusBarHistory(conversationStorageId);
       setStatusBarHistory(next);
       setStatusBarHistoryIndex(Math.max(0, next.length - 1));
-      console.info('[SANE333 STATUS BAR] snapshot saved', {
+
+      console.info('[SANE333 STATUS BAR] snapshot:saved', {
+        conversationId: conversationStorageId,
         count: next.length,
-        preset: chosen.name,
-        rawStatus,
+        matched: Boolean(extracted),
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('[SANE333 STATUS BAR] snapshot generation failed', error);
+      console.error('[SANE333 STATUS BAR] snapshot:failed', error);
       showToast(`状态栏生成失败：${message.slice(0, 55)}`);
     }
   };
@@ -1520,12 +1517,16 @@ export function LineConversationView({
         } : undefined,
         statusBarPreset: statusBarEnabled
           ? (() => {
-              const candidates = statusBarPresets.filter(preset => preset.targets.includes('line'));
-              return candidates.length
-                ? (statusBarRandomMode
-                    ? candidates[Math.floor(Math.random() * candidates.length)]
-                    : candidates.find(preset => preset.id === activeStatusBarPresetId) || candidates[0])
-                : undefined;
+              // The selected preset is authoritative. Do not silently discard it
+              // because an imported preset has missing/legacy target metadata.
+              const allPresets = getStatusBarPresets();
+              const candidates = allPresets.filter(preset => preset.targets.includes('line'));
+              const selected = allPresets.find(preset => preset.id === activeStatusBarPresetId)
+                || statusBarPresets.find(preset => preset.id === activeStatusBarPresetId);
+              const pool = candidates.length ? candidates : allPresets;
+              return statusBarRandomMode
+                ? pool[Math.floor(Math.random() * pool.length)]
+                : selected || pool[0];
             })()
           : undefined,
         authorNote: [
