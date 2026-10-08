@@ -84,6 +84,7 @@ export interface AiReplyResult {
   thinkingSummary?: string;
   actionDescription?: string;
   statusBarRaw?: string;
+  rawResponse?: string;
   provider: AiSettings['provider'];
   model: string;
   matchedWorldbookEntries: number;
@@ -960,11 +961,13 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     thinkingSummary: parsedRaw.thinkingSummary ? resolveMacros(parsedRaw.thinkingSummary, replyMacroNames) : undefined,
     actionDescription: parsedRaw.actionDescription ? resolveMacros(parsedRaw.actionDescription, replyMacroNames) : undefined,
     statusBarRaw: parsedRaw.statusBarRaw ? resolveMacros(parsedRaw.statusBarRaw, replyMacroNames) : undefined,
+    rawResponse: rawText,
   };
   trace.parsed = {
     thinkingSummary: parsed.thinkingSummary || null,
     actionDescription: parsed.actionDescription || null,
     statusBarRaw: parsed.statusBarRaw || null,
+    rawResponseLength: rawText.length,
     text: parsed.text,
     hasCot: Boolean(parsed.thinkingSummary),
     hasAction: Boolean(parsed.actionDescription),
