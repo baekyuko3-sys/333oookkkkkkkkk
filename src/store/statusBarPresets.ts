@@ -251,7 +251,7 @@ export function getStatusBarHistory(conversationId: string): StatusBarSnapshot[]
 
 export function saveStatusBarHistory(conversationId: string, history: StatusBarSnapshot[]) {
   if (typeof window === 'undefined') return;
-  window.localStorage.setItem(HISTORY_KEY_PREFIX + conversationId, JSON.stringify(history.slice(-100)));
+  window.localStorage.setItem(HISTORY_KEY_PREFIX + conversationId, JSON.stringify(history.slice(-20)));
   window.dispatchEvent(new CustomEvent('sane333:status-bar-history-changed', { detail: { conversationId } }));
 }
 
@@ -279,7 +279,31 @@ export function saveStatusBarRandomMode(conversationId: string, enabled: boolean
 }
 
 export type StatusBarAssignments = Partial<Record<StatusBarTarget, string>>;
+export type CharacterStatusBarAssignments = Record<string, string>;
 const ASSIGN_KEY = 'line:status-bar-assignments';
+const CHARACTER_ASSIGN_KEY = 'line:status-bar-character-assignments';
 export function getStatusBarAssignments(): StatusBarAssignments { if (typeof window === 'undefined') return {}; try { return JSON.parse(window.localStorage.getItem(ASSIGN_KEY) || '{}'); } catch { return {}; } }
 export function saveStatusBarAssignment(target: StatusBarTarget, presetId: string) { if (typeof window === 'undefined') return; const next={...getStatusBarAssignments(),[target]:presetId}; window.localStorage.setItem(ASSIGN_KEY,JSON.stringify(next)); window.dispatchEvent(new CustomEvent('sane333:status-bar-assignments-changed')); }
-export function getStatusBarForTarget(target: StatusBarTarget): StatusBarPreset | null { const id=getStatusBarAssignments()[target]; return getStatusBarPresets().find(item=>item.id===id) || getStatusBarPresets().find(item=>item.targets.includes(target)) || null; }
+export function getStatusBarForTarget(target: StatusBarTarget): StatusBarPreset | null {
+  const id=getStatusBarAssignments()[target];
+  return getStatusBarPresets().find(item=>item.id===id) || getStatusBarPresets().find(item=>item.targets.includes(target)) || null;
+}
+export function getCharacterStatusBarAssignments(): CharacterStatusBarAssignments {
+  if (typeof window === 'undefined') return {};
+  try { const raw = window.localStorage.getItem(CHARACTER_ASSIGN_KEY); const value = raw ? JSON.parse(raw) : {}; return value && typeof value === 'object' ? value : {}; } catch { return {}; }
+}
+export function saveCharacterStatusBarAssignment(characterId: string, presetId: string) {
+  if (typeof window === 'undefined' || !characterId.trim()) return;
+  const next = { ...getCharacterStatusBarAssignments(), [characterId]: presetId };
+  window.localStorage.setItem(CHARACTER_ASSIGN_KEY, JSON.stringify(next));
+  window.dispatchEvent(new CustomEvent('sane333:status-bar-character-assignments-changed', { detail: { characterId, presetId } }));
+}
+export function getStatusBarForCharacter(characterId: string | undefined, target: StatusBarTarget): StatusBarPreset | null {
+  const presets = getStatusBarPresets();
+  if (characterId) {
+    const assignedId = getCharacterStatusBarAssignments()[characterId];
+    const assigned = presets.find(item => item.id === assignedId);
+    if (assigned) return assigned;
+  }
+  return getStatusBarForTarget(target);
+}
