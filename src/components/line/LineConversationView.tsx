@@ -4990,7 +4990,7 @@ export function LineConversationView({
                   <div className="min-w-0 pr-4">
                     <div className="text-[12px] font-semibold text-[#353438]">COT · 角色回复决策</div>
                     <div className="mt-1 text-[9.5px] leading-[1.45] text-[#a2a0a4]">
-                      让角色先按 COT 判断，再决定这一轮真正怎么回复；聊天中可折叠查看
+                      让角色先按 COT 完成角色判断；是否把 COT 显示在聊天里由下面的独立开关控制
                     </div>
                   </div>
                   <button
