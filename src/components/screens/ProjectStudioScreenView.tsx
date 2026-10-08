@@ -110,9 +110,33 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [ciText, setCiText] = useState('');
   const [crafted, setCrafted] = useState<any[]>(() => { try { return JSON.parse(readStore('studio:crafted','[]')); } catch { return []; } });
   const [sessions, setSessions] = useState<StudioSession[]>(() => studioStorage.sessions());
+  const [sessionId] = useState(() => {
+    const existing = studioStorage.sessions()[0];
+    return existing?.id || 'session-' + Date.now();
+  });
   const [currentTask, setCurrentTask] = useState<StudioTask | null>(null);
   const [taskSteps, setTaskSteps] = useState<string[]>([]);
-  const [sessionTitle, setSessionTitle] = useState('New build session');
+  const [sessionTitle, setSessionTitle] = useState(() => studioStorage.sessions()[0]?.title || 'New build session');
+
+  const persistSession = (nextConversation: Array<{ role: 'user' | 'assistant'; content: string }>, title: string) => {
+    const now = Date.now();
+    const previous = studioStorage.sessions();
+    const existing = previous.find(session => session.id === sessionId);
+    const session: StudioSession = {
+      id: sessionId,
+      title: title || 'New build session',
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+      messages: nextConversation.map(message => ({
+        role: message.role === 'assistant' ? 'meme' : 'user',
+        text: message.content,
+        createdAt: now,
+      })),
+    };
+    const next = [session, ...previous.filter(item => item.id !== sessionId)].slice(0, 30);
+    setSessions(next);
+    studioStorage.saveSessions(next);
+  };
 
   const ready = Boolean(owner.trim() && repo.trim() && branch.trim() && token.trim());
   const aiReady = Boolean(aiSettings.apiBaseUrl.trim() && aiSettings.apiKey.trim() && aiSettings.model.trim());
@@ -252,7 +276,11 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     const request = prompt.trim();
     setPrompt('');
     setMessage('你：' + request);
-    setConversation(previous => [...previous, { role: 'user' as const, content: request }].slice(-24));
+    // React state updates are asynchronous. Build the history synchronously so
+    // Meme receives the message that was just submitted on its first round.
+    const nextConversation = [...conversation, { role: 'user' as const, content: request }].slice(-24);
+    setConversation(nextConversation);
+    persistSession(nextConversation, request.slice(0, 32));
     setAiBusy(true);
     setAgentRunning(true);
     const task: StudioTask = { id:'task-'+Date.now(), title:request.slice(0,50), request, status:'working', steps:[{id:'inspect',title:'Inspect project',status:'working'},{id:'plan',title:'Plan changes',status:'todo'},{id:'review',title:'Review Changes',status:'todo'},{id:'apply',title:'Apply approved changes',status:'todo'}],createdAt:Date.now(),updatedAt:Date.now() };
@@ -268,8 +296,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         apiKey: aiSettings.apiKey,
         model: aiSettings.model,
         provider: aiSettings.provider,
-        conversation,
+        conversation: nextConversation,
         codingMode: memeMode,
+        maxRounds: 8,
+        maxValidationRounds: 1,
         project,
         tools: [
           {
@@ -321,7 +351,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       }, request);
       if (result.text) {
         setMessage(result.text);
-        setConversation(previous => [...previous, { role: 'assistant' as const, content: result.text }].slice(-24));
+        const completedConversation = [...nextConversation, { role: 'assistant' as const, content: result.text }].slice(-24);
+        setConversation(completedConversation);
+        persistSession(completedConversation, request.slice(0, 32));
       }
       log('agent', 'Finished current pass');
       setCurrentTask(v => v ? {...v,status:'review',updatedAt:Date.now(),steps:v.steps.map((step,i)=>({...step,status:i<2?'done':i===2?'working':'todo'} as any))} : v);
@@ -337,12 +369,16 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         });
         const reply = fallback || '你好，有什么可以帮到你？';
         setMessage(reply);
-        setConversation(previous => [...previous, { role: 'assistant' as const, content: reply }].slice(-24));
+        const fallbackConversation = [...nextConversation, { role: 'assistant' as const, content: reply }].slice(-24);
+        setConversation(fallbackConversation);
+        persistSession(fallbackConversation, request.slice(0, 32));
         log('agent', 'Meme Agent fallback → normal model chat');
       } catch (fallbackError) {
         const failure = error instanceof Error ? error.message : fallbackError instanceof Error ? fallbackError.message : 'Meme 请求失败';
       setMessage(failure);
-      setConversation(previous => [...previous, { role: 'assistant' as const, content: failure }].slice(-24));
+      const failedConversation = [...nextConversation, { role: 'assistant' as const, content: failure }].slice(-24);
+      setConversation(failedConversation);
+      persistSession(failedConversation, request.slice(0, 32));
       }
     } finally {
       setAiBusy(false);
