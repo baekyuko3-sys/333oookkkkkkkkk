@@ -110,7 +110,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [ciText, setCiText] = useState('');
   const [crafted, setCrafted] = useState<any[]>(() => { try { return JSON.parse(readStore('studio:crafted','[]')); } catch { return []; } });
   const [sessions, setSessions] = useState<StudioSession[]>(() => studioStorage.sessions());
-  const [sessionId] = useState(() => {
+  const [sessionId, setSessionId] = useState(() => {
     const existing = studioStorage.sessions()[0];
     return existing?.id || 'session-' + Date.now();
   });
@@ -888,8 +888,25 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             {agentRunning && <div className="p-3 rounded-2xl bg-[#292724] text-white text-[8px] font-mono">{agentEvents.length ? agentEvents.map((item, index) => <div key={index}>{item}</div>) : 'MEME · inspecting project…'}</div>}
             {!ready && <div className="p-3 rounded-2xl bg-[#fff4f1] text-[9px]">还没连接 GitHub。去 Settings 填 Token，就可以直接维护项目。</div>}
                       <div className="p-3 rounded-2xl bg-white/60 border border-black/5">
-              <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">SESSION HISTORY</div>
-              {sessions.slice(0,6).map(session => <button key={session.id} onClick={() => setSessionTitle(session.title)} className="w-full text-left mt-1.5 p-2 rounded-xl bg-white/70"><div className="text-[8px] truncate">{session.title}</div><div className="text-[6px] text-[#999]">{new Date(session.createdAt).toLocaleString()}</div></button>)}
+              <div className="flex items-center justify-between">
+                <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">SESSION HISTORY</div>
+                {sessions.length > 6 && <div className="text-[6px] text-[#aaa]">{sessions.length} sessions</div>}
+              </div>
+              {sessions.slice(0, 10).map(session => <button key={session.id} onClick={() => {
+                const restored = session.messages.map(message => ({
+                  role: message.role === 'meme' ? 'assistant' as const : 'user' as const,
+                  content: message.text,
+                }));
+                setSessionId(session.id);
+                setSessionTitle(session.title);
+                setConversation(restored.slice(-24));
+                setMessage(restored.at(-1)?.content || '');
+                setTab('chat');
+                notify('已恢复：' + session.title);
+              }} className={'w-full text-left mt-1.5 p-2 rounded-xl ' + (session.id === sessionId ? 'bg-[#292724] text-white' : 'bg-white/70')}>
+                <div className="text-[8px] truncate">{session.title}</div>
+                <div className={'text-[6px] ' + (session.id === sessionId ? 'text-white/50' : 'text-[#999]')}>{new Date(session.updatedAt || session.createdAt).toLocaleString()} · {session.messages.length} messages</div>
+              </button>)}
               {!sessions.length && <div className="mt-2 text-[8px] text-[#888]">还没有历史 Session。</div>}
             </div>
 </section>
