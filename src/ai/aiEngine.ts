@@ -1006,6 +1006,7 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     thinkingSummary: parsed.thinkingSummary,
     actionDescription: parsed.actionDescription,
     statusBarRaw: parsed.statusBarRaw,
+    rawResponse: rawText,
     provider: input.settings.provider,
     model: input.settings.model.trim(),
     matchedWorldbookEntries,
