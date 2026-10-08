@@ -271,7 +271,7 @@ export function LineConversationView({
     window.addEventListener('sane333:ai-debug-changed', refreshAiDebug);
     window.addEventListener('sane333:ai-debug-trace-changed', refreshAiDebug);
     return () => { window.removeEventListener('sane333:ai-debug-changed', refreshAiDebug); window.removeEventListener('sane333:ai-debug-trace-changed', refreshAiDebug); };
-  }, []);
+  }, [conversationStorageId]);
 
   // Settings & Overlays
   const [showSettings, setShowSettings] = useState(false);
@@ -3941,6 +3941,7 @@ export function LineConversationView({
               <button
                 onClick={() => {
                   setAiDebugLog(readAiDebugLog());
+                  setAiDebugTrace(readAiDebugTrace(conversationStorageId));
                   setShowPlusSheet(false);
                   setShowAiDebugSheet(true);
                 }}
