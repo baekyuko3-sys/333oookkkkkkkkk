@@ -36,7 +36,11 @@ export function readAiDebugTrace(conversationId?: string): AiDebugTrace | null {
     const key = traceKey(conversationId);
     const v=JSON.parse(localStorage.getItem(key)||'null');
     if(v&&typeof v==='object') return v;
-    return conversationId ? null : null;
+    if(conversationId) {
+      const latest=JSON.parse(localStorage.getItem(TRACE_KEY)||'null');
+      if(latest && typeof latest==='object' && String(latest.context?.conversationId || '') === conversationId) return latest;
+    }
+    return null;
   } catch { return null; }
 }
 export function writeAiDebugTrace(trace: Omit<AiDebugTrace,'id'|'time'> & Partial<Pick<AiDebugTrace,'id'|'time'>>) {
@@ -44,6 +48,9 @@ export function writeAiDebugTrace(trace: Omit<AiDebugTrace,'id'|'time'> & Partia
   const conversationId = String(trace.context?.conversationId || '');
   const value = {...trace,id:trace.id||'trace-'+Date.now(),time:trace.time||new Date().toISOString()};
   localStorage.setItem(traceKey(conversationId || undefined),JSON.stringify(value));
+  // Also keep one global "latest" pointer. The chat UI will only use it when the
+  // stored conversation id matches, which protects against legacy chat ids changing.
+  localStorage.setItem(TRACE_KEY,JSON.stringify(value));
   window.dispatchEvent(new CustomEvent('sane333:ai-debug-trace-changed',{detail:{conversationId}}));
 }
 export function clearAiDebugLog(){ if(typeof window!=='undefined'){localStorage.removeItem(KEY);localStorage.removeItem(TRACE_KEY); Object.keys(localStorage).filter(k=>k.startsWith(TRACE_KEY+':')).forEach(k=>localStorage.removeItem(k));window.dispatchEvent(new CustomEvent('sane333:ai-debug-changed'));window.dispatchEvent(new CustomEvent('sane333:ai-debug-trace-changed'));} }
