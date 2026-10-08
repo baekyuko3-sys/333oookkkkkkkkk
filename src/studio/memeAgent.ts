@@ -97,7 +97,16 @@ Your first priority is to understand the ACTUAL repository before suggesting any
 For every non-trivial request, inspect the relevant directory first, then read the exact files that control the behavior. Search for symbols/usages when the path is uncertain.
 Never claim you read a file, tested a change, or connected to GitHub unless the tool result proves it.
 Do not tell the user to connect GitHub merely because you lack context: use the supplied repository tools first.
+If inspect/read/search returns real repository data, GitHub is connected for this task. NEVER claim the repository is disconnected after successful tool evidence.
 Do not give generic advice when you can inspect the code yourself.
+You have three levels of intelligence:
+1. FACTS: what the repository/tool results actually prove.
+2. REASONING: connect those facts to the user's requested behavior and identify the real implementation path.
+3. ACTION: inspect the smallest relevant set of files, then propose concrete changes when a fix is requested.
+Never skip from the user's sentence directly to a generic answer when repository evidence is available.
+For a repository question, do not answer from the project map alone. The project map is orientation only; real GitHub tool results are authoritative.
+If the user asks "can you change/fix this", inspect the implementation before answering. If the user asks for an explanation only, still use the repository when the answer depends on current code.
+After a successful repository inspection, summarize what you actually found in the repository in plain language. Do not merely repeat the user's request.
 When the user asks whether something can be changed, answer briefly and then inspect the implementation.
 When the user asks for a fix, keep working until you have either staged an evidence-based proposal or can clearly explain the concrete blocker.
 Prefer small, surgical changes over broad rewrites.
@@ -232,6 +241,32 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
   const proposals: MemeProposal[] = [];
   let lastValidationContext = validationContext;
 
+  // Preflight the real repository once before asking the model to reason.
+  // This prevents MEME from falling back to generic "please connect GitHub"
+  // replies when the Studio connection is already valid.
+  const inspectTool = options.tools.find(tool => tool.name === 'inspect');
+  if (inspectTool) {
+    try {
+      options.onEvent?.({ type: 'tool', name: inspectTool.name, input: { path: '' } });
+      const root = await inspectTool.run({ path: '' });
+      const evidence = JSON.stringify(root).slice(0, 50000);
+      history.push({
+        role: 'user',
+        content:
+          'STUDIO PREFLIGHT — REAL GITHUB REPOSITORY ACCESS IS ACTIVE FOR THIS TASK. ' +
+          'The following result came directly from the repository tool. Treat it as authoritative. ' +
+          'Do NOT ask the user to reconnect GitHub unless a later GitHub request actually fails:\n' + evidence,
+      });
+      lastValidationContext = (lastValidationContext ? lastValidationContext + '\n\n' : '') +
+        'Repository preflight succeeded. GitHub access is active. Root listing: ' + evidence;
+    } catch (error) {
+      history.push({
+        role: 'user',
+        content: 'STUDIO PREFLIGHT FAILED: repository inspection failed with ' + String(error) + '. Do not pretend access exists.',
+      });
+    }
+  }
+
   for (let round = 0; round < maxRounds; round++) {
     options.onEvent?.({ type: 'thinking', text: round === 0 ? '正在理解项目…' : '正在继续检查…' });
     const { raw, parsed } = await callModel(options, history, 0.12);
@@ -241,8 +276,10 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
     if (action.type === 'message') {
       options.onEvent?.({ type: 'message', text: action.text });
       history.push({ role: 'assistant', content: raw });
-      history.push({ role: 'user', content: '继续工作。' });
-      continue;
+      // A message is a user-visible conclusion, not an invitation to spin
+      // another model round. The agent should only continue when it explicitly
+      // returns another inspect/search/read/propose action.
+      return { status: 'done' as const, text: action.text, proposals };
     }
 
     if (action.type === 'done') {
