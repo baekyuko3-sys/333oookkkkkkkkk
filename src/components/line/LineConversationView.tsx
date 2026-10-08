@@ -1307,7 +1307,7 @@ export function LineConversationView({
             activeGroup?.events?.length ? '【群事件记忆】\\n' + activeGroup.events.slice(-12).map(item => item.text).join('\\n') : '',
             '【成员状态】\\n' + (activeGroup?.members || []).map(member => member.name + '：' + [member.online === false ? '离线' : '在线', member.mood || '', member.relationship || ''].filter(Boolean).join(' / ')).join('\\n'),
           ].filter(Boolean).join('\n'),
-          stylePreset: activeCotPreset?.title || selectedPreset,
+          stylePreset: resolvedCotPreset.title || selectedPreset,
         cotTarget: enableChainOfThought ? 'line' : undefined,
         cotPreset: enableChainOfThought ? {
           id: resolvedCotPreset.id,
@@ -1410,7 +1410,7 @@ export function LineConversationView({
         settings,
         character: importedCharacter,
         characterProfile: { ...characterProfile, canCharacterSelfJudge: characterProfile.canCharacterSelfJudge },
-        persona: activePersona ? { ...activePersona, setting: (activePersona as any).setting || '' } : activePersona,
+        persona: activePersona ? { ...activePersona, background: (activePersona as any).setting || (activePersona as any).background || '' } : activePersona,
         worldbooks: activeWorldbooks,
         memory: characterMemory,
         project: projectManifest,
