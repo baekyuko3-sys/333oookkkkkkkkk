@@ -365,7 +365,12 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       return;
     }
     const request = sourceRequest.trim();
+    const attachedContext = attachments.length
+      ? `\\n\\n[附件：${attachments.map(item => item.name).join('、')}]`
+      : '';
+    const requestWithAttachments = request + attachedContext;
     setPrompt('');
+    setAttachments([]);
     setMessage('你：' + request);
     // React state updates are asynchronous. Build the history synchronously so
     // Meme receives the message that was just submitted on its first round.
