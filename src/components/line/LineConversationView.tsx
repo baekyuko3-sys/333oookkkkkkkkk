@@ -19,6 +19,7 @@ import { createTogetherMusicSession, type TogetherMusicSession } from '../../sto
 import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
 import { appendStatusBarSnapshot, deleteStatusBarSnapshot, getStatusBarHistory, getStatusBarPresets, getStatusBarRandomMode, renderStatusBarHtml, sanitizeHtmlFragment, saveStatusBarRandomMode, type StatusBarPreset, type StatusBarSnapshot } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset, type CotPresetTarget } from '../../store/cotPresets';
+import { clearAiDebugLog, readAiDebugLog, type AiDebugEntry } from '../../store/aiDebug';
 import { PresetResourceManager } from './PresetResourceManager';
 import { appendLineMessage, editLineMessage, toggleLineReaction, setLineMessageFavorite, recordLineCall, markLineMessageFailed, clearLineConversation, recallLineMessage, updateLineMessage } from '../../store/lineRuntime';
 import { getLineConversationMessages, markLineConversationRead, saveLineConversationMessages, searchLineMessages, type LineRuntimeMessage } from '../../store/lineRuntime';
@@ -240,6 +241,8 @@ export function LineConversationView({
 
   // Sheets & Overlays
   const [showPlusSheet, setShowPlusSheet] = useState(false);
+  const [showAiDebugSheet, setShowAiDebugSheet] = useState(false);
+  const [aiDebugLog, setAiDebugLog] = useState<AiDebugEntry[]>(() => readAiDebugLog());
   const [subSheetType, setSubSheetType] = useState<'image' | 'video' | 'file' | null>(null);
   const [showVoiceSheet, setShowVoiceSheet] = useState(false);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | number | null>(null);
@@ -253,6 +256,12 @@ export function LineConversationView({
   const [creatorType, setCreatorType] = useState<'image' | 'video' | 'file' | 'voice'>('image');
   const [creatorPrompt, setCreatorPrompt] = useState('');
   
+  useEffect(() => {
+    const refreshAiDebug = () => setAiDebugLog(readAiDebugLog());
+    window.addEventListener('sane333:ai-debug-changed', refreshAiDebug);
+    return () => window.removeEventListener('sane333:ai-debug-changed', refreshAiDebug);
+  }, []);
+
   // Settings & Overlays
   const [showSettings, setShowSettings] = useState(false);
   const [showBehaviourSettings, setShowBehaviourSettings] = useState(false);
@@ -3913,6 +3922,21 @@ export function LineConversationView({
                 <span>线下邀约</span>
               </button>
 
+              {/* AI 后台 / 当前聊天诊断 */}
+              <button
+                onClick={() => {
+                  setAiDebugLog(readAiDebugLog());
+                  setShowPlusSheet(false);
+                  setShowAiDebugSheet(true);
+                }}
+                className="flex flex-col items-center gap-1.5 cursor-pointer"
+              >
+                <div className="w-12 h-12 rounded-[14px] bg-[#f4f1ed] flex items-center justify-center text-[#6f6963] hover:bg-[#ebe7df]">
+                  <Terminal className="w-5 h-5" />
+                </div>
+                <span>AI后台</span>
+              </button>
+
               {/* D20 判定骰子 */}
               <button
                 onClick={handleRollDice}
@@ -3960,6 +3984,53 @@ export function LineConversationView({
             >
               取消
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 7. AI DEBUG SHEET */}
+      {showAiDebugSheet && (
+        <div onClick={() => setShowAiDebugSheet(false)} className="absolute inset-0 bg-black/25 z-[60] flex items-end animate-in fade-in">
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-h-[78%] bg-[#faf9f7] rounded-t-[20px] p-4 pb-5 flex flex-col animate-in slide-in-from-bottom">
+            <div className="w-8 h-1 bg-[#ddd] rounded-full mx-auto mb-3" />
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">SANE333 CONSOLE / CHAT</div>
+                <div className="text-sm font-semibold text-[#292724]">AI 后台 · 聊天诊断</div>
+                <div className="text-[9px] text-[#8b8782] mt-0.5">检查 AI 请求、模型、耗时和错误。</div>
+              </div>
+              <button type="button" onClick={() => { clearAiDebugLog(); setAiDebugLog([]); }} className="text-[9px] text-[#a06e79] shrink-0">清空</button>
+            </div>
+            <div className="flex items-center gap-2 mb-3">
+              <button type="button" onClick={() => setAiDebugLog(readAiDebugLog())} className="px-3 py-1.5 rounded-full bg-white border border-[#e6e1dc] text-[9px] text-[#555]">刷新</button>
+              <div className="text-[9px] text-[#999]">最近 {Math.min(aiDebugLog.length, 20)} 条 · 当前聊天：{contactName}</div>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-0.5">
+              {aiDebugLog.slice(0, 20).map((entry) => (
+                <div key={entry.id} className="rounded-[12px] border border-[#e8e4df] bg-white px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className={entry.level === 'error' ? 'text-[#b85d6e]' : entry.level === 'success' ? 'text-[#5e8b70]' : 'text-[#8a817a]'}>{entry.level === 'error' ? '●' : entry.level === 'success' ? '●' : '○'}</span>
+                    <span className="text-[10px] font-semibold text-[#383532]">{entry.event}</span>
+                    <span className="ml-auto text-[8px] text-[#aaa]">{new Date(entry.time).toLocaleTimeString()}</span>
+                  </div>
+                  <div className="mt-1 text-[9px] leading-[1.45] text-[#68635f] break-words">{entry.message}</div>
+                  {(entry.model || entry.provider || entry.durationMs !== undefined) && (
+                    <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[8px] text-[#9b9691]">
+                      {entry.provider && <span>{entry.provider}</span>}
+                      {entry.model && <span>{entry.model}</span>}
+                      {entry.durationMs !== undefined && <span>{entry.durationMs}ms</span>}
+                    </div>
+                  )}
+                  {entry.meta && (
+                    <div className="mt-1.5 text-[8px] text-[#aaa] font-mono break-all">
+                      {Object.entries(entry.meta).map(([key, value]) => `${key}: ${String(value)}`).join(' · ')}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {!aiDebugLog.length && <div className="py-10 text-center text-[10px] text-[#aaa]">还没有 AI 请求记录。点发送，让角色回复一次，这里就会出现诊断记录。</div>}
+            </div>
+            <button type="button" onClick={() => setShowAiDebugSheet(false)} className="w-full mt-3 py-2.5 rounded-[12px] bg-white border border-[#e5e2de] text-[#777] text-xs font-medium">关闭</button>
           </div>
         </div>
       )}
