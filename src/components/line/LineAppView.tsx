@@ -581,9 +581,8 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   // If a chat is open, render the detail view
   if (activeChatId) {
     const activeItem = chatItems.find((c) => c.id === activeChatId);
-    if (!activeItem || (!activeItem.isGroup && effectivePersonaId && activeItem.personaId !== effectivePersonaId)) {
-      // A stale chat id can survive a localStorage migration/deletion.
-      // Never render a broken conversation screen for it.
+    if (!activeItem) {
+      // Only an actually missing/deleted chat should send us back.
       queueMicrotask(() => setActiveChatId(null));
       return (
         <div className="w-full h-full pt-[30px] bg-white flex items-center justify-center">
@@ -681,16 +680,6 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPersonaSwitchOpen(true)}
-                className="h-[35px] px-3 border border-[#e7e7e8] rounded-full flex items-center gap-1.5 text-[10px] text-[#555] hover:bg-[#f7f7f7] cursor-pointer max-w-[150px]"
-                title="切换聊天使用的人设"
-              >
-                <span className="w-5 h-5 rounded-full overflow-hidden bg-[#f1f1f2] flex items-center justify-center shrink-0">
-                  {activePersona?.avatar ? <img src={activePersona.avatar} className="w-full h-full object-cover" /> : <span>◎</span>}
-                </span>
-                <span className="truncate">{activePersona?.name || '当前人设'}</span>
-              </button>
               <button
                 onClick={() => {
                   setSelectedGroupFriends([]);
@@ -1825,7 +1814,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
 
       {friendProfile && (() => {
         const character = importedCharacters.find(c => c.id === friendProfile.characterId) || importedCharacters.find(c => c.name === friendProfile.name);
-        const chat = chatItems.find(c => c.characterId === friendProfile.characterId) || chatItems.find(c => c.name === friendProfile.name);
+        const chat = chatItems.find(c => (c.characterId === friendProfile.characterId || c.name === friendProfile.name) && (c.isGroup || c.personaId === effectivePersonaId));
         return (
           <div className="absolute inset-0 z-[70] bg-white animate-in slide-in-from-right">
             <div className="h-full overflow-y-auto no-scrollbar">
