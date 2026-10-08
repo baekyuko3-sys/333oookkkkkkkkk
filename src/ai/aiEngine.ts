@@ -9,8 +9,16 @@ import { resolveCharacterContext, selectWorldBookEntries } from './contextEngine
 import { getCotForTarget, type CotPreset } from '../store/cotPresets';
 import { buildLineHumanBehaviorPrompt } from '../store/lineReality';
 import { pushAiDebugLog, writeAiDebugTrace } from '../store/aiDebug';
+import { resolveMacros, type MacroNames } from './macros';
 
 export type AiSettings = Pick<AppSettings, 'provider' | 'apiBaseUrl' | 'apiKey' | 'model' | 'streaming' | 'contextLength' | 'maxOutputTokens' | 'autoSave' | 'temperature' | 'topP' | 'topK' | 'frequencyPenalty' | 'presencePenalty' | 'seed'>;
+
+function macroNamesOf(input: AiReplyInput): MacroNames {
+  return {
+    char: input.character?.name || input.characterProfile?.nickname,
+    user: input.persona?.name,
+  };
+}
 
 export interface AiReplyInput {
   settings: AiSettings;
@@ -567,13 +575,14 @@ async function callGemini(input: AiReplyInput): Promise<string> {
     action +
     suffix;
 
-  const system = buildCharacterSystemPrompt(input);
+  const macroNames = macroNamesOf(input);
+  const system = resolveMacros(buildCharacterSystemPrompt(input), macroNames);
   const body = {
     systemInstruction: { parts: [{ text: system }] },
     contents: buildConversationMessages(input).map(message => ({
       role: message.role === 'assistant' ? 'model' : 'user',
       parts: [
-        { text: message.content },
+        { text: resolveMacros(message.content, macroNames) },
         ...(message.imageData ? (() => {
           const match = message.imageData.match(/^data:([^;]+);base64,(.+)$/);
           return match ? [{ inlineData: { mimeType: match[1], data: match[2] } }] : [];
@@ -653,7 +662,8 @@ async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}
 
 async function callOpenAiCompatible(input: AiReplyInput): Promise<string> {
   const endpoint = normalizeOpenAiEndpoint(input.settings.apiBaseUrl);
-  const system = buildCharacterSystemPrompt(input);
+  const macroNames = macroNamesOf(input);
+  const system = resolveMacros(buildCharacterSystemPrompt(input), macroNames);
   const body = {
     model: input.settings.model.trim(),
     stream: Boolean(input.settings.streaming),
@@ -669,10 +679,10 @@ async function callOpenAiCompatible(input: AiReplyInput): Promise<string> {
         role: message.role,
         content: message.imageData
           ? [
-              { type: 'text', text: message.content },
+              { type: 'text', text: resolveMacros(message.content, macroNames) },
               { type: 'image_url', image_url: { url: message.imageData } },
             ]
-          : message.content,
+          : resolveMacros(message.content, macroNames),
       })),
     ],
   };
@@ -807,7 +817,13 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
   }
 
   trace.rawResponse = rawText;
-  const parsed = parseAiReplyPayload(rawText, input.cotPreset?.tag);
+  const parsedRaw = parseAiReplyPayload(rawText, input.cotPreset?.tag);
+  const replyMacroNames = macroNamesOf(input);
+  const parsed = {
+    text: resolveMacros(parsedRaw.text, replyMacroNames),
+    thinkingSummary: parsedRaw.thinkingSummary ? resolveMacros(parsedRaw.thinkingSummary, replyMacroNames) : undefined,
+    actionDescription: parsedRaw.actionDescription ? resolveMacros(parsedRaw.actionDescription, replyMacroNames) : undefined,
+  };
   trace.parsed = {
     thinkingSummary: parsed.thinkingSummary || null,
     actionDescription: parsed.actionDescription || null,
@@ -879,9 +895,20 @@ export interface CreativeTextInput {
   temperature?: number;
   onDelta?: (delta: string) => void;
   timeoutMs?: number;
+  macroNames?: MacroNames;
 }
 
 export async function generateCreativeText(input: CreativeTextInput): Promise<string> {
+  const resolved: CreativeTextInput = {
+    ...input,
+    systemPrompt: resolveMacros(input.systemPrompt, input.macroNames),
+    userPrompt: resolveMacros(input.userPrompt, input.macroNames),
+    history: input.history?.map(message => ({ ...message, content: resolveMacros(message.content, input.macroNames) })),
+  };
+  return resolveMacros(await generateCreativeTextRaw(resolved), input.macroNames);
+}
+
+async function generateCreativeTextRaw(input: CreativeTextInput): Promise<string> {
   requireApiKey(input.settings);
   const temperature = Math.max(0, Math.min(2, input.temperature ?? input.settings.temperature ?? 0.85));
   const history = input.history || [];
@@ -1066,6 +1093,7 @@ export async function generateStatusBarContent(
   preset: { name: string; inputFormat?: string; promptSuffix?: string; regex: string; html: string },
   conversation: Array<{ sender: string; text?: string; transcript?: string }>,
   currentStatus?: string,
+  userName?: string,
 ): Promise<string> {
   const recent = conversation.slice(-16).map(message => {
     const speaker = message.sender === 'other' ? characterName : message.sender === 'me' ? '用户' : '系统';
@@ -1079,11 +1107,11 @@ export async function generateStatusBarContent(
     '只输出一条简洁的状态快照文字，内容必须来自当前聊天；可以延续已经明确出现的状态，但不能凭空创造剧情。',
     '状态栏启用时，本轮必须生成一次；如果没有明确变化，就逐项延续上一状态，不要为了生成而制造变化。',
     '状态快照应包含当前角色最值得展示的状态，例如地点、时间、正在做什么、情绪、关系变化或其他对当前预设有意义的信息。',
-    currentStatus ? '【上一状态】' + currentStatus + '。只在当前聊天提供依据时更新它。' : '【上一状态】暂无。',
+    currentStatus ? '【最近状态（由旧到新，最后一条是最新）】\n' + currentStatus + '\n只在当前聊天提供依据时更新最新一条；时间只能向后推进，不要倒退或跳变。' : '【上一状态】暂无。',
     '【状态栏名称】' + preset.name,
-    '【状态栏专用 Prompt｜最高优先级】' + (preset.promptSuffix || '请按照当前状态栏预设格式输出状态内容。'),
+    '【状态栏专用 Prompt｜最高优先级】' + resolveMacros(preset.promptSuffix || '请按照当前状态栏预设格式输出状态内容。', { char: characterName, user: userName }),
     '上面的“状态栏专用 Prompt”就是本预设要求模型生成的真实输出格式。必须严格执行其中的字段、顺序、分隔符、时间格式和内容要求；不要改写成其他状态栏格式。',
-    '【输入格式】' + (preset.inputFormat || '未单独定义；请直接以“状态栏专用 Prompt”指定的格式输出。'),
+    '【输入格式】' + resolveMacros(preset.inputFormat || '未单独定义；请直接以“状态栏专用 Prompt”指定的格式输出。', { char: characterName, user: userName }),
     '【提取正则｜仅用于生成后解析】' + preset.regex,
     '【Replace With / HTML｜仅用于生成后渲染】' + preset.html,
     '【处理顺序】先严格按照状态栏专用 Prompt 生成原文 → 后台再用提取正则捕获 → 再将 $1、$2、$3……替换进 Replace With / HTML。你本人不要输出 HTML，不要输出正则，不要解释这个处理过程。',
@@ -1102,6 +1130,7 @@ export async function generateStatusBarContent(
     settings: { ...settings, streaming: false },
     systemPrompt,
     userPrompt,
+    macroNames: { char: characterName, user: userName },
     temperature: Math.min(0.75, settings.temperature ?? 0.75),
   })).trim();
 }
