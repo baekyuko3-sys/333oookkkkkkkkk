@@ -74,6 +74,34 @@ function extractJson(raw: string) {
   return JSON.parse(match[0]);
 }
 
+function isDependencyVersionOnlyChange(path: string, before: string, after: string) {
+  if (path.replace(/^\/+/, '') !== 'package.json') return false;
+  try {
+    const a = JSON.parse(before);
+    const b = JSON.parse(after);
+    const normalize = (value: any) => {
+      const copy = { ...value };
+      delete copy.dependencies;
+      delete copy.devDependencies;
+      return copy;
+    };
+    const aDeps = { ...(a.dependencies || {}), ...(a.devDependencies || {}) };
+    const bDeps = { ...(b.dependencies || {}), ...(b.devDependencies || {}) };
+    if (JSON.stringify(normalize(a)) !== JSON.stringify(normalize(b))) return false;
+    const keys = Array.from(new Set([...Object.keys(aDeps), ...Object.keys(bDeps)]));
+    let changed = false;
+    for (const key of keys) {
+      if (aDeps[key] !== bDeps[key]) {
+        changed = true;
+        if (aDeps[key] === undefined || bDeps[key] === undefined) return false;
+      }
+    }
+    return changed;
+  } catch {
+    return false;
+  }
+}
+
 function lineStats(before: string, after: string) {
   const a = before.split('\n');
   const b = after.split('\n');
@@ -396,6 +424,24 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
         if (matches === 0) throw new Error('Meme patch find 在文件中不存在：' + action.path);
         if (matches > 1) throw new Error('Meme patch find 匹配了 ' + matches + ' 处，请提供更长的上下文以确保唯一匹配：' + action.path);
         proposalContent = baseContent.replace(patchFind, patchReplace);
+      }
+
+      const explicitDependencyIntent = /依赖|package(?:\\.json)?|typescript|npm|pnpm|yarn|版本|升级(?:依赖|软件包|包)|dependency|devDependencies/i.test(userRequest);
+      const dependencyVersionOnly = isDependencyVersionOnlyChange(action.path, originalContent, proposalContent || '');
+      if (dependencyVersionOnly && !explicitDependencyIntent && !/CI|TypeScript check|typecheck|build|lint|构建|报错|error/i.test(validationContext + '\n' + userRequest)) {
+        const blockMessage = 'Meme 暂不把 package.json 的依赖版本变更放进 Changes：当前任务没有要求升级依赖，也没有 CI / 构建错误证据支持这次版本修改。';
+        options.onEvent?.({ type: 'message', text: blockMessage });
+        options.onEvent?.({ type: 'validation', path: action.path, validation: {
+          status: 'needs_more_context',
+          summary: '依赖版本修改缺少任务意图或 CI/构建证据，已拦截。',
+          checks: ['保留原始任务范围', '避免无依据的依赖升级'],
+          concerns: ['模型不能仅凭“最新稳定版本”推断当前版本是错误的'],
+          changedLines: lineStats(originalContent, proposalContent || '').changedLines,
+          removedLines: lineStats(originalContent, proposalContent || '').removedLines,
+        }});
+        history.push({ role: 'assistant', content: raw });
+        history.push({ role: 'assistant', content: '[STUDIO CONTROL] 这次 package.json 只是无依据的依赖版本变更，不能进入 Changes。只有用户明确要求依赖升级，或 CI/构建证据直接支持时才允许继续。' });
+        continue;
       }
 
       const proposal: MemeProposal = {
