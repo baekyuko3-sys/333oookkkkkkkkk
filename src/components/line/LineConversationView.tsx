@@ -941,7 +941,7 @@ export function LineConversationView({
     };
   }, [conversationStorageId]);
 
-  const createStatusBarSnapshot = async (replyText: string, sourceMessageId: string | number) => {
+  const createStatusBarSnapshot = async (replyText: string, sourceMessageId: string | number, rawStatusOverride?: string) => {
     if (!statusBarEnabled) return;
     const presets = statusBarPresets.filter(preset => preset.targets.includes('line'));
     if (!presets.length) return;
@@ -950,7 +950,7 @@ export function LineConversationView({
       : presets.find(preset => preset.id === activeStatusBarPresetId) || presets[0];
 
     try {
-      const rawStatus = await generateStatusBarContent(
+      const rawStatus = rawStatusOverride?.trim() || await generateStatusBarContent(
         conversationAiSettings(),
         contactName,
         chosen,
@@ -1478,6 +1478,16 @@ export function LineConversationView({
           template: customCotTemplate || resolvedCotPreset.template,
           tag: resolvedCotPreset.tag,
         } : undefined,
+        statusBarPreset: statusBarEnabled
+          ? (() => {
+              const candidates = statusBarPresets.filter(preset => preset.targets.includes('line'));
+              return candidates.length
+                ? (statusBarRandomMode
+                    ? candidates[Math.floor(Math.random() * candidates.length)]
+                    : candidates.find(preset => preset.id === activeStatusBarPresetId) || candidates[0])
+                : undefined;
+            })()
+          : undefined,
         authorNote: [
           lineConversationRules,
           authorsNote,
@@ -1541,7 +1551,7 @@ export function LineConversationView({
       window.dispatchEvent(new CustomEvent('sane333:play-sound', { detail: { kind: 'message' } }));
 
       // Every completed character reply creates one new status snapshot.
-      void createStatusBarSnapshot(finalReplyText, replyMsgId);
+      void createStatusBarSnapshot(finalReplyText, replyMsgId, result.statusBarRaw);
       void maybeGenerateHtmlInterlude(finalReplyText, replyMsgId);
 
       if (importedCharacter) {
