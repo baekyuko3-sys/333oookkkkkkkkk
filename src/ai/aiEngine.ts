@@ -1297,18 +1297,22 @@ export async function generateStatusBarContent(
   });
 
   if (regexSource && !extractStatusMatch(raw, regexSource)) {
+    // Every status-bar preset owns its own Regex. Never assume a fixed field
+    // layout such as Q/QT/A/AT; the current preset's regex is the only parser rule.
     const repairPrompt = [
-      '把下面这段 AI 状态栏原文修复成“能匹配给定 Regex”的最终原文。',
-      '不要重新编造事实，不要改变 Q、QT、A、AT 等已经生成的内容；只修复包装、字段标签、括号、等号、逗号、空格、换行等格式。',
+      '把下面这段 AI 状态栏原文修复成“能够匹配当前预设 Regex”的最终原文。',
+      '当前预设的 Regex 就是唯一需要满足的结构规则。不要假设字段名、字段数量、字段顺序、标签文字或包装形式。',
+      '不要重新编造事实；尽可能保留原始返回中的事实与内容，只把输出调整到当前 Regex 能捕获的结构。',
       '最终只输出一段原始状态文本，不要解释。',
-      '【必须匹配的 Regex】' + regexSource,
-      '【原始返回】' + raw,
-      '【原 Prompt】' + resolvedPrompt,
+      '【本次预设的 Regex】' + regexSource,
+      '【本次预设的 Prompt】' + resolvedPrompt,
+      '【AI 第一次原始返回】' + raw,
+      '在输出前自检：把最终原文代入【本次预设的 Regex】，必须能够得到匹配结果。',
     ].join('\n');
 
     const repaired = (await generateCreativeText({
       settings: { ...settings, streaming: false, temperature: 0.15 },
-      systemPrompt: '你是严格的格式修复器。只允许修复输出格式，最终结果必须匹配给定 Regex。',
+      systemPrompt: '你是状态栏 Regex 格式修复器。只针对当前请求提供的 Regex 修复当前原文；绝对不要套用任何预设示例或固定字段。',
       userPrompt: repairPrompt,
       macroNames: { char: characterName, user: userName },
       temperature: 0.15,
