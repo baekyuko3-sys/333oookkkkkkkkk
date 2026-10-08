@@ -1610,3 +1610,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             {attachments.length > 0 && <div className="absolute bottom-14 left-0 right-0 flex gap-1.5 overflow-x-auto px-1 pb-1">{attachments.map((item, index) => <button key={item.name + index} onClick={() => setAttachments(current => current.filter((_, i) => i !== index))} className="shrink-0 max-w-40 px-2.5 py-1.5 rounded-xl bg-[#f0ede7] text-[8px] truncate">{item.kind === 'image' ? '照片 · ' : '文件 · '}{item.name} ×</button>)}</div>}
             <textarea value={prompt} onChange={event => setPrompt(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void ask(); } }} placeholder="告诉 MEME 你想改什么…" rows={1} className="flex-1 min-h-9 max-h-24 py-2.5 px-1 bg-transparent text-[10px] outline-none resize-none" />
             <button onClick={() => void ask()} disabled={aiBusy || !prompt.trim()} className="w-9 h-9 rounded-full bg-[#292724] text-white grid place-items-center disabled:opacity-25 shrink-0">{aiBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
