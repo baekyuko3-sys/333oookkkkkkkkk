@@ -238,28 +238,28 @@ export function PhoneSimulator({
           {currentScreen === 'character-profile' && (
             <CharacterProfileView
               themeMode={themeMode}
-              onNavigate={setCurrentScreen}
+              onNavigate={navigateFromApp}
             />
           )}
 
           {currentScreen === 'moments' && (
             <MomentsScreenView
               themeMode={themeMode}
-              onNavigate={setCurrentScreen}
+              onNavigate={navigateFromApp}
             />
           )}
 
           {currentScreen === 'gallery' && (
             <GalleryScreenView
               themeMode={themeMode}
-              onNavigate={setCurrentScreen}
+              onNavigate={navigateFromApp}
             />
           )}
 
           {currentScreen === 'music' && (
             <MusicScreenView
               themeMode={themeMode}
-              onNavigate={setCurrentScreen}
+              onNavigate={navigateFromApp}
             />
           )}
 
@@ -278,7 +278,7 @@ export function PhoneSimulator({
           {currentScreen === 'notes' && (
             <NotesScreenView
               themeMode={themeMode}
-              onNavigate={setCurrentScreen}
+              onNavigate={navigateFromApp}
             />
           )}
 
@@ -301,7 +301,7 @@ export function PhoneSimulator({
           {currentScreen === 'appearance' && (
             <AppearanceScreenView
               currentTheme={themeMode}
-              onNavigate={setCurrentScreen}
+              onNavigate={navigateFromApp}
               onSelectTheme={onSelectTheme}
             />
           )}
