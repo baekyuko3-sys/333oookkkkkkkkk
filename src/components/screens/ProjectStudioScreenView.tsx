@@ -176,6 +176,12 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [gitCommits, setGitCommits] = useState<any[]>([]);
   const [prUrl, setPrUrl] = useState('');
   const [ciText, setCiText] = useState('');
+  type StudioCiStatus =
+    | 'idle' | 'analyzing' | 'changes' | 'committing' | 'running'
+    | 'failed' | 'repairing' | 'success' | 'timeout';
+  const [ciStatus, setCiStatus] = useState<StudioCiStatus>('idle');
+  const [ciStatusMessage, setCiStatusMessage] = useState('');
+  const [ciStatusSha, setCiStatusSha] = useState('');
   const [crafted, setCrafted] = useState<any[]>(() => { try { return JSON.parse(readStore('studio:crafted','[]')); } catch { return []; } });
   const [sessions, setSessions] = useState<StudioSession[]>(() => studioStorage.sessions());
   const [sessionId, setSessionId] = useState(() => {
@@ -629,6 +635,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     const effectiveToken = sharedToken;
     if (!effectiveToken) { setTab('settings'); notify('请先在 Studio Settings 填写 GitHub PAT'); return; }
     setSaving(true);
+    updateCiStatus('committing', '正在把已批准的 Change 写入 GitHub…');
     try {
       const result = await applyAtomicChanges(effectiveOwner, effectiveRepo, effectiveBranch, effectiveToken, [{ path: change.path, content: change.content, operation: change.operation || 'update' }], 'Studio: apply Meme change ' + change.path);
       updateChanges(previous => previous.filter(item => item.path !== change.path));
@@ -740,7 +747,14 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     ));
     setMessage('Meme 已完成修复前后验证：' + p.path + '\\n' + (validation?.summary || p.reason));
     log('change', p.operation + ' ' + p.path + ' · validation passed');
+    updateCiStatus('changes', 'Meme 已生成并通过自检的 Changes，等待你的批准。');
     setTab('changes');
+  };
+
+  const updateCiStatus = (status: StudioCiStatus, message: string, sha = '') => {
+    setCiStatus(status);
+    setCiStatusMessage(message);
+    if (sha) setCiStatusSha(sha);
   };
 
   const buildCIRepairContext = async (ciError: string, failedSha: string) => {
@@ -852,9 +866,11 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       '\\n6. 所有实际文件修改必须进入 Studio Changes，等待用户批准；不要直接写 GitHub。';
 
     setPrompt('');
+    updateCiStatus('repairing', 'CI 已失败，Meme 正在读取真实错误日志并准备修复 Changes。', failedSha);
     setMessage('Meme 正在分析 CI 错误…');
     setAgentRunning(true);
     setAiBusy(true);
+    updateCiStatus('analyzing', 'Meme 正在检查仓库、定位问题并准备修改…');
     setAgentEvents([]);
     setTaskSteps(['读取 CI 错误', '定位失败原因', '检查相关文件', '准备修复 Changes']);
     const task: StudioTask = {
@@ -984,6 +1000,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         const text = failed ? await getJobLog(owner.trim(), repo.trim(), failed.id, effectiveToken) : 'CI failed';
         const errorText = String(text).slice(-16000);
         setCiText(errorText);
+        updateCiStatus('failed', 'TypeScript CI 失败，Meme 将读取错误现场准备修复。', sha);
         log('error', 'CI failure returned to Studio · ' + sha.slice(0, 8));
 
         if (autoRepair) {
@@ -999,6 +1016,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
   const waitForCIAndRepair = async (sha: string) => {
     setCiText('TypeScript CI 正在运行…');
+    updateCiStatus('running', '已提交，正在等待 TypeScript CI。', sha);
     for (let attempt = 0; attempt < 20; attempt++) {
       try {
         const effectiveToken = token.trim();
@@ -1012,6 +1030,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         if (run && run.status === 'completed') {
           if (run.conclusion === 'success') {
             setCiText('CI · success · ' + sha.slice(0, 8));
+            updateCiStatus('success', 'TypeScript CI 已通过，修改完成。', sha);
             log('git', 'CI passed · ' + sha.slice(0, 8));
             setCurrentTask(v => v ? { ...v, status: 'done', updatedAt: Date.now(), steps: v.steps.map(step => ({ ...step, status: 'done' })) } : v);
             notify('CI 通过 ✓');
@@ -1026,6 +1045,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       await new Promise(resolve => window.setTimeout(resolve, 5000));
     }
     setCiText('CI 仍在运行。可以稍后在 Git 页面再次检查。');
+    updateCiStatus('timeout', 'CI 等待超时，可稍后在 Git 页面重新检查。', sha);
     log('system', 'CI polling timed out · ' + sha.slice(0, 8));
   };
 
@@ -1137,6 +1157,36 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       <main className="h-[calc(100%-100px)] overflow-y-auto no-scrollbar pb-20">
         {tab === 'chat' && (
           <section className="px-4 pb-28">
+            {ciStatus !== 'idle' && (
+              <div className="mb-3 p-3 rounded-2xl bg-white/75 border border-black/5 shadow-sm">
+                <div className="flex items-center gap-2">
+                  {ciStatus === 'success'
+                    ? <Check className="w-4 h-4" />
+                    : ciStatus === 'failed'
+                      ? <ShieldAlert className="w-4 h-4" />
+                      : ciStatus === 'running' || ciStatus === 'repairing' || ciStatus === 'committing' || ciStatus === 'analyzing'
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <Clock3 className="w-4 h-4" />}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">
+                      {ciStatus === 'analyzing' ? 'MEME · ANALYZING'
+                        : ciStatus === 'changes' ? 'MEME · CHANGES READY'
+                        : ciStatus === 'committing' ? 'GIT · COMMITTING'
+                        : ciStatus === 'running' ? 'CI · RUNNING'
+                        : ciStatus === 'failed' ? 'CI · FAILED'
+                        : ciStatus === 'repairing' ? 'MEME · REPAIRING'
+                        : ciStatus === 'success' ? 'CI · PASSED'
+                        : 'CI · WAITING'}
+                    </div>
+                    <div className="mt-1 text-[9px] leading-4">{ciStatusMessage}</div>
+                    {ciStatusSha && <div className="mt-1 text-[7px] font-mono text-[#999]">commit {ciStatusSha.slice(0, 8)}</div>}
+                  </div>
+                  {(ciStatus === 'changes' || ciStatus === 'failed') && (
+                    <button onClick={() => setTab('changes')} className="px-2.5 py-2 rounded-xl bg-[#292724] text-white text-[8px]">查看 Changes</button>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="w-full pt-2 pb-4">
               {!conversation.length ? (
                 <div className="flex flex-col items-center justify-start text-center pt-8 pb-5">
@@ -1217,7 +1267,17 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         )}
 
         {tab === 'changes' && (
-          <section className="p-3.5 space-y-2.5">
+          <section className="p-3.5 space-y-3">
+            {ciStatus !== 'idle' && (
+              <div className="p-3 rounded-2xl bg-[#ebe6de] border border-black/5">
+                <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">WORKFLOW STATUS</div>
+                <div className="mt-1 text-[10px]">{ciStatusMessage}</div>
+                {ciStatusSha && <div className="mt-1 text-[7px] font-mono text-[#999]">commit {ciStatusSha.slice(0, 8)}</div>}
+                {ciText && (ciStatus === 'failed' || ciStatus === 'timeout') && (
+                  <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap text-[7px] text-[#777069]">{ciText.slice(-6000)}</pre>
+                )}
+              </div>
+            )}">
             <div className="p-3 rounded-2xl bg-[#ebe6de] text-[9px]"><b>Changes</b><div className="mt-1 text-[#777069]">AI 的修改先预览；可以逐文件批准，也可以作为一个原子 commit 一次写入。</div>
               <div className="grid grid-cols-2 gap-1.5 mt-2"><button onClick={() => void loadDiff()} className="py-2 rounded-xl bg-white text-[8px]">Diff</button><button disabled={!changes.length||saving} onClick={() => void approveAllChanges()} className="py-2 rounded-xl bg-[#292724] text-white text-[8px] disabled:opacity-40">Atomic Commit</button></div>
             </div>
