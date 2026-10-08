@@ -755,6 +755,7 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     system: buildCharacterSystemPrompt(providerInput),
     messages: buildConversationMessages(providerInput),
   };
+  let rawText = '';
   try {
     rawText = input.settings.provider === 'gemini'
       ? await callGemini(providerInput)
