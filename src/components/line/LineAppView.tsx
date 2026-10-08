@@ -603,11 +603,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
     if (activeItem.characterId) markCharacterRead(activeItem.characterId);
     const activeChatName = activeItem?.name || activeChatId;
     const activeCharacterId = activeItem?.characterId || undefined;
-    const conversationId = activeItem?.isGroup
-      ? activeItem.id
-      : activeCharacterId
-        ? 'character:' + activeCharacterId + ':persona:' + (effectivePersonaId || 'default')
-        : activeItem.id;
+    // The chat item itself is the conversation identity. Persona isolation is
+    // enforced by the chat item's personaId, so separate chats for the same
+    // character can still remain independent.
+    const conversationId = activeItem.id;
     return (
       <div className="w-full h-full pt-[30px] bg-white">
         <LineConversationErrorBoundary key={activeChatId} onBack={() => setActiveChatId(null)}>
