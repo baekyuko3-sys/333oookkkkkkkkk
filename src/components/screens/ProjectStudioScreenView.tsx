@@ -3,7 +3,7 @@ import { ArrowLeft, Check, ChevronRight, Clock3, FileCode2, Folder, Github, KeyR
 import type { ScreenType } from '../../types';
 import { generateCreativeText, listOpenAiCompatibleModels } from '../../ai/aiEngine';
 import { readAppSettings, saveAppSettings, type AppSettings } from '../../store/appSettings';
-import { getGitHubSyncConfig, getGitHubToken } from '../../store/githubSync';
+import { getGitHubSyncConfig } from '../../store/githubSync';
 import { runMemeAgent, type MemeCodingMode } from '../../studio/memeAgent';
 import { studioStorage } from '../../studio/studioStorage';
 import { applyAtomicChanges, compare, createBranch, createPullRequest, getWorkflowRunsForCommit, getWorkflowJobs, getJobLog, rollbackBranch } from '../../studio/studioGit';
@@ -86,7 +86,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [owner, setOwner] = useState(() => readStore(STORE.owner, 'baekyuko3-sys'));
   const [repo, setRepo] = useState(() => readStore(STORE.repo, '333oookkkkkkkkk'));
   const [branch, setBranch] = useState(() => readStore(STORE.branch, 'main'));
-  const [token, setToken] = useState(() => readStore(STORE.token, getGitHubToken()));
+  const [token, setToken] = useState(() => readStore(STORE.token));
 
   // This Studio belongs to the 333oookkkkkkkkk repository. Do not let an
   // older phone-wide GitHub connection silently redirect Studio to another repo.
@@ -195,9 +195,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const sharedOwner = 'baekyuko3-sys';
   const sharedRepo = '333oookkkkkkkkk';
   const sharedBranch = 'main';
-  // The app-wide GitHub token is the source of truth. A stale
-  // studio:github-token must never override a newly connected token.
-  const sharedToken = getGitHubToken().trim() || token.trim();
+  // Studio owns its GitHub PAT. Do not silently substitute the phone-wide
+  // GitHub token: this workspace must use the PAT entered in Studio Settings.
+  const sharedToken = token.trim();
   const hasGithubCredentials = Boolean(sharedOwner && sharedRepo && sharedBranch && sharedToken);
   const ready = githubVerified && hasGithubCredentials;
 
@@ -246,11 +246,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         branch: branch.trim() || linked.branch || 'main',
       }));
     }
-    if (token.trim()) window.localStorage.setItem('sane333:github-token', token.trim());
+    writeStore(STORE.token, effectiveToken);
     writeStore(STORE.owner, owner);
     writeStore(STORE.repo, repo);
     writeStore(STORE.branch, branch);
-    writeStore(STORE.token, token);
     notify('Studio 设置已保存');
   };
 
@@ -296,7 +295,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     const effectiveOwner = 'baekyuko3-sys';
     const effectiveRepo = '333oookkkkkkkkk';
     const effectiveBranch = 'main';
-    const effectiveToken = getGitHubToken().trim() || token.trim();
+    const effectiveToken = token.trim();
     if (effectiveOwner !== owner) setOwner(effectiveOwner);
     if (effectiveRepo !== repo) setRepo(effectiveRepo);
     if (effectiveBranch !== branch) setBranch(effectiveBranch);
@@ -333,10 +332,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       await list(item.path);
       return;
     }
-    const effectiveOwner = owner.trim() || 'baekyuko3-sys';
-    const effectiveRepo = repo.trim() || '333oookkkkkkkkk';
-    const effectiveBranch = branch.trim() || 'main';
-    const effectiveToken = getGitHubToken().trim() || token.trim();
+    const effectiveOwner = 'baekyuko3-sys';
+    const effectiveRepo = '333oookkkkkkkkk';
+    const effectiveBranch = 'main';
+    const effectiveToken = token.trim();
     if (!effectiveOwner || !effectiveRepo || !effectiveBranch || !effectiveToken) return;
     setBusy(true);
     try {
@@ -431,7 +430,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         codingMode: memeMode,
         maxRounds: 8,
         maxValidationRounds: 1,
-        project,
+        project: effectiveOwner + '/' + effectiveRepo + '@' + effectiveBranch,
         tools: [
           {
             name: 'inspect',
@@ -605,7 +604,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     if (!ready || !sha) return;
     if (!window.confirm('确认把当前分支恢复到这个 commit？\\n' + sha.slice(0,8) + '\\n此操作会改变远端分支指向。')) return;
     try {
-      await rollbackBranch(owner, repo, branch, sha, token);
+      await rollbackBranch(owner, repo, branch, sha, effectiveToken);
       notify('已恢复到 ' + sha.slice(0,8));
       log('git', 'Rollback ' + branch + ' -> ' + sha.slice(0,8));
       setGitCommits([]);
@@ -637,6 +636,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const buildCIRepairContext = async (ciError: string, failedSha: string) => {
+    const effectiveOwner = 'baekyuko3-sys';
+    const effectiveRepo = '333oookkkkkkkkk';
+    const effectiveBranch = 'main';
+    const effectiveToken = token.trim();
     const base = 'https://api.github.com/repos/' + effectiveOwner + '/' + effectiveRepo;
     const errorText = String(ciError || '').slice(-16000);
     const changePaths = changes.map(change => change.path);
@@ -649,7 +652,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     let commitFiles: any[] = [];
 
     try {
-      commitInfo = await github(base + '/commits/' + encodeURIComponent(failedSha), token);
+      commitInfo = await github(base + '/commits/' + encodeURIComponent(failedSha), effectiveToken);
       commitFiles = (commitInfo.files || []).slice(0, 20).map((item: any) => ({
         path: item.filename,
         status: item.status,
@@ -661,7 +664,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     }
 
     try {
-      const data = await github(base + '/commits?sha=' + encodeURIComponent(effectiveBranch) + '&per_page=6', token);
+      const data = await github(base + '/commits?sha=' + encodeURIComponent(effectiveBranch) + '&per_page=6', effectiveToken);
       recentCommits = (data || []).slice(0, 6).map((item: any) => ({
         sha: item.sha,
         message: item.commit?.message?.split('\\n')[0],
@@ -808,7 +811,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             name: 'search',
             description: 'Search repository code for symbols, imports, error messages, or related implementation.',
             run: async ({ query }) => {
-              const q = encodeURIComponent(String(query) + ' repo:' + owner + '/' + repo);
+              const q = encodeURIComponent(String(query) + ' repo:' + effectiveOwner + '/' + effectiveRepo);
               const data = await github('https://api.github.com/search/code?q=' + q, effectiveToken);
               return (data.items || []).slice(0, 20).map((item: any) => ({ path: item.path, name: item.name, sha: item.sha }));
             },
@@ -852,7 +855,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
   const checkCI = async (sha: string, autoRepair = false) => {
     try {
-      const runs = await getWorkflowRunsForCommit(owner, repo, sha, token);
+      const runs = await getWorkflowRunsForCommit(owner, repo, sha, effectiveToken);
       const run = runs.workflow_runs?.[0];
       if (!run) {
         setCiText('暂时没有找到 CI run');
@@ -860,7 +863,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       }
 
       if (run.conclusion === 'failure') {
-        const jobs = await getWorkflowJobs(owner, repo, run.id, token);
+        const jobs = await getWorkflowJobs(owner, repo, run.id, effectiveToken);
         const failed = jobs.jobs?.find((job: any) =>
           job.conclusion === 'failure' || job.status === 'failure'
         );
@@ -884,7 +887,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setCiText('CI 正在运行…');
     for (let attempt = 0; attempt < 20; attempt++) {
       try {
-        const runs = await getWorkflowRunsForCommit(owner, repo, sha, token);
+        const runs = await getWorkflowRunsForCommit(owner, repo, sha, effectiveToken);
         const run = runs.workflow_runs?.[0];
         if (run && run.status === 'completed') {
           if (run.conclusion === 'success') {
@@ -913,7 +916,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setSaving(true);
     try {
       const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + target.split('/').map(encodeURIComponent).join('/');
-      await github(url, token, {
+      await github(url, effectiveToken, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: 'Studio: create ' + target, content: encodeBase64(newContent), branch }),
@@ -937,7 +940,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + target.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(effectiveBranch);
       const data = await github(url, effectiveToken);
       if (Array.isArray(data)) throw new Error('这是目录，请使用递归删除');
-      await github(url.split('?')[0], token, {
+      await github(url.split('?')[0], effectiveToken, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: 'Studio: delete ' + target, sha: data.sha, branch }),
@@ -957,7 +960,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + target.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(effectiveBranch);
     const data = await github(url, effectiveToken);
     if (!Array.isArray(data)) {
-      await github(url.split('?')[0], token, {
+      await github(url.split('?')[0], effectiveToken, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: 'Studio: delete ' + target, sha: data.sha, branch }),
