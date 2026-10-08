@@ -363,8 +363,8 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '不要描述用户尚未明确做出的动作。',
     '不要把聊天回复写成旁白长文；保持手机消息的阅读节奏。',
     '不要用“角色动作 + 长段心理描写 + 一大段台词”代替聊天消息；动作描写如果开启必须单独放进 <action>...</action>，正文仍然是正常聊天消息。',
-    input.authorNote?.includes('【线上动作描写：开启】') ? '【动作描写】开启。本轮只在确有表现价值时输出一条简短、具体、像真实 LINE 聊天状态的线上行为/反应，并严格放入 <action>动作</action>；动作与消息正文分离，不写成长篇旁白，不替用户添加动作或反应。' : '【动作描写】关闭。不要输出 <action> 标签，也不要额外写动作旁白。',
-    input.authorNote?.includes('【思考摘要：开启】') ? '【思考摘要】开启。只允许提供一句或两句高层次摘要，例如“判断她在开玩笑，所以语气放松一些”，不要输出逐步推理或隐藏思维链。摘要应使用 <summary>...</summary>，最终消息正文放在标签之外。' : '【思考摘要】关闭。不要输出 <summary> 标签。',
+    input.authorNote?.includes('【线上动作描写：开启】') ? '【动作描写】开启。必须输出且只能输出一条简短、具体、像真实 LINE 聊天状态的线上行为/反应；即使动作很轻微也不要省略。严格放入 <action>...</action>，与正文分离，不写成长篇旁白，不替用户添加动作或反应。' : '【动作描写】关闭。不要输出 <action> 标签，也不要额外写动作旁白。',
+    input.authorNote?.includes('【思考摘要：开启】') ? '【思考摘要】开启。必须输出一句或两句高层次角色决策摘要，不得省略；不要输出逐步推理或隐藏思维链。摘要必须使用 <summary>...</summary>。' : '【思考摘要】关闭。不要输出 <summary> 标签。',
     '',
     '【LINE 聊天设定 · 最高优先级格式约束】',
     input.typingHabit ? [
@@ -377,6 +377,17 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
       'emoji/表情包设置必须体现在最终文本中；如果设置为经常使用，可以自然加入 emoji，但不要机械每句添加。',
       '句子长度、语气词也必须遵守。角色性格、事实、剧情仍然保持不变。',
     ].join('\n') : '当前没有额外的聊天打字习惯设置。',
+    '',
+    '【最终输出协议 · 最后一条规则，必须执行】',
+    input.cotTarget && cotPreset
+      ? 'COT 开启：绝对禁止省略 COT。先输出 ' + cotPreset.tag + '，其中 ... 必须替换成真实的1～3句角色决策摘要；然后输出 <action>...</action>；最后输出 <message>...</message>。三个标签必须全部出现且各出现一次。'
+      : 'COT 关闭：不要输出任何 COT 标签。',
+    input.authorNote?.includes('【线上动作描写：开启】')
+      ? '动作开启：绝对禁止省略 <action>。必须输出真实、简短、具体的角色当前动作/反应。'
+      : '动作关闭：不要输出 <action>。',
+    '角色正文必须放在 <message>...</message> 中。不要把 COT、动作或解释写进 message。',
+    '最终只能采用这个结构：<cot>角色决策摘要</cot><action>角色动作或反应</action><message>角色真正发送的聊天内容</message>（如果 COT 使用其他标签，则把 cot 替换成该预设标签）。',
+    '不要输出 Markdown 代码块，不要输出结构说明，不要输出省略号作为标签内容。',
   ].join('\n');
 }
 
@@ -567,7 +578,15 @@ function extractGeminiText(data: any): string {
 function extractOpenAiText(data: any): string {
   return (data?.choices || [])
     .map((choice: any) => choice?.message?.content ?? choice?.delta?.content ?? '')
-    .filter((value: unknown) => typeof value === 'string')
+    .flatMap((value: unknown) => {
+      if (typeof value === 'string') return [value];
+      if (Array.isArray(value)) {
+        return value
+          .map((part: any) => typeof part === 'string' ? part : (typeof part?.text === 'string' ? part.text : ''))
+          .filter(Boolean);
+      }
+      return [];
+    })
     .join('');
 }
 
