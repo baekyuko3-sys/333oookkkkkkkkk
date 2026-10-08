@@ -281,12 +281,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
   const list = async (folder = '') => {
     // Re-sync from the shared phone GitHub connection before every real repo operation.
-    const linked = getGitHubSyncConfig();
-    const linkedToken = getGitHubToken();
-    const effectiveOwner = owner.trim() || linked.owner.trim();
-    const effectiveRepo = repo.trim() || linked.repo.trim();
-    const effectiveBranch = branch.trim() || linked.branch.trim();
-    const effectiveToken = token.trim() || linkedToken.trim();
+    const effectiveOwner = owner.trim() || 'baekyuko3-sys';
+    const effectiveRepo = repo.trim() || '333oookkkkkkkkk';
+    const effectiveBranch = branch.trim() || 'main';
+    const effectiveToken = getGitHubToken().trim() || token.trim();
     if (effectiveOwner !== owner) setOwner(effectiveOwner);
     if (effectiveRepo !== repo) setRepo(effectiveRepo);
     if (effectiveBranch !== branch) setBranch(effectiveBranch);
@@ -323,11 +321,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       await list(item.path);
       return;
     }
-    const linked = getGitHubSyncConfig();
-    const effectiveOwner = owner.trim() || linked.owner.trim();
-    const effectiveRepo = repo.trim() || linked.repo.trim();
-    const effectiveBranch = branch.trim() || linked.branch.trim();
-    const effectiveToken = token.trim() || getGitHubToken().trim();
+    const effectiveOwner = owner.trim() || 'baekyuko3-sys';
+    const effectiveRepo = repo.trim() || '333oookkkkkkkkk';
+    const effectiveBranch = branch.trim() || 'main';
+    const effectiveToken = getGitHubToken().trim() || token.trim();
     if (!effectiveOwner || !effectiveRepo || !effectiveBranch || !effectiveToken) return;
     setBusy(true);
     try {
@@ -1176,15 +1173,16 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
               <button onClick={async () => {
   try {
     if (!sharedOwner || !sharedRepo || !sharedBranch || !sharedToken) throw new Error('GitHub 仓库连接信息不完整');
-    const repository = await github('https://api.github.com/repos/' + sharedOwner + '/' + sharedRepo, sharedToken);
-    if (repository?.default_branch && repository.default_branch !== sharedBranch) {
-      notify('仓库已连接；注意当前分支是 ' + sharedBranch + '，默认分支为 ' + repository.default_branch);
-    }
+    const who = await github('https://api.github.com/user', sharedToken);
+    const repository = await github('https://api.github.com/repos/' + encodeURIComponent(sharedOwner) + '/' + encodeURIComponent(sharedRepo), sharedToken);
+    const targetBranch = sharedBranch || repository.default_branch || 'main';
+    await github('https://api.github.com/repos/' + encodeURIComponent(sharedOwner) + '/' + encodeURIComponent(sharedRepo) + '/contents/?ref=' + encodeURIComponent(targetBranch), sharedToken);
     setGithubVerified(true);
-    setOwner(sharedOwner); setRepo(sharedRepo); setBranch(sharedBranch); setToken(sharedToken);
-    writeStore(STORE.owner, sharedOwner); writeStore(STORE.repo, sharedRepo); writeStore(STORE.branch, sharedBranch); writeStore(STORE.token, sharedToken);
+    setOwner(sharedOwner); setRepo(sharedRepo); setBranch(targetBranch); setToken(sharedToken);
+    writeStore(STORE.owner, sharedOwner); writeStore(STORE.repo, sharedRepo); writeStore(STORE.branch, targetBranch); writeStore(STORE.token, sharedToken);
+    window.localStorage.setItem('sane333:github-token', sharedToken);
     await list('');
-    notify('GitHub 仓库已真实连接：' + sharedOwner + '/' + sharedRepo + ' · ' + sharedBranch);
+    notify('GitHub 已验证：' + (who?.login || 'token') + ' → ' + sharedOwner + '/' + sharedRepo + ' · ' + targetBranch);
   } catch (error) {
     setGithubVerified(false);
     notify(error instanceof Error ? error.message : 'GitHub 仓库连接失败');
