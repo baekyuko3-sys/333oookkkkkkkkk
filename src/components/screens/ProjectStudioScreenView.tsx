@@ -83,20 +83,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [testingAi, setTestingAi] = useState(false);
   const [githubVerified, setGithubVerified] = useState(false);
   const [githubError, setGithubError] = useState('');
-  const [owner, setOwner] = useState(() => readStore(STORE.owner, 'baekyuko3-sys'));
-  const [repo, setRepo] = useState(() => readStore(STORE.repo, '333oookkkkkkkkk'));
+  const [owner, setOwner] = useState(() => readStore(STORE.owner));
+  const [repo, setRepo] = useState(() => readStore(STORE.repo));
   const [branch, setBranch] = useState(() => readStore(STORE.branch, 'main'));
   const [token, setToken] = useState(() => readStore(STORE.token));
-
-  // This Studio belongs to the 333oookkkkkkkkk repository. Do not let an
-  // older phone-wide GitHub connection silently redirect Studio to another repo.
-  useEffect(() => {
-    const expectedOwner = 'baekyuko3-sys';
-    const expectedRepo = '333oookkkkkkkkk';
-    if (owner !== expectedOwner) { setOwner(expectedOwner); writeStore(STORE.owner, expectedOwner); }
-    if (repo !== expectedRepo) { setRepo(expectedRepo); writeStore(STORE.repo, expectedRepo); }
-    if (!branch.trim()) { setBranch('main'); writeStore(STORE.branch, 'main'); }
-  }, []);
 
   const [items, setItems] = useState<Item[]>([]);
   const [path, setPath] = useState('');
@@ -188,13 +178,11 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     studioStorage.saveSessions(next);
   };
 
-  // Studio uses its own repository fields first. The global phone GitHub
-  // connection may point at a completely different repository.
-  // Studio is hard-bound to this project. Never let stale Studio/global repo
-  // fields redirect the coding workspace to another repository.
-  const sharedOwner = 'baekyuko3-sys';
-  const sharedRepo = '333oookkkkkkkkk';
-  const sharedBranch = 'main';
+  // Studio repository is user-configurable. It never falls back to the
+  // phone-wide GitHub repository; only the PAT is read from Studio's own store.
+  const sharedOwner = owner.trim();
+  const sharedRepo = repo.trim();
+  const sharedBranch = branch.trim() || 'main';
   // Studio owns its GitHub PAT. Do not silently substitute the phone-wide
   // GitHub token: this workspace must use the PAT entered in Studio Settings.
   const sharedToken = token.trim();
@@ -202,9 +190,13 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const ready = githubVerified && hasGithubCredentials;
 
   useEffect(() => {
-    if (!hasGithubCredentials) {
+    if (!sharedOwner || !sharedRepo || !sharedBranch || !sharedToken) {
       setGithubVerified(false);
-      setGithubError('请先在 Studio Settings 填写 GitHub PAT');
+      setGithubError(
+        !sharedOwner || !sharedRepo
+          ? '请先在 Studio Settings 填写 Owner 和 Repository'
+          : '请先在 Studio Settings 填写 GitHub PAT'
+      );
       return;
     }
     let cancelled = false;
@@ -246,9 +238,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const saveSettings = () => {
     saveAppSettings(aiSettings);
     // Studio GitHub credentials stay isolated from the phone-wide GitHub sync.
-    writeStore(STORE.owner, 'baekyuko3-sys');
-    writeStore(STORE.repo, '333oookkkkkkkkk');
-    writeStore(STORE.branch, 'main');
+    writeStore(STORE.owner, owner.trim());
+    writeStore(STORE.repo, repo.trim());
+    writeStore(STORE.branch, branch.trim() || 'main');
     writeStore(STORE.token, token.trim());
     notify('Studio 设置已保存');
   };
@@ -291,15 +283,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const list = async (folder = '') => {
-    // Re-sync from the shared phone GitHub connection before every real repo operation.
-    const effectiveOwner = 'baekyuko3-sys';
-    const effectiveRepo = '333oookkkkkkkkk';
-    const effectiveBranch = 'main';
+    const effectiveOwner = owner.trim();
+    const effectiveRepo = repo.trim();
+    const effectiveBranch = branch.trim() || 'main';
     const effectiveToken = token.trim();
-    if (effectiveOwner !== owner) setOwner(effectiveOwner);
-    if (effectiveRepo !== repo) setRepo(effectiveRepo);
-    if (effectiveBranch !== branch) setBranch(effectiveBranch);
-    if (effectiveToken !== token) setToken(effectiveToken);
     const effectiveReady = Boolean(effectiveOwner && effectiveRepo && effectiveBranch && effectiveToken);
     if (!effectiveReady) {
       setTab('settings');
@@ -332,9 +319,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       await list(item.path);
       return;
     }
-    const effectiveOwner = 'baekyuko3-sys';
-    const effectiveRepo = '333oookkkkkkkkk';
-    const effectiveBranch = 'main';
+    const effectiveOwner = owner.trim();
+    const effectiveRepo = repo.trim();
+    const effectiveBranch = branch.trim() || 'main';
     const effectiveToken = token.trim();
     if (!effectiveOwner || !effectiveRepo || !effectiveBranch || !effectiveToken) return;
     setBusy(true);
@@ -352,9 +339,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const saveFile = async () => {
-    const effectiveOwner = 'baekyuko3-sys';
-    const effectiveRepo = '333oookkkkkkkkk';
-    const effectiveBranch = 'main';
+    const effectiveOwner = owner.trim();
+    const effectiveRepo = repo.trim();
+    const effectiveBranch = branch.trim() || 'main';
     const effectiveToken = token.trim();
     if (!file || !effectiveOwner || !effectiveRepo || !effectiveBranch || !effectiveToken) return;
     setSaving(true);
@@ -384,14 +371,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     const sourceRequest = overrideRequest ?? prompt;
     if (!sourceRequest.trim()) return;
     // Studio must use the same linked GitHub credentials as the rest of the app.
-    const effectiveOwner = 'baekyuko3-sys';
-    const effectiveRepo = '333oookkkkkkkkk';
-    const effectiveBranch = 'main';
+    const effectiveOwner = owner.trim();
+    const effectiveRepo = repo.trim();
+    const effectiveBranch = branch.trim() || 'main';
     const effectiveToken = token.trim();
-    if (effectiveOwner !== owner) setOwner(effectiveOwner);
-    if (effectiveRepo !== repo) setRepo(effectiveRepo);
-    if (effectiveBranch !== branch) setBranch(effectiveBranch);
-    if (effectiveToken !== token) setToken(effectiveToken);
     if (!aiSettings.apiKey.trim() || !aiSettings.model.trim() || !aiSettings.apiBaseUrl.trim()) {
       setTab('settings');
       notify('先填写 AI API Base URL、Key 和 Model');
@@ -568,9 +551,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setSaving(true);
     try {
       const result = await applyAtomicChanges(
-        'baekyuko3-sys',
-        '333oookkkkkkkkk',
-        'main',
+        owner.trim(),
+        repo.trim(),
+        branch.trim() || 'main',
         effectiveToken,
         changes.map(change => ({ path: change.path, content: change.content, operation: change.operation || 'update' })),
         'Studio: apply Meme task · ' + sessionTitle,
@@ -603,19 +586,19 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     if (!ready) return;
     const name=window.prompt('新分支名称','meme/'+Date.now());
     if (!name) return;
-    try { await createBranch('baekyuko3-sys','333oookkkkkkkkk',name,'main',token.trim()); notify('已创建分支：'+name); log('git','Created branch '+name); }
+    try { await createBranch(owner.trim(),repo.trim(),name,branch.trim() || 'main',token.trim()); notify('已创建分支：'+name); log('git','Created branch '+name); }
     catch(error){ notify(error instanceof Error ? error.message : '创建分支失败'); }
   };
 
   const openPullRequest = async () => {
     if (!ready || branch === 'main') { notify('PR 需要一个非 main 分支'); return; }
-    try { const result=await createPullRequest('baekyuko3-sys','333oookkkkkkkkk',branch,'main','Studio · '+sessionTitle,'Created by Meme Studio.',token.trim(),true); setPrUrl(result.html_url || result.url || ''); notify('Draft PR 已创建'); }
+    try { const result=await createPullRequest(owner.trim(),repo.trim(),branch,'main','Studio · '+sessionTitle,'Created by Meme Studio.',token.trim(),true); setPrUrl(result.html_url || result.url || ''); notify('Draft PR 已创建'); }
     catch(error){ notify(error instanceof Error ? error.message : 'PR 创建失败'); }
   };
 
   const loadDiff = async () => {
     try {
-      const data=await compare('baekyuko3-sys','333oookkkkkkkkk','main',branch,token.trim());
+      const data=await compare(owner.trim(),repo.trim(),'main',branch,token.trim());
       const files=(data.files||[]).map((item:any)=>item.filename+' · '+item.status+' · +'+item.additions+' -'+item.deletions).join('\\n');
       setCiText(files || '没有差异'); setTab('changes');
     } catch(error){ notify(error instanceof Error ? error.message : 'Diff 获取失败'); }
@@ -625,7 +608,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     if (!ready || !sha) return;
     if (!window.confirm('确认把当前分支恢复到这个 commit？\\n' + sha.slice(0,8) + '\\n此操作会改变远端分支指向。')) return;
     try {
-      await rollbackBranch('baekyuko3-sys', '333oookkkkkkkkk', 'main', sha, token.trim());
+      await rollbackBranch(owner.trim(), repo.trim(), branch.trim() || 'main', sha, token.trim());
       notify('已恢复到 ' + sha.slice(0,8));
       log('git', 'Rollback ' + branch + ' -> ' + sha.slice(0,8));
       setGitCommits([]);
@@ -657,9 +640,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const buildCIRepairContext = async (ciError: string, failedSha: string) => {
-    const effectiveOwner = 'baekyuko3-sys';
-    const effectiveRepo = '333oookkkkkkkkk';
-    const effectiveBranch = 'main';
+    const effectiveOwner = owner.trim();
+    const effectiveRepo = repo.trim();
+    const effectiveBranch = branch.trim() || 'main';
     const effectiveToken = token.trim();
     const base = 'https://api.github.com/repos/' + effectiveOwner + '/' + effectiveRepo;
     const errorText = String(ciError || '').slice(-16000);
@@ -878,7 +861,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     try {
       const effectiveToken = token.trim();
       if (!effectiveToken) throw new Error('请先在 Studio Settings 填写 GitHub PAT');
-      const runs = await getWorkflowRunsForCommit('baekyuko3-sys', '333oookkkkkkkkk', sha, effectiveToken);
+      const runs = await getWorkflowRunsForCommit(owner.trim(), repo.trim(), sha, effectiveToken);
       const run = runs.workflow_runs?.[0];
       if (!run) {
         setCiText('暂时没有找到 CI run');
@@ -886,11 +869,11 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       }
 
       if (run.conclusion === 'failure') {
-        const jobs = await getWorkflowJobs('baekyuko3-sys', '333oookkkkkkkkk', run.id, effectiveToken);
+        const jobs = await getWorkflowJobs(owner.trim(), repo.trim(), run.id, effectiveToken);
         const failed = jobs.jobs?.find((job: any) =>
           job.conclusion === 'failure' || job.status === 'failure'
         );
-        const text = failed ? await getJobLog('baekyuko3-sys', '333oookkkkkkkkk', failed.id, effectiveToken) : 'CI failed';
+        const text = failed ? await getJobLog(owner.trim(), repo.trim(), failed.id, effectiveToken) : 'CI failed';
         const errorText = String(text).slice(-16000);
         setCiText(errorText);
         log('error', 'CI failure returned to Studio · ' + sha.slice(0, 8));
@@ -912,7 +895,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       try {
         const effectiveToken = token.trim();
         if (!effectiveToken) throw new Error('请先在 Studio Settings 填写 GitHub PAT');
-        const runs = await getWorkflowRunsForCommit('baekyuko3-sys', '333oookkkkkkkkk', sha, effectiveToken);
+        const runs = await getWorkflowRunsForCommit(owner.trim(), repo.trim(), sha, effectiveToken);
         const run = runs.workflow_runs?.[0];
         if (run && run.status === 'completed') {
           if (run.conclusion === 'success') {
@@ -940,7 +923,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     if (!target || !ready) return;
     setSaving(true);
     try {
-      const url = 'https://api.github.com/repos/baekyuko3-sys/333oookkkkkkkkk/contents/' + target.split('/').map(encodeURIComponent).join('/');
+      const url = 'https://api.github.com/repos/' + owner.trim() + '/' + repo.trim() + '/contents/' + target.split('/').map(encodeURIComponent).join('/');
       await github(url, sharedToken, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -1189,10 +1172,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             <div className="p-3 rounded-2xl bg-white/60 space-y-2">
               <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">GITHUB PROJECT</div>
               <div className="grid grid-cols-2 gap-1.5">
-                <input value={owner} readOnly placeholder="Owner" className="p-2.5 rounded-xl text-[9px] outline-none bg-[#f1eee8]" />
-                <input value={repo} readOnly placeholder="Repository" className="p-2.5 rounded-xl text-[9px] outline-none bg-[#f1eee8]" />
+                <input value={owner} onChange={event => { setOwner(event.target.value); setGithubVerified(false); }} placeholder="Owner" className="p-2.5 rounded-xl text-[9px] outline-none" />
+                <input value={repo} onChange={event => { setRepo(event.target.value); setGithubVerified(false); }} placeholder="Repository" className="p-2.5 rounded-xl text-[9px] outline-none" />
               </div>
-              <input value={branch} readOnly placeholder="Branch" className="w-full p-2.5 rounded-xl text-[9px] outline-none bg-[#f1eee8]" />
+              <input value={branch} onChange={event => { setBranch(event.target.value); setGithubVerified(false); }} placeholder="Branch" className="w-full p-2.5 rounded-xl text-[9px] outline-none" />
               <input type="password" value={token} onChange={event => setToken(event.target.value)} placeholder="Fine-grained GitHub Token" className="w-full p-2.5 rounded-xl text-[9px] outline-none" />
               <div className="text-[8px] leading-relaxed text-[#888]">建议 Token 只开放这个仓库的 Contents 读写权限。</div>
             </div>
