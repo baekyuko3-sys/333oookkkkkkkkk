@@ -3,7 +3,6 @@ import { usePersistentState } from '../../store/usePersistentState';
 import type { ImportedCharacter } from '../../data/characterImport';
 import type { ScreenType, WorldBook } from '../../types';
 import { generateCharacterReply, generateCreativeText, generateStatusBarContent, generateHtmlInterlude, readStoredAiSettings, resolveChannelAiSettings, listOpenAiCompatibleModels, testAiConnection, summarizeConversationMemory, mergeRecentMemoryBatch, type AiSettings } from '../../ai/aiEngine';
-import { setMacroContext } from '../../ai/macros';
 import { generateImage, generateSpeech, transcribeAudio } from '../../ai/mediaEngine';
 import { readAppSettings } from '../../store/appSettings';
 import type { ChannelAiSettings } from '../../store/appSettings';
@@ -176,12 +175,6 @@ export function LineConversationView({
   const messagesRef = useRef<Record<string, any>[]>([]);
   messagesRef.current = messages;
 
-  useEffect(() => {
-    setMacroContext({
-      char: importedCharacter?.name || characterProfile.nickname || contactName,
-      user: activePersona?.name,
-    });
-  }, [importedCharacter?.name, characterProfile.nickname, contactName, activePersona?.name]);
 
   // LINE keeps the complete conversation in storage, but only renders the newest
   // page at first. Older messages load naturally as you scroll upward.
