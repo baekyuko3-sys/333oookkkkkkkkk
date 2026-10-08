@@ -105,7 +105,7 @@ export function parseAiReplyPayload(
   }
 
   const actionDescription = readTag('action', withoutMetadata);
-  const messageMatch = withoutMetadata.match(/<message>\\s*([\\s\\S]*?)\\s*<\\/message>/i);
+  const messageMatch = withoutMetadata.match(/<message>\s*([\s\S]*?)\s*<\/message>/i);
   const text = (messageMatch?.[1] || withoutMetadata
     .replace(/<action>[\\s\\S]*?<\\/action>/gi, '')
     .replace(/<message>[\\s\\S]*?<\\/message>/gi, ''))
