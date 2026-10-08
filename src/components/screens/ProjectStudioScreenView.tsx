@@ -1228,9 +1228,41 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
         {tab === 'settings' && (
           <section className="p-3.5 space-y-2.5">
-            <div className="p-3.5 rounded-2xl bg-[#ebe6de] text-[9px]"><b>Studio Settings</b><div className="mt-1 text-[#777069]">AI Key 与 GitHub Token 仅保存在当前浏览器。</div></div>
+            <div className="p-3.5 rounded-2xl bg-[#ebe6de] text-[9px] flex items-center gap-2">
+              <button onClick={() => setTab('chat')} className="w-8 h-8 rounded-full bg-white/75 border border-black/5 grid place-items-center shrink-0" aria-label="返回 Studio">
+                <ArrowLeft className="w-3.5 h-3.5" />
+              </button>
+              <div>
+                <b>Studio Settings</b>
+                <div className="mt-1 text-[#777069]">这里是 Studio 自己的配置中心。离开设置只回 Studio，不会跳回手机首页。</div>
+              </div>
+            </div>
+
             <div className="p-3 rounded-2xl bg-white/60 space-y-2">
-              <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">AI · MEME PROVIDER</div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">AI · MEME PROVIDER</div>
+                  <div className="text-[8px] text-[#999] mt-1">Studio API 与 LINE API 分开管理。</div>
+                </div>
+                <span className="text-[8px] text-[#8b7560]">{studioApiProfiles.length} 套</span>
+              </div>
+              <div className="flex gap-1.5">
+                <input value={studioApiProfileName} onChange={event => setStudioApiProfileName(event.target.value)} placeholder="API 方案名称" className="flex-1 p-2.5 rounded-xl bg-white text-[9px] outline-none" />
+                <button onClick={saveStudioApiProfile} className="px-3 rounded-xl bg-[#292724] text-white text-[8px]">保存方案</button>
+              </div>
+              {studioApiProfiles.length > 0 && (
+                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                  {studioApiProfiles.map(profile => (
+                    <div key={profile.id} className="flex items-center gap-1.5 rounded-xl bg-white/75 p-2">
+                      <button onClick={() => applyStudioApiProfile(profile)} className="flex-1 min-w-0 text-left">
+                        <div className="text-[9px] font-semibold truncate">{profile.name}</div>
+                        <div className="text-[7px] text-[#999] truncate">{profile.settings.provider} · {profile.settings.model || '未选模型'} · {profile.settings.apiBaseUrl || 'Gemini default'}</div>
+                      </button>
+                      <button onClick={() => deleteStudioApiProfile(profile.id)} className="px-1.5 text-[8px] text-[#b47783]">删除</button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <label className="text-[9px] block">Provider
                 <select value={aiSettings.provider} onChange={event => updateAi('provider', event.target.value as AppSettings['provider'])} className="mt-1 w-full p-2.5 rounded-xl bg-white/80 text-[9px] outline-none">
                   <option value="gemini">Gemini</option>
@@ -1238,58 +1270,83 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
                   <option value="custom">Custom</option>
                 </select>
               </label>
-              <label className="text-[9px] block">API Base URL<input value={aiSettings.apiBaseUrl} onChange={event => updateAi('apiBaseUrl', event.target.value)} placeholder={aiSettings.provider === 'gemini' ? '留空 = Google Gemini 官方 v1beta' : 'https://api.openai.com/v1'} className="mt-1 w-full p-2.5 rounded-xl bg-white/80 text-[9px] outline-none" /></label>
-              <label className="text-[9px] block">API Key<input type="password" value={aiSettings.apiKey} onChange={event => updateAi('apiKey', event.target.value)} placeholder="sk-..." className="mt-1 w-full p-2.5 rounded-xl bg-white/80 text-[9px] outline-none" /></label>
+              <label className="text-[9px] block">API Base URL
+                <input value={aiSettings.apiBaseUrl} onChange={event => updateAi('apiBaseUrl', event.target.value)} placeholder={aiSettings.provider === 'gemini' ? '留空 = Google Gemini 官方 v1beta' : 'https://api.openai.com/v1'} className="mt-1 w-full p-2.5 rounded-xl bg-white/80 text-[9px] outline-none" />
+              </label>
+              <label className="text-[9px] block">API Key
+                <input type="password" value={aiSettings.apiKey} onChange={event => updateAi('apiKey', event.target.value)} placeholder="sk-..." className="mt-1 w-full p-2.5 rounded-xl bg-white/80 text-[9px] outline-none" />
+              </label>
               <div className="flex gap-1.5">
-                <select value={aiSettings.model} onChange={event => updateAi('model', event.target.value)} className="flex-1 mt-1 p-2.5 rounded-xl bg-white/80 text-[9px] outline-none">
+                <select value={aiSettings.model} onChange={event => updateAi('model', event.target.value)} className="flex-1 p-2.5 rounded-xl bg-white/80 text-[9px] outline-none">
                   <option value="">选择模型</option>
                   {availableModels.map(item => <option key={item} value={item}>{item}</option>)}
                 </select>
-                <button onClick={() => void loadModels()} disabled={loadingModels} className="mt-1 px-3 rounded-xl bg-white text-[8px] disabled:opacity-40">{loadingModels ? '拉取中…' : '拉取模型'}</button>
+                <button onClick={() => void loadModels()} disabled={loadingModels} className="px-3 rounded-xl bg-white border border-black/5 text-[8px]">{loadingModels ? '拉取中…' : '拉取模型'}</button>
               </div>
               <button onClick={() => void testAi()} disabled={testingAi || !aiReady} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px] disabled:opacity-40">{testingAi ? '测试中…' : '测试 AI 连接'}</button>
             </div>
+
             <div className="p-3 rounded-2xl bg-white/60 space-y-2">
-            <div className="p-3 rounded-2xl bg-white/60 space-y-2">
-              <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">GITHUB PROJECT</div>
-              <div className="grid grid-cols-2 gap-1.5">
-                <input value={owner} onChange={event => { setOwner(event.target.value); setGithubVerified(false); setGithubError(""); }} placeholder="Owner" className="p-2.5 rounded-xl text-[9px] outline-none" />
-                <input value={repo} onChange={event => { setRepo(event.target.value); setGithubVerified(false); setGithubError(""); }} placeholder="Repository" className="p-2.5 rounded-xl text-[9px] outline-none" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">GITHUB · REPOSITORY</div>
+                  <div className="text-[8px] text-[#999] mt-1">多个仓库可以保存成方案，应用后手动连接。</div>
+                </div>
+                <span className="text-[8px] text-[#8b7560]">{studioGithubProfiles.length} 套</span>
               </div>
-              <input type="password" value={token} onChange={event => { setToken(event.target.value); setGithubVerified(false); setGithubError(""); }} placeholder="GitHub PAT" className="w-full p-2.5 rounded-xl text-[9px] outline-none" />
-              <div className="text-[8px] leading-relaxed text-[#888]">只需要 Owner、Repository、PAT。这里不会调用 GitHub OAuth，也不会请求 /user。</div>
+              <div className="flex gap-1.5">
+                <input value={studioGithubProfileName} onChange={event => setStudioGithubProfileName(event.target.value)} placeholder="仓库方案名称" className="flex-1 p-2.5 rounded-xl bg-white text-[9px] outline-none" />
+                <button onClick={saveStudioGithubProfile} className="px-3 rounded-xl bg-[#292724] text-white text-[8px]">保存方案</button>
+              </div>
+              {studioGithubProfiles.length > 0 && (
+                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                  {studioGithubProfiles.map(profile => (
+                    <div key={profile.id} className="flex items-center gap-1.5 rounded-xl bg-white/75 p-2">
+                      <button onClick={() => applyStudioGithubProfile(profile)} className="flex-1 min-w-0 text-left">
+                        <div className="text-[9px] font-semibold truncate">{profile.name}</div>
+                        <div className="text-[7px] text-[#999] truncate">{profile.owner}/{profile.repo} · {profile.branch || 'main'}</div>
+                      </button>
+                      <button onClick={() => deleteStudioGithubProfile(profile.id)} className="px-1.5 text-[8px] text-[#b47783]">删除</button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-1.5">
+                <input value={owner} onChange={event => { setOwner(event.target.value); setGithubVerified(false); setGithubError(''); window.localStorage.removeItem(STUDIO_GITHUB_ACTIVE_STORE); }} placeholder="Owner" className="p-2.5 rounded-xl text-[9px] outline-none" />
+                <input value={repo} onChange={event => { setRepo(event.target.value); setGithubVerified(false); setGithubError(''); window.localStorage.removeItem(STUDIO_GITHUB_ACTIVE_STORE); }} placeholder="Repository" className="p-2.5 rounded-xl text-[9px] outline-none" />
+              </div>
+              <input type="password" value={token} onChange={event => { setToken(event.target.value); setGithubVerified(false); setGithubError(''); window.localStorage.removeItem(STUDIO_GITHUB_ACTIVE_STORE); }} placeholder="GitHub PAT" className="w-full p-2.5 rounded-xl text-[9px] outline-none" />
+              <div className="grid grid-cols-2 gap-1.5">
+                <select value={branch || 'main'} onChange={event => { setBranch(event.target.value); setGithubVerified(false); setGithubError(''); window.localStorage.removeItem(STUDIO_GITHUB_ACTIVE_STORE); }} disabled={!githubBranches.length} className="w-full p-2.5 rounded-xl text-[9px] outline-none bg-white/80 disabled:opacity-50">
+                  {githubBranches.length ? githubBranches.map(name => <option key={name} value={name}>{name === 'main' ? 'main · 提交目标' : name}</option>) : <option value={branch || 'main'}>{branch || 'main'} · 连接后读取</option>}
+                </select>
                 <button onClick={() => {
                   const ownerText = owner.trim(); const repoText = repo.trim();
                   if (!ownerText || !repoText) return notify('请先填写 Owner 和 Repository');
                   window.open('https://github.com/' + encodeURIComponent(ownerText) + '/' + encodeURIComponent(repoText), '_blank', 'noopener,noreferrer');
                 }} className="py-2.5 rounded-xl bg-white border border-black/5 text-[9px]"><Github className="w-3 h-3 inline mr-1" />网页测试</button>
-                <button onClick={saveSettings} className="py-2.5 rounded-xl bg-[#292724] text-white text-[9px]"><Check className="w-3 h-3 inline mr-1" />保存</button>
               </div>
-              <select value={branch || "main"} onChange={event => { setBranch(event.target.value); setGithubVerified(false); setGithubError(""); }} disabled={!githubBranches.length} className="w-full p-2.5 rounded-xl text-[9px] outline-none bg-white/80 disabled:opacity-50" aria-label="提交目标分支">
-                {githubBranches.length ? githubBranches.map(name => <option key={name} value={name}>{name === "main" ? "main · 推荐提交目标" : name}</option>) : <option value={branch || "main"}>{branch || "main"} · 连接后读取</option>}
-              </select>
               <button onClick={async () => {
-                const ownerText = owner.trim();
-                const repoText = repo.trim();
-                const studioPat = token.trim();
+                const ownerText = owner.trim(); const repoText = repo.trim(); const studioPat = token.trim();
                 if (!ownerText || !repoText || !studioPat) { setGithubVerified(false); setGithubError('请填写 Owner、Repository 和 GitHub PAT'); notify('请填写 Owner、Repository 和 GitHub PAT'); return; }
-                setGithubVerified(false);
-                setGithubError('正在连接 GitHub 仓库…');
+                setGithubVerified(false); setGithubError('正在连接 GitHub 仓库…');
                 try {
-                  const base = "https://api.github.com/repos/" + encodeURIComponent(ownerText) + "/" + encodeURIComponent(repoText);
+                  const base = 'https://api.github.com/repos/' + encodeURIComponent(ownerText) + '/' + encodeURIComponent(repoText);
                   const repository = await github(base, studioPat);
-                  if (repository?.permissions && repository.permissions.push === false) throw new Error("PAT 可以读取仓库，但没有写权限");
-                  const branches = await github(base + "/branches?per_page=100", studioPat);
-                  const names = Array.isArray(branches) ? branches.map((item:any) => String(item?.name || "")).filter(Boolean) : [];
+                  if (repository?.permissions && repository.permissions.push === false) throw new Error('PAT 可以读取仓库，但没有写权限');
+                  const branches = await github(base + '/branches?per_page=100', studioPat);
+                  const names = Array.isArray(branches) ? branches.map((item: any) => String(item?.name || '')).filter(Boolean) : [];
                   setGithubBranches(names);
-                  const chosenBranch = names.includes("main") ? "main" : String(repository?.default_branch || names[0] || "main");
-                  await github(base + "/contents/?ref=" + encodeURIComponent(chosenBranch), studioPat);
+                  const chosenBranch = names.includes(branch.trim()) ? branch.trim() : names.includes('main') ? 'main' : String(repository?.default_branch || names[0] || 'main');
+                  const rootData = await github(base + '/contents/?ref=' + encodeURIComponent(chosenBranch), studioPat);
+                  const rootItems = Array.isArray(rootData) ? rootData : [rootData];
+                  setItems(rootItems.map((item: any) => ({ name: item.name, path: item.path, type: item.type === 'dir' ? 'dir' : 'file', sha: item.sha })));
+                  setPath('');
                   setOwner(ownerText); setRepo(repoText); setBranch(chosenBranch); setToken(studioPat);
                   writeStore(STORE.owner, ownerText); writeStore(STORE.repo, repoText); writeStore(STORE.branch, chosenBranch); writeStore(STORE.token, studioPat);
                   setGithubVerified(true);
+                  window.localStorage.setItem(STUDIO_GITHUB_ACTIVE_STORE, ownerText + '/' + repoText + '@' + chosenBranch);
                   setGithubError('');
-                  await list("");
                   notify('GitHub 已连接：' + ownerText + '/' + repoText + ' · ' + chosenBranch);
                 } catch (error) {
                   setGithubVerified(false);
@@ -1299,8 +1356,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
                 }
               }} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px]"><Github className="w-3 h-3 inline mr-1" />连接 GitHub</button>
               {githubError && <div className="text-[8px] leading-relaxed text-[#8f6f68]">原因：{githubError}</div>}
-              {ready && <div className="text-[8px] leading-relaxed text-[#66705f]">GITHUB READY · {owner}/{repo} · 提交到 {branch || "main"}</div>}
+              {ready && <div className="text-[8px] leading-relaxed text-[#66705f]">GITHUB READY · 提交到 {owner}/{repo} · {branch || 'main'}</div>}
             </div>
+
+            <div className="p-3 rounded-2xl bg-white/60 space-y-2">
               <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">MEME · CODING MODE</div>
               <select value={memeMode} onChange={event => { const value = event.target.value as MemeCodingMode; setMemeMode(value); writeStore(MEME_MODE_STORE, value); }} className="w-full p-2.5 rounded-xl bg-white/80 text-[9px] outline-none">
                 <option value="always-ask">Always ask · 每次修改都确认</option>
@@ -1309,33 +1368,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
               </select>
               <div className="text-[8px] leading-relaxed text-[#777069]">推荐 Always ask。Meme 会先检查项目、生成 Changes，再由你决定是否落库。</div>
             </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              <button onClick={saveSettings} className="py-2.5 rounded-xl bg-[#292724] text-white text-[9px]"><Check className="w-3 h-3 inline mr-1" />保存</button>
-              <button onClick={async () => {
-  try {
-    if (!sharedOwner || !sharedRepo || !sharedBranch || !sharedToken) throw new Error('GitHub 仓库连接信息不完整');    const repository = await github('https://api.github.com/repos/' + encodeURIComponent(sharedOwner) + '/' + encodeURIComponent(sharedRepo), sharedToken);
-    if (repository?.permissions && repository.permissions.push === false) {
-      throw new Error('PAT 有效，但没有对当前 Studio 仓库的写权限');
-    }
-    const targetBranch = sharedBranch || repository.default_branch || 'main';
-    await github('https://api.github.com/repos/' + encodeURIComponent(sharedOwner) + '/' + encodeURIComponent(sharedRepo) + '/contents/?ref=' + encodeURIComponent(targetBranch), sharedToken);
-    setGithubVerified(true);
-                  window.localStorage.setItem(STUDIO_GITHUB_ACTIVE_STORE, ownerText + '/' + repoText + '@' + chosenBranch);
-    setOwner(sharedOwner); setRepo(sharedRepo); setBranch(targetBranch); setToken(sharedToken);
-    writeStore(STORE.owner, sharedOwner); writeStore(STORE.repo, sharedRepo); writeStore(STORE.branch, targetBranch); writeStore(STORE.token, sharedToken);
-    await list('');
-    notify('GitHub 已验证：' + (who?.login || 'token') + ' → ' + sharedOwner + '/' + sharedRepo + ' · ' + targetBranch);
-  } catch (error) {
-    setGithubVerified(false);
-    const detail = error instanceof Error ? error.message : 'GitHub 仓库连接失败';
-    setGithubError(detail);
-    notify(detail);
-  }
-}} className="py-2.5 rounded-xl bg-white text-[9px]"><Github className="w-3 h-3 inline mr-1" />测试 GitHub</button>
-            </div>
+
+            <button onClick={saveSettings} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px]"><Check className="w-3 h-3 inline mr-1" />保存当前 Studio 设置</button>
           </section>
         )}
-      </main>
 
       {historyOpen && (
         <div className="absolute inset-0 z-[70]"><button onClick={() => setHistoryOpen(false)} className="absolute inset-0 bg-black/15" aria-label="Close history" />
