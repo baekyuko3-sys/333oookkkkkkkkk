@@ -1223,7 +1223,7 @@ export async function listOpenAiCompatibleModels(
 export async function generateStatusBarContent(
   settings: AiSettings,
   characterName: string,
-  preset: { name: string; inputFormat?: string; promptSuffix?: string; regex: string; html: string },
+  preset: { name: string; promptSuffix?: string; regex: string; html: string },
   conversation: Array<{ sender: string; text?: string; transcript?: string }>,
   currentStatus?: string,
   userName?: string,
