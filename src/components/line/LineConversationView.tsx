@@ -170,6 +170,11 @@ export function LineConversationView({
     ? storedMessages.filter((message): message is Record<string, any> => !!message && typeof message === 'object')
     : [];
 
+  // Async AI work (especially status-bar generation) must always see the newest
+  // conversation state, not the render that started the request.
+  const messagesRef = useRef<Record<string, any>[]>([]);
+  messagesRef.current = messages;
+
   // LINE keeps the complete conversation in storage, but only renders the newest
   // page at first. Older messages load naturally as you scroll upward.
   const LINE_PAGE_SIZE = 100; // 100 messages stay freely scrollable; older messages are folded by page.
@@ -948,8 +953,16 @@ export function LineConversationView({
         conversationAiSettings(),
         contactName,
         chosen,
-        messages.map(message => ({ sender: String(message.sender || 'unknown'), text: message.text, transcript: message.transcript })).concat({ sender: 'other', text: replyText, transcript: '' }),
-        currentStatusSnapshot?.sourceText || '',
+        messagesRef.current
+          .filter(message => String(message.id) !== String(sourceMessageId) && !String(message.id).startsWith(String(sourceMessageId) + '-'))
+          .map(message => ({ sender: String(message.sender || 'unknown'), text: message.text, transcript: message.transcript }))
+          .concat({ sender: 'other', text: replyText, transcript: '' }),
+        getStatusBarHistory(conversationStorageId)
+          .slice(-3)
+          .map(item => item.sourceText)
+          .filter(Boolean)
+          .join('\n'),
+        activePersona?.name || '用户',
       );
       const html = renderStatusBarHtml(chosen, rawStatus);
       // Regex must match the complete generated status text. Otherwise nothing is rendered.
@@ -982,7 +995,10 @@ export function LineConversationView({
         conversationAiSettings(),
         contactName,
         template,
-        messages.map(message => ({ sender: String(message.sender || 'unknown'), text: message.text, transcript: message.transcript })).concat({ sender: 'other', text: replyText, transcript: '' }),
+        messagesRef.current
+          .filter(message => String(message.id) !== String(sourceMessageId) && !String(message.id).startsWith(String(sourceMessageId) + '-'))
+          .map(message => ({ sender: String(message.sender || 'unknown'), text: message.text, transcript: message.transcript }))
+          .concat({ sender: 'other', text: replyText, transcript: '' }),
       );
       const html = sanitizeHtmlFragment(raw);
       if (!html) return;
