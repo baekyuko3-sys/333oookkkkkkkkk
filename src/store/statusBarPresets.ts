@@ -50,7 +50,23 @@ export function getStatusBarPresets(): StatusBarPreset[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return DEFAULT_STATUS_BAR_PRESETS;
     const defaultsById = new Map(DEFAULT_STATUS_BAR_PRESETS.map(item => [item.id, item]));
-    return parsed.map(item => { const base = defaultsById.get(item?.id); if (!base) return item; return { ...base, ...item, promptSuffix: item?.promptSuffix ?? base.promptSuffix, regex: item?.regex ?? base.regex, html: item?.html ?? base.html, targets: Array.isArray(item?.targets) ? item.targets : base.targets }; });
+    return parsed.map(item => {
+      const base = defaultsById.get(item?.id);
+      const normalizedTargets = Array.isArray(item?.targets) ? item.targets : (base?.targets || ['line']);
+      return {
+        ...(base || {}),
+        ...(item || {}),
+        id: String(item?.id || base?.id || ''),
+        name: String(item?.name || base?.name || '未命名状态栏'),
+        description: String(item?.description ?? base?.description ?? ''),
+        html: String(item?.html ?? item?.replacePattern ?? base?.html ?? ''),
+        promptSuffix: String(item?.promptSuffix ?? base?.promptSuffix ?? ''),
+        regex: String(item?.regex ?? item?.regexPattern ?? base?.regex ?? ''),
+        targets: normalizedTargets,
+        createdAt: String(item?.createdAt || base?.createdAt || new Date().toISOString()),
+        updatedAt: String(item?.updatedAt || base?.updatedAt || new Date().toISOString()),
+      };
+    });
   } catch {
     return DEFAULT_STATUS_BAR_PRESETS;
   }
