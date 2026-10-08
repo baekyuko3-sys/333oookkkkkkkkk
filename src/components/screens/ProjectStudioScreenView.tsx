@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, Check, ChevronRight, Clock3, FileCode2, Folder, Github, KeyRound, Loader2, MessageCircle, Plus, Save, Send, Settings2, Copy, RotateCcw, ShieldAlert, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import type { ScreenType } from '../../types';
 import { generateCreativeText, listOpenAiCompatibleModels } from '../../ai/aiEngine';
-import { readAppSettings, saveAppSettings, type AppSettings } from '../../store/appSettings';
+import { DEFAULT_APP_SETTINGS, type AppSettings } from '../../store/appSettings';
 import { runMemeAgent, type MemeCodingMode } from '../../studio/memeAgent';
 import { studioStorage } from '../../studio/studioStorage';
 import { applyAtomicChanges, compare, createBranch, createPullRequest, getWorkflowRunsForCommit, getWorkflowJobs, getJobLog, rollbackBranch } from '../../studio/studioGit';
@@ -58,11 +58,11 @@ type StudioGithubProfile = {
 };
 
 function readStudioAiSettings(): AppSettings {
-  if (typeof window === 'undefined') return readAppSettings();
+  if (typeof window === 'undefined') return DEFAULT_APP_SETTINGS;
   try {
     const raw = window.localStorage.getItem(STUDIO_AI_SETTINGS_STORE);
-    return raw ? { ...readAppSettings(), ...JSON.parse(raw) } : readAppSettings();
-  } catch { return readAppSettings(); }
+    return raw ? { ...DEFAULT_APP_SETTINGS, ...JSON.parse(raw) } : DEFAULT_APP_SETTINGS;
+  } catch { return DEFAULT_APP_SETTINGS; }
 }
 
 function saveStudioAiSettings(patch: Partial<AppSettings>): AppSettings {
