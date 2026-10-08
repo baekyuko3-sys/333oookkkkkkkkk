@@ -144,9 +144,18 @@ function parseRegex(source: string): RegExp | null {
 export function extractStatusMatch(text: string, regexSource: string): { match: string; captures: string[]; groups: Record<string,string> } | null {
   const regex = parseRegex(regexSource);
   if (!regex) return null;
-  regex.lastIndex = 0;
   const input = String(text || '').trim();
-  const match = regex.exec(input);
+  // Models sometimes wrap a status response in a fenced code block or swap
+  // half-width and full-width vertical separators. Keep the strict match first,
+  // then retry these harmless formatting variants.
+  const stripped = input.replace(/^```[a-zA-Z0-9_-]*\s*/,'').replace(/\s*```$/,'').trim();
+  const candidates = [input, stripped, stripped.replace(/\|/g, '｜'), stripped.replace(/｜/g, '|')];
+  let match: RegExpExecArray | null = null;
+  for (const candidate of candidates) {
+    regex.lastIndex = 0;
+    match = regex.exec(candidate);
+    if (match) break;
+  }
   if (!match) return null;
   return {
     match: match[0] || '',
