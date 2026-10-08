@@ -61,7 +61,7 @@ export async function applyAtomicChanges(
   message: string,
 ): Promise<GitCommitResult> {
   if (!changes.length) throw new Error('没有可提交的 Changes');
-  const normalizedPaths = changes.map(change => String(change.path || '').replace(/^\\/+|\\/+$/g, ''));
+  const normalizedPaths = changes.map(change => String(change.path || '').replace(/^\/+|\/+$/g, ''));
   if (normalizedPaths.some(path => !path)) throw new Error('存在空的 Change 路径');
   const duplicatePaths = normalizedPaths.filter((path, index) => normalizedPaths.indexOf(path) !== index);
   if (duplicatePaths.length) {
@@ -73,7 +73,7 @@ export async function applyAtomicChanges(
 
   const tree = [];
   for (const change of changes) {
-    const safePath = String(change.path).replace(/^\\/+|\\/+$/g, '');
+    const safePath = String(change.path).replace(/^\/+|\/+$/g, '');
     tree.push({
       path: safePath,
       mode: '100644',
