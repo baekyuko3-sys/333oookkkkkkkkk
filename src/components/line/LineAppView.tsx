@@ -560,9 +560,10 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   // Filtered & Sorted Chats (Pinned items always float to the top)
   const chatQuery = chatSearch.trim().toLowerCase();
   const activePersonaForFilter = userPersonas.find((p: any) => p.id === effectivePersonaId) || null;
-  const boundCharacterIds = activePersonaForFilter?.boundCharacterIds || [];
+  // Private chats belong to BOTH the character and the currently selected user persona.
+  // A character can therefore have separate LINE histories for A, B, C, etc.
   const personaChats = effectivePersonaId
-    ? chatItems.filter((c) => c.personaId === effectivePersonaId || (c.characterId && boundCharacterIds.includes(c.characterId)))
+    ? chatItems.filter((c) => c.isGroup || c.personaId === effectivePersonaId)
     : chatItems;
   const filteredChats = personaChats.filter((c) =>
     !chatQuery ||
@@ -580,7 +581,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
   // If a chat is open, render the detail view
   if (activeChatId) {
     const activeItem = chatItems.find((c) => c.id === activeChatId);
-    if (!activeItem) {
+    if (!activeItem || (!activeItem.isGroup && effectivePersonaId && activeItem.personaId !== effectivePersonaId)) {
       // A stale chat id can survive a localStorage migration/deletion.
       // Never render a broken conversation screen for it.
       queueMicrotask(() => setActiveChatId(null));
@@ -602,7 +603,11 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
     if (activeItem.characterId) markCharacterRead(activeItem.characterId);
     const activeChatName = activeItem?.name || activeChatId;
     const activeCharacterId = activeItem?.characterId || undefined;
-    const conversationId = activeItem?.id || activeCharacterId || activeItem?.name || activeChatId;
+    const conversationId = activeItem?.isGroup
+      ? activeItem.id
+      : activeCharacterId
+        ? 'character:' + activeCharacterId + ':persona:' + (effectivePersonaId || 'default')
+        : activeItem.id;
     return (
       <div className="w-full h-full pt-[30px] bg-white">
         <LineConversationErrorBoundary key={activeChatId} onBack={() => setActiveChatId(null)}>
@@ -610,6 +615,7 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
           contactName={activeChatName}
           characterId={activeCharacterId}
           conversationId={conversationId}
+          personaId={effectivePersonaId || undefined}
           onBack={(draft?: string) => {
             if (typeof draft === 'string') {
               setChatItems((prev) =>
@@ -2562,7 +2568,9 @@ export function LineAppView({ onNavigateHome, onNavigateScreen }: LineAppViewPro
                   const greeting = greetings[openingGreetingIndex] || '';
                   const item = { ...addCharacterChatFriend, relationshipContext: context, openingMode, openingGreeting: openingMode === 'context' ? greeting : '' };
                   setFriendsList(prev => prev.some(friend => friend.characterId === character.id) ? prev : [{ ...addCharacterChatFriend, characterId: character.id, note: '角色卡联系人', online: true }, ...prev]);
-                  setChatItems(prev => prev.some(chat => chat.characterId === character.id) ? prev : [{ id: `c_${Date.now()}`, name: character.name, characterId: character.id, time: '刚刚', preview: '打个招呼吧', unread: 0, isPinned: false, isMuted: false, draft: '', isGroup: false, relationshipContext: context, openingMode, openingGreeting: openingMode === 'context' ? greeting : '', relationship }, ...prev]);
+                  setChatItems(prev => prev.some(chat => chat.characterId === character.id && chat.personaId === effectivePersonaId)
+  ? prev
+  : [{ id: `c_${Date.now()}`, name: character.name, characterId: character.id, personaId: effectivePersonaId || undefined, time: '刚刚', preview: '打个招呼吧', unread: 0, isPinned: false, isMuted: false, draft: '', isGroup: false, relationshipContext: context, openingMode, openingGreeting: openingMode === 'context' ? greeting : '', relationship }, ...prev]);
                   setAddCharacterChatFriend(null); setFriendSearchQuery(''); showToast(`已添加「${character.name}」并建立聊天`);
                 }} className="w-full py-3 rounded-2xl bg-[#292724] text-white text-xs font-semibold">添加为好友并进入聊天</button>
               )}
