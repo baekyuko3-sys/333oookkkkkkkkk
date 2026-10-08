@@ -83,10 +83,20 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [loadingModels, setLoadingModels] = useState(false);
   const [testingAi, setTestingAi] = useState(false);
   const [githubVerified, setGithubVerified] = useState(false);
-  const [owner, setOwner] = useState(() => readStore(STORE.owner, getGitHubSyncConfig().owner || 'baekyuko3-sys'));
-  const [repo, setRepo] = useState(() => readStore(STORE.repo, getGitHubSyncConfig().repo || '333oookkkkkkkkk'));
-  const [branch, setBranch] = useState(() => readStore(STORE.branch, getGitHubSyncConfig().branch || 'main'));
+  const [owner, setOwner] = useState(() => readStore(STORE.owner, 'baekyuko3-sys'));
+  const [repo, setRepo] = useState(() => readStore(STORE.repo, '333oookkkkkkkkk'));
+  const [branch, setBranch] = useState(() => readStore(STORE.branch, 'main'));
   const [token, setToken] = useState(() => readStore(STORE.token, getGitHubToken()));
+
+  // This Studio belongs to the 333oookkkkkkkkk repository. Do not let an
+  // older phone-wide GitHub connection silently redirect Studio to another repo.
+  useEffect(() => {
+    const expectedOwner = 'baekyuko3-sys';
+    const expectedRepo = '333oookkkkkkkkk';
+    if (owner !== expectedOwner) { setOwner(expectedOwner); writeStore(STORE.owner, expectedOwner); }
+    if (repo !== expectedRepo) { setRepo(expectedRepo); writeStore(STORE.repo, expectedRepo); }
+    if (!branch.trim()) { setBranch('main'); writeStore(STORE.branch, 'main'); }
+  }, []);
 
   const [items, setItems] = useState<Item[]>([]);
   const [path, setPath] = useState('');
@@ -178,11 +188,12 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     studioStorage.saveSessions(next);
   };
 
-  const linkedGithub = getGitHubSyncConfig();
-  const sharedOwner = linkedGithub.owner.trim() || owner.trim();
-  const sharedRepo = linkedGithub.repo.trim() || repo.trim();
-  const sharedBranch = linkedGithub.branch.trim() || branch.trim() || 'main';
-  const sharedToken = getGitHubToken().trim() || token.trim();
+  // Studio uses its own repository fields first. The global phone GitHub
+  // connection may point at a completely different repository.
+  const sharedOwner = owner.trim() || 'baekyuko3-sys';
+  const sharedRepo = repo.trim() || '333oookkkkkkkkk';
+  const sharedBranch = branch.trim() || 'main';
+  const sharedToken = token.trim() || getGitHubToken().trim();
   const hasGithubCredentials = Boolean(sharedOwner && sharedRepo && sharedBranch && sharedToken);
   const ready = githubVerified && hasGithubCredentials;
 
@@ -192,7 +203,8 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       return;
     }
     let cancelled = false;
-    void github('https://api.github.com/repos/' + sharedOwner + '/' + sharedRepo, sharedToken)
+    setGithubVerified(false);
+    void github('https://api.github.com/repos/' + encodeURIComponent(sharedOwner) + '/' + encodeURIComponent(sharedRepo), sharedToken)
       .then(() => { if (!cancelled) setGithubVerified(true); })
       .catch(() => { if (!cancelled) setGithubVerified(false); });
     return () => { cancelled = true; };
