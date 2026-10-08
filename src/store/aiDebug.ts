@@ -29,13 +29,21 @@ export interface AiDebugTrace {
   error?: { message: string; stack?: string };
 }
 const TRACE_KEY='phone:ai-debug-trace';
-export function readAiDebugTrace(): AiDebugTrace | null {
+const traceKey = (conversationId?: string) => conversationId ? `${TRACE_KEY}:${conversationId}` : TRACE_KEY;
+export function readAiDebugTrace(conversationId?: string): AiDebugTrace | null {
   if(typeof window==='undefined') return null;
-  try { const v=JSON.parse(localStorage.getItem(TRACE_KEY)||'null'); return v&&typeof v==='object'?v:null; } catch { return null; }
+  try {
+    const key = traceKey(conversationId);
+    const v=JSON.parse(localStorage.getItem(key)||'null');
+    if(v&&typeof v==='object') return v;
+    return conversationId ? null : null;
+  } catch { return null; }
 }
 export function writeAiDebugTrace(trace: Omit<AiDebugTrace,'id'|'time'> & Partial<Pick<AiDebugTrace,'id'|'time'>>) {
   if(typeof window==='undefined') return;
-  localStorage.setItem(TRACE_KEY,JSON.stringify({...trace,id:trace.id||'trace-'+Date.now(),time:trace.time||new Date().toISOString()}));
-  window.dispatchEvent(new CustomEvent('sane333:ai-debug-trace-changed'));
+  const conversationId = String(trace.context?.conversationId || '');
+  const value = {...trace,id:trace.id||'trace-'+Date.now(),time:trace.time||new Date().toISOString()};
+  localStorage.setItem(traceKey(conversationId || undefined),JSON.stringify(value));
+  window.dispatchEvent(new CustomEvent('sane333:ai-debug-trace-changed',{detail:{conversationId}}));
 }
-export function clearAiDebugLog(){ if(typeof window!=='undefined'){localStorage.removeItem(KEY);localStorage.removeItem(TRACE_KEY);window.dispatchEvent(new CustomEvent('sane333:ai-debug-changed'));window.dispatchEvent(new CustomEvent('sane333:ai-debug-trace-changed'));} }
+export function clearAiDebugLog(){ if(typeof window!=='undefined'){localStorage.removeItem(KEY);localStorage.removeItem(TRACE_KEY); Object.keys(localStorage).filter(k=>k.startsWith(TRACE_KEY+':')).forEach(k=>localStorage.removeItem(k));window.dispatchEvent(new CustomEvent('sane333:ai-debug-changed'));window.dispatchEvent(new CustomEvent('sane333:ai-debug-trace-changed'));} }
