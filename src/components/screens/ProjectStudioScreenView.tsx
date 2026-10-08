@@ -789,7 +789,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       try {
         const data = await github(
           base + '/contents/' + filePath.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(failedSha),
-          token
+          effectiveToken
         );
         if (!Array.isArray(data) && data.content) {
           relevantFiles.push({
@@ -963,9 +963,13 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       const effectiveToken = token.trim();
       if (!effectiveToken) throw new Error('请先在 Studio Settings 填写 GitHub PAT');
       const runs = await getWorkflowRunsForCommit(owner.trim(), repo.trim(), sha, effectiveToken);
-      const run = runs.workflow_runs?.[0];
+      const workflowRuns = Array.isArray(runs.workflow_runs) ? runs.workflow_runs : [];
+      const run =
+        workflowRuns.find((item: any) => item.name === 'TypeScript check') ||
+        workflowRuns.find((item: any) => String(item.path || '').endsWith('/typecheck.yml')) ||
+        workflowRuns.find((item: any) => /typescript|typecheck|lint/i.test(String(item.name || '')));
       if (!run) {
-        setCiText('暂时没有找到 CI run');
+        setCiText('暂时没有找到 TypeScript CI run');
         return;
       }
 
@@ -991,13 +995,17 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const waitForCIAndRepair = async (sha: string) => {
-    setCiText('CI 正在运行…');
+    setCiText('TypeScript CI 正在运行…');
     for (let attempt = 0; attempt < 20; attempt++) {
       try {
         const effectiveToken = token.trim();
         if (!effectiveToken) throw new Error('请先在 Studio Settings 填写 GitHub PAT');
         const runs = await getWorkflowRunsForCommit(owner.trim(), repo.trim(), sha, effectiveToken);
-        const run = runs.workflow_runs?.[0];
+        const workflowRuns = Array.isArray(runs.workflow_runs) ? runs.workflow_runs : [];
+        const run =
+          workflowRuns.find((item: any) => item.name === 'TypeScript check') ||
+          workflowRuns.find((item: any) => String(item.path || '').endsWith('/typecheck.yml')) ||
+          workflowRuns.find((item: any) => /typescript|typecheck|lint/i.test(String(item.name || '')));
         if (run && run.status === 'completed') {
           if (run.conclusion === 'success') {
             setCiText('CI · success · ' + sha.slice(0, 8));
