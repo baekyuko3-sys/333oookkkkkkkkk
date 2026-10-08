@@ -454,7 +454,8 @@ export function LineConversationView({
   const swipeStartXRef = useRef<number | null>(null);
 
   // 思维链只显示安全的高层摘要，不显示隐藏推理
-  const [enableChainOfThought, setEnableChainOfThought] = usePersistentState<boolean>(`line:show-thinking-summary:${conversationStorageId}`, true);
+  const [enableChainOfThought, setEnableChainOfThought] = usePersistentState<boolean>(`line:generate-thinking-summary:${conversationStorageId}`, true);
+  const [showChainOfThoughtInChat, setShowChainOfThoughtInChat] = usePersistentState<boolean>(`line:show-thinking-in-chat:${conversationStorageId}`, false);
   const [lineActionDescriptionsEnabled, setLineActionDescriptionsEnabled] = usePersistentState<boolean>(`line:show-action-descriptions:${conversationStorageId}`, false);
   const [preventUserFabrication, setPreventUserFabrication] = usePersistentState<boolean>(`line:prevent-user-fabrication:${conversationStorageId}`, true);
   const [naturalAddressing, setNaturalAddressing] = usePersistentState<boolean>(`line:behavior-natural-addressing:${conversationStorageId}`, true);
@@ -1409,7 +1410,7 @@ export function LineConversationView({
           authorsNote,
           relationshipContext.trim() ? '【你们过去的关系背景】\n' + relationshipContext.trim() : '',
           selectedOpeningContext.trim() ? '【角色卡开场白 / 前情提要】\n' + selectedOpeningContext.trim() : '',
-          enableChainOfThought ? '【COT 输出：开启】本轮必须输出 <cot>...</cot> 高层角色决策记录，正文放入 <message>...</message>。禁止输出隐藏思维链。' : '【COT 输出：关闭】不要输出 <cot>、<thinking>、<think>、<summary> 标签。',
+          enableChainOfThought ? `【COT 输出：开启】本轮必须先输出一个简短的高层角色决策记录，严格使用当前 COT 预设要求的标签 ${activeCotPreset?.tag || '<cot>...</cot>'}，然后立即输出 <message>...</message>。禁止输出原始隐藏思维链。` : '【COT 输出：关闭】不要输出 <cot>、<thinking>、<think>、<thought>、<summary> 标签。',
           lineActionDescriptionsEnabled ? '【线上动作描写：开启】本轮如果有动作/反应必须输出 <action>...</action>，动作与正文分离。' : '【线上动作描写：关闭】不要输出 <action> 标签。',
         ].filter(Boolean).join('\\n'),
         typingHabit: [
@@ -2912,7 +2913,7 @@ export function LineConversationView({
           }
 
           const isMe = msg.sender === 'me';
-          const hasThinking = Boolean(msg.thinkingSummary || msg.metadata?.thinkingSummary) && enableChainOfThought;
+          const hasThinking = Boolean(msg.thinkingSummary || msg.metadata?.thinkingSummary) && showChainOfThoughtInChat;
           const cotLabel = resolvedCotPreset.displayTitle || resolvedCotPreset.title || 'COT';
           const cotStyle = resolvedCotPreset.displayStyle || 'minimal';
           const cotStyleClass = cotStyle === 'soft'
@@ -5004,6 +5005,29 @@ export function LineConversationView({
                     <span
                       className="absolute top-[2px] left-[2px] block w-5 h-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.16)] transition-transform duration-200"
                       style={{ transform: enableChainOfThought ? 'translateX(20px)' : 'translateX(0)' }}
+                    />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between py-3 border-t border-[#eee8e6]">
+                  <div className="min-w-0 pr-4">
+                    <div className="text-[12px] font-semibold text-[#353438]">在聊天里显示 COT</div>
+                    <div className="mt-1 text-[9.5px] leading-[1.45] text-[#a2a0a4]">
+                      开启后，角色回复上方会出现可折叠的 COT；关闭只是不显示，不影响 COT 生成。
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={showChainOfThoughtInChat}
+                    aria-label={showChainOfThoughtInChat ? '关闭聊天内 COT 显示' : '开启聊天内 COT 显示'}
+                    onClick={() => setShowChainOfThoughtInChat(!showChainOfThoughtInChat)}
+                    className="relative w-11 h-6 shrink-0 rounded-full p-0.5 border border-black/[0.04] shadow-inner transition-colors duration-200 focus:outline-none"
+                    style={{ backgroundColor: showChainOfThoughtInChat ? '#d5aab6' : '#dedee1' }}
+                  >
+                    <span
+                      className="absolute top-[2px] left-[2px] block w-5 h-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.16)] transition-transform duration-200"
+                      style={{ transform: showChainOfThoughtInChat ? 'translateX(20px)' : 'translateX(0)' }}
                     />
                   </button>
                 </div>
