@@ -230,6 +230,11 @@ export function SettingsScreenView({ onNavigate }: { onNavigate: (screen: Screen
         maxOutputTokens: 64,
         autoSave: true,
         temperature: 0.2,
+        topP: 1,
+        topK: 40,
+        frequencyPenalty: 0,
+        presencePenalty: 0,
+        seed: null,
       });
       setMediaModels(prev => ({ ...prev, [kind]: models }));
       notify(models.length ? '模型列表已更新' : '接口没有返回模型列表');
