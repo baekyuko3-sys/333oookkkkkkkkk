@@ -154,8 +154,6 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     studioStorage.saveSessions(next);
   };
 
-  const connectedGithub = getGitHubSyncConfig();
-  const linkedGithub = Boolean(connectedGithub.owner.trim() && connectedGithub.repo.trim() && connectedGithub.branch.trim() && getGitHubToken().trim());
   const ready = Boolean(owner.trim() && repo.trim() && branch.trim() && token.trim());
   const aiReady = Boolean(aiSettings.apiBaseUrl.trim() && aiSettings.apiKey.trim() && aiSettings.model.trim());
   const dirty = Boolean(file && code !== original);
@@ -904,7 +902,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       <main className="h-[calc(100%-100px)] overflow-y-auto no-scrollbar pb-20">
         {tab === 'chat' && (
           <section className="h-full px-4 pb-28 flex flex-col">
-            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
+            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar flex flex-col"><div className="mt-auto w-full">
               {!conversation.length ? (
                 <div className="h-full flex flex-col items-center justify-center text-center pb-6">
                   <div className="w-12 h-12 rounded-[16px] bg-[#292724] text-white grid place-items-center shadow-sm mb-4"><Sparkles className="w-5 h-5" /></div>
@@ -927,6 +925,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
                   {aiBusy && <div className="mr-5 p-3.5 rounded-2xl rounded-bl-md bg-[#292724] text-white text-[9px]"><Loader2 className="w-3 h-3 inline mr-1 animate-spin" /> Meme 正在理解项目…</div>}
                 </div>
               )}
+            </div>
             </div>
             {!ready && <div className="mx-1 mb-2 px-3 py-2 rounded-xl bg-[#fff4f1] text-[8px] text-[#8f6f68]">还没连接 GitHub。可以先聊天；需要实际读取/修改仓库时再去连接。</div>}
           </section>
