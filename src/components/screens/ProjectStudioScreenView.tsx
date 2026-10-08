@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Check, ChevronRight, FileCode2, Folder, Github, KeyRound, Loader2, MessageCircle, Plus, Save, Send, Settings2, ShieldAlert, Sparkles, Trash2, Upload, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Clock3, FileCode2, Folder, Github, KeyRound, Loader2, MessageCircle, Plus, Save, Send, Settings2, ShieldAlert, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import type { ScreenType } from '../../types';
 import { generateCreativeText, listOpenAiCompatibleModels } from '../../ai/aiEngine';
 import { readAppSettings, saveAppSettings, type AppSettings } from '../../store/appSettings';
@@ -75,6 +75,7 @@ function decodeBase64(value: string) {
 
 export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: ScreenType) => void }) {
   const [tab, setTab] = useState<Tab>('chat');
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [aiSettings, setAiSettings] = useState<AppSettings>(() => readAppSettings());
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
@@ -117,6 +118,19 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [currentTask, setCurrentTask] = useState<StudioTask | null>(null);
   const [taskSteps, setTaskSteps] = useState<string[]>([]);
   const [sessionTitle, setSessionTitle] = useState(() => studioStorage.sessions()[0]?.title || 'New build session');
+
+  const startNewSession = () => {
+    const id = 'session-' + Date.now();
+    setSessionId(id);
+    setSessionTitle('New build session');
+    setConversation([]);
+    setMessage('hey ✦ 告诉我你想改什么，我们一起改这个小手机。');
+    setCurrentTask(null);
+    setAgentEvents([]);
+    setChanges([]);
+    setHistoryOpen(false);
+    setTab('chat');
+  };
 
   const persistSession = (nextConversation: Array<{ role: 'user' | 'assistant'; content: string }>, title: string) => {
     const now = Date.now();
@@ -845,9 +859,14 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
               <span className="text-[7px] px-1.5 py-0.5 rounded-full bg-[#292724] text-white">{ready ? 'GITHUB READY' : 'LOCAL MODE'}</span>
             </div>
           </div>
-          <button onClick={() => setTab('settings')} className="w-8 h-8 rounded-full bg-white/70 grid place-items-center">
-            <Settings2 className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setHistoryOpen(true)} className="w-8 h-8 rounded-full bg-white/70 grid place-items-center" aria-label="Session history">
+              <Clock3 className="w-4 h-4" />
+            </button>
+            <button onClick={() => setTab('settings')} className="w-8 h-8 rounded-full bg-white/70 grid place-items-center" aria-label="Studio settings">
+              <Settings2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
         <div className="mt-2 text-[8px] font-mono text-[#8b8782] flex justify-between">
           <span>{owner} / {repo}</span>
@@ -858,6 +877,13 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       <main className="h-[calc(100%-100px)] overflow-y-auto no-scrollbar pb-20">
         {tab === 'chat' && (
           <section className="p-3.5 space-y-3">
+            <div className="flex items-center justify-between px-1 py-0.5">
+              <button onClick={() => setHistoryOpen(true)} className="min-w-0 text-left">
+                <div className="text-[7px] font-mono tracking-[1.5px] text-[#9a958d]">SESSION</div>
+                <div className="text-[10px] font-medium truncate max-w-[220px]">{sessionTitle}</div>
+              </button>
+              {aiBusy && <div className="flex items-center gap-1.5 text-[7px] text-[#8b8782]"><Loader2 className="w-3 h-3 animate-spin" /> MEME working</div>}
+            </div>
             <div className="p-3.5 rounded-2xl bg-[#ebe6de] border border-black/5">
               <div className="flex gap-2 items-center">
                 <div className="w-9 h-9 rounded-[13px] bg-[#292724] text-white grid place-items-center"><Sparkles className="w-4 h-4" /></div>
@@ -879,36 +905,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
               ))}
               {aiBusy && <div className="mr-7 p-3 rounded-2xl rounded-bl-md bg-[#292724] text-white text-[9px] font-mono"><Loader2 className="w-3 h-3 inline mr-1 animate-spin" />Meme 正在理解项目并工作…</div>}
             </div>
-            {currentTask && <div className="p-3 rounded-2xl bg-[#292724] text-white">
-              <div className="text-[8px] font-mono tracking-[1.5px] text-white/50">CURRENT TASK</div>
-              <div className="mt-1 text-[10px]">{currentTask.title}</div>
-              <div className="mt-2 grid grid-cols-4 gap-1">{currentTask.steps.map(step => <div key={step.id} className="text-center"><div className="h-1 rounded-full bg-white/20 overflow-hidden"><div className={step.status === 'done' ? 'h-full w-full bg-white' : step.status === 'working' ? 'h-full w-1/2 bg-white' : 'h-full w-0'} /></div><div className="mt-1 text-[6px] opacity-60">{step.title}</div></div>)}</div>
-            </div>}
-
-            {agentRunning && <div className="p-3 rounded-2xl bg-[#292724] text-white text-[8px] font-mono">{agentEvents.length ? agentEvents.map((item, index) => <div key={index}>{item}</div>) : 'MEME · inspecting project…'}</div>}
             {!ready && <div className="p-3 rounded-2xl bg-[#fff4f1] text-[9px]">还没连接 GitHub。去 Settings 填 Token，就可以直接维护项目。</div>}
-                      <div className="p-3 rounded-2xl bg-white/60 border border-black/5">
-              <div className="flex items-center justify-between">
-                <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">SESSION HISTORY</div>
-                {sessions.length > 6 && <div className="text-[6px] text-[#aaa]">{sessions.length} sessions</div>}
-              </div>
-              {sessions.slice(0, 10).map(session => <button key={session.id} onClick={() => {
-                const restored = session.messages.map(message => ({
-                  role: message.role === 'meme' ? 'assistant' as const : 'user' as const,
-                  content: message.text,
-                }));
-                setSessionId(session.id);
-                setSessionTitle(session.title);
-                setConversation(restored.slice(-24));
-                setMessage(restored.at(-1)?.content || '');
-                setTab('chat');
-                notify('已恢复：' + session.title);
-              }} className={'w-full text-left mt-1.5 p-2 rounded-xl ' + (session.id === sessionId ? 'bg-[#292724] text-white' : 'bg-white/70')}>
-                <div className="text-[8px] truncate">{session.title}</div>
-                <div className={'text-[6px] ' + (session.id === sessionId ? 'text-white/50' : 'text-[#999]')}>{new Date(session.updatedAt || session.createdAt).toLocaleString()} · {session.messages.length} messages</div>
-              </button>)}
-              {!sessions.length && <div className="mt-2 text-[8px] text-[#888]">还没有历史 Session。</div>}
-            </div>
 </section>
         )}
 
@@ -1048,6 +1045,52 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
           </section>
         )}
       </main>
+
+      {historyOpen && (
+        <div className="absolute inset-0 z-[70]">
+          <button aria-label="Close session history" onClick={() => setHistoryOpen(false)} className="absolute inset-0 bg-black/20" />
+          <aside className="absolute top-0 bottom-0 left-0 w-[82%] max-w-[310px] bg-[#f7f4ee] shadow-2xl border-r border-black/10 flex flex-col">
+            <div className="pt-11 px-4 pb-4 border-b border-black/10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-[8px] font-mono tracking-[2px] text-[#8b8782]">STUDIO SESSIONS</div>
+                  <div className="mt-1 text-[22px] font-serif">History</div>
+                </div>
+                <button onClick={() => setHistoryOpen(false)} className="w-8 h-8 rounded-full bg-white grid place-items-center"><X className="w-4 h-4" /></button>
+              </div>
+              <button onClick={startNewSession} className="mt-4 w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">
+                <Plus className="w-3.5 h-3.5 inline mr-1" /> New session
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-3 space-y-1.5">
+              {sessions.map(session => (
+                <button key={session.id} onClick={() => {
+                  const restored = session.messages.map(message => ({
+                    role: message.role === 'meme' ? 'assistant' as const : 'user' as const,
+                    content: message.text,
+                  }));
+                  setSessionId(session.id);
+                  setSessionTitle(session.title);
+                  setConversation(restored.slice(-24));
+                  setMessage(restored.at(-1)?.content || '');
+                  setCurrentTask(null);
+                  setHistoryOpen(false);
+                  setTab('chat');
+                }} className={'w-full text-left p-3 rounded-2xl border ' + (session.id === sessionId ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/75 border-black/5')}>
+                  <div className="flex items-start gap-2">
+                    <MessageCircle className="w-3.5 h-3.5 mt-0.5 opacity-45" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] truncate">{session.title || 'Untitled session'}</div>
+                      <div className={'mt-1 text-[7px] ' + (session.id === sessionId ? 'text-white/50' : 'text-[#999]')}>{new Date(session.updatedAt || session.createdAt).toLocaleString()} · {session.messages.length} messages</div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+              {!sessions.length && <div className="py-16 text-center text-[9px] text-[#888]">还没有历史会话。<br/>开始第一次创作吧。</div>}
+            </div>
+          </aside>
+        </div>
+      )}
 
       {notice && <div className="absolute z-50 bottom-20 left-4 right-4 p-2.5 rounded-xl bg-[#292724] text-white text-[9px] text-center">{notice}</div>}
 
