@@ -82,6 +82,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [loadingModels, setLoadingModels] = useState(false);
   const [testingAi, setTestingAi] = useState(false);
   const [githubVerified, setGithubVerified] = useState(false);
+  const [githubError, setGithubError] = useState('');
   const [owner, setOwner] = useState(() => readStore(STORE.owner, 'baekyuko3-sys'));
   const [repo, setRepo] = useState(() => readStore(STORE.repo, '333oookkkkkkkkk'));
   const [branch, setBranch] = useState(() => readStore(STORE.branch, 'main'));
@@ -203,11 +204,14 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   useEffect(() => {
     if (!hasGithubCredentials) {
       setGithubVerified(false);
+      setGithubError('请先在 Studio Settings 填写 GitHub PAT');
       return;
     }
     let cancelled = false;
     setGithubVerified(false);
-    void github('https://api.github.com/repos/' + encodeURIComponent(sharedOwner) + '/' + encodeURIComponent(sharedRepo), sharedToken)
+    setGithubError('正在验证 Studio PAT…');
+    void github('https://api.github.com/user', sharedToken)
+      .then(async () => github('https://api.github.com/repos/' + encodeURIComponent(sharedOwner) + '/' + encodeURIComponent(sharedRepo), sharedToken))
       .then(async repository => {
         const targetBranch = repository.default_branch || sharedBranch;
         await github(
@@ -215,9 +219,17 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
           '/contents/?ref=' + encodeURIComponent(targetBranch),
           sharedToken
         );
-        if (!cancelled) setGithubVerified(true);
+        if (!cancelled) {
+          setGithubVerified(true);
+          setGithubError('');
+        }
       })
-      .catch(() => { if (!cancelled) setGithubVerified(false); });
+      .catch((error) => {
+        if (!cancelled) {
+          setGithubVerified(false);
+          setGithubError(error instanceof Error ? error.message : String(error));
+        }
+      });
     return () => { cancelled = true; };
   }, [sharedOwner, sharedRepo, sharedBranch, sharedToken]);
 
@@ -1061,7 +1073,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
                 </div>
               )}
             </div>
-            {!ready && <div className="mx-1 mb-2 px-3 py-2 rounded-xl bg-[#fff4f1] text-[8px] text-[#8f6f68]">GitHub 尚未验证。打开设置后测试 GitHub；验证成功后 Meme 才会进入仓库工作模式。</div>}
+            {!ready && <div className="mx-1 mb-2 px-3 py-2 rounded-xl bg-[#fff4f1] text-[8px] leading-relaxed text-[#8f6f68]"><b>GitHub 尚未验证</b><div className="mt-0.5">Studio：baekyuko3-sys/333oookkkkkkkkk · main</div><div className="mt-0.5">{githubError ? '原因：' + githubError : '请在 Settings 填写 Studio PAT 并测试 GitHub。'}</div></div>}
           </section>
         )}
         {tab === 'git' && (
@@ -1209,7 +1221,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     notify('GitHub 已验证：' + (who?.login || 'token') + ' → ' + sharedOwner + '/' + sharedRepo + ' · ' + targetBranch);
   } catch (error) {
     setGithubVerified(false);
-    notify(error instanceof Error ? error.message : 'GitHub 仓库连接失败');
+    const detail = error instanceof Error ? error.message : 'GitHub 仓库连接失败';
+    setGithubError(detail);
+    notify(detail);
   }
 }} className="py-2.5 rounded-xl bg-white text-[9px]"><Github className="w-3 h-3 inline mr-1" />测试 GitHub</button>
             </div>
