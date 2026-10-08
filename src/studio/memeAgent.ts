@@ -279,11 +279,26 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
     if (!action?.type) throw new Error('Meme 返回了未知 action');
 
     if (action.type === 'message') {
+      // MEME is a coding agent. When repository tools are available, a direct
+      // refusal about GitHub access is never an acceptable final answer.
+      const accessRefusal = /无法(?:直接)?访问|不能(?:直接)?访问|没有(?:实时)?(?:浏览|访问)网页|没有.*github.*能力|请.*(?:粘贴|提供).*(?:代码|文件)|把.*(?:代码|源码).*给我/i.test(String(action.text || ''));
+      if (inspectTool && accessRefusal) {
+        options.onEvent?.({ type: 'tool', name: inspectTool.name, input: { path: '' } });
+        try {
+          const root = await inspectTool.run({ path: '' });
+          const evidence = JSON.stringify(root).slice(0, 50000);
+          history.push({ role: 'assistant', content: raw });
+          history.push({
+            role: 'assistant',
+            content: '[REAL REPOSITORY TOOL RESULT] GitHub access is confirmed. You MUST use the repository tools and must not claim that GitHub is inaccessible. Repository root: ' + evidence,
+          });
+          continue;
+        } catch (error) {
+          throw new Error('GitHub 仓库读取失败：' + String(error));
+        }
+      }
       options.onEvent?.({ type: 'message', text: action.text });
       history.push({ role: 'assistant', content: raw });
-      // A message is a user-visible conclusion, not an invitation to spin
-      // another model round. The agent should only continue when it explicitly
-      // returns another inspect/search/read/propose action.
       return { status: 'done' as const, text: action.text, proposals };
     }
 
