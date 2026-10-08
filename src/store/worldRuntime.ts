@@ -27,6 +27,9 @@ export interface CharacterRuntimeState {
   currentScheduleTitle?: string;
   nextActionAt?: string | null;
   nextActionTitle?: string;
+  lastAction?: string;
+  lastThinkingSummary?: string;
+  lastStatusRaw?: string;
 }
 
 export interface WorldRuntimeState {
