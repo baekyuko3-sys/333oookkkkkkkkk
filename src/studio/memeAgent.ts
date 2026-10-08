@@ -377,8 +377,8 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
           history.push({ role: 'assistant', content: '[STUDIO TOOL RESULT] read ' + action.path + ':\\n' + JSON.stringify(target).slice(0, 50000) });
         }
         if (typeof baseContent !== 'string') throw new Error('Meme patch 没有获得原文件内容：' + action.path);
-        const findText = action.find;
-        const replaceText = action.replace;
+        const findText = String(action.find || '');
+        const replaceText = String(action.replace || '');
         const matches = baseContent.split(findText).length - 1;
         if (matches === 0) throw new Error('Meme patch find 在文件中不存在：' + action.path);
         if (matches > 1) throw new Error('Meme patch find 匹配了 ' + matches + ' 处，请提供更长的上下文以确保唯一匹配：' + action.path);
