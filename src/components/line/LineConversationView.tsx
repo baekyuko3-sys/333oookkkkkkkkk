@@ -1452,13 +1452,13 @@ export function LineConversationView({
           status: 'delivered', aiModel: result.model,
           matchedWorldbookEntries: result.matchedWorldbookEntries,
           thinkingSummary: replyMetadata.thinkingSummary,
-          actionDescription: replyMetadata.actionDescription,
+          actionDescription: index === 0 ? replyMetadata.actionDescription : undefined,
           showThinking: false,
           hasThinking: Boolean(replyMetadata.thinkingSummary),
-          hasAction: Boolean(replyMetadata.actionDescription),
+          hasAction: index === 0 && Boolean(replyMetadata.actionDescription),
           metadata: {
             ...(replyMetadata.thinkingSummary ? { thinkingSummary: replyMetadata.thinkingSummary } : {}),
-            ...(replyMetadata.actionDescription ? { actionDescription: replyMetadata.actionDescription } : {}),
+            ...(index === 0 && replyMetadata.actionDescription ? { actionDescription: replyMetadata.actionDescription } : {}),
           },
         })));
         return withoutStreaming.map((m) => m.id === msgId ? { ...m, isRead: true } : m);
@@ -3081,7 +3081,7 @@ export function LineConversationView({
                   </div>
                 )}
 
-                {msg.actionDescription && !msg.isRecalled && (
+                {lineActionDescriptionsEnabled && msg.actionDescription && !msg.isRecalled && (
                   <div className="w-full flex items-center justify-center my-2.5 px-4 animate-in fade-in">
                     <div className="relative flex items-center justify-center gap-2 max-w-[88%] text-center">
                       <span className="h-px w-6 shrink-0 bg-[#eee8eb]" />
