@@ -19,7 +19,7 @@ import { createTogetherMusicSession, type TogetherMusicSession } from '../../sto
 import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
 import { appendStatusBarSnapshot, deleteStatusBarSnapshot, getStatusBarHistory, getStatusBarPresets, getStatusBarRandomMode, renderStatusBarHtml, sanitizeHtmlFragment, saveStatusBarRandomMode, type StatusBarPreset, type StatusBarSnapshot } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset, type CotPresetTarget } from '../../store/cotPresets';
-import { clearAiDebugLog, readAiDebugLog, readAiDebugTrace, type AiDebugEntry, type AiDebugTrace } from '../../store/aiDebug';
+import { clearAiDebugLog, readAiDebugLog, readAiDebugTrace, writeAiDebugTrace, type AiDebugEntry, type AiDebugTrace } from '../../store/aiDebug';
 import { PresetResourceManager } from './PresetResourceManager';
 import { appendLineMessage, editLineMessage, toggleLineReaction, setLineMessageFavorite, recordLineCall, markLineMessageFailed, clearLineConversation, recallLineMessage, updateLineMessage } from '../../store/lineRuntime';
 import { getLineConversationMessages, markLineConversationRead, saveLineConversationMessages, searchLineMessages, type LineRuntimeMessage } from '../../store/lineRuntime';
@@ -1255,6 +1255,36 @@ export function LineConversationView({
 
     setMessages((prev) => [...prev, newMsg]);
     setInputText('');
+
+    // Debug checkpoint at the actual LINE send entry. This is intentionally written
+    // here, before any group/AI branching, so the current chat can never show an
+    // empty AI backend after a real send.
+    if (shouldReply) {
+      writeAiDebugTrace({
+        context: {
+          conversationId: conversationStorageId,
+          characterId: importedCharacter?.id || characterId,
+          characterName: importedCharacter?.name || characterProfile.nickname || contactName,
+          userPersona: activePersona?.name,
+          userMessage: userText,
+          messageCount: messages.length + 1,
+        },
+        switches: {
+          stage: 'line-send',
+          cotEnabled: Boolean(enableChainOfThought),
+          cotPreset: resolvedCotPreset ? {
+            id: resolvedCotPreset.id,
+            title: resolvedCotPreset.title,
+            tag: resolvedCotPreset.tag,
+          } : null,
+          actionEnabled: Boolean(lineActionDescriptionsEnabled),
+        },
+        final: {
+          status: 'send-entered',
+          text: userText,
+        },
+      });
+    }
 
     // Enter/Return only sends the user's message. The paper-plane button passes shouldReply=true.
     if (!shouldReply) return;
