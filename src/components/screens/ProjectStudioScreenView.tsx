@@ -82,6 +82,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [testingAi, setTestingAi] = useState(false);
+  const [githubVerified, setGithubVerified] = useState(false);
   const [owner, setOwner] = useState(() => readStore(STORE.owner, getGitHubSyncConfig().owner || 'baekyuko3-sys'));
   const [repo, setRepo] = useState(() => readStore(STORE.repo, getGitHubSyncConfig().repo || '333oookkkkkkkkk'));
   const [branch, setBranch] = useState(() => readStore(STORE.branch, getGitHubSyncConfig().branch || 'main'));
@@ -178,11 +179,12 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const linkedGithub = getGitHubSyncConfig();
-  const sharedOwner = owner.trim() || linkedGithub.owner.trim();
-  const sharedRepo = repo.trim() || linkedGithub.repo.trim();
-  const sharedBranch = branch.trim() || linkedGithub.branch.trim();
-  const sharedToken = token.trim() || getGitHubToken().trim();
-  const ready = Boolean(sharedOwner && sharedRepo && sharedBranch && sharedToken);
+  const sharedOwner = linkedGithub.owner.trim() || owner.trim();
+  const sharedRepo = linkedGithub.repo.trim() || repo.trim();
+  const sharedBranch = linkedGithub.branch.trim() || branch.trim() || 'main';
+  const sharedToken = getGitHubToken().trim() || token.trim();
+  const ready = githubVerified && Boolean(sharedOwner && sharedRepo && sharedBranch && sharedToken);
+
   const aiReady = Boolean(aiSettings.apiBaseUrl.trim() && aiSettings.apiKey.trim() && aiSettings.model.trim());
   const dirty = Boolean(file && code !== original);
 
@@ -979,10 +981,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       </header>
       <main className="h-[calc(100%-100px)] overflow-y-auto no-scrollbar pb-20">
         {tab === 'chat' && (
-          <section className="h-full px-4 pb-28 flex flex-col">
-            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar"><div className="w-full pb-4 pt-2">
+          <section className="px-4 pb-28">
+            <div className="w-full pt-2 pb-4">
               {!conversation.length ? (
-                <div className="h-full flex flex-col items-center justify-center text-center pb-6">
+                <div className="flex flex-col items-center justify-start text-center pt-8 pb-5">
                   <div className="w-12 h-12 rounded-[16px] bg-[#292724] text-white grid place-items-center shadow-sm mb-4"><Sparkles className="w-5 h-5" /></div>
                   <div className="text-[21px] font-serif">有什么问题？</div>
                   <p className="mt-3 max-w-[290px] text-[10px] leading-6 text-[#777069]">我是 Meme，你的小手机开发助手。检查代码、找 Bug、设计 UI、读取仓库、准备 Changes，我都会先看清楚再动手。</p>
@@ -1011,7 +1013,6 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
                 </div>
               )}
             </div>
-             </div>
             {!ready && <div className="mx-1 mb-2 px-3 py-2 rounded-xl bg-[#fff4f1] text-[8px] text-[#8f6f68]">还没连接 GitHub。可以先聊天；需要实际读取/修改仓库时再去连接。</div>}
           </section>
         )}
@@ -1149,10 +1150,19 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
               <button onClick={async () => {
   try {
     if (!sharedOwner || !sharedRepo || !sharedBranch || !sharedToken) throw new Error('GitHub 仓库连接信息不完整');
-    await github('https://api.github.com/repos/' + sharedOwner + '/' + sharedRepo, sharedToken);
+    const repository = await github('https://api.github.com/repos/' + sharedOwner + '/' + sharedRepo, sharedToken);
+    if (repository?.default_branch && repository.default_branch !== sharedBranch) {
+      notify('仓库已连接；注意当前分支是 ' + sharedBranch + '，默认分支为 ' + repository.default_branch);
+    }
+    setGithubVerified(true);
+    setOwner(sharedOwner); setRepo(sharedRepo); setBranch(sharedBranch); setToken(sharedToken);
+    writeStore(STORE.owner, sharedOwner); writeStore(STORE.repo, sharedRepo); writeStore(STORE.branch, sharedBranch); writeStore(STORE.token, sharedToken);
     await list('');
-    notify('GitHub 仓库已连接：' + sharedOwner + '/' + sharedRepo + ' · ' + sharedBranch);
-  } catch (error) { notify(error instanceof Error ? error.message : 'GitHub 仓库连接失败'); }
+    notify('GitHub 仓库已真实连接：' + sharedOwner + '/' + sharedRepo + ' · ' + sharedBranch);
+  } catch (error) {
+    setGithubVerified(false);
+    notify(error instanceof Error ? error.message : 'GitHub 仓库连接失败');
+  }
 }} className="py-2.5 rounded-xl bg-white text-[9px]"><Github className="w-3 h-3 inline mr-1" />测试 GitHub</button>
             </div>
           </section>
