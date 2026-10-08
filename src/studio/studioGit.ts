@@ -135,7 +135,15 @@ export async function rollbackBranch(owner: string, repo: string, branch: string
 }
 
 export async function getWorkflowRunsForCommit(owner: string, repo: string, sha: string, token: string) {
-  return request(apiBase(owner, repo) + '/actions/runs?head_sha=' + encodeURIComponent(sha), token);
+  const data = await request(
+    apiBase(owner, repo) + '/actions/runs?head_sha=' + encodeURIComponent(sha) + '&per_page=100',
+    token,
+  );
+  const runs = Array.isArray(data?.workflow_runs) ? data.workflow_runs : [];
+  return {
+    ...data,
+    workflow_runs: runs.filter((run: any) => run?.head_sha === sha),
+  };
 }
 
 export async function getWorkflowJobs(owner: string, repo: string, runId: number, token: string) {
