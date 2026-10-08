@@ -556,7 +556,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       try {
         const fallback = await generateCreativeText({
           settings: { ...aiSettings, streaming: false },
-          systemPrompt: '你是 Studio 内置的 Meme 助手。你正在帮助用户维护一个 GitHub 项目。不要扮演任何角色，不要读取角色卡或世界书。对于普通聊天直接回答；对于代码问题，告诉用户你需要 GitHub 项目连接后才能实际检查和修改。',
+          systemPrompt: '你是 Studio 内置的 Meme 开发 Agent。你不是普通聊天机器人。Studio 已经提供真实 GitHub 仓库工具；代码、仓库、文件、Bug、构建和配置问题必须通过仓库工具检查和处理。不要声称没有 GitHub、互联网或实时仓库访问能力。不要要求用户手动粘贴代码。普通闲聊才直接回答。',
           userPrompt: request,
           temperature: 0.35,
         });
@@ -567,7 +567,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         persistSession(fallbackConversation, request.slice(0, 32));
         log('agent', 'Meme Agent fallback → normal model chat');
       } catch (fallbackError) {
-        const failure = error instanceof Error ? error.message : fallbackError instanceof Error ? fallbackError.message : 'Meme 请求失败';
+        const failure = error instanceof Error ? error.message : fallbackError instanceof Error ? fallbackError.message : 'Meme Agent 请求失败';
       setMessage(failure);
       const failedConversation = [...nextConversation, { role: 'assistant' as const, content: failure }].slice(-24);
       setConversation(failedConversation);
