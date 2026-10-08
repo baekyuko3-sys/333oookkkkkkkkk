@@ -190,10 +190,14 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
   // Studio uses its own repository fields first. The global phone GitHub
   // connection may point at a completely different repository.
-  const sharedOwner = owner.trim() || 'baekyuko3-sys';
-  const sharedRepo = repo.trim() || '333oookkkkkkkkk';
-  const sharedBranch = branch.trim() || 'main';
-  const sharedToken = token.trim() || getGitHubToken().trim();
+  // Studio is hard-bound to this project. Never let stale Studio/global repo
+  // fields redirect the coding workspace to another repository.
+  const sharedOwner = 'baekyuko3-sys';
+  const sharedRepo = '333oookkkkkkkkk';
+  const sharedBranch = 'main';
+  // The app-wide GitHub token is the source of truth. A stale
+  // studio:github-token must never override a newly connected token.
+  const sharedToken = getGitHubToken().trim() || token.trim();
   const hasGithubCredentials = Boolean(sharedOwner && sharedRepo && sharedBranch && sharedToken);
   const ready = githubVerified && hasGithubCredentials;
 
@@ -205,7 +209,15 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     let cancelled = false;
     setGithubVerified(false);
     void github('https://api.github.com/repos/' + encodeURIComponent(sharedOwner) + '/' + encodeURIComponent(sharedRepo), sharedToken)
-      .then(() => { if (!cancelled) setGithubVerified(true); })
+      .then(async repository => {
+        const targetBranch = repository.default_branch || sharedBranch;
+        await github(
+          'https://api.github.com/repos/' + encodeURIComponent(sharedOwner) + '/' + encodeURIComponent(sharedRepo) +
+          '/contents/?ref=' + encodeURIComponent(targetBranch),
+          sharedToken
+        );
+        if (!cancelled) setGithubVerified(true);
+      })
       .catch(() => { if (!cancelled) setGithubVerified(false); });
     return () => { cancelled = true; };
   }, [sharedOwner, sharedRepo, sharedBranch, sharedToken]);
@@ -281,9 +293,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
   const list = async (folder = '') => {
     // Re-sync from the shared phone GitHub connection before every real repo operation.
-    const effectiveOwner = owner.trim() || 'baekyuko3-sys';
-    const effectiveRepo = repo.trim() || '333oookkkkkkkkk';
-    const effectiveBranch = branch.trim() || 'main';
+    const effectiveOwner = 'baekyuko3-sys';
+    const effectiveRepo = '333oookkkkkkkkk';
+    const effectiveBranch = 'main';
     const effectiveToken = getGitHubToken().trim() || token.trim();
     if (effectiveOwner !== owner) setOwner(effectiveOwner);
     if (effectiveRepo !== repo) setRepo(effectiveRepo);
@@ -341,11 +353,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const saveFile = async () => {
-    const linked = getGitHubSyncConfig();
-    const effectiveOwner = owner.trim() || linked.owner.trim();
-    const effectiveRepo = repo.trim() || linked.repo.trim();
-    const effectiveBranch = branch.trim() || linked.branch.trim();
-    const effectiveToken = token.trim() || getGitHubToken().trim();
+    const effectiveOwner = 'baekyuko3-sys';
+    const effectiveRepo = '333oookkkkkkkkk';
+    const effectiveBranch = 'main';
+    const effectiveToken = getGitHubToken().trim() || token.trim();
     if (!file || !effectiveOwner || !effectiveRepo || !effectiveBranch || !effectiveToken) return;
     setSaving(true);
     try {
@@ -374,12 +385,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     const sourceRequest = overrideRequest ?? prompt;
     if (!sourceRequest.trim()) return;
     // Studio must use the same linked GitHub credentials as the rest of the app.
-    const linked = getGitHubSyncConfig();
-    const linkedToken = getGitHubToken();
-    const effectiveOwner = owner.trim() || linked.owner.trim();
-    const effectiveRepo = repo.trim() || linked.repo.trim();
-    const effectiveBranch = branch.trim() || linked.branch.trim();
-    const effectiveToken = token.trim() || linkedToken.trim();
+    const effectiveOwner = 'baekyuko3-sys';
+    const effectiveRepo = '333oookkkkkkkkk';
+    const effectiveBranch = 'main';
+    const effectiveToken = getGitHubToken().trim() || token.trim();
     if (effectiveOwner !== owner) setOwner(effectiveOwner);
     if (effectiveRepo !== repo) setRepo(effectiveRepo);
     if (effectiveBranch !== branch) setBranch(effectiveBranch);
