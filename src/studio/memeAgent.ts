@@ -8,7 +8,7 @@ export type MemeAction =
   | { type: 'inspect'; path?: string }
   | { type: 'search'; query: string }
   | { type: 'read'; path: string }
-  | { type: 'propose'; operation: 'create' | 'update' | 'delete'; path: string; content?: string; reason?: string; risk?: 'low' | 'medium' | 'high' }
+  | { type: 'propose'; operation: 'create' | 'update' | 'delete'; path: string; content?: string; find?: string; replace?: string; reason?: string; risk?: 'low' | 'medium' | 'high' }
   | { type: 'message'; text: string }
   | { type: 'done'; text: string };
 
@@ -110,6 +110,9 @@ After a successful repository inspection, summarize what you actually found in t
 When the user asks whether something can be changed, answer briefly and then inspect the implementation.
 When the user asks for a fix, keep working until you have either staged an evidence-based proposal or can clearly explain the concrete blocker.
 Prefer small, surgical changes over broad rewrites.
+For existing files, NEVER rewrite the whole file when a small edit is enough. Prefer a propose update with exact "find" and "replace" snippets; Studio will apply that patch to the real current file before it enters Changes.
+For new files, use "content". For deleting files, omit content/find/replace.
+A proposal must contain enough context to be applied safely. Do not invent current file text. Read the target file first.
 After inspection, explain only the useful conclusion; never dump internal reasoning or tool chatter. For multi-file work, inspect all relevant files before proposing changes.
 You may work on main or another branch; branch choice is controlled by the user.
 Never pretend a change was applied when it is only a proposal.
@@ -122,7 +125,7 @@ Return JSON with exactly one action:
 {"action":{"type":"inspect","path":""}}
 {"action":{"type":"search","query":"..."}}
 {"action":{"type":"read","path":"..."}}
-{"action":{"type":"propose","operation":"update","path":"...","content":"FULL FILE CONTENT","reason":"...","risk":"low"}}
+{"action":{"type":"propose","operation":"update","path":"...","find":"EXACT OLD TEXT","replace":"EXACT NEW TEXT","reason":"...","risk":"low"}}
 {"action":{"type":"message","text":"..."}}
 {"action":{"type":"done","text":"..."}}
 
@@ -243,8 +246,13 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
       : [{ role: 'user' as const, content: userRequest }]),
   ];
   const fileSnapshots = new Map<string, string>();
+  const requestNeedsRepository = /github|仓库|repo|repository|代码|源码|文件|项目|bug|报错|lint|build|构建|修改|修复|连接|链接|commit|提交/i.test(userRequest);
+  const requestNeedsCodeChange = /修改|修复|改一下|改成|增加|删除|重构|实现|实现一下|fix|change|update|edit|remove|refactor|implement|commit|提交/i.test(userRequest);
+
   const proposals: MemeProposal[] = [];
   let lastValidationContext = validationContext;
+  let repositoryEvidenceAvailable = false;
+  let forcedRepositoryRetry = false;
 
   // Preflight the real repository once before asking the model to reason.
   // This prevents MEME from falling back to generic "please connect GitHub"
@@ -268,6 +276,7 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
         'The following data is real repository data. Never claim that GitHub is inaccessible. ' +
         'Use repository tools to inspect/read/search as needed and act on the user request.\n' +
         evidence;
+      repositoryEvidenceAvailable = true;
       lastValidationContext = (lastValidationContext ? lastValidationContext + '\n\n' : '') +
         'Repository preflight succeeded. GitHub access is active. Root listing: ' + evidence;
     } catch (error) {
@@ -282,6 +291,29 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
     options.onEvent?.({ type: 'thinking', text: round === 0 ? '正在理解项目…' : '正在继续检查…' });
     const { raw, parsed } = await callModel(options, history, 0.12, userRequest);
     const action = parsed.action as MemeAction;
+    const directText = action?.type === 'message' || action?.type === 'done';
+    const accessRefusal = directText && /无法(?:直接)?访问|不能(?:直接)?访问|没有(?:实时)?(?:浏览|访问)网页|没有.*github.*能力|请.*(?:粘贴|提供).*(?:代码|文件)|把.*(?:代码|源码).*给我/i.test(String(action.text || ''));
+
+    // Repository/coding tasks are not allowed to terminate on the model's first
+    // free-form answer. We already have a real repository preflight, so make the
+    // model continue from evidence instead of falling back to its generic abilities.
+    if (round === 0 && requestNeedsRepository && directText && repositoryEvidenceAvailable && !forcedRepositoryRetry) {
+      if (accessRefusal && !requestNeedsCodeChange) {
+        const verified = '可以。Studio 已经实际连接到 GitHub，并已读取仓库根目录。这个回答来自真实仓库检查，不是网页猜测。';
+        options.onEvent?.({ type: 'message', text: verified });
+        options.onEvent?.({ type: 'done', text: verified });
+        return { status: 'done' as const, text: verified, proposals };
+      }
+
+      forcedRepositoryRetry = true;
+      history.push({ role: 'assistant', content: raw });
+      history.push({
+        role: 'assistant',
+        content:
+          '[STUDIO CONTROL] 这是开发任务，不能在没有完成代码取证前结束。GitHub 仓库已经真实连接并完成根目录检查。下一步必须使用 inspect/search/read，定位与用户任务相关的真实源码；如果任务要求修改，最终必须输出 propose action 进入 Changes。不要输出关于“无法访问 GitHub”的普通聊天免责声明。'
+      });
+      continue;
+    }
     if (!action?.type) throw new Error('Meme 返回了未知 action');
 
     if (action.type === 'message') {
@@ -331,11 +363,30 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
         }
       }
 
+      let proposalContent = action.content;
+      if (action.operation === 'update' && !proposalContent && typeof action.find === 'string' && typeof action.replace === 'string') {
+        let baseContent = fileSnapshots.get(action.path);
+        if (baseContent == null) {
+          const readTool = options.tools.find(tool => tool.name === 'read');
+          if (!readTool) throw new Error('Meme read tool unavailable for patch proposal');
+          options.onEvent?.({ type: 'tool', name: readTool.name, input: { path: action.path } });
+          const target = await readTool.run({ path: action.path });
+          if (!target || typeof target.content !== 'string') throw new Error('Meme 无法读取待修改文件：' + action.path);
+          baseContent = target.content;
+          fileSnapshots.set(action.path, baseContent);
+          history.push({ role: 'assistant', content: '[STUDIO TOOL RESULT] read ' + action.path + ':\\n' + JSON.stringify(target).slice(0, 50000) });
+        }
+        const matches = baseContent.split(action.find).length - 1;
+        if (matches === 0) throw new Error('Meme patch find 在文件中不存在：' + action.path);
+        if (matches > 1) throw new Error('Meme patch find 匹配了 ' + matches + ' 处，请提供更长的上下文以确保唯一匹配：' + action.path);
+        proposalContent = baseContent.replace(action.find, action.replace);
+      }
+
       const proposal: MemeProposal = {
         id: 'meme-' + Date.now() + '-' + round,
         operation: action.operation,
         path: action.path,
-        content: action.content,
+        content: proposalContent,
         reason: action.reason || 'Meme proposes this project change.',
         risk: action.risk || (action.operation === 'delete' ? 'high' : 'medium'),
         status: 'pending',
