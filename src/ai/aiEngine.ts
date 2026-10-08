@@ -721,7 +721,6 @@ async function callOpenAiCompatible(input: AiReplyInput): Promise<string> {
 }
 
 export async function generateCharacterReply(input: AiReplyInput): Promise<AiReplyResult> {
-  requireApiKey(input.settings);
   const startedAt = Date.now();
   const cotEnabled = Boolean(input.cotTarget && input.cotPreset);
   const actionEnabled = input.authorNote?.includes('【线上动作描写：开启】') || false;
@@ -736,6 +735,8 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
       userMessage: input.userMessage,
       messageCount: input.messages.length,
     },
+    stage: 'created',
+    stages: [],
     switches: {
       cotEnabled,
       cotTarget: input.cotTarget || null,
@@ -745,6 +746,26 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     },
   };
   const saveTrace = () => writeAiDebugTrace({ ...trace, durationMs: Date.now() - startedAt });
+  const markTraceStage = (stage: string, detail?: string) => {
+    trace.stage = stage;
+    trace.stages = [...(Array.isArray(trace.stages) ? trace.stages : []), {
+      stage,
+      at: new Date().toISOString(),
+      ...(detail ? { detail: String(detail).slice(0, 500) } : {}),
+    }].slice(-24);
+    saveTrace();
+  };
+
+  // Validation is part of the trace too: a missing key/model should never look like
+  // "the request vanished before AI". The caller still receives the same error.
+  try {
+    requireApiKey(input.settings);
+    markTraceStage('config-ready', input.settings.provider + ' / ' + input.settings.model);
+  } catch (error) {
+    trace.error = { message: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined };
+    markTraceStage('config-error', trace.error.message);
+    throw error;
+  }
 
   // Write immediately so the debug panel is never blank, even if prompt construction,
   // the provider request, or parsing fails later in the turn.
@@ -802,16 +823,18 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
           },
         },
   };
-  saveTrace();
+  markTraceStage('request-prepared', 'messages=' + debugMessages.length + ', worldbookMatches=' + matchedWorldbookEntries);
   let rawText = '';
   try {
+    markTraceStage('request-sending', input.settings.provider + ' / ' + input.settings.model);
     rawText = input.settings.provider === 'gemini'
       ? await callGemini(providerInput)
       : await callOpenAiCompatible(providerInput);
+    markTraceStage('response-received', 'rawLength=' + String(rawText || '').length);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     trace.error = { message, stack: error instanceof Error ? error.stack : undefined };
-    saveTrace();
+    markTraceStage('request-error', message);
     pushAiDebugLog({ level:'error', event:'request:error', message, provider:input.settings.provider, model:input.settings.model, durationMs:Date.now()-startedAt });
     throw error;
   }
@@ -835,14 +858,17 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     missingCot: cotEnabled && !parsed.thinkingSummary,
     missingAction: actionEnabled && !parsed.actionDescription,
   };
+  markTraceStage('parsed', 'textLength=' + parsed.text.length + ', cot=' + Boolean(parsed.thinkingSummary) + ', action=' + Boolean(parsed.actionDescription));
 
   if (!parsed.text) {
+
     trace.error = { message: 'AI_EMPTY_RESPONSE' };
-    saveTrace();
+    markTraceStage('parse-error', 'AI_EMPTY_RESPONSE');
     throw new Error('AI_EMPTY_RESPONSE');
   }
 
   if (!input.settings.streaming) input.onDelta?.(parsed.text);
+  markTraceStage('final-ready', 'replyLength=' + parsed.text.length);
   trace.final = {
     text: parsed.text,
     thinkingSummary: parsed.thinkingSummary || null,
