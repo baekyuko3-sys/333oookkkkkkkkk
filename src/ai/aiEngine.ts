@@ -2,6 +2,7 @@ import type { ImportedCharacter } from '../data/characterImport';
 import type { ProjectManifest, WorldBook } from '../types';
 import type { CharacterMemory, MemorySection } from '../store/characterMemory';
 import type { StatusBarPreset } from '../store/statusBarPresets';
+import { extractStatusMatch } from '../store/statusBarPresets';
 import { buildMemoryContext } from '../store/characterMemory';
 import type { AppSettings, ChannelAiSettings } from '../store/appSettings';
 import { readAppSettings } from '../store/appSettings';
@@ -91,6 +92,7 @@ export interface AiReplyResult {
 export function parseAiReplyPayload(
   rawText: string,
   cotTag?: string,
+  statusRegex?: string,
 ): Pick<AiReplyResult, 'text' | 'thinkingSummary' | 'actionDescription' | 'statusBarRaw'> {
   const raw = String(rawText || '').replace(/\r\n/g, '\n').trim();
   const readTag = (name: string, source: string = raw): string => {
@@ -121,7 +123,14 @@ export function parseAiReplyPayload(
   const statusMatch = withoutMetadata.match(/\[状态栏\]\s*([\s\S]*?)\s*\[\/状态栏\]/i) ||
     withoutMetadata.match(/<status(?:bar)?>\s*([\s\S]*?)\s*<\/status(?:bar)?>/i) ||
     withoutMetadata.match(/【状态栏】\s*([\s\S]*?)(?=【(?:动作|COT)】|$)/i);
-  const statusBarRaw = statusMatch?.[1]?.trim() || '';
+  let statusBarRaw = statusMatch?.[1]?.trim() || '';
+  if (!statusBarRaw && statusRegex) {
+    const extracted = extractStatusMatch(withoutMetadata, statusRegex);
+    if (extracted?.match) {
+      statusBarRaw = extracted.match.trim();
+      withoutMetadata = withoutMetadata.replace(extracted.match, '').trim();
+    }
+  }
   withoutMetadata = withoutMetadata.replace(/\[状态栏\][\s\S]*?\[\/状态栏\]/gi, '').replace(/<status(?:bar)?>[\s\S]*?<\/status(?:bar)?>/gi, '').replace(/【状态栏】[\s\S]*?(?=【(?:动作|COT)】|$)/gi, '');
   const messageMatch = /<message>\s*([\s\S]*?)\s*<\/message>/i.exec(withoutMetadata);
   const text = (messageMatch?.[1] || withoutMetadata.replace(/<action>[\s\S]*?<\/action>/gi, '').replace(/\[动作\][\s\S]*?\[\/动作\]/gi, '').replace(/【动作】[\s\S]*?(?=【(?:状态栏|COT)】|$)/gi, '').replace(/<message>[\s\S]*?<\/message>/gi, '')).trim();
@@ -390,13 +399,14 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '不要输出 Markdown 代码块，不要输出格式说明。',
     input.statusBarPreset ? [
       '【状态栏｜与本轮回复同一输出】',
-      '本轮状态栏已开启。必须独立于聊天正文输出，并使用 [状态栏]...[/状态栏] 包裹。',
-      '不要遵循任何固定文字输出格式；不要输出 HTML、正则或解释。',
+      '本轮状态栏已开启。角色正文发送完成后，必须在同一次回复的末尾执行下面的“状态栏专用 Prompt”。',
+      '状态栏专用 Prompt 是唯一的状态栏生成规则；如果 Prompt 要求严格格式，必须原样遵守。',
+      '不要自行添加 [状态栏] 标签、HTML、解释或其他包装；只有 Prompt 本身要求的格式才可以出现。',
       '状态栏名称：' + input.statusBarPreset.name,
       '状态栏专用 Prompt：' + (input.statusBarPreset.promptSuffix || ''),
       '状态栏只描述角色当前状态，不要替用户编造动作、想法或事实。',
-      'COT、动作、状态栏、聊天正文是四个独立层。',
-    ].join('\n') : '【状态栏】关闭：不要输出 [状态栏] 标签。',
+      'COT、动作、状态栏、聊天正文是四个独立层；状态栏原文由预设 Regex 在应用侧提取并交给 HTML 模板渲染。',
+    ].join('\n') : '【状态栏】关闭：不要输出状态栏。',
   ].join('\n');
 }
 
@@ -943,7 +953,7 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
   }
 
   trace.rawResponse = rawText;
-  const parsedRaw = parseAiReplyPayload(rawText, input.cotPreset?.tag);
+  const parsedRaw = parseAiReplyPayload(rawText, input.cotPreset?.tag, input.statusBarPreset?.regex);
   const replyMacroNames = macroNamesOf(input);
   const parsed = {
     text: resolveMacros(parsedRaw.text, replyMacroNames),
@@ -1243,9 +1253,10 @@ export async function generateStatusBarContent(
     currentStatus ? '【最近状态（由旧到新，最后一条是最新）】\n' + currentStatus + '\n只在当前聊天提供依据时更新最新一条；时间只能向后推进，不要倒退或跳变。' : '【上一状态】暂无。',
     '【状态栏名称】' + preset.name,
     '【状态栏 Prompt｜唯一输出要求】' + resolveMacros(preset.promptSuffix || '请根据刚刚的聊天回复一份简洁的当前状态。', { char: characterName, user: userName }),
-    '只执行上面的 Prompt。它是唯一的状态栏生成要求。不要额外遵循任何预设格式，不要自行添加字段、分隔符、标签或固定包装。',
-    '只输出状态内容，不要输出状态栏标签，不要 Markdown、代码块、HTML、正则、解释或额外文字。',
-    '正则与 HTML 仅由应用在生成后处理，不能作为你的输出指令；如果当前预设配置了正则，正常生成内容即可，由应用负责解析。',
+    '只执行上面的 Prompt。它是唯一的状态栏生成要求。',
+    '如果上面的 Prompt 要求固定输出格式、字段、标签或分隔符，必须严格按 Prompt 输出；不要自行改变格式。',
+    '不要额外添加 Prompt 没有要求的包装、解释、Markdown、HTML 或代码块。',
+    'Regex 与 HTML 是应用侧后处理：Regex 从这段原始状态栏文本中提取数据，HTML 模板再负责最终渲染。',
   ].join('\n');
 
   const userPrompt = [
