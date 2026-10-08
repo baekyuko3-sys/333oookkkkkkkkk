@@ -215,9 +215,29 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setMessage('hey ✦ 告诉我你想改什么，我们一起改这个小手机。');
     setCurrentTask(null);
     setAgentEvents([]);
-    setChanges([]);
+    updateChanges(() => []);
+    try { window.localStorage.removeItem('studio:changes:' + id); } catch {}
     setHistoryOpen(false);
     setTab('chat');
+  };
+
+  const persistChanges = (nextChanges: Change[]) => {
+    try { window.localStorage.setItem('studio:changes:' + sessionId, JSON.stringify(nextChanges)); } catch {}
+  };
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem('studio:changes:' + sessionId);
+      setChanges(raw ? JSON.parse(raw) : []);
+    } catch { setChanges([]); }
+  }, [sessionId]);
+
+  const updateChanges = (updater: (previous: Change[]) => Change[]) => {
+    setChanges(previous => {
+      const next = updater(previous);
+      persistChanges(next);
+      return next;
+    });
   };
 
   const persistSession = (nextConversation: Array<{ role: 'user' | 'assistant'; content: string }>, title: string) => {
@@ -606,12 +626,12 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     const effectiveOwner = sharedOwner;
     const effectiveRepo = sharedRepo;
     const effectiveBranch = sharedBranch;
-    const effectiveToken = token.trim();
+    const effectiveToken = sharedToken;
     if (!effectiveToken) { setTab('settings'); notify('请先在 Studio Settings 填写 GitHub PAT'); return; }
     setSaving(true);
     try {
       const result = await applyAtomicChanges(effectiveOwner, effectiveRepo, effectiveBranch, effectiveToken, [{ path: change.path, content: change.content, operation: change.operation || 'update' }], 'Studio: apply Meme change ' + change.path);
-      setChanges(previous => previous.filter(item => item.path !== change.path));
+      updateChanges(previous => previous.filter(item => item.path !== change.path));
       log('git', 'Applied ' + change.path + ' · ' + result.sha.slice(0,8));
       notify('已批准并写入：' + change.path);
       await list(path);
@@ -650,7 +670,8 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       const next=[artifact,...crafted].slice(0,50);
       setCrafted(next);
       writeStore('studio:crafted',JSON.stringify(next));
-      setChanges([]);
+      updateChanges(() => []);
+      try { window.localStorage.removeItem('studio:changes:' + sessionId); } catch {}
       setCurrentTask(v => v ? {...v,status:'working',updatedAt:Date.now(),steps:v.steps.map(step => ({...step,status:'done'}))} : v);
       log('git','Atomic commit '+result.sha);
       notify('已一次性写入 '+artifact.files.length+' 个文件，正在等待 CI…');
@@ -699,7 +720,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
   const stageMemeProposal = (p: any) => {
     const validation = p.validation;
-    setChanges(previous => [
+    updateChanges(previous => [
       ...previous.filter(change => change.path !== p.path),
       {
         path: p.path,
