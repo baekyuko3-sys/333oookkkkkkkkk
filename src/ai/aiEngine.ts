@@ -240,6 +240,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     .filter(Boolean)
     .join('\n') + '\n' + input.userMessage;
 
+  const includeCharacterGreeting = input.messages.length === 0;
   const context = resolveCharacterContext({
     character: scopedInput.character,
     characterProfile: scopedInput.characterProfile,
@@ -248,6 +249,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     project: scopedInput.project,
     worldbooks: applicableWorldBooks,
     userMessage: scannedMessages,
+    includeCharacterGreeting,
     worldBookScanForEntry: buildWorldBookScanResolver(scopedInput, scanDepth),
   });
 
@@ -324,15 +326,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     input.stylePreset ? '【聊天风格预设】\n' + input.stylePreset : '【聊天风格预设】自然、沉浸、像真实聊天。',
     input.authorNote ? '【作者注释】\n' + input.authorNote : '【作者注释】无。',
     cotPreset ? [
-      '【COT 角色回复决策器 · 本轮必须先执行】',
-      'COT 是角色回复的决策流程，不是回复后的附加总结。生成最终角色消息前，先按 COT 完成角色判断，再输出角色回复。',
-      'STEP 1: CONTEXT：当前消息、角色上一条回复、最近前文/当前话题、未完成的事情。',
-      'STEP 2: CHARACTER：读取角色设定、线上人设、角色表达习惯，只使用角色已知的信息。',
-      'STEP 3: MEANING：判断用户这句话表面是什么意思，以及结合前文真正可能在表达什么；不过度脑补。',
-      'STEP 4: REACTION：站在角色立场理解；判断角色当前情绪/状态，以及第一反应想做什么。',
-      'STEP 5: RESPONSE：角色自行决定回答、反问、调侃、安慰、延伸、简短回应或不展开，并决定回复长度与表达方式；不强制主动、不强制制造情绪。',
-      'STEP 6: CHECK：检查角色设定、关系、前文和表达习惯；检查 OOC、未知信息、是否替用户决定行为/思想/反应，以及禁止事项。',
-      'STEP 7: FINAL：只输出角色真正会发送的 LINE 消息；不解释分析过程，不复述用户消息，不使用 AI 式总结。',
+      '【COT 角色回复决策器】先完成角色判断，再输出角色消息：结合当前消息与最近上下文 → 角色设定/关系 → 用户真实意图 → 角色情绪与立场 → 决定自然回应方式与长度 → 检查 OOC/未知信息/是否替用户行动。不要展示隐藏推理。',
       '状态栏不是 COT 的 STEP。若状态栏启用，它由独立的状态栏 Prompt 在角色回复后处理，并且每轮必须生成。',
       '原始预设如下：',
       cotPreset.template
@@ -346,13 +340,6 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '<<<END_CURRENT_USER_MESSAGE>>>',
     '如果旧聊天、记忆、世界书、关系设定与当前消息冲突，当前消息决定本轮要回答什么；其他资料只用于角色身份、事实连续性和语气。',
     '不要因为旧消息里出现过的问题、请求或关键词，就再次回答那个旧问题。',
-    '',
-        '【当前消息 · 最高优先级】',
-    '你现在真正要处理的是本轮用户刚刚发送的这一条消息。',
-    '当前用户消息：「' + input.userMessage + '」',
-    '回答必须直接针对这条消息。不要因为角色卡、世界书、长期记忆或较早聊天里出现了别的话题，就自行把回复切换到旧话题。',
-    '历史内容只用于理解当前消息、保持事实连续性和关系连续性；除非当前消息明确引用过去，否则不要主动回答已经结束的旧话题。',
-    '如果当前消息很短，也先回答它本身，不要为了展示上下文而扩展到无关内容。',
     '',
     '【输出约束】',
     '禁止输出原始 <think>、<thought> 或隐藏推理。COT 不是原始内部思维链，而是给用户看的简短“角色决策记录”：只写高层次判断，不写隐性推理细节。',
