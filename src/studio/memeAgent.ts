@@ -365,7 +365,7 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
 
       let proposalContent = action.content;
       if (action.operation === 'update' && !proposalContent && typeof action.find === 'string' && typeof action.replace === 'string') {
-        let baseContent = fileSnapshots.get(action.path);
+        let baseContent: string | undefined = fileSnapshots.get(action.path);
         if (baseContent == null) {
           const readTool = options.tools.find(tool => tool.name === 'read');
           if (!readTool) throw new Error('Meme read tool unavailable for patch proposal');
@@ -376,10 +376,13 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
           fileSnapshots.set(action.path, baseContent);
           history.push({ role: 'assistant', content: '[STUDIO TOOL RESULT] read ' + action.path + ':\\n' + JSON.stringify(target).slice(0, 50000) });
         }
-        const matches = baseContent.split(action.find).length - 1;
+        if (typeof baseContent !== 'string') throw new Error('Meme patch 没有获得原文件内容：' + action.path);
+        const findText = action.find;
+        const replaceText = action.replace;
+        const matches = baseContent.split(findText).length - 1;
         if (matches === 0) throw new Error('Meme patch find 在文件中不存在：' + action.path);
         if (matches > 1) throw new Error('Meme patch find 匹配了 ' + matches + ' 处，请提供更长的上下文以确保唯一匹配：' + action.path);
-        proposalContent = baseContent.replace(action.find, action.replace);
+        proposalContent = baseContent.replace(findText, replaceText);
       }
 
       const proposal: MemeProposal = {
