@@ -3,7 +3,6 @@ import { ArrowLeft, Check, ChevronRight, Clock3, FileCode2, Folder, Github, KeyR
 import type { ScreenType } from '../../types';
 import { generateCreativeText, listOpenAiCompatibleModels } from '../../ai/aiEngine';
 import { readAppSettings, saveAppSettings, type AppSettings } from '../../store/appSettings';
-import { getGitHubSyncConfig } from '../../store/githubSync';
 import { runMemeAgent, type MemeCodingMode } from '../../studio/memeAgent';
 import { studioStorage } from '../../studio/studioStorage';
 import { applyAtomicChanges, compare, createBranch, createPullRequest, getWorkflowRunsForCommit, getWorkflowJobs, getJobLog, rollbackBranch } from '../../studio/studioGit';
@@ -234,22 +233,11 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
   const saveSettings = () => {
     saveAppSettings(aiSettings);
-    // Keep Studio and the phone's GitHub connection on the same source of truth.
-    // Studio-specific values remain as an optional override for advanced use.
-    const linked = getGitHubSyncConfig();
-    if (owner.trim() && repo.trim()) {
-      window.localStorage.setItem('phone:github-sync', JSON.stringify({
-        ...linked,
-        enabled: true,
-        owner: owner.trim(),
-        repo: repo.trim(),
-        branch: branch.trim() || linked.branch || 'main',
-      }));
-    }
-    writeStore(STORE.token, token);
-    writeStore(STORE.owner, owner);
-    writeStore(STORE.repo, repo);
-    writeStore(STORE.branch, branch);
+    // Studio GitHub credentials stay isolated from the phone-wide GitHub sync.
+    writeStore(STORE.owner, 'baekyuko3-sys');
+    writeStore(STORE.repo, '333oookkkkkkkkk');
+    writeStore(STORE.branch, 'main');
+    writeStore(STORE.token, token.trim());
     notify('Studio 设置已保存');
   };
 
@@ -558,42 +546,64 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const approveAllChanges = async () => {
-    const linked = getGitHubSyncConfig();
-    const effectiveOwner = owner.trim() || linked.owner.trim();
-    const effectiveRepo = repo.trim() || linked.repo.trim();
-    const effectiveBranch = branch.trim() || linked.branch.trim();
-    const effectiveToken = token.trim() || getGitHubToken().trim();
-    if (!effectiveOwner || !effectiveRepo || !effectiveBranch || !effectiveToken || !changes.length) return;
-    if (!window.confirm('确认把 ' + changes.length + ' 个文件作为一个原子 commit 写入 ' + effectiveBranch + '？')) return;
+    const effectiveToken = token.trim();
+    if (!effectiveToken || !changes.length) {
+      setTab('settings');
+      notify('请先在 Studio Settings 填写 GitHub PAT');
+      return;
+    }
+    if (!window.confirm('确认把 ' + changes.length + ' 个文件作为一个原子 commit 写入 main？')) return;
     setSaving(true);
     try {
-      const result = await applyAtomicChanges(effectiveOwner, effectiveRepo, effectiveBranch, effectiveToken, changes.map(change => ({ path: change.path, content: change.content, operation: change.operation || 'update' })), 'Studio: apply Meme task · ' + sessionTitle);
-      const artifact = { id:'crafted-'+Date.now(), name:sessionTitle, kind:'feature', summary:'Meme completed an approved multi-file change.', files:changes.map(c=>c.path), commitSha:result.sha, createdAt:Date.now() };
-      const next=[artifact,...crafted].slice(0,50); setCrafted(next); writeStore('studio:crafted',JSON.stringify(next));
-      setChanges([]); setCurrentTask(v => v ? {...v,status:'working',updatedAt:Date.now(),steps:v.steps.map(step=>({...step,status:'done'}))} : v);
-      log('git','Atomic commit '+result.sha); notify('已一次性写入 '+artifact.files.length+' 个文件，正在等待 CI…');
+      const result = await applyAtomicChanges(
+        'baekyuko3-sys',
+        '333oookkkkkkkkk',
+        'main',
+        effectiveToken,
+        changes.map(change => ({ path: change.path, content: change.content, operation: change.operation || 'update' })),
+        'Studio: apply Meme task · ' + sessionTitle,
+      );
+      const artifact = {
+        id:'crafted-'+Date.now(),
+        name:sessionTitle,
+        kind:'feature',
+        summary:'Meme completed an approved multi-file change.',
+        files:changes.map(change=>change.path),
+        commitSha:result.sha,
+        createdAt:Date.now(),
+      };
+      const next=[artifact,...crafted].slice(0,50);
+      setCrafted(next);
+      writeStore('studio:crafted',JSON.stringify(next));
+      setChanges([]);
+      setCurrentTask(v => v ? {...v,status:'working',updatedAt:Date.now(),steps:v.steps.map(step => ({...step,status:'done'}))} : v);
+      log('git','Atomic commit '+result.sha);
+      notify('已一次性写入 '+artifact.files.length+' 个文件，正在等待 CI…');
       await waitForCIAndRepair(result.sha);
-    } catch (error) { notify(error instanceof Error ? error.message : '批量提交失败'); }
-    finally { setSaving(false); }
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '批量提交失败');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const createStudioBranch = async () => {
     if (!ready) return;
     const name=window.prompt('新分支名称','meme/'+Date.now());
     if (!name) return;
-    try { await createBranch(owner,repo,name,branch,token); setBranch(name); writeStore(STORE.branch,name); notify('已创建分支：'+name); log('git','Created branch '+name); }
+    try { await createBranch('baekyuko3-sys','333oookkkkkkkkk',name,'main',token.trim()); notify('已创建分支：'+name); log('git','Created branch '+name); }
     catch(error){ notify(error instanceof Error ? error.message : '创建分支失败'); }
   };
 
   const openPullRequest = async () => {
     if (!ready || branch === 'main') { notify('PR 需要一个非 main 分支'); return; }
-    try { const result=await createPullRequest(owner,repo,branch,'main','Studio · '+sessionTitle,'Created by Meme Studio.',token,true); setPrUrl(result.html_url || result.url || ''); notify('Draft PR 已创建'); }
+    try { const result=await createPullRequest('baekyuko3-sys','333oookkkkkkkkk',branch,'main','Studio · '+sessionTitle,'Created by Meme Studio.',token.trim(),true); setPrUrl(result.html_url || result.url || ''); notify('Draft PR 已创建'); }
     catch(error){ notify(error instanceof Error ? error.message : 'PR 创建失败'); }
   };
 
   const loadDiff = async () => {
     try {
-      const data=await compare(owner,repo,'main',branch,token);
+      const data=await compare('baekyuko3-sys','333oookkkkkkkkk','main',branch,token.trim());
       const files=(data.files||[]).map((item:any)=>item.filename+' · '+item.status+' · +'+item.additions+' -'+item.deletions).join('\\n');
       setCiText(files || '没有差异'); setTab('changes');
     } catch(error){ notify(error instanceof Error ? error.message : 'Diff 获取失败'); }
@@ -603,7 +613,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     if (!ready || !sha) return;
     if (!window.confirm('确认把当前分支恢复到这个 commit？\\n' + sha.slice(0,8) + '\\n此操作会改变远端分支指向。')) return;
     try {
-      await rollbackBranch(owner, repo, branch, sha, effectiveToken);
+      await rollbackBranch('baekyuko3-sys', '333oookkkkkkkkk', 'main', sha, token.trim());
       notify('已恢复到 ' + sha.slice(0,8));
       log('git', 'Rollback ' + branch + ' -> ' + sha.slice(0,8));
       setGitCommits([]);
@@ -854,7 +864,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
   const checkCI = async (sha: string, autoRepair = false) => {
     try {
-      const runs = await getWorkflowRunsForCommit(owner, repo, sha, effectiveToken);
+      const effectiveToken = token.trim();
+      if (!effectiveToken) throw new Error('请先在 Studio Settings 填写 GitHub PAT');
+      const runs = await getWorkflowRunsForCommit('baekyuko3-sys', '333oookkkkkkkkk', sha, effectiveToken);
       const run = runs.workflow_runs?.[0];
       if (!run) {
         setCiText('暂时没有找到 CI run');
@@ -862,11 +874,11 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       }
 
       if (run.conclusion === 'failure') {
-        const jobs = await getWorkflowJobs(owner, repo, run.id, effectiveToken);
+        const jobs = await getWorkflowJobs('baekyuko3-sys', '333oookkkkkkkkk', run.id, effectiveToken);
         const failed = jobs.jobs?.find((job: any) =>
           job.conclusion === 'failure' || job.status === 'failure'
         );
-        const text = failed ? await getJobLog(owner, repo, failed.id, token) : 'CI failed';
+        const text = failed ? await getJobLog('baekyuko3-sys', '333oookkkkkkkkk', failed.id, effectiveToken) : 'CI failed';
         const errorText = String(text).slice(-16000);
         setCiText(errorText);
         log('error', 'CI failure returned to Studio · ' + sha.slice(0, 8));
@@ -886,7 +898,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setCiText('CI 正在运行…');
     for (let attempt = 0; attempt < 20; attempt++) {
       try {
-        const runs = await getWorkflowRunsForCommit(owner, repo, sha, effectiveToken);
+        const effectiveToken = token.trim();
+        if (!effectiveToken) throw new Error('请先在 Studio Settings 填写 GitHub PAT');
+        const runs = await getWorkflowRunsForCommit('baekyuko3-sys', '333oookkkkkkkkk', sha, effectiveToken);
         const run = runs.workflow_runs?.[0];
         if (run && run.status === 'completed') {
           if (run.conclusion === 'success') {
@@ -914,7 +928,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     if (!target || !ready) return;
     setSaving(true);
     try {
-      const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + target.split('/').map(encodeURIComponent).join('/');
+      const url = 'https://api.github.com/repos/baekyuko3-sys/333oookkkkkkkkk/contents/' + target.split('/').map(encodeURIComponent).join('/');
       await github(url, sharedToken, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -1163,10 +1177,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             <div className="p-3 rounded-2xl bg-white/60 space-y-2">
               <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">GITHUB PROJECT</div>
               <div className="grid grid-cols-2 gap-1.5">
-                <input value={owner} onChange={event => setOwner(event.target.value)} placeholder="Owner" className="p-2.5 rounded-xl text-[9px] outline-none" />
-                <input value={repo} onChange={event => setRepo(event.target.value)} placeholder="Repository" className="p-2.5 rounded-xl text-[9px] outline-none" />
+                <input value={owner} readOnly placeholder="Owner" className="p-2.5 rounded-xl text-[9px] outline-none bg-[#f1eee8]" />
+                <input value={repo} readOnly placeholder="Repository" className="p-2.5 rounded-xl text-[9px] outline-none bg-[#f1eee8]" />
               </div>
-              <input value={branch} onChange={event => setBranch(event.target.value)} placeholder="Branch" className="w-full p-2.5 rounded-xl text-[9px] outline-none" />
+              <input value={branch} readOnly placeholder="Branch" className="w-full p-2.5 rounded-xl text-[9px] outline-none bg-[#f1eee8]" />
               <input type="password" value={token} onChange={event => setToken(event.target.value)} placeholder="Fine-grained GitHub Token" className="w-full p-2.5 rounded-xl text-[9px] outline-none" />
               <div className="text-[8px] leading-relaxed text-[#888]">建议 Token 只开放这个仓库的 Contents 读写权限。</div>
             </div>
@@ -1191,7 +1205,6 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setGithubVerified(true);
     setOwner(sharedOwner); setRepo(sharedRepo); setBranch(targetBranch); setToken(sharedToken);
     writeStore(STORE.owner, sharedOwner); writeStore(STORE.repo, sharedRepo); writeStore(STORE.branch, targetBranch); writeStore(STORE.token, sharedToken);
-    window.localStorage.setItem('sane333:github-token', sharedToken);
     await list('');
     notify('GitHub 已验证：' + (who?.login || 'token') + ' → ' + sharedOwner + '/' + sharedRepo + ' · ' + targetBranch);
   } catch (error) {
