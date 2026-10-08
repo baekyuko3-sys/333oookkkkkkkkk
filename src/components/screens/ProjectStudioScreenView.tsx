@@ -183,7 +183,20 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const sharedRepo = linkedGithub.repo.trim() || repo.trim();
   const sharedBranch = linkedGithub.branch.trim() || branch.trim() || 'main';
   const sharedToken = getGitHubToken().trim() || token.trim();
-  const ready = githubVerified && Boolean(sharedOwner && sharedRepo && sharedBranch && sharedToken);
+  const hasGithubCredentials = Boolean(sharedOwner && sharedRepo && sharedBranch && sharedToken);
+  const ready = githubVerified && hasGithubCredentials;
+
+  useEffect(() => {
+    if (!hasGithubCredentials) {
+      setGithubVerified(false);
+      return;
+    }
+    let cancelled = false;
+    void github('https://api.github.com/repos/' + sharedOwner + '/' + sharedRepo, sharedToken)
+      .then(() => { if (!cancelled) setGithubVerified(true); })
+      .catch(() => { if (!cancelled) setGithubVerified(false); });
+    return () => { cancelled = true; };
+  }, [sharedOwner, sharedRepo, sharedBranch, sharedToken]);
 
   const aiReady = Boolean(aiSettings.apiBaseUrl.trim() && aiSettings.apiKey.trim() && aiSettings.model.trim());
   const dirty = Boolean(file && code !== original);
@@ -284,6 +297,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         type: item.type === 'dir' ? 'dir' : 'file',
         sha: item.sha,
       })));
+      setGithubVerified(true);
       setPath(folder);
     } catch (error) {
       notify(error instanceof Error ? error.message : '读取 GitHub 失败');
@@ -1013,7 +1027,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
                 </div>
               )}
             </div>
-            {!ready && <div className="mx-1 mb-2 px-3 py-2 rounded-xl bg-[#fff4f1] text-[8px] text-[#8f6f68]">还没连接 GitHub。可以先聊天；需要实际读取/修改仓库时再去连接。</div>}
+            {!ready && <div className="mx-1 mb-2 px-3 py-2 rounded-xl bg-[#fff4f1] text-[8px] text-[#8f6f68]">GitHub 尚未验证。打开设置后测试 GitHub；验证成功后 Meme 才会进入仓库工作模式。</div>}
           </section>
         )}
         {tab === 'git' && (
