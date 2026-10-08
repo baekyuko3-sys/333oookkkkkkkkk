@@ -135,6 +135,7 @@ export function LineConversationView({
   contactName,
   characterId,
   conversationId,
+  personaId,
   onBack,
   onNavigateScreen,
   onSwitchPersona,
