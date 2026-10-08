@@ -1373,6 +1373,8 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
           </section>
         )}
 
+      </main>
+
       {historyOpen && (
         <div className="absolute inset-0 z-[70]"><button onClick={() => setHistoryOpen(false)} className="absolute inset-0 bg-black/15" aria-label="Close history" />
           <aside className="absolute top-0 bottom-0 left-0 w-[82%] max-w-[310px] bg-[#f7f4ee] shadow-2xl border-r border-black/10 flex flex-col">
