@@ -697,24 +697,24 @@ async function callGemini(input: AiReplyInput): Promise<string> {
       // old streamer therefore looked like "no reply" until the request finished.
       // Keep metadata hidden while revealing the actual chat text as it arrives.
       let visible = rawStream;
-      const messageMatch = rawStream.match(/<message>\\s*([\\s\\S]*)$/i);
+      const messageMatch = rawStream.match(/<message>\s*([\s\S]*)$/i);
       if (messageMatch) {
         visible = messageMatch[1];
       } else {
         visible = visible
-          .replace(/<(?:cot|thinking|think|thought|summary|decision|decision_summary)>[\\s\\S]*?(?:<\\/(?:cot|thinking|think|thought|summary|decision|decision_summary)>|$)/gi, '')
-          .replace(/\\[COT\\][\\s\\S]*?(?:\\[\\/COT\\]|$)/gi, '')
-          .replace(/【COT】[\\s\\S]*?(?=【(?:动作|状态栏)】|$)/gi, '');
+          .replace(/<(?:cot|thinking|think|thought|summary|decision|decision_summary)>[\s\S]*?(?:<\/(?:cot|thinking|think|thought|summary|decision|decision_summary)>|$)/gi, '')
+          .replace(/\\[COT\\][\s\S]*?(?:\\[\/COT\\]|$)/gi, '')
+          .replace(/【COT】[\s\S]*?(?=【(?:动作|状态栏)】|$)/gi, '');
       }
 
       visible = visible
-        .replace(/<action>[\\s\\S]*?<\\/action>/gi, '')
-        .replace(/\\[动作\\][\\s\\S]*?\\[\\/动作\\]/gi, '')
-        .replace(/【动作】[\\s\\S]*?(?=【(?:状态栏|COT)】|$)/gi, '')
-        .replace(/<status(?:bar)?>[\\s\\S]*?<\\/status(?:bar)?>/gi, '')
-        .replace(/\\[状态栏\\][\\s\\S]*?\\[\\/状态栏\\]/gi, '')
-        .replace(/【状态栏】[\\s\\S]*?(?=【(?:动作|COT)】|$)/gi, '')
-        .replace(/<\\/message>[\\s\\S]*$/i, '')
+        .replace(/<action>[\s\S]*?<\/action>/gi, '')
+        .replace(/\\[动作\\][\s\S]*?\\[\/动作\\]/gi, '')
+        .replace(/【动作】[\s\S]*?(?=【(?:状态栏|COT)】|$)/gi, '')
+        .replace(/<status(?:bar)?>[\s\S]*?<\/status(?:bar)?>/gi, '')
+        .replace(/\\[状态栏\\][\s\S]*?\\[\/状态栏\\]/gi, '')
+        .replace(/【状态栏】[\s\S]*?(?=【(?:动作|COT)】|$)/gi, '')
+        .replace(/<\/message>[\s\S]*$/i, '')
         .trimStart();
 
       input.onDelta?.(visible);
