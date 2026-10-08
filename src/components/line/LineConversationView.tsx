@@ -1277,30 +1277,36 @@ export function LineConversationView({
     // here, before any group/AI branching, so the current chat can never show an
     // empty AI backend after a real send.
     if (shouldReply) {
-      writeAiDebugTrace({
-        context: {
-          conversationId: conversationStorageId,
-          characterId: importedCharacter?.id || characterId,
-          characterName: importedCharacter?.name || characterProfile.nickname || contactName,
-          userPersona: activePersona?.name,
-          userMessage: userText,
-          messageCount: messages.length + 1,
-        },
-        switches: {
-          stage: 'line-send',
-          cotEnabled: Boolean(enableChainOfThought),
-          cotPreset: resolvedCotPreset ? {
-            id: resolvedCotPreset.id,
-            title: resolvedCotPreset.title,
-            tag: resolvedCotPreset.tag,
-          } : null,
-          actionEnabled: Boolean(lineActionDescriptionsEnabled),
-        },
-        final: {
-          status: 'send-entered',
-          text: userText,
-        },
-      });
+      // Debug tracing must never be able to stop a real LINE send. localStorage
+      // can be full (large worldbooks / traces), so treat this as best-effort only.
+      try {
+        writeAiDebugTrace({
+          context: {
+            conversationId: conversationStorageId,
+            characterId: importedCharacter?.id || characterId,
+            characterName: importedCharacter?.name || characterProfile.nickname || contactName,
+            userPersona: activePersona?.name,
+            userMessage: userText,
+            messageCount: messages.length + 1,
+          },
+          switches: {
+            stage: 'line-send',
+            cotEnabled: Boolean(enableChainOfThought),
+            cotPreset: resolvedCotPreset ? {
+              id: resolvedCotPreset.id,
+              title: resolvedCotPreset.title,
+              tag: resolvedCotPreset.tag,
+            } : null,
+            actionEnabled: Boolean(lineActionDescriptionsEnabled),
+          },
+          final: {
+            status: 'send-entered',
+            text: userText,
+          },
+        });
+      } catch {
+        // Never block the actual AI request because debug storage failed.
+      }
     }
 
     // Enter/Return only sends the user's message. The paper-plane button passes shouldReply=true.
