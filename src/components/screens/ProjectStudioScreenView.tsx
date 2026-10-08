@@ -895,8 +895,8 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             name: 'search',
             description: 'Search repository code for symbols, imports, error messages, or related implementation.',
             run: async ({ query }) => {
-              const q = encodeURIComponent(String(query) + ' repo:' + effectiveOwner + '/' + effectiveRepo);
-              const data = await github('https://api.github.com/search/code?q=' + q, effectiveToken);
+              const q = encodeURIComponent(String(query) + ' repo:' + sharedOwner + '/' + sharedRepo);
+              const data = await github('https://api.github.com/search/code?q=' + q, sharedToken);
               return (data.items || []).slice(0, 20).map((item: any) => ({ path: item.path, name: item.name, sha: item.sha }));
             },
           },
