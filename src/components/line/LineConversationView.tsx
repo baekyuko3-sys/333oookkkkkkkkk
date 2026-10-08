@@ -19,7 +19,7 @@ import { createTogetherMusicSession, type TogetherMusicSession } from '../../sto
 import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
 import { appendStatusBarSnapshot, deleteStatusBarSnapshot, getStatusBarHistory, getStatusBarPresets, getStatusBarRandomMode, renderStatusBarHtml, sanitizeHtmlFragment, saveStatusBarRandomMode, type StatusBarPreset, type StatusBarSnapshot } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset, type CotPresetTarget } from '../../store/cotPresets';
-import { clearAiDebugLog, readAiDebugLog, type AiDebugEntry } from '../../store/aiDebug';
+import { clearAiDebugLog, readAiDebugLog, readAiDebugTrace, type AiDebugEntry, type AiDebugTrace } from '../../store/aiDebug';
 import { PresetResourceManager } from './PresetResourceManager';
 import { appendLineMessage, editLineMessage, toggleLineReaction, setLineMessageFavorite, recordLineCall, markLineMessageFailed, clearLineConversation, recallLineMessage, updateLineMessage } from '../../store/lineRuntime';
 import { getLineConversationMessages, markLineConversationRead, saveLineConversationMessages, searchLineMessages, type LineRuntimeMessage } from '../../store/lineRuntime';
@@ -110,6 +110,7 @@ interface LineConversationViewProps {
   contactName: string;
   characterId?: string;
   conversationId?: string;
+  personaId?: string;
   onBack: (draft?: string) => void;
   onNavigateHome: () => void;
   onNavigateScreen?: (screen: ScreenType) => void;
@@ -243,6 +244,7 @@ export function LineConversationView({
   const [showPlusSheet, setShowPlusSheet] = useState(false);
   const [showAiDebugSheet, setShowAiDebugSheet] = useState(false);
   const [aiDebugLog, setAiDebugLog] = useState<AiDebugEntry[]>(() => readAiDebugLog());
+  const [aiDebugTrace, setAiDebugTrace] = useState<AiDebugTrace | null>(() => readAiDebugTrace());
   const [subSheetType, setSubSheetType] = useState<'image' | 'video' | 'file' | null>(null);
   const [showVoiceSheet, setShowVoiceSheet] = useState(false);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | number | null>(null);
@@ -257,9 +259,10 @@ export function LineConversationView({
   const [creatorPrompt, setCreatorPrompt] = useState('');
   
   useEffect(() => {
-    const refreshAiDebug = () => setAiDebugLog(readAiDebugLog());
+    const refreshAiDebug = () => { setAiDebugLog(readAiDebugLog()); setAiDebugTrace(readAiDebugTrace()); };
     window.addEventListener('sane333:ai-debug-changed', refreshAiDebug);
-    return () => window.removeEventListener('sane333:ai-debug-changed', refreshAiDebug);
+    window.addEventListener('sane333:ai-debug-trace-changed', refreshAiDebug);
+    return () => { window.removeEventListener('sane333:ai-debug-changed', refreshAiDebug); window.removeEventListener('sane333:ai-debug-trace-changed', refreshAiDebug); };
   }, []);
 
   // Settings & Overlays
