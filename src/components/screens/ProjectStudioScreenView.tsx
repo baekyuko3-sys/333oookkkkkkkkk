@@ -766,12 +766,6 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setTab('changes');
   };
 
-  const updateCiStatus = (status: StudioCiStatus, message: string, sha = '') => {
-    setCiStatus(status);
-    setCiStatusMessage(message);
-    if (sha) setCiStatusSha(sha);
-  };
-
   const readSavedCiStatus = (id: string) => {
     try {
       const raw = window.localStorage.getItem(STUDIO_CI_STATUS_STORE + id);
