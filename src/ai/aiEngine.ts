@@ -1264,7 +1264,7 @@ export async function generateStatusBarContent(
     '最近聊天：',
     recent || '暂无',
     '',
-    '现在生成这一轮最新状态快照，只输出状态内容。',
+    '现在生成这一轮最新状态快照。严格执行上面的【状态栏 Prompt｜唯一输出要求】，包括其中要求的包装、字段、顺序和分隔符；不要用本句覆盖或改变 Prompt 的输出格式。',
   ].join('\n');
 
   return (await generateCreativeText({
