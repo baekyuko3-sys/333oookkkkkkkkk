@@ -826,7 +826,7 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     throw new Error('AI_EMPTY_RESPONSE');
   }
 
-  input.onDelta?.(parsed.text);
+  if (!input.settings.streaming) input.onDelta?.(parsed.text);
   trace.final = {
     text: parsed.text,
     thinkingSummary: parsed.thinkingSummary || null,
