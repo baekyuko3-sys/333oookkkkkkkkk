@@ -70,6 +70,36 @@ export function PhoneSimulator({
 }: PhoneSimulatorProps) {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [appearance, setAppearance] = useState(() => readAppearance());
+  const [screenHistory, setScreenHistory] = useState<ScreenType[]>(['home']);
+
+  const navigateTo = (next: ScreenType) => {
+    if (next === currentScreen) return;
+    setScreenHistory(previous => [...previous, currentScreen].slice(-50));
+    setCurrentScreen(next);
+  };
+
+  const goBack = () => {
+    setScreenHistory(previous => {
+      if (!previous.length) {
+        setCurrentScreen('home');
+        return ['home'];
+      }
+      const nextHistory = previous.slice();
+      const previousScreen = nextHistory.pop() || 'home';
+      setCurrentScreen(previousScreen);
+      return nextHistory;
+    });
+  };
+
+  // Every app receives this wrapper. Its "home" target means Back within
+  // the current app/navigation stack, not "jump to the phone Home screen".
+  const navigateFromApp = (next: ScreenType) => {
+    if (next === 'home') {
+      goBack();
+      return;
+    }
+    navigateTo(next);
+  };
   const isDark = themeMode === 'dark-luxury';
   const appBeauty = appearance.appBeauty?.[currentScreen] || {};
   const isLineScreen = currentScreen === 'chat' || currentScreen === 'inbox';
@@ -180,7 +210,7 @@ export function PhoneSimulator({
           )}
           {currentScreen === 'home' && (
             <SaneHomeScreenView
-              onNavigate={setCurrentScreen}
+              onNavigate={navigateTo
               onOpenSheet={() => setIsSheetOpen(true)}
               onToggleTheme={handleToggleTheme}
             />
@@ -199,8 +229,8 @@ export function PhoneSimulator({
               }}
             >
               <LineAppView
-                onNavigateHome={() => setCurrentScreen('home')}
-                onNavigateScreen={setCurrentScreen}
+                onNavigateHome={goBack}
+                onNavigateScreen={navigateTo}
               />
             </PhoneScreenErrorBoundary>
           )}
@@ -235,13 +265,13 @@ export function PhoneSimulator({
 
           {currentScreen === 'threads' && (
             <ThreadsScreenView
-              onNavigate={setCurrentScreen}
+              onNavigate={navigateFromApp}
             />
           )}
 
           {currentScreen === 'spy-phone' && (
             <SpyPhoneScreenView
-              onNavigate={setCurrentScreen}
+              onNavigate={navigateFromApp}
             />
           )}
 
