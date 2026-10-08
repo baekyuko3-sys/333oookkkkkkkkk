@@ -262,12 +262,18 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
           'The following result came directly from the repository tool. Treat it as authoritative. ' +
           'Do NOT ask the user to reconnect GitHub unless a later GitHub request actually fails:\n' + evidence,
       });
+      history[0].content +=
+        '\n\n[VERIFIED GITHUB REPOSITORY ACCESS]\n' +
+        'The Studio repository connection has already succeeded for this request. ' +
+        'The following data is real repository data. Never claim that GitHub is inaccessible. ' +
+        'Use repository tools to inspect/read/search as needed and act on the user request.\n' +
+        evidence;
       lastValidationContext = (lastValidationContext ? lastValidationContext + '\n\n' : '') +
         'Repository preflight succeeded. GitHub access is active. Root listing: ' + evidence;
     } catch (error) {
       history.push({
-        role: 'user',
-        content: 'STUDIO PREFLIGHT FAILED: repository inspection failed with ' + String(error) + '. Do not pretend access exists.',
+        role: 'assistant',
+        content: '[STUDIO PREFLIGHT FAILED] repository inspection failed with ' + String(error) + '. Do not pretend access exists.',
       });
     }
   }
@@ -319,7 +325,7 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
         if (target && typeof target.content === 'string') {
           originalContent = target.content;
           fileSnapshots.set(action.path, originalContent);
-          history.push({ role: 'user', content: 'AUTO-READ PROPOSAL TARGET (' + action.path + '):\\n' + JSON.stringify(target).slice(0, 50000) });
+          history.push({ role: 'assistant', content: '[STUDIO TOOL RESULT] AUTO-READ PROPOSAL TARGET (' + action.path + '):\\n' + JSON.stringify(target).slice(0, 50000) });
         } else {
           throw new Error('Meme 无法读取待修改文件：' + action.path);
         }
@@ -351,14 +357,14 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
           proposals.push(proposal);
           options.onEvent?.({ type: 'proposal', proposal });
           history.push({ role: 'assistant', content: raw });
-          history.push({ role: 'user', content: 'Validation PASSED for ' + proposal.path + '. The proposal is now staged in Changes. Continue checking for related files or remaining work.' });
+          history.push({ role: 'assistant', content: '[STUDIO] Validation PASSED for ' + proposal.path + '. The proposal is staged in Changes. Continue checking the original user request for related files or remaining work.' });
           break;
         }
 
         history.push({ role: 'assistant', content: raw });
         history.push({
-          role: 'user',
-          content: 'PRE-APPROVAL VALIDATION FAILED for ' + proposal.path + ':\\n' + JSON.stringify(validation) + '\\nDo not stage this proposal. Inspect/read/search the relevant code and produce a smaller, evidence-based corrected proposal.',
+          role: 'assistant',
+          content: '[STUDIO VALIDATION FAILED] ' + proposal.path + ':\\n' + JSON.stringify(validation) + '\\nDo not stage this proposal. Inspect/read/search the relevant code and produce a smaller, evidence-based corrected proposal.',
         });
         if (validation.status === 'needs_more_context' && validationRound >= maxValidationRounds) {
           options.onEvent?.({ type: 'message', text: 'Meme 暂不把 ' + proposal.path + ' 交给 Changes：证据不足，正在保留当前检查结果。' });
@@ -391,7 +397,7 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
     }
 
     history.push({ role: 'assistant', content: raw });
-    history.push({ role: 'user', content: 'TOOL RESULT (' + tool.name + '):\\n' + JSON.stringify(resultText).slice(0, 50000) });
+    history.push({ role: 'assistant', content: '[STUDIO TOOL RESULT] ' + tool.name + ':\\n' + JSON.stringify(resultText).slice(0, 50000) });
   }
 
   const text = 'Meme 达到本轮 Agent 步数上限，已停止并保留当前已通过验证的 Changes。';
