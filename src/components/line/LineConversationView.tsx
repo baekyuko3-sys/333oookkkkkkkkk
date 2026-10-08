@@ -943,11 +943,16 @@ export function LineConversationView({
 
   const createStatusBarSnapshot = async (replyText: string, sourceMessageId: string | number, rawStatusOverride?: string) => {
     if (!statusBarEnabled) return;
-    const presets = statusBarPresets.filter(preset => preset.targets.includes('line'));
+    // LINE must always be able to use the preset the user explicitly selected.
+    // Imported Tavern/POME presets can have no target metadata, so do not let the
+    // target list silently prevent the snapshot from ever being created.
+    const linePresets = statusBarPresets.filter(preset => preset.targets.includes('line'));
+    const selectedPreset = statusBarPresets.find(preset => preset.id === activeStatusBarPresetId);
+    const presets = linePresets.length ? linePresets : statusBarPresets;
     if (!presets.length) return;
     const chosen = statusBarRandomMode
       ? presets[Math.floor(Math.random() * presets.length)]
-      : presets.find(preset => preset.id === activeStatusBarPresetId) || presets[0];
+      : selectedPreset || presets[0];
 
     try {
       const rawStatus = rawStatusOverride?.trim() || await generateStatusBarContent(
@@ -982,8 +987,11 @@ export function LineConversationView({
       const next = [...getStatusBarHistory(conversationStorageId)];
       setStatusBarHistory(next);
       setStatusBarHistoryIndex(Math.max(0, next.length - 1));
-    } catch {
-      // A failed status generation must never interrupt the actual chat reply.
+    } catch (error) {
+      // A failed status generation must never interrupt the actual chat reply,
+      // but it must be visible during testing instead of looking like an empty history.
+      console.error('[SANE333 STATUS BAR] snapshot generation failed', error);
+      showToast('状态栏生成失败，请检查状态栏 Prompt / Regex / HTML');
     }
   };
 
