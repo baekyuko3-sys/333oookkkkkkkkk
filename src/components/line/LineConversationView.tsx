@@ -1021,26 +1021,23 @@ export function LineConversationView({
         rawOverride: Boolean(rawStatusOverride?.trim()),
       });
 
-      const rawStatus = rawStatusOverride?.trim() || await generateStatusBarContent(
-        conversationAiSettings(),
-        contactName,
-        chosen,
-        messagesRef.current
-          .filter(message => String(message.id) !== String(sourceMessageId) && !String(message.id).startsWith(String(sourceMessageId) + '-'))
-          .map(message => ({ sender: String(message.sender || 'unknown'), text: message.text, transcript: message.transcript }))
-          .concat({ sender: 'other', text: replyText, transcript: '' }),
-        getStatusBarHistory(conversationStorageId)
-          .slice(-3)
-          .map(item => item.sourceText)
-          .filter(Boolean)
-          .join('\n'),
-        activePersona?.name || '用户',
-      );
+      // UWU-style status bars are emitted in the SAME character response.
+      // Never make a second hidden AI request here: the current preset's Regex
+      // must capture the status payload that came back with this exact reply.
+      const rawStatus = rawStatusOverride?.trim() || '';
+      debugEvent('info', rawStatus ? 'ai:response' : 'ai:response-missing-status',
+        rawStatus ? '本轮角色回复已携带状态栏原文' : '本轮角色回复没有携带可匹配的状态栏原文',
+        {
+          rawStatus,
+          rawLength: rawStatus.length,
+          replyText: String(replyText || ''),
+          presetId: chosen.id,
+          regex: String(chosen.regex || ''),
+        });
 
-      debugEvent('info', 'ai:response', '状态栏 AI 原始返回已收到', {
-        rawStatus,
-        rawLength: rawStatus.length,
-      });
+      if (!rawStatus) {
+        throw new Error('本轮角色回复没有输出可匹配当前 Regex 的状态栏');
+      }
 
       if (!rawStatus.trim()) throw new Error('AI 没有返回状态栏内容');
 
