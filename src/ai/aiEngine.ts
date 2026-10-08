@@ -736,7 +736,10 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
   };
   const saveTrace = () => writeAiDebugTrace({ ...trace, durationMs: Date.now() - startedAt });
 
-  pushAiDebugLog({ level:'info', event:'request:start', message:'开始角色回复请求', provider:input.settings.provider, model:input.settings.model, meta:{ cot:cotEnabled, action:actionEnabled } });
+  // Write immediately so the debug panel is never blank, even if prompt construction,
+  // the provider request, or parsing fails later in the turn.
+  saveTrace();
+  pushAiDebugLog({ level:'info', event:'request:start', message:'开始角色回复请求', provider:input.settings.provider, model:input.settings.model, meta:{ cot:cotEnabled, action:actionEnabled, conversationId: input.debugConversationId } });
 
   const worldbooks = input.worldbooks || [];
   const scanDepth = Math.max(1, Math.min(50, Math.max(12, ...worldbooks.flatMap(book => book.entries.map(entry => Number(entry.scanDepth || 0))))));
