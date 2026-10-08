@@ -65,10 +65,9 @@ export function PresetResourceManager({
     if (statuses) {
       const item: StatusBarPreset = {
         id: 'status-' + Date.now().toString(36), name:'新的状态栏', description:'',
-        html:'<div class="sane-status"><div>{{location}}</div><div>{{time}} · {{activity}}</div><div>{{mood}}</div></div>',
-        inputFormat:'{{status:地点｜时间｜活动｜心情}}',
-        promptSuffix:'请在回复最后严格按照以下文字输入格式输出状态栏，不要添加解释：{{status:地点｜时间｜活动｜心情}}',
-        regex:'/\\{\\{status:(.*?)\\}\\}/gs', targets:['line'], createdAt:now, updatedAt:now,
+        html:'<div class="sane-status"><div class="sane-status__content">{{status}}</div></div>',
+        promptSuffix:'请回复一个简洁的当前状态栏，只描述此刻角色的地点、时间、正在做什么和心情。状态必须基于刚刚的聊天，不要解释，不要输出状态栏标签。',
+        regex:'', targets:['line'], createdAt:now, updatedAt:now,
       };
       const next=[item,...statusPresets]; setStatusPresets(next); saveStatusBarPresets(next); setSelectedId(item.id);
     } else {
@@ -179,9 +178,6 @@ export function PresetResourceManager({
                 <label className="block text-[8px] text-[#999]">状态栏 Prompt · 生成指令
                   <textarea value={(selected as StatusBarPreset).promptSuffix} onChange={e=>updateSelected({promptSuffix:e.target.value})} placeholder="请严格按照状态栏输入格式输出，不要添加解释。" className="w-full mt-1 h-20 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px] leading-relaxed resize-none"/>
                 </label>
-                <label className="block text-[8px] text-[#999]">输入格式 · Input Format
-                  <input value={(selected as StatusBarPreset).inputFormat} onChange={e=>updateSelected({inputFormat:e.target.value})} placeholder="{{status:地点｜时间｜活动｜心情}}" className="w-full mt-1 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px] font-mono"/>
-                </label>
                 <label className="block text-[8px] text-[#999]">提取正则 · Find Regex
                   <input value={(selected as StatusBarPreset).regex} onChange={e=>updateSelected({regex:e.target.value})} placeholder="/\\{\\{status:(.*?)\\}\\}/gs" className="w-full mt-1 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[10px] font-mono"/>
                 </label>
@@ -200,7 +196,7 @@ export function PresetResourceManager({
                   <textarea
                     value={regexTestInput}
                     onChange={e=>setRegexTestInput(e.target.value)}
-                    placeholder={(selected as StatusBarPreset).inputFormat || '{{status:地点｜时间｜活动｜心情}}'}
+                    placeholder="直接输入 AI 生成的状态内容，查看最终渲染效果"
                     className="w-full h-20 p-2.5 rounded-lg bg-white border border-[#e8e8e8] text-[9px] outline-none resize-none"
                   />
                   <div className="min-h-[70px] flex items-start justify-center py-3 overflow-visible">
