@@ -5,7 +5,6 @@ export interface StatusBarPreset {
   name: string;
   description: string;
   html: string;
-  inputFormat: string;
   promptSuffix: string;
   regex: string;
   targets: StatusBarTarget[];
@@ -21,9 +20,8 @@ export const DEFAULT_STATUS_BAR_PRESETS: StatusBarPreset[] = [
     name: '极简日常',
     description: '轻量地点、时间与当前状态。',
     html: '<div class="sane-status"><div class="sane-status__line"><span>📍 {{location}}</span><span>·</span><span>{{time}}</span></div><div class="sane-status__activity">{{activity}}</div><div class="sane-status__mood">{{mood}}</div></div>',
-    inputFormat: '{{status:地点｜时间｜活动｜心情}}',
-    promptSuffix: '请在回复最后严格按照以下文字输入格式输出状态栏，不要添加解释：{{status:地点｜时间｜活动｜心情}}',
-    regex: '/\\{\\{status:([^｜}]+)｜([^｜}]+)｜([^｜}]+)｜([^}]+)\\}\\}/gs',
+    promptSuffix: '请回复一个简洁的当前状态栏，只描述此刻角色的地点、时间、正在做什么和心情。状态必须基于刚刚的聊天，不要解释，不要输出状态栏标签。',
+    regex: '',
     targets: ['line', 'offline', 'character-profile'],
     createdAt: '2026-10-04T00:00:00.000Z',
     updatedAt: '2026-10-04T00:00:00.000Z',
@@ -33,9 +31,8 @@ export const DEFAULT_STATUS_BAR_PRESETS: StatusBarPreset[] = [
     name: '关系记录',
     description: '适合恋爱 / 羁绊剧情的轻量状态卡。',
     html: '<article class="sane-status romance"><div class="sane-status__title">{{location}}</div><div class="sane-status__meta">{{time}} · {{activity}}</div><div class="sane-status__mood">{{mood}}</div><div class="sane-status__favor">♡ {{favor}}</div></article>',
-    inputFormat: '{{status:地点｜时间｜活动｜心情｜好感度}}',
-    promptSuffix: '请在回复最后严格按照以下文字输入格式输出状态栏，不要添加解释：{{status:地点｜时间｜活动｜心情｜好感度}}',
-    regex: '/\\{\\{status:([^｜}]+)｜([^｜}]+)｜([^｜}]+)｜([^｜}]+)｜([^}]+)\\}\\}/gs',
+    promptSuffix: '请回复一条简洁的关系状态记录，只描述当前地点、时间、正在做什么、心情以及关系变化。状态必须基于刚刚的聊天，不要解释，不要输出状态栏标签。',
+    regex: '',
     targets: ['line', 'offline'],
     createdAt: '2026-10-04T00:00:00.000Z',
     updatedAt: '2026-10-04T00:00:00.000Z',
@@ -115,7 +112,6 @@ export function importStatusBarPresets(raw: string): StatusBarPreset[] {
       name: String(item.name || '未命名状态栏'),
       description: String(item.description || ''),
       html: String(html),
-      inputFormat: String(item.inputFormat || ''),
       promptSuffix: String(item.promptSuffix || ''),
       regex: String(regex),
       targets: Array.isArray(item.targets) ? item.targets : ['line'],
@@ -187,14 +183,18 @@ export function renderStatusBarHtml(
   fallbackValues: Record<string,string> = {},
 ): string {
   if (!preset) return '';
-  const extracted = extractStatusMatch(sourceText, preset.regex);
-  if (!extracted) return '';
+  const extracted = preset.regex ? extractStatusMatch(sourceText, preset.regex) : null;
   const values: Record<string,string> = { ...fallbackValues };
-  extracted?.captures.forEach((value, index) => { values[String(index + 1)] = value; });
-  Object.assign(values, extracted?.groups || {});
-  values.match = extracted?.match || '';
+  if (extracted) {
+    extracted.captures.forEach((value, index) => { values[String(index + 1)] = value; });
+    Object.assign(values, extracted.groups || {});
+    values.match = extracted.match || '';
+  } else {
+    values.match = String(sourceText || '').trim();
+    values.status = values.match;
+  }
   let html = String(preset.html || '');
-  html = html.replace(/\{\{match\}\}/g, values.match || '');
+  html = html.replace(/\{\{(?:match|status)\}\}/g, values.match || '');
   html = html.replace(/\{\{([\w-]+)\}\}/g, (_, key: string) => { const aliases: Record<string, string> = { location: '1', time: '2', activity: '3', mood: '4', favor: '5' }; return values[key] ?? (aliases[key] ? values[aliases[key]] : '') ?? ''; });
   html = html.replace(/\$(\d+)/g, (_, index: string) => values[index] ?? '');
   return html;
