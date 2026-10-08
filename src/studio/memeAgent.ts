@@ -373,7 +373,7 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
           const target = await readTool.run({ path: action.path });
           if (!target || typeof target.content !== 'string') throw new Error('Meme 无法读取待修改文件：' + action.path);
           baseContent = target.content;
-          fileSnapshots.set(action.path, baseContent);
+          fileSnapshots.set(action.path, String(baseContent));
           history.push({ role: 'assistant', content: '[STUDIO TOOL RESULT] read ' + action.path + ':\\n' + JSON.stringify(target).slice(0, 50000) });
         }
         if (typeof baseContent !== 'string') throw new Error('Meme patch 没有获得原文件内容：' + action.path);
