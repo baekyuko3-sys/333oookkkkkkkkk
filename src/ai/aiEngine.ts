@@ -76,7 +76,10 @@ export interface AiReplyResult {
   matchedWorldbookEntries: number;
 }
 
-export function parseAiReplyPayload(rawText: string): Pick<AiReplyResult, 'text' | 'thinkingSummary' | 'actionDescription'> {
+export function parseAiReplyPayload(
+  rawText: string,
+  cotTag?: string,
+): Pick<AiReplyResult, 'text' | 'thinkingSummary' | 'actionDescription'> {
   const raw = String(rawText || '').replace(/\r\n/g, '\n').trim();
 
   const readTag = (name: string, source: string = raw): string => {
@@ -84,30 +87,28 @@ export function parseAiReplyPayload(rawText: string): Pick<AiReplyResult, 'text'
     return match ? match[1].trim() : '';
   };
 
+  const customTagName = cotTag?.match(/^<([A-Za-z][\\w:-]*)>/)?.[1] || '';
   const thinkingSummary =
-    readTag('thinking') ||
-    readTag('cot') ||
-    readTag('think') ||
-    readTag('thought') ||
-    readTag('summary') ||
-    readTag('decision') ||
-    readTag('decision_summary') ||
-    '';
+    (customTagName ? readTag(customTagName) : '') ||
+    readTag('thinking') || readTag('cot') || readTag('think') ||
+    readTag('thought') || readTag('summary') || readTag('decision') ||
+    readTag('decision_summary') || '';
 
-  // Remove all non-message metadata before building the visible LINE message.
-  const withoutMetadata = raw
-    .replace(/<think>[\s\S]*?<\/think>/gi, '')
-    .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
-    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
-    .replace(/<cot>[\s\S]*?<\/cot>/gi, '')
-    .replace(/<summary>[\s\S]*?<\/summary>/gi, '');
+  let withoutMetadata = raw;
+  const metadataTags = new Set(['think','thought','thinking','cot','summary','decision','decision_summary']);
+  if (customTagName) metadataTags.add(customTagName);
+  for (const tag of metadataTags) {
+    withoutMetadata = withoutMetadata.replace(
+      new RegExp('<' + tag + '>[\\s\\S]*?</' + tag + '>', 'gi'),
+      '',
+    );
+  }
 
   const actionDescription = readTag('action', withoutMetadata);
-  const messageMatch = withoutMetadata.match(/<message>\s*([\s\S]*?)\s*<\/message>/i);
-
+  const messageMatch = withoutMetadata.match(/<message>\\s*([\\s\\S]*?)\\s*<\\/message>/i);
   const text = (messageMatch?.[1] || withoutMetadata
-    .replace(/<action>[\s\S]*?<\/action>/gi, '')
-    .replace(/<message>[\s\S]*?<\/message>/gi, ''))
+    .replace(/<action>[\\s\\S]*?<\\/action>/gi, '')
+    .replace(/<message>[\\s\\S]*?<\\/message>/gi, ''))
     .trim();
 
   return {
@@ -769,13 +770,17 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
   }
 
   trace.rawResponse = rawText;
-  const parsed = parseAiReplyPayload(rawText);
+  const parsed = parseAiReplyPayload(rawText, input.cotPreset?.tag);
   trace.parsed = {
     thinkingSummary: parsed.thinkingSummary || null,
     actionDescription: parsed.actionDescription || null,
     text: parsed.text,
     hasCot: Boolean(parsed.thinkingSummary),
     hasAction: Boolean(parsed.actionDescription),
+    expectedCot: cotEnabled,
+    expectedAction: actionEnabled,
+    missingCot: cotEnabled && !parsed.thinkingSummary,
+    missingAction: actionEnabled && !parsed.actionDescription,
   };
 
   if (!parsed.text) {
@@ -790,6 +795,10 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     thinkingSummary: parsed.thinkingSummary || null,
     actionDescription: parsed.actionDescription || null,
     matchedWorldbookEntries,
+    expectedCot: cotEnabled,
+    expectedAction: actionEnabled,
+    hasCot: Boolean(parsed.thinkingSummary),
+    hasAction: Boolean(parsed.actionDescription),
   };
   saveTrace();
 
