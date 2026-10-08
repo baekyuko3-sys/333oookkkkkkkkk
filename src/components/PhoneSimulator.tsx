@@ -210,7 +210,7 @@ export function PhoneSimulator({
           )}
           {currentScreen === 'home' && (
             <SaneHomeScreenView
-              onNavigate={navigateTo
+              onNavigate={navigateTo}
               onOpenSheet={() => setIsSheetOpen(true)}
               onToggleTheme={handleToggleTheme}
             />
