@@ -1,6 +1,7 @@
 import type { ImportedCharacter } from '../data/characterImport';
 import type { ProjectManifest, WorldBook } from '../types';
 import type { CharacterMemory, MemorySection } from '../store/characterMemory';
+import type { StatusBarPreset } from '../store/statusBarPresets';
 import { buildMemoryContext } from '../store/characterMemory';
 import type { AppSettings, ChannelAiSettings } from '../store/appSettings';
 import { readAppSettings } from '../store/appSettings';
@@ -66,6 +67,7 @@ export interface AiReplyInput {
   typingHabit?: string;
   cotTarget?: 'line' | 'offline' | 'group';
   cotPreset?: Pick<CotPreset, 'id' | 'title' | 'template' | 'tag'>;
+  statusBarPreset?: Pick<StatusBarPreset, 'name' | 'inputFormat' | 'promptSuffix' | 'regex' | 'html'>;
   temperature?: number;
   topP?: number;
   topK?: number;
@@ -80,6 +82,7 @@ export interface AiReplyResult {
   text: string;
   thinkingSummary?: string;
   actionDescription?: string;
+  statusBarRaw?: string;
   provider: AiSettings['provider'];
   model: string;
   matchedWorldbookEntries: number;
@@ -88,7 +91,7 @@ export interface AiReplyResult {
 export function parseAiReplyPayload(
   rawText: string,
   cotTag?: string,
-): Pick<AiReplyResult, 'text' | 'thinkingSummary' | 'actionDescription'> {
+): Pick<AiReplyResult, 'text' | 'thinkingSummary' | 'actionDescription' | 'statusBarRaw'> {
   const raw = String(rawText || '').replace(/\r\n/g, '\n').trim();
 
   const readTag = (name: string, source: string = raw): string => {
@@ -114,6 +117,13 @@ export function parseAiReplyPayload(
   }
 
   const actionDescription = readTag('action', withoutMetadata);
+  const statusMatch =
+    withoutMetadata.match(/\[状态栏\]\s*([\s\S]*?)\s*\[\/状态栏\]/i) ||
+    withoutMetadata.match(/<status>\s*([\s\S]*?)\s*<\/status>/i);
+  const statusBarRaw = statusMatch?.[1]?.trim() || '';
+  withoutMetadata = withoutMetadata
+    .replace(/\[状态栏\][\s\S]*?\[\/状态栏\]/gi, '')
+    .replace(/<status>[\s\S]*?<\/status>/gi, '');
   const messageMatch = new RegExp('<message>\\s*([\\s\\S]*?)\\s*<\\/message>', 'i').exec(withoutMetadata);
   const text = (messageMatch?.[1] || withoutMetadata
     .replace(new RegExp('<action>[\\s\\S]*?<\\/action>', 'gi'), '')
@@ -124,6 +134,7 @@ export function parseAiReplyPayload(
     text,
     thinkingSummary: thinkingSummary || undefined,
     actionDescription: actionDescription || undefined,
+    statusBarRaw: statusBarRaw || undefined,
   };
 }
 
@@ -388,6 +399,16 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '正文直接输出正常角色聊天消息。<message>...</message> 不是必需格式；如果模型使用它，解析器会自动剥离外壳。',
     'COT、动作和正文是三个独立层，不要把 COT 或动作混进正文。',
     '不要输出 Markdown 代码块，不要输出格式说明。',
+    input.statusBarPreset ? [
+      '【状态栏｜与本轮回复同一输出】',
+      '本轮状态栏已开启。必须独立于聊天正文输出，并使用 [状态栏]...[/状态栏] 包裹。',
+      '严格按照以下状态栏预设的原始输入格式生成；不要输出 HTML、正则或解释。',
+      '状态栏名称：' + input.statusBarPreset.name,
+      '状态栏输入格式：' + (input.statusBarPreset.inputFormat || ''),
+      '状态栏专用 Prompt：' + (input.statusBarPreset.promptSuffix || ''),
+      '状态栏只描述角色当前状态，不要替用户编造动作、想法或事实。',
+      'COT、动作、状态栏、聊天正文是四个独立层。',
+    ].join('\n') : '【状态栏】关闭：不要输出 [状态栏] 标签。',
   ].join('\n');
 }
 
@@ -921,10 +942,12 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     text: resolveMacros(parsedRaw.text, replyMacroNames),
     thinkingSummary: parsedRaw.thinkingSummary ? resolveMacros(parsedRaw.thinkingSummary, replyMacroNames) : undefined,
     actionDescription: parsedRaw.actionDescription ? resolveMacros(parsedRaw.actionDescription, replyMacroNames) : undefined,
+    statusBarRaw: parsedRaw.statusBarRaw ? resolveMacros(parsedRaw.statusBarRaw, replyMacroNames) : undefined,
   };
   trace.parsed = {
     thinkingSummary: parsed.thinkingSummary || null,
     actionDescription: parsed.actionDescription || null,
+    statusBarRaw: parsed.statusBarRaw || null,
     text: parsed.text,
     hasCot: Boolean(parsed.thinkingSummary),
     hasAction: Boolean(parsed.actionDescription),
@@ -948,6 +971,7 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     text: parsed.text,
     thinkingSummary: parsed.thinkingSummary || null,
     actionDescription: parsed.actionDescription || null,
+    statusBarRaw: parsed.statusBarRaw || null,
     matchedWorldbookEntries,
     expectedCot: cotEnabled,
     expectedAction: actionEnabled,
@@ -961,6 +985,7 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     text: parsed.text,
     thinkingSummary: parsed.thinkingSummary,
     actionDescription: parsed.actionDescription,
+    statusBarRaw: parsed.statusBarRaw,
     provider: input.settings.provider,
     model: input.settings.model.trim(),
     matchedWorldbookEntries,
