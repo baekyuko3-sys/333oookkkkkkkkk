@@ -246,7 +246,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         branch: branch.trim() || linked.branch || 'main',
       }));
     }
-    writeStore(STORE.token, effectiveToken);
+    writeStore(STORE.token, token);
     writeStore(STORE.owner, owner);
     writeStore(STORE.repo, repo);
     writeStore(STORE.branch, branch);
@@ -310,7 +310,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     try {
       const clean = folder.split('/').filter(Boolean).map(encodeURIComponent).join('/');
       const url = 'https://api.github.com/repos/' + effectiveOwner + '/' + effectiveRepo + '/contents/' + clean + '?ref=' + encodeURIComponent(effectiveBranch);
-      const data = await github(url, effectiveToken);
+      const data = await github(url, sharedToken);
       const array = Array.isArray(data) ? data : [data];
       setItems(array.map((item: any) => ({
         name: item.name,
@@ -340,7 +340,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setBusy(true);
     try {
       const url = 'https://api.github.com/repos/' + effectiveOwner + '/' + effectiveRepo + '/contents/' + item.path.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(effectiveBranch);
-      const data = await github(url, effectiveToken);
+      const data = await github(url, sharedToken);
       setFile(item);
       setCode(decodeBase64(data.content));
       setOriginal(decodeBase64(data.content));
@@ -355,12 +355,12 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     const effectiveOwner = 'baekyuko3-sys';
     const effectiveRepo = '333oookkkkkkkkk';
     const effectiveBranch = 'main';
-    const effectiveToken = getGitHubToken().trim() || token.trim();
+    const effectiveToken = token.trim();
     if (!file || !effectiveOwner || !effectiveRepo || !effectiveBranch || !effectiveToken) return;
     setSaving(true);
     try {
       const url = 'https://api.github.com/repos/' + effectiveOwner + '/' + effectiveRepo + '/contents/' + file.path.split('/').map(encodeURIComponent).join('/');
-      await github(url, effectiveToken, {
+      await github(url, sharedToken, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -438,7 +438,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             run: async ({ path: target = '' }) => {
               const clean = String(target).split('/').filter(Boolean).map(encodeURIComponent).join('/');
               const url = 'https://api.github.com/repos/' + effectiveOwner + '/' + effectiveRepo + '/contents/' + clean + '?ref=' + encodeURIComponent(effectiveBranch);
-              const data = await github(url, effectiveToken);
+              const data = await github(url, sharedToken);
               return Array.isArray(data)
                 ? data.map((item: any) => ({ name: item.name, path: item.path, type: item.type, sha: item.sha }))
                 : { name: data.name, path: data.path, type: data.type, sha: data.sha };
@@ -450,7 +450,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             run: async ({ path: target }) => {
               const clean = String(target).split('/').filter(Boolean).map(encodeURIComponent).join('/');
               const url = 'https://api.github.com/repos/' + effectiveOwner + '/' + effectiveRepo + '/contents/' + clean + '?ref=' + encodeURIComponent(effectiveBranch);
-              const data = await github(url, effectiveToken);
+              const data = await github(url, sharedToken);
               if (Array.isArray(data)) return { error: 'Path is a directory', items: data.map((item: any) => item.path) };
               return { path: data.path, sha: data.sha, content: decodeBase64(data.content).slice(0, 60000) };
             },
@@ -772,7 +772,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     log('agent', 'Started automatic CI repair for ' + failedSha.slice(0, 8));
 
     try {
-      const project = owner + '/' + repo + '@' + branch;
+      const project = sharedOwner + '/' + sharedRepo + '@' + sharedBranch;
       const result = await runMemeAgent({
         apiBaseUrl: aiSettings.apiBaseUrl,
         apiKey: aiSettings.apiKey,
@@ -786,8 +786,8 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             run: async ({ path: target = '' }) => {
               const clean = String(target).split('/').filter(Boolean).map(encodeURIComponent).join('/');
               const data = await github(
-                'https://api.github.com/repos/' + effectiveOwner + '/' + effectiveRepo + '/contents/' + clean + '?ref=' + encodeURIComponent(effectiveBranch),
-                token
+                'https://api.github.com/repos/' + sharedOwner + '/' + sharedRepo + '/contents/' + clean + '?ref=' + encodeURIComponent(sharedBranch),
+                sharedToken
               );
               return Array.isArray(data)
                 ? data.map((item: any) => ({ name: item.name, path: item.path, type: item.type, sha: item.sha }))
@@ -800,8 +800,8 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             run: async ({ path: target }) => {
               const clean = String(target).split('/').filter(Boolean).map(encodeURIComponent).join('/');
               const data = await github(
-                'https://api.github.com/repos/' + effectiveOwner + '/' + effectiveRepo + '/contents/' + clean + '?ref=' + encodeURIComponent(effectiveBranch),
-                token
+                'https://api.github.com/repos/' + sharedOwner + '/' + sharedRepo + '/contents/' + clean + '?ref=' + encodeURIComponent(sharedBranch),
+                sharedToken
               );
               if (Array.isArray(data)) return { error: 'Path is a directory', items: data.map((item: any) => item.path) };
               return { path: data.path, sha: data.sha, content: decodeBase64(data.content).slice(0, 60000) };
@@ -916,10 +916,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setSaving(true);
     try {
       const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + target.split('/').map(encodeURIComponent).join('/');
-      await github(url, effectiveToken, {
+      await github(url, sharedToken, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'Studio: create ' + target, content: encodeBase64(newContent), branch }),
+        body: JSON.stringify({ message: 'Studio: create ' + target, content: encodeBase64(newContent), branch: sharedBranch }),
       });
       setNewPath('');
       setNewContent('');
@@ -937,13 +937,13 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setSaving(true);
     try {
       const target = targetPath.trim().replace(/^\/+|\/+$/g, '');
-      const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + target.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(effectiveBranch);
-      const data = await github(url, effectiveToken);
+      const url = 'https://api.github.com/repos/' + sharedOwner + '/' + sharedRepo + '/contents/' + target.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(sharedBranch);
+      const data = await github(url, sharedToken);
       if (Array.isArray(data)) throw new Error('这是目录，请使用递归删除');
-      await github(url.split('?')[0], effectiveToken, {
+      await github(url.split('?')[0], sharedToken, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'Studio: delete ' + target, sha: data.sha, branch }),
+        body: JSON.stringify({ message: 'Studio: delete ' + target, sha: data.sha, branch: sharedBranch }),
       });
       await list(path);
       notify('文件已删除');
@@ -957,13 +957,13 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const deleteTree = async (root: string): Promise<void> => {
     const target = root.trim().replace(/^\/+|\/+$/g, '');
     if (!target || !ready) return;
-    const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + target.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(effectiveBranch);
-    const data = await github(url, effectiveToken);
+    const url = 'https://api.github.com/repos/' + sharedOwner + '/' + sharedRepo + '/contents/' + target.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(sharedBranch);
+    const data = await github(url, sharedToken);
     if (!Array.isArray(data)) {
-      await github(url.split('?')[0], effectiveToken, {
+      await github(url.split('?')[0], sharedToken, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'Studio: delete ' + target, sha: data.sha, branch }),
+        body: JSON.stringify({ message: 'Studio: delete ' + target, sha: data.sha, branch: sharedBranch }),
       });
       return;
     }
