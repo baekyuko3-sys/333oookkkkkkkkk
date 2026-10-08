@@ -13,6 +13,7 @@ export interface ContextEngineInput {
   worldbooks?: WorldBook[];
   userMessage: string;
   worldBookScanForEntry?: (entry: WorldBook['entries'][number]) => string;
+  includeCharacterGreeting?: boolean;
 }
 
 export interface ResolvedContext {
@@ -205,7 +206,8 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
         '创作者注释：' + (input.character.creatorNotes || '未填写'),
         '角色系统提示：' + (input.character.systemPrompt || '未填写'),
         '历史指令：' + (input.character.postHistoryInstructions || '未填写'),
-        '首条消息：' + (input.character.firstMessage || '未填写'),
+        input.includeCharacterGreeting !== false ? '首条消息：' + (input.character.firstMessage || '未填写') : '首条消息：已作为首次开场白发送；本轮不重复注入。',
+        input.includeCharacterGreeting !== false && input.character.alternateGreetings?.length ? '备用开场白：' + input.character.alternateGreetings.join('\\n---\\n') : '备用开场白：已作为首次开场白选项处理；本轮不重复注入。',
         '示例对话：' + (input.character.exampleDialogue || '未填写'),
         '备用开场白：' + (input.character.alternateGreetings?.length ? input.character.alternateGreetings.join('\n---\n') : '未填写'),
         '角色语言指纹：' + (input.character.languageProfile ? JSON.stringify(input.character.languageProfile) : '未填写'),
