@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ArrowLeft, Check, ChevronRight, Clock3, FileCode2, Folder, Github, KeyRound, Loader2, MessageCircle, Plus, Save, Send, Settings2, ShieldAlert, Sparkles, Trash2, Upload, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, Check, ChevronRight, Clock3, FileCode2, Folder, Github, KeyRound, Loader2, MessageCircle, Plus, Save, Send, Settings2, Copy, RotateCcw, ShieldAlert, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import type { ScreenType } from '../../types';
 import { generateCreativeText, listOpenAiCompatibleModels } from '../../ai/aiEngine';
 import { readAppSettings, saveAppSettings, type AppSettings } from '../../store/appSettings';
@@ -120,6 +120,16 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [currentTask, setCurrentTask] = useState<StudioTask | null>(null);
   const [taskSteps, setTaskSteps] = useState<string[]>([]);
   const [sessionTitle, setSessionTitle] = useState(() => studioStorage.sessions()[0]?.title || 'New build session');
+  useEffect(() => {
+    const first = studioStorage.sessions()[0];
+    if (!first) return;
+    setSessionId(first.id);
+    setSessionTitle(first.title || 'New build session');
+    setConversation(first.messages.map(message => ({
+      role: message.role === 'meme' ? 'assistant' as const : 'user' as const,
+      content: message.text,
+    })).slice(-24));
+  }, []);
 
   const startNewSession = () => {
     const id = 'session-' + Date.now();
@@ -154,7 +164,12 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     studioStorage.saveSessions(next);
   };
 
-  const ready = Boolean(owner.trim() && repo.trim() && branch.trim() && token.trim());
+  const linkedGithub = getGitHubSyncConfig();
+  const sharedOwner = owner.trim() || linkedGithub.owner.trim();
+  const sharedRepo = repo.trim() || linkedGithub.repo.trim();
+  const sharedBranch = branch.trim() || linkedGithub.branch.trim();
+  const sharedToken = token.trim() || getGitHubToken().trim();
+  const ready = Boolean(sharedOwner && sharedRepo && sharedBranch && sharedToken);
   const aiReady = Boolean(aiSettings.apiBaseUrl.trim() && aiSettings.apiKey.trim() && aiSettings.model.trim());
   const dirty = Boolean(file && code !== original);
 
@@ -317,8 +332,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     }
   };
 
-  const ask = async () => {
-    if (!prompt.trim()) return;
+  const ask = async (overrideRequest?: string, overrideConversation?: Array<{ role: 'user' | 'assistant'; content: string }>) => {
+    const sourceRequest = overrideRequest ?? prompt;
+    if (!sourceRequest.trim()) return;
     // Studio must use the same linked GitHub credentials as the rest of the app.
     const linked = getGitHubSyncConfig();
     const linkedToken = getGitHubToken();
@@ -335,12 +351,13 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       notify('先填写 AI API Base URL、Key 和 Model');
       return;
     }
-    const request = prompt.trim();
+    const request = sourceRequest.trim();
     setPrompt('');
     setMessage('你：' + request);
     // React state updates are asynchronous. Build the history synchronously so
     // Meme receives the message that was just submitted on its first round.
-    const nextConversation = [...conversation, { role: 'user' as const, content: request }].slice(-24);
+    const baseConversation = overrideConversation ?? conversation;
+    const nextConversation = [...baseConversation, { role: 'user' as const, content: request }].slice(-24);
     setConversation(nextConversation);
     persistSession(nextConversation, request.slice(0, 32));
     setAiBusy(true);
@@ -448,6 +465,29 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     }
   };
 
+  const copyMessage = async (content: string) => {
+    try { await navigator.clipboard.writeText(content); notify('已复制'); }
+    catch { notify('复制失败，请检查浏览器权限'); }
+  };
+
+  const deleteMessage = (index: number) => {
+    const next = conversation.filter((_, i) => i !== index);
+    setConversation(next);
+    persistSession(next, sessionTitle);
+    notify('已删除');
+  };
+
+  const rerollMessage = async (index: number) => {
+    const target = conversation[index];
+    if (!target || target.role !== 'assistant' || aiBusy) return;
+    const previousUser = [...conversation.slice(0, index)].reverse().find(item => item.role === 'user');
+    if (!previousUser) { notify('找不到对应的用户消息'); return; }
+    const baseConversation = conversation.slice(0, index);
+    setConversation(baseConversation);
+    persistSession(baseConversation, sessionTitle);
+    await ask(previousUser.content, baseConversation);
+  };
+
   const approveChange = async (change: Change) => {
     const linked = getGitHubSyncConfig();
     const effectiveOwner = owner.trim() || linked.owner.trim();
@@ -477,7 +517,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     if (!window.confirm('确认把 ' + changes.length + ' 个文件作为一个原子 commit 写入 ' + effectiveBranch + '？')) return;
     setSaving(true);
     try {
-      const result = await applyAtomicChanges(owner, repo, branch, token, changes.map(change => ({ path: change.path, content: change.content, operation: change.operation || 'update' })), 'Studio: apply Meme task · ' + sessionTitle);
+      const result = await applyAtomicChanges(effectiveOwner, effectiveRepo, effectiveBranch, effectiveToken, changes.map(change => ({ path: change.path, content: change.content, operation: change.operation || 'update' })), 'Studio: apply Meme task · ' + sessionTitle);
       const artifact = { id:'crafted-'+Date.now(), name:sessionTitle, kind:'feature', summary:'Meme completed an approved multi-file change.', files:changes.map(c=>c.path), commitSha:result.sha, createdAt:Date.now() };
       const next=[artifact,...crafted].slice(0,50); setCrafted(next); writeStore('studio:crafted',JSON.stringify(next));
       setChanges([]); setCurrentTask(v => v ? {...v,status:'working',updatedAt:Date.now(),steps:v.steps.map(step=>({...step,status:'done'}))} : v);
@@ -939,8 +979,15 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
                 </div>
               ) : (
                 <div className="space-y-3 py-3">
-                  {conversation.map((item, index) => <div key={index} className={item.role === 'user' ? 'ml-8 p-3.5 rounded-2xl rounded-br-md bg-[#292724] text-white text-[10px] leading-5 whitespace-pre-wrap' : 'mr-5 p-3.5 rounded-2xl rounded-bl-md bg-white/80 border border-black/5 text-[10px] leading-5 whitespace-pre-wrap'}>
-                    <div className="mb-1 text-[6px] font-mono tracking-[1.5px] opacity-45">{item.role === 'user' ? 'YOU' : 'MEME'}</div>{item.content}
+                  {conversation.map((item, index) => <div key={index} className={item.role === 'user' ? 'ml-8 group' : 'mr-5 group'}>
+                    <div className={item.role === 'user' ? 'p-3.5 rounded-2xl rounded-br-md bg-[#292724] text-white text-[10px] leading-5 whitespace-pre-wrap' : 'p-3.5 rounded-2xl rounded-bl-md bg-white/80 border border-black/5 text-[10px] leading-5 whitespace-pre-wrap'}>
+                      <div className="mb-1 text-[6px] font-mono tracking-[1.5px] opacity-45">{item.role === 'user' ? 'YOU' : 'MEME'}</div>{item.content}
+                    </div>
+                    <div className="flex justify-end gap-1 mt-1 opacity-70">
+                      <button onClick={() => void copyMessage(item.content)} className="w-7 h-7 rounded-full bg-white/70 border border-black/5 grid place-items-center" aria-label="复制"><Copy className="w-3 h-3" /></button>
+                      {item.role === 'assistant' && <button onClick={() => void rerollMessage(index)} disabled={aiBusy} className="w-7 h-7 rounded-full bg-white/70 border border-black/5 grid place-items-center disabled:opacity-30" aria-label="重新生成"><RotateCcw className="w-3 h-3" /></button>}
+                      <button onClick={() => deleteMessage(index)} className="w-7 h-7 rounded-full bg-white/70 border border-black/5 grid place-items-center" aria-label="删除"><Trash2 className="w-3 h-3" /></button>
+                    </div>
                   </div>)}
                   {aiBusy && <div className="mr-5 p-3.5 rounded-2xl rounded-bl-md bg-[#292724] text-white text-[9px]"><Loader2 className="w-3 h-3 inline mr-1 animate-spin" /> Meme 正在理解项目…</div>}
                 </div>
@@ -953,7 +1000,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         {tab === 'git' && (
           <section className="p-3.5 space-y-3">
             <div className="p-3.5 rounded-2xl bg-[#ebe6de]"><div className="text-[8px] font-mono tracking-[2px] text-[#8b8782]">GIT WORKSPACE</div><b className="text-[17px]">History & Recovery</b><div className="mt-1 text-[9px] text-[#777069]">{owner}/{repo} · {branch}</div></div>
-            <button onClick={async () => { try { const data=await github('https://api.github.com/repos/'+owner+'/'+repo+'/commits?sha='+encodeURIComponent(effectiveBranch)+'&per_page=20',token); setGitCommits(data || []); log('git','Loaded commit history'); } catch(e){ notify(e instanceof Error ? e.message : 'Git 历史读取失败'); } }} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">刷新提交历史</button>
+            <button onClick={async () => { try { const data=await github('https://api.github.com/repos/'+sharedOwner+'/'+sharedRepo+'/commits?sha='+encodeURIComponent(sharedBranch)+'&per_page=20',sharedToken); setGitCommits(data || []); log('git','Loaded commit history'); } catch(e){ notify(e instanceof Error ? e.message : 'Git 历史读取失败'); } }} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">刷新提交历史</button>
             {gitCommits.map((c:any)=><div key={c.sha} className="p-3 rounded-2xl bg-white/65"><div className="text-[9px]">{c.commit?.message?.split('\n')[0]}</div><div className="mt-1 text-[7px] font-mono text-[#888]">{c.sha?.slice(0,8)}</div></div>)}
             {!gitCommits.length && <div className="py-10 text-center text-[9px] text-[#888]">刷新后查看最近提交。</div>}
             <div className="p-3 rounded-2xl bg-[#fff4f1] text-[8px] text-[#8f6f68]">回滚入口会要求二次确认；不会让 Meme 悄悄改写历史。</div>
@@ -1081,7 +1128,14 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               <button onClick={saveSettings} className="py-2.5 rounded-xl bg-[#292724] text-white text-[9px]"><Check className="w-3 h-3 inline mr-1" />保存</button>
-              <button onClick={async () => { try { const data = await github('https://api.github.com/user', token); notify('GitHub 已连接：' + (data?.login || 'OK')); await list(''); } catch (error) { notify(error instanceof Error ? error.message : '连接失败'); } }} className="py-2.5 rounded-xl bg-white text-[9px]"><Github className="w-3 h-3 inline mr-1" />测试 GitHub</button>
+              <button onClick={async () => {
+  try {
+    if (!sharedOwner || !sharedRepo || !sharedBranch || !sharedToken) throw new Error('GitHub 仓库连接信息不完整');
+    await github('https://api.github.com/repos/' + sharedOwner + '/' + sharedRepo, sharedToken);
+    await list('');
+    notify('GitHub 仓库已连接：' + sharedOwner + '/' + sharedRepo + ' · ' + sharedBranch);
+  } catch (error) { notify(error instanceof Error ? error.message : 'GitHub 仓库连接失败'); }
+}} className="py-2.5 rounded-xl bg-white text-[9px]"><Github className="w-3 h-3 inline mr-1" />测试 GitHub</button>
             </div>
           </section>
         )}
