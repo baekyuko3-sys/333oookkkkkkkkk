@@ -65,6 +65,7 @@ export interface AiReplyInput {
   presencePenalty?: number;
   seed?: number | null;
   onDelta?: (delta: string) => void;
+  debugConversationId?: string;
 }
 
 export interface AiReplyResult {
@@ -604,7 +605,11 @@ async function callGemini(input: AiReplyInput): Promise<string> {
       rawStream += delta;
       const match = rawStream.match(/<message>\s*([\s\S]*)$/i);
       if (match) {
-        input.onDelta?.(match[1].replace(/<\/message>[\s\S]*$/i, ''));
+        const visible = match[1]
+          .replace(/<action>[\s\S]*?<\/action>/gi, '')
+          .replace(/<\/message>[\s\S]*$/i, '')
+          .trimStart();
+        input.onDelta?.(visible);
       }
     };
     return parseSseResponse(response, extractGeminiText, revealMessage);
@@ -689,7 +694,11 @@ async function callOpenAiCompatible(input: AiReplyInput): Promise<string> {
       rawStream += delta;
       const match = rawStream.match(/<message>\s*([\s\S]*)$/i);
       if (match) {
-        input.onDelta?.(match[1].replace(/<\/message>[\s\S]*$/i, ''));
+        const visible = match[1]
+          .replace(/<action>[\s\S]*?<\/action>/gi, '')
+          .replace(/<\/message>[\s\S]*$/i, '')
+          .trimStart();
+        input.onDelta?.(visible);
       }
     };
     return parseSseResponse(response, extractOpenAiText, revealMessage);
@@ -713,6 +722,7 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
       characterId: input.character?.id,
       characterName: input.character?.name,
       userPersona: input.persona?.name,
+      conversationId: input.debugConversationId,
       userMessage: input.userMessage,
       messageCount: input.messages.length,
     },
