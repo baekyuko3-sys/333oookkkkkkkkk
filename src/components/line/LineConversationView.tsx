@@ -1420,16 +1420,16 @@ export function LineConversationView({
         stylePreset: activeCotPreset?.title || selectedPreset,
         cotTarget: enableChainOfThought ? 'line' : undefined,
         cotPreset: enableChainOfThought ? {
-          id: activeCotPreset.id,
-          title: activeCotPreset.title,
-          template: customCotTemplate || activeCotPreset.template,
+          id: resolvedCotPreset.id,
+          title: resolvedCotPreset.title,
+          template: customCotTemplate || resolvedCotPreset.template,
           tag: resolvedCotPreset.tag,
         } : undefined,
         authorNote: [
           lineConversationRules,
           authorsNote,
           relationshipContext.trim() ? '【你们过去的关系背景】\n' + relationshipContext.trim() : '',
-          selectedOpeningContext.trim() ? '【角色卡开场白 / 前情提要】\n' + selectedOpeningContext.trim() : '',
+          messages.length === 0 && selectedOpeningContext.trim() ? '【角色卡开场白 / 前情提要】\n' + selectedOpeningContext.trim() : '',
           enableChainOfThought ? `【COT 输出：开启】本轮必须先输出一个简短的高层角色决策记录，严格使用当前 COT 预设要求的标签 ${resolvedCotPreset.tag || '<cot>...</cot>'}，然后立即输出 <message>...</message>。禁止输出原始隐藏思维链。` : '【COT 输出：关闭】不要输出 <cot>、<thinking>、<think>、<thought>、<summary> 标签。',
           lineActionDescriptionsEnabled ? '【线上动作描写：开启】本轮如果有动作/反应必须输出 <action>...</action>，动作与正文分离。' : '【线上动作描写：关闭】不要输出 <action> 标签。',
         ].filter(Boolean).join('\\n'),
@@ -1444,6 +1444,7 @@ export function LineConversationView({
           '断句：' + typingSentenceBreak,
         ].join('；'),
         temperature: Number(presetTemp) || 0.85,
+        debugConversationId: conversationStorageId,
         onDelta: (delta) => {
           streamedText += delta;
           ensureReplyMessage(streamedText);
