@@ -391,9 +391,8 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     input.statusBarPreset ? [
       '【状态栏｜与本轮回复同一输出】',
       '本轮状态栏已开启。必须独立于聊天正文输出，并使用 [状态栏]...[/状态栏] 包裹。',
-      '严格按照以下状态栏预设的原始输入格式生成；不要输出 HTML、正则或解释。',
+      '不要遵循任何固定文字输出格式；不要输出 HTML、正则或解释。',
       '状态栏名称：' + input.statusBarPreset.name,
-      '状态栏输入格式：' + (input.statusBarPreset.inputFormat || ''),
       '状态栏专用 Prompt：' + (input.statusBarPreset.promptSuffix || ''),
       '状态栏只描述角色当前状态，不要替用户编造动作、想法或事实。',
       'COT、动作、状态栏、聊天正文是四个独立层。',
