@@ -1247,37 +1247,86 @@ export async function generateStatusBarContent(
     return speaker + ': ' + (message.text || message.transcript || '[媒体]');
   }).join('\n');
 
+  const resolvedPrompt = resolveMacros(
+    preset.promptSuffix || '请根据刚刚的聊天回复生成当前状态。',
+    { char: characterName, user: userName },
+  );
+  const regexSource = String(preset.regex || '').trim();
+
   const systemPrompt = [
-    '你是角色聊天的状态栏生成器。',
-    '每次角色完成一条回复后，根据刚刚发生的聊天内容生成一份新的状态快照。',
-    '状态栏不是聊天消息，不要写对白，不要解释。',
-    '只输出一条简洁的状态快照文字，内容必须来自当前聊天；可以延续已经明确出现的状态，但不能凭空创造剧情。',
-    '状态栏启用时，本轮必须生成一次；如果没有明确变化，就逐项延续上一状态，不要为了生成而制造变化。',
-    '状态快照应包含当前角色最值得展示的状态，例如地点、时间、正在做什么、情绪、关系变化或其他对当前预设有意义的信息。',
+    '你是角色聊天的状态栏原始输出生成器。',
+    '你的工作不是设计 HTML，也不是解释状态栏，而是严格执行这个预设自己的 Prompt，生成一段原始状态文本，供应用随后用 Regex 捕获并交给 HTML 模板渲染。',
+    '【最重要规则】预设 Prompt 是唯一的输出格式规则。Prompt 要求什么结构，就必须原样输出什么结构。',
+    '如果 Prompt 要求 [QA: Q=..., QT=..., A=..., AT=...]，你就必须真的输出完整的 [QA: ...]，不能只输出 Q/A 内容，也不能把它改成 JSON、列表或自然语言。',
+    '不要为了“更自然”而删除 Prompt 里的标签、括号、字段名、等号、逗号或分隔符。',
+    '不要输出 Markdown 代码块、解释、前后注释或额外文本。',
     currentStatus ? '【最近状态（由旧到新，最后一条是最新）】\n' + currentStatus + '\n只在当前聊天提供依据时更新最新一条；时间只能向后推进，不要倒退或跳变。' : '【上一状态】暂无。',
     '【状态栏名称】' + preset.name,
-    '【状态栏 Prompt｜唯一输出要求】' + resolveMacros(preset.promptSuffix || '请根据刚刚的聊天回复一份简洁的当前状态。', { char: characterName, user: userName }),
-    '只执行上面的 Prompt。它是唯一的状态栏生成要求。',
-    '如果上面的 Prompt 要求固定输出格式、字段、标签或分隔符，必须严格按 Prompt 输出；不要自行改变格式。',
-    '不要额外添加 Prompt 没有要求的包装、解释、Markdown、HTML 或代码块。',
-    'Regex 与 HTML 是应用侧后处理：Regex 从这段原始状态栏文本中提取数据，HTML 模板再负责最终渲染。',
-  ].join('\n');
+    '【状态栏 Prompt｜必须执行】\n' + resolvedPrompt,
+    regexSource ? '【Regex｜输出必须匹配】\n' + regexSource : '【Regex】未配置；按 Prompt 自身格式输出。',
+    regexSource ? '输出前自检：整段原始输出中必须包含一段能够被上面 Regex 匹配的完整文本；如果不匹配，就重新生成，直到匹配为止。' : '',
+  ].filter(Boolean).join('\n');
 
   const userPrompt = [
     '角色：' + characterName,
     '最近聊天：',
     recent || '暂无',
     '',
-    '现在生成这一轮最新状态快照。严格执行上面的【状态栏 Prompt｜唯一输出要求】，包括其中要求的包装、字段、顺序和分隔符；不要用本句覆盖或改变 Prompt 的输出格式。',
+    '现在生成这一轮最新状态快照。',
+    '严格执行【状态栏 Prompt｜必须执行】。',
+    regexSource ? '严格确保最终原始输出能够被【Regex｜输出必须匹配】捕获。只返回最终原始状态，不要附加说明。' : '只返回最终原始状态，不要附加说明。',
   ].join('\n');
 
-  return (await generateCreativeText({
+  const raw = (await generateCreativeText({
     settings: { ...settings, streaming: false },
     systemPrompt,
     userPrompt,
     macroNames: { char: characterName, user: userName },
     temperature: Math.min(0.75, settings.temperature ?? 0.75),
   })).trim();
+
+  pushAiDebugLog({
+    level: regexSource ? (extractStatusMatch(raw, regexSource) ? 'success' : 'error') : 'info',
+    event: '[SANE333 STATUS BAR] generator',
+    message: regexSource && !extractStatusMatch(raw, regexSource)
+      ? '状态栏 AI 首次返回未匹配 Regex，准备进行格式修复重试'
+      : '状态栏 AI 首次返回完成',
+    provider: settings.provider,
+    model: settings.model,
+    meta: { characterName, preset: preset.name, prompt: resolvedPrompt, regex: regexSource, rawStatus: raw },
+  });
+
+  if (regexSource && !extractStatusMatch(raw, regexSource)) {
+    const repairPrompt = [
+      '把下面这段 AI 状态栏原文修复成“能匹配给定 Regex”的最终原文。',
+      '不要重新编造事实，不要改变 Q、QT、A、AT 等已经生成的内容；只修复包装、字段标签、括号、等号、逗号、空格、换行等格式。',
+      '最终只输出一段原始状态文本，不要解释。',
+      '【必须匹配的 Regex】' + regexSource,
+      '【原始返回】' + raw,
+      '【原 Prompt】' + resolvedPrompt,
+    ].join('\n');
+
+    const repaired = (await generateCreativeText({
+      settings: { ...settings, streaming: false, temperature: 0.15 },
+      systemPrompt: '你是严格的格式修复器。只允许修复输出格式，最终结果必须匹配给定 Regex。',
+      userPrompt: repairPrompt,
+      macroNames: { char: characterName, user: userName },
+      temperature: 0.15,
+    })).trim();
+
+    const repairedMatch = extractStatusMatch(repaired, regexSource);
+    pushAiDebugLog({
+      level: repairedMatch ? 'success' : 'error',
+      event: '[SANE333 STATUS BAR] generator-repair',
+      message: repairedMatch ? '状态栏格式修复成功，已匹配 Regex' : '状态栏格式修复后仍未匹配 Regex',
+      provider: settings.provider,
+      model: settings.model,
+      meta: { regex: regexSource, original: raw, repaired, captures: repairedMatch?.captures || [] },
+    });
+    return repaired;
+  }
+
+  return raw;
 }
 
 export async function generateHtmlInterlude(
