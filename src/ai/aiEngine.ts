@@ -85,7 +85,10 @@ export function parseAiReplyPayload(rawText: string): Pick<AiReplyResult, 'text'
   };
 
   const thinkingSummary =
+    readTag('thinking') ||
     readTag('cot') ||
+    readTag('think') ||
+    readTag('thought') ||
     readTag('summary') ||
     '';
 
