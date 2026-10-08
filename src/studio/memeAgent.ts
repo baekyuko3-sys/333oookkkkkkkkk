@@ -240,6 +240,23 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
     }
 
     if (action.type === 'propose') {
+      // A proposal must be validated against the real current file, not an
+      // empty placeholder when MEME forgot to read the target first.
+      let originalContent = fileSnapshots.get(action.path) || '';
+      if (action.operation !== 'create' && !fileSnapshots.has(action.path)) {
+        const readTool = options.tools.find(tool => tool.name === 'read');
+        if (!readTool) throw new Error('Meme read tool unavailable for proposal validation');
+        options.onEvent?.({ type: 'tool', name: readTool.name, input: { path: action.path } });
+        const target = await readTool.run({ path: action.path });
+        if (target && typeof target.content === 'string') {
+          originalContent = target.content;
+          fileSnapshots.set(action.path, originalContent);
+          history.push({ role: 'user', content: 'AUTO-READ PROPOSAL TARGET (' + action.path + '):\\n' + JSON.stringify(target).slice(0, 50000) });
+        } else {
+          throw new Error('Meme 无法读取待修改文件：' + action.path);
+        }
+      }
+
       const proposal: MemeProposal = {
         id: 'meme-' + Date.now() + '-' + round,
         operation: action.operation,
@@ -248,7 +265,7 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
         reason: action.reason || 'Meme proposes this project change.',
         risk: action.risk || (action.operation === 'delete' ? 'high' : 'medium'),
         status: 'pending',
-        originalContent: fileSnapshots.get(action.path) || '',
+        originalContent,
       };
 
       let validation: MemeValidation | null = null;
