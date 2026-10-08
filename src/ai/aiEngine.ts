@@ -756,7 +756,7 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     messages: debugMessages,
     payload: input.settings.provider === 'gemini'
       ? {
-          endpoint: ((input.settings.apiBaseUrl || 'https://generativelanguage.googleapis.com/v1beta').replace(/\\/+$/, '')) +
+          endpoint: ((input.settings.apiBaseUrl || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, '')) +
             '/models/' + encodeURIComponent(input.settings.model.trim()) + ':' +
             (input.settings.streaming ? 'streamGenerateContent?alt=sse' : 'generateContent'),
           body: {
