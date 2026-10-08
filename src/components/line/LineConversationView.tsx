@@ -925,6 +925,10 @@ export function LineConversationView({
   const avatarClickTimerRef = useRef<number | null>(null);
   const memoryMergeBusyRef = useRef(false);
   const statusSwipeStartXRef = useRef<number | null>(null);
+  // Status snapshots are tied to completed AI turns, not to a single UI branch.
+  // This catches normal replies, Continue, rerolls, and any future reply path.
+  const statusBarKnownMessageIdsRef = useRef<Set<string> | null>(null);
+  const statusBarProcessingRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const refresh = () => {
@@ -940,6 +944,40 @@ export function LineConversationView({
       window.removeEventListener('sane333:status-bar-random-changed', refresh);
     };
   }, [conversationStorageId]);
+
+  useEffect(() => {
+    const delivered = messages.filter(message =>
+      message.sender === 'other' &&
+      message.type === 'ai-reply' &&
+      message.status === 'delivered' &&
+      String(message.text || '').trim()
+    );
+
+    if (!statusBarKnownMessageIdsRef.current) {
+      statusBarKnownMessageIdsRef.current = new Set(delivered.map(message => String(message.id)));
+      return;
+    }
+
+    const known = statusBarKnownMessageIdsRef.current;
+    const fresh = delivered.filter(message => !known.has(String(message.id)));
+    fresh.forEach(message => known.add(String(message.id)));
+    if (!fresh.length || !statusBarEnabled || statusBarProcessingRef.current.size > 0) return;
+
+    const latest = fresh[fresh.length - 1];
+    const turnId = String(latest.turnId || latest.id);
+    if (statusBarProcessingRef.current.has(turnId)) return;
+    statusBarProcessingRef.current.add(turnId);
+
+    const turnMessages = messages
+      .filter(message => String(message.turnId || message.id) === turnId && message.sender === 'other' && message.type === 'ai-reply')
+      .map(message => String(message.text || '').trim())
+      .filter(Boolean);
+    const fullReply = turnMessages.join('\n') || String(latest.text || '').trim();
+
+    void createStatusBarSnapshot(fullReply, latest.id, undefined).finally(() => {
+      statusBarProcessingRef.current.delete(turnId);
+    });
+  }, [messages, statusBarEnabled]);
 
   const createStatusBarSnapshot = async (replyText: string, sourceMessageId: string | number, rawStatusOverride?: string) => {
     try {
