@@ -1277,7 +1277,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
                   <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap text-[7px] text-[#777069]">{ciText.slice(-6000)}</pre>
                 )}
               </div>
-            )}">
+            )}
             <div className="p-3 rounded-2xl bg-[#ebe6de] text-[9px]"><b>Changes</b><div className="mt-1 text-[#777069]">AI 的修改先预览；可以逐文件批准，也可以作为一个原子 commit 一次写入。</div>
               <div className="grid grid-cols-2 gap-1.5 mt-2"><button onClick={() => void loadDiff()} className="py-2 rounded-xl bg-white text-[8px]">Diff</button><button disabled={!changes.length||saving} onClick={() => void approveAllChanges()} className="py-2 rounded-xl bg-[#292724] text-white text-[8px] disabled:opacity-40">Atomic Commit</button></div>
             </div>
