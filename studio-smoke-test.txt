@@ -1,2 +1,0 @@
-SANE333 STUDIO SMOKE TEST
-read -> change -> approve -> commit path verified
