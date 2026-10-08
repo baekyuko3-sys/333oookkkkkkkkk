@@ -1592,7 +1592,8 @@ export function LineConversationView({
       window.dispatchEvent(new CustomEvent('sane333:play-sound', { detail: { kind: 'message' } }));
 
       // Every completed character reply creates one new status snapshot.
-      void createStatusBarSnapshot(finalReplyText, replyMsgId, result.statusBarRaw);
+      // Wait for the snapshot so a failure cannot disappear silently behind the chat reply.
+      await createStatusBarSnapshot(finalReplyText, replyMsgId, result.statusBarRaw);
       void maybeGenerateHtmlInterlude(finalReplyText, replyMsgId);
 
       if (importedCharacter) {
