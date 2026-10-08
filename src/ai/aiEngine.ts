@@ -956,8 +956,81 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
   }
 
   trace.rawResponse = rawText;
-  const parsedRaw = parseAiReplyPayload(rawText, input.cotPreset?.tag, input.statusBarPreset?.regex);
+  let parsedRaw = parseAiReplyPayload(rawText, input.cotPreset?.tag, input.statusBarPreset?.regex);
   const replyMacroNames = macroNamesOf(input);
+
+  // A valid status payload is NOT a chat reply. Some models may obey the status
+  // format but accidentally omit the normal character message, which previously
+  // made the whole turn fail as AI_EMPTY_RESPONSE. Repair only this malformed case:
+  // keep the exact status payload, add a natural character reply before it, and
+  // re-parse the repaired single response. Normal turns still use one AI request.
+  if (input.statusBarPreset?.regex?.trim() && parsedRaw.statusBarRaw && !parsedRaw.text.trim()) {
+    pushAiDebugLog({
+      level: 'error',
+      event: '[SANE333 STATUS BAR] response-status-only',
+      message: 'AI 只返回了状态栏，没有正常角色回复；启动同回复修复',
+      provider: input.settings.provider,
+      model: input.settings.model,
+      meta: {
+        regex: input.statusBarPreset.regex,
+        statusBarRaw: parsedRaw.statusBarRaw,
+        userMessage: input.userMessage,
+      },
+    });
+
+    const repairSystemPrompt = [
+      debugSystemPrompt,
+      '',
+      '【回复结构修复】',
+      '上一轮 AI 已经生成了正确的状态栏原文，但错误地没有生成正常角色聊天消息。',
+      '这是一次格式修复，不是重新设计状态栏。',
+      '必须先生成一段自然、符合当前角色人设的正常聊天回复，然后在整段回复最后原样追加下面提供的状态栏原文。',
+      '不要修改、翻译、缩写或重新生成状态栏原文；不要把状态栏内容当成聊天回复。',
+      '最终必须同时存在：正常角色聊天消息 + 状态栏原文。',
+      '状态栏必须保持在整段输出的最后。',
+      '【已经生成的状态栏原文】',
+      parsedRaw.statusBarRaw,
+    ].join('\n');
+
+    const repairedRaw = (await generateCreativeText({
+      settings: { ...input.settings, streaming: false },
+      systemPrompt: repairSystemPrompt,
+      userPrompt: input.userMessage,
+      history: debugMessages,
+      macroNames: replyMacroNames,
+      temperature: Math.min(0.8, input.settings.temperature ?? 0.8),
+    })).trim();
+
+    const repairedParsed = parseAiReplyPayload(
+      repairedRaw,
+      input.cotPreset?.tag,
+      input.statusBarPreset.regex,
+    );
+
+    pushAiDebugLog({
+      level: repairedParsed.text.trim() && repairedParsed.statusBarRaw ? 'success' : 'error',
+      event: '[SANE333 STATUS BAR] response-repair',
+      message: repairedParsed.text.trim() && repairedParsed.statusBarRaw
+        ? '同回复修复成功：正常角色回复与状态栏同时存在'
+        : '同回复修复失败',
+      provider: input.settings.provider,
+      model: input.settings.model,
+      meta: {
+        originalStatus: parsedRaw.statusBarRaw,
+        repairedRaw,
+        repairedText: repairedParsed.text,
+        repairedStatus: repairedParsed.statusBarRaw || '',
+      },
+    });
+
+    if (repairedParsed.text.trim() && repairedParsed.statusBarRaw) {
+      parsedRaw = repairedParsed;
+      rawText = repairedRaw;
+      trace.rawResponse = rawText;
+      markTraceStage('response-repaired', 'status-only response repaired with normal chat text');
+    }
+  }
+
   const parsed = {
     text: resolveMacros(parsedRaw.text, replyMacroNames),
     thinkingSummary: parsedRaw.thinkingSummary ? resolveMacros(parsedRaw.thinkingSummary, replyMacroNames) : undefined,
