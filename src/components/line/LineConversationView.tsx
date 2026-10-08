@@ -112,6 +112,8 @@ interface LineConversationViewProps {
   conversationId?: string;
   personaId?: string;
   onSwitchPersona?: () => void;
+  personaOptions?: Array<{ id: string; name?: string; avatar?: string }>;
+  onSelectPersona?: (personaId: string) => void;
   onBack: (draft?: string) => void;
   onNavigateHome: () => void;
   onNavigateScreen?: (screen: ScreenType) => void;
@@ -135,6 +137,9 @@ export function LineConversationView({
   conversationId,
   onBack,
   onNavigateScreen,
+  onSwitchPersona,
+  personaOptions = [],
+  onSelectPersona,
   initialDraft = '',
   isGroup = false,
   isPinned = false,
@@ -2686,6 +2691,9 @@ export function LineConversationView({
                     <span className="font-semibold text-[14px] text-[#27272a] leading-tight truncate group-hover:text-[#ae7e89] transition-colors">
                       {characterProfile.nickname}
                     </span>
+                    {onSwitchPersona && (
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setShowPersonaPicker(true); }} className="shrink-0 px-1.5 py-0.5 rounded-full border border-[#ece9e9] bg-[#fafafa] text-[8px] text-[#8d777d]" title="切换聊天中的我">我 · 切换</button>
+                    )}
                     {localPinned && (
                       <span title="已置顶" className="shrink-0 flex items-center">
                         <Pin className="w-3 h-3 text-[#ae7e89] fill-[#faf1f3]" />
@@ -4021,6 +4029,15 @@ export function LineConversationView({
         </div>
       )}
 
+
+      {showPersonaPicker && onSwitchPersona && (
+        <div onClick={() => setShowPersonaPicker(false)} className="absolute inset-0 bg-black/25 z-[75] flex items-end">
+          <div onClick={e => e.stopPropagation()} className="w-full bg-white rounded-t-[22px] p-5 pb-7 space-y-3">
+            <div className="flex items-center justify-between"><div><div className="text-[8px] tracking-[1.5px] text-[#aaa] font-mono">CHAT PERSONA</div><div className="text-sm font-semibold mt-1">聊天中的“我”</div></div><button onClick={() => setShowPersonaPicker(false)} className="text-xl text-[#aaa]">×</button></div>
+            {personaOptions.length ? personaOptions.map(p => <button key={p.id} onClick={() => { setShowPersonaPicker(false); onSelectPersona?.(p.id); }} className={`w-full flex items-center gap-3 p-3 rounded-2xl border text-left ${p.id === personaId ? 'border-[#d4aab5] bg-[#fbf3f5]' : 'border-[#eee] bg-white'}`}><div className="w-9 h-9 rounded-full bg-[#f2f2f2] overflow-hidden grid place-items-center text-xs">{p.avatar ? <img src={p.avatar} className="w-full h-full object-cover" /> : (p.name || '我').slice(0,1)}</div><div><div className="text-xs font-semibold">{p.name || '未命名人设'}</div><div className="text-[8px] text-[#aaa]">{p.id === personaId ? '当前聊天正在使用' : '切换后进入这个“我”的独立聊天记录'}</div></div>{p.id === personaId && <span className="ml-auto text-[9px] text-[#ae7e89]">当前</span>}</button>) : <div className="py-6 text-center text-[10px] text-[#aaa]">还没有创建其他“我”。请先在人设设置里创建。</div>}
+          </div>
+        </div>
+      )}
 
       {/* 7. SUB-SHEET: 真实 VS 文字 双选项 */}
       {subSheetType && (
