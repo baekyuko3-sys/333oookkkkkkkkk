@@ -1451,10 +1451,10 @@ export function LineConversationView({
           turnId, sender: 'other', text, time: formatLineMessageClock({ createdAt: new Date().toISOString() }, chatTimezone), createdAt: new Date().toISOString(), type: 'ai-reply',
           status: 'delivered', aiModel: result.model,
           matchedWorldbookEntries: result.matchedWorldbookEntries,
-          thinkingSummary: replyMetadata.thinkingSummary,
+          thinkingSummary: index === 0 ? replyMetadata.thinkingSummary : undefined,
           actionDescription: index === 0 ? replyMetadata.actionDescription : undefined,
           showThinking: false,
-          hasThinking: Boolean(replyMetadata.thinkingSummary),
+          hasThinking: index === 0 && Boolean(replyMetadata.thinkingSummary),
           hasAction: index === 0 && Boolean(replyMetadata.actionDescription),
           metadata: {
             ...(replyMetadata.thinkingSummary ? { thinkingSummary: replyMetadata.thinkingSummary } : {}),
