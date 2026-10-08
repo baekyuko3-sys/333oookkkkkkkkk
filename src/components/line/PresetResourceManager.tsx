@@ -3,7 +3,7 @@ import { Download, Plus, Save, Trash2, Upload, Copy, Check } from 'lucide-react'
 import type { CotPreset, CotPresetTarget } from '../../store/cotPresets';
 import { exportCotPresets, importCotPresets, saveCotPresets, getCotAssignments, saveCotAssignment } from '../../store/cotPresets';
 import type { StatusBarPreset, StatusBarTarget } from '../../store/statusBarPresets';
-import { exportStatusBarPresets, importStatusBarPresets, saveStatusBarPresets, getStatusBarAssignments, saveStatusBarAssignment, renderStatusBarHtml } from '../../store/statusBarPresets';
+import { exportStatusBarPresets, importStatusBarPresets, saveStatusBarPresets, getStatusBarAssignments, saveStatusBarAssignment, getCharacterStatusBarAssignments, saveCharacterStatusBarAssignment, renderStatusBarHtml } from '../../store/statusBarPresets';
 
 const STATUS_TARGETS: Array<[StatusBarTarget,string]> = [
   ['line','LINE 聊天'], ['offline','线下剧情'], ['character-profile','角色主页'], ['moments','动态 / Moments'], ['threads','Threads'],
@@ -30,12 +30,14 @@ interface Props {
   activeCotId?: string;
   onApplyStatus?: (preset: StatusBarPreset) => void;
   onApplyCot?: (preset: CotPreset) => void;
+  characterId?: string;
+  characterName?: string;
   onClose: () => void;
 }
 
 export function PresetResourceManager({
   kind, statusPresets, setStatusPresets, cotPresets, setCotPresets,
-  activeStatusId, activeCotId, onApplyStatus, onApplyCot, onClose,
+  activeStatusId, activeCotId, onApplyStatus, onApplyCot, characterId, characterName, onClose,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedId, setSelectedId] = useState(kind === 'status' ? (activeStatusId || statusPresets[0]?.id) : (activeCotId || cotPresets[0]?.id));
@@ -235,6 +237,23 @@ export function PresetResourceManager({
                 <textarea value={(selected as CotPreset).exampleThinking} onChange={e=>updateSelected({exampleThinking:e.target.value})} placeholder="示例思考" className="w-full h-20 p-2 rounded-lg bg-white border border-[#eee] text-[10px] font-mono"/>
               </>}
 
+              {statuses && characterId && (
+                <div className="pt-2 border-t border-[#eee]">
+                  <div className="text-[9px] text-[#999] mb-1.5">角色专属绑定</div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        saveCharacterStatusBarAssignment(characterId, selected.id);
+                        notify(`已绑定「${(selected as StatusBarPreset).name}」→ ${characterName || '当前角色'}`);
+                      }}
+                      className={getCharacterStatusBarAssignments()[characterId] === selected.id ? 'flex-1 px-2.5 py-2 rounded-xl bg-[#292724] text-white text-[9px]' : 'flex-1 px-2.5 py-2 rounded-xl bg-[#f5eef0] text-[#8b606a] border border-[#ead8dc] text-[9px]'}
+                    >
+                      {getCharacterStatusBarAssignments()[characterId] === selected.id ? '✓ 当前角色已绑定' : '绑定给当前角色'}
+                    </button>
+                  </div>
+                  <div className="text-[8px] text-[#aaa] mt-1.5">绑定后，该角色优先使用这个状态栏，不会被 LINE 默认预设覆盖。</div>
+                </div>
+              )}
               <div className="pt-2 border-t border-[#eee]">
                 <div className="text-[9px] text-[#999] mb-1.5">这个预设可以应用到哪些应用？</div>
                 <div className="flex flex-wrap gap-1.5">
