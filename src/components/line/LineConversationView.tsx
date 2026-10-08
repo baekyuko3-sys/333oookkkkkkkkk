@@ -4072,6 +4072,30 @@ export function LineConversationView({
             </div>
             {aiDebugTrace ? (
               <div className="flex-1 overflow-y-auto space-y-2 text-[9px]">
+                <div className="rounded-xl bg-white/5 p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-white/40 mb-1">当前链路阶段</div>
+                    <div className={`text-[10px] font-mono px-2 py-1 rounded-lg ${aiDebugTrace.error ? 'bg-[#4a2228] text-[#ffb8c0]' : 'bg-[#18362d] text-[#9be3c9]'}`}>
+                      {aiDebugTrace.stage || 'unknown'}
+                    </div>
+                  </div>
+                  {Array.isArray(aiDebugTrace.stages) && aiDebugTrace.stages.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {aiDebugTrace.stages.map((item, index) => (
+                        <div key={item.stage + '-' + index} className="flex items-center gap-2 text-[8px] text-white/45">
+                          <span className="text-white/20">{index + 1}</span>
+                          <span className="font-mono text-white/70">{item.stage}</span>
+                          {item.detail && <span className="truncate">{item.detail}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {aiDebugTrace.error && (
+                    <div className="mt-2 rounded-lg bg-[#301c20] px-2.5 py-2 text-[9px] text-[#ffadb8] break-words">
+                      {aiDebugTrace.error.message}
+                    </div>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="rounded-xl bg-white/5 p-3"><div className="text-white/40 mb-1">开关</div><pre className="whitespace-pre-wrap break-all">{JSON.stringify(aiDebugTrace.switches || {}, null, 2)}</pre></div>
                   <div className="rounded-xl bg-white/5 p-3"><div className="text-white/40 mb-1">上下文</div><pre className="whitespace-pre-wrap break-all">{JSON.stringify(aiDebugTrace.context || {}, null, 2)}</pre></div>
