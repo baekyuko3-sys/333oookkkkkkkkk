@@ -32,6 +32,59 @@ function writeStore(key: string, value: string) {
   if (typeof window !== 'undefined') window.localStorage.setItem(key, value);
 }
 
+
+const STUDIO_AI_SETTINGS_STORE = 'studio:ai-settings';
+const STUDIO_API_PROFILES_STORE = 'studio:api-profiles';
+const STUDIO_GITHUB_PROFILES_STORE = 'studio:github-profiles';
+const STUDIO_GITHUB_ACTIVE_STORE = 'studio:github-active';
+
+type StudioApiProfile = {
+  id: string;
+  name: string;
+  settings: Pick<AppSettings, 'provider' | 'apiBaseUrl' | 'apiKey' | 'model' | 'streaming' | 'contextLength' | 'maxOutputTokens' | 'temperature' | 'topP' | 'topK' | 'frequencyPenalty' | 'presencePenalty' | 'seed'>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type StudioGithubProfile = {
+  id: string;
+  name: string;
+  owner: string;
+  repo: string;
+  branch: string;
+  token: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+function readStudioAiSettings(): AppSettings {
+  if (typeof window === 'undefined') return readAppSettings();
+  try {
+    const raw = window.localStorage.getItem(STUDIO_AI_SETTINGS_STORE);
+    return raw ? { ...readAppSettings(), ...JSON.parse(raw) } : readAppSettings();
+  } catch { return readAppSettings(); }
+}
+
+function saveStudioAiSettings(patch: Partial<AppSettings>): AppSettings {
+  const next = { ...readStudioAiSettings(), ...patch };
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(STUDIO_AI_SETTINGS_STORE, JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent('sane333:studio-settings-changed'));
+  }
+  return next;
+}
+
+function readStudioApiProfiles(): StudioApiProfile[] {
+  if (typeof window === 'undefined') return [];
+  try { const value = JSON.parse(window.localStorage.getItem(STUDIO_API_PROFILES_STORE) || '[]'); return Array.isArray(value) ? value : []; } catch { return []; }
+}
+function writeStudioApiProfiles(value: StudioApiProfile[]) { if (typeof window !== 'undefined') window.localStorage.setItem(STUDIO_API_PROFILES_STORE, JSON.stringify(value)); }
+function readStudioGithubProfiles(): StudioGithubProfile[] {
+  if (typeof window === 'undefined') return [];
+  try { const value = JSON.parse(window.localStorage.getItem(STUDIO_GITHUB_PROFILES_STORE) || '[]'); return Array.isArray(value) ? value : []; } catch { return []; }
+}
+function writeStudioGithubProfiles(value: StudioGithubProfile[]) { if (typeof window !== 'undefined') window.localStorage.setItem(STUDIO_GITHUB_PROFILES_STORE, JSON.stringify(value)); }
+
 function aiUrl(base: string) {
   const value = base.trim().replace(/\/+$/, '');
   if (!value) throw new Error('AI Base URL 未填写');
@@ -77,17 +130,25 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [tab, setTab] = useState<Tab>('chat');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
-  const [aiSettings, setAiSettings] = useState<AppSettings>(() => readAppSettings());
+  const [aiSettings, setAiSettings] = useState<AppSettings>(() => readStudioAiSettings());
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [testingAi, setTestingAi] = useState(false);
-  const [githubVerified, setGithubVerified] = useState(false);
+  const [githubVerified, setGithubVerified] = useState(() => {
+    const active = readStore(STUDIO_GITHUB_ACTIVE_STORE);
+    const current = readStore(STORE.owner).trim() + '/' + readStore(STORE.repo).trim() + '@' + (readStore(STORE.branch, 'main').trim() || 'main');
+    return Boolean(active && active === current);
+  });
   const [githubError, setGithubError] = useState('');
   const [owner, setOwner] = useState(() => readStore(STORE.owner));
   const [repo, setRepo] = useState(() => readStore(STORE.repo));
   const [branch, setBranch] = useState(() => readStore(STORE.branch, 'main'));
   const [token, setToken] = useState(() => readStore(STORE.token));
   const [githubBranches, setGithubBranches] = useState<string[]>([]);
+  const [studioApiProfiles, setStudioApiProfiles] = useState<StudioApiProfile[]>(() => readStudioApiProfiles());
+  const [studioApiProfileName, setStudioApiProfileName] = useState('');
+  const [studioGithubProfiles, setStudioGithubProfiles] = useState<StudioGithubProfile[]>(() => readStudioGithubProfiles());
+  const [studioGithubProfileName, setStudioGithubProfileName] = useState('');
 
   const [items, setItems] = useState<Item[]>([]);
   const [path, setPath] = useState('');
@@ -201,18 +262,72 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const saveSettings = () => {
-    saveAppSettings(aiSettings);
-    // Studio GitHub credentials stay isolated from the phone-wide GitHub sync.
+    const next = saveStudioAiSettings(aiSettings);
+    setAiSettings(next);
     writeStore(STORE.owner, owner.trim());
     writeStore(STORE.repo, repo.trim());
     writeStore(STORE.branch, branch.trim() || 'main');
     writeStore(STORE.token, token.trim());
-    notify('Studio 设置已保存');
+    notify('Studio 当前设置已保存');
   };
 
   const updateAi = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
-    const next = saveAppSettings({ [key]: value });
+    const next = saveStudioAiSettings({ [key]: value });
     setAiSettings(next);
+  };
+
+  const saveStudioApiProfile = () => {
+    const name = studioApiProfileName.trim() || window.prompt('给这个 Studio API 方案起个名字')?.trim();
+    if (!name) return;
+    const now = new Date().toISOString();
+    const profile: StudioApiProfile = {
+      id: 'studio-api-' + Date.now(), name,
+      settings: { provider: aiSettings.provider, apiBaseUrl: aiSettings.apiBaseUrl, apiKey: aiSettings.apiKey, model: aiSettings.model, streaming: aiSettings.streaming, contextLength: aiSettings.contextLength, maxOutputTokens: aiSettings.maxOutputTokens, temperature: aiSettings.temperature, topP: aiSettings.topP, topK: aiSettings.topK, frequencyPenalty: aiSettings.frequencyPenalty, presencePenalty: aiSettings.presencePenalty, seed: aiSettings.seed },
+      createdAt: now, updatedAt: now,
+    };
+    const next = [profile, ...studioApiProfiles.filter(item => item.name !== name)].slice(0, 30);
+    writeStudioApiProfiles(next); setStudioApiProfiles(next); setStudioApiProfileName('');
+    notify('Studio API 方案已保存：' + name);
+  };
+
+  const applyStudioApiProfile = (profile: StudioApiProfile) => {
+    const next = saveStudioAiSettings(profile.settings);
+    setAiSettings(next);
+    notify('已应用 Studio API：' + profile.name);
+  };
+
+  const deleteStudioApiProfile = (id: string) => {
+    if (!window.confirm('删除这个 Studio API 方案？')) return;
+    const next = studioApiProfiles.filter(item => item.id !== id);
+    writeStudioApiProfiles(next); setStudioApiProfiles(next);
+    notify('Studio API 方案已删除');
+  };
+
+  const saveStudioGithubProfile = () => {
+    const name = studioGithubProfileName.trim() || window.prompt('给这个仓库方案起个名字')?.trim();
+    const ownerText = owner.trim(); const repoText = repo.trim(); const branchText = branch.trim() || 'main'; const tokenText = token.trim();
+    if (!name) return;
+    if (!ownerText || !repoText || !tokenText) { notify('请先填写 Owner、Repository 和 PAT'); return; }
+    const now = new Date().toISOString();
+    const profile: StudioGithubProfile = { id: 'studio-github-' + Date.now(), name, owner: ownerText, repo: repoText, branch: branchText, token: tokenText, createdAt: now, updatedAt: now };
+    const next = [profile, ...studioGithubProfiles.filter(item => item.name !== name)].slice(0, 30);
+    writeStudioGithubProfiles(next); setStudioGithubProfiles(next); setStudioGithubProfileName('');
+    notify('仓库方案已保存：' + name);
+  };
+
+  const applyStudioGithubProfile = (profile: StudioGithubProfile) => {
+    setOwner(profile.owner); setRepo(profile.repo); setBranch(profile.branch || 'main'); setToken(profile.token);
+    setGithubBranches([]); setGithubVerified(false); setGithubError('');
+    writeStore(STORE.owner, profile.owner); writeStore(STORE.repo, profile.repo); writeStore(STORE.branch, profile.branch || 'main'); writeStore(STORE.token, profile.token);
+    window.localStorage.removeItem(STUDIO_GITHUB_ACTIVE_STORE);
+    notify('已应用仓库方案：' + profile.name + ' · 请点击“连接 GitHub”');
+  };
+
+  const deleteStudioGithubProfile = (id: string) => {
+    if (!window.confirm('删除这个仓库方案？')) return;
+    const next = studioGithubProfiles.filter(item => item.id !== id);
+    writeStudioGithubProfiles(next); setStudioGithubProfiles(next);
+    notify('仓库方案已删除');
   };
 
   const loadModels = async () => {
@@ -975,7 +1090,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     <div className="relative w-full h-full overflow-hidden" style={{ background: 'var(--paper)', color: 'var(--ink)' }}>
       <header className="pt-10 px-3 pb-2 bg-[#f7f4ee]/92">
         <div className="flex items-center gap-2">
-          <button onClick={() => onNavigate('home')} className="w-9 h-9 rounded-full bg-white/80 border border-black/5 grid place-items-center shadow-sm"><ArrowLeft className="w-4 h-4" /></button>
+          <button onClick={() => tab === 'chat' ? onNavigate('home') : setTab('chat')} className="w-9 h-9 rounded-full bg-white/80 border border-black/5 grid place-items-center shadow-sm"><ArrowLeft className="w-4 h-4" /></button>
           <div className="flex-1 min-w-0 text-center">
             <div className="text-[7px] font-mono tracking-[2px] text-[#8b8782]">MEME · DEVELOPMENT STUDIO</div>
             <div className="flex items-center justify-center gap-1.5"><b className="text-[19px] font-serif">Studio</b><span className="text-[6px] px-1.5 py-0.5 rounded-full bg-[#292724] text-white">{ready ? 'GITHUB READY' : 'LOCAL MODE'}</span></div>
@@ -1205,6 +1320,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     const targetBranch = sharedBranch || repository.default_branch || 'main';
     await github('https://api.github.com/repos/' + encodeURIComponent(sharedOwner) + '/' + encodeURIComponent(sharedRepo) + '/contents/?ref=' + encodeURIComponent(targetBranch), sharedToken);
     setGithubVerified(true);
+                  window.localStorage.setItem(STUDIO_GITHUB_ACTIVE_STORE, ownerText + '/' + repoText + '@' + chosenBranch);
     setOwner(sharedOwner); setRepo(sharedRepo); setBranch(targetBranch); setToken(sharedToken);
     writeStore(STORE.owner, sharedOwner); writeStore(STORE.repo, sharedRepo); writeStore(STORE.branch, targetBranch); writeStore(STORE.token, sharedToken);
     await list('');
