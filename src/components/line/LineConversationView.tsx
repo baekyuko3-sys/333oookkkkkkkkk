@@ -252,7 +252,7 @@ export function LineConversationView({
   const [showAiDebugSheet, setShowAiDebugSheet] = useState(false);
   const [showPersonaPicker, setShowPersonaPicker] = useState(false);
   const [aiDebugLog, setAiDebugLog] = useState<AiDebugEntry[]>(() => readAiDebugLog());
-  const [aiDebugTrace, setAiDebugTrace] = useState<AiDebugTrace | null>(() => readAiDebugTrace());
+  const [aiDebugTrace, setAiDebugTrace] = useState<AiDebugTrace | null>(() => readAiDebugTrace(conversationStorageId));
   const [subSheetType, setSubSheetType] = useState<'image' | 'video' | 'file' | null>(null);
   const [showVoiceSheet, setShowVoiceSheet] = useState(false);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | number | null>(null);
@@ -267,7 +267,7 @@ export function LineConversationView({
   const [creatorPrompt, setCreatorPrompt] = useState('');
   
   useEffect(() => {
-    const refreshAiDebug = () => { setAiDebugLog(readAiDebugLog()); setAiDebugTrace(readAiDebugTrace()); };
+    const refreshAiDebug = () => { setAiDebugLog(readAiDebugLog()); setAiDebugTrace(readAiDebugTrace(conversationStorageId)); };
     window.addEventListener('sane333:ai-debug-changed', refreshAiDebug);
     window.addEventListener('sane333:ai-debug-trace-changed', refreshAiDebug);
     return () => { window.removeEventListener('sane333:ai-debug-changed', refreshAiDebug); window.removeEventListener('sane333:ai-debug-trace-changed', refreshAiDebug); };
@@ -4010,7 +4010,7 @@ export function LineConversationView({
             <div className="w-8 h-1 bg-white/20 rounded-full mx-auto mb-3" />
             <div className="flex items-center justify-between mb-3">
               <div><div className="text-[8px] tracking-[1.6px] text-white/40 font-mono">AI TRACE · REAL OUTPUT</div><div className="text-sm font-semibold">AI 后台 · 实际代码链路</div></div>
-              <div className="flex gap-2"><button onClick={() => { setAiDebugTrace(readAiDebugTrace()); setAiDebugLog(readAiDebugLog()); }} className="text-[9px] px-2 py-1 rounded-lg bg-white/10">刷新</button><button onClick={() => { clearAiDebugLog(); setAiDebugTrace(null); setAiDebugLog([]); }} className="text-[9px] text-[#f1a9b5]">清空</button></div>
+              <div className="flex gap-2"><button onClick={() => { setAiDebugTrace(readAiDebugTrace(conversationStorageId)); setAiDebugLog(readAiDebugLog()); }} className="text-[9px] px-2 py-1 rounded-lg bg-white/10">刷新</button><button onClick={() => { clearAiDebugLog(); setAiDebugTrace(null); setAiDebugLog([]); }} className="text-[9px] text-[#f1a9b5]">清空</button></div>
             </div>
             {aiDebugTrace ? (
               <div className="flex-1 overflow-y-auto space-y-2 text-[9px]">
