@@ -8,7 +8,7 @@ export type MemeAction =
   | { type: 'inspect'; path?: string }
   | { type: 'search'; query: string }
   | { type: 'read'; path: string }
-  | { type: 'propose'; operation: 'create' | 'update' | 'delete'; path: string; content?: string; find?: string; replace?: string; reason?: string; risk?: 'low' | 'medium' | 'high' }
+  | { type: 'propose'; operation: 'create' | 'update' | 'delete'; path: string; content?: string; find: string; replace: string; reason?: string; risk?: 'low' | 'medium' | 'high' }
   | { type: 'message'; text: string }
   | { type: 'done'; text: string };
 
