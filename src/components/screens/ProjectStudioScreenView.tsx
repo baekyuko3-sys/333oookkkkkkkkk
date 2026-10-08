@@ -807,10 +807,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const buildCIRepairContext = async (ciError: string, failedSha: string) => {
-    const effectiveOwner = owner.trim();
-    const effectiveRepo = repo.trim();
-    const effectiveBranch = branch.trim() || 'main';
-    const effectiveToken = token.trim();
+    const effectiveOwner = sharedOwner;
+    const effectiveRepo = sharedRepo;
+    const effectiveBranch = sharedBranch;
+    const effectiveToken = sharedToken;
     const base = 'https://api.github.com/repos/' + effectiveOwner + '/' + effectiveRepo;
     const errorText = String(ciError || '').slice(-16000);
     const changePaths = changes.map(change => change.path);
@@ -1353,11 +1353,23 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
                 )}
               </div>
             )}
-            <div className="p-3 rounded-2xl bg-[#ebe6de] text-[9px]"><b>Changes</b><div className="mt-1 text-[#777069]">AI 的修改先预览；可以逐文件批准，也可以作为一个原子 commit 一次写入。</div>
+            <div className="p-3 rounded-2xl bg-[#ebe6de] text-[9px]">
+              <b>Changes</b>
+              <div className="mt-1 text-[#777069]">AI 的修改先预览；可以逐文件批准，也可以作为一个原子 commit 一次写入。</div>
+              <div className="mt-3 p-3 rounded-xl bg-white/75 border border-black/5">
+                <div className="text-[7px] font-mono tracking-[1.5px] text-[#8b8782]">本次任务</div>
+                <div className="mt-1 text-[9px] leading-4">{currentTask?.request || sessionTitle || '未记录'}</div>
+                <div className="mt-1 text-[7px] text-[#999]">你的原始请求会一直保留在 Changes 页面。先确认这条修改是否真的在解决你的任务，再决定是否提交。</div>
+              </div>
               <div className="grid grid-cols-2 gap-1.5 mt-2"><button onClick={() => void loadDiff()} className="py-2 rounded-xl bg-white text-[8px]">Diff</button><button disabled={!changes.length||saving} onClick={() => void approveAllChanges()} className="py-2 rounded-xl bg-[#292724] text-white text-[8px] disabled:opacity-40">Atomic Commit</button></div>
             </div>
             {ciText && <pre className="p-3 rounded-2xl bg-[#252422] text-[#ddd] text-[7px] whitespace-pre-wrap max-h-40 overflow-auto">{ciText}</pre>}
-            {changes.map(change => <div key={change.path} className="p-3 rounded-2xl bg-white/65 border border-black/5"><div className="flex gap-2"><div className="text-[9px] font-mono flex-1 truncate">{change.path}</div><span className="text-[7px]">{change.operation||'update'}</span></div>{change.validation && <div className="mt-2 p-2 rounded-xl bg-[#eef5ef] text-[7px]"><b>✓ Meme self-check passed</b><div className="mt-1">{change.validation.summary}</div><div className="mt-1 text-[#777]">Diff: +{change.validation.changedLines} / -{change.validation.removedLines} · risk {change.risk || 'medium'}</div>{change.validation.concerns.length > 0 && <div className="mt-1 text-[#8f6f68]">注意：{change.validation.concerns.join(' · ')}</div>}</div>}{change.reason&&<div className="mt-1 text-[8px] text-[#777069]">{change.reason}</div>}<pre className="mt-2 max-h-24 overflow-hidden rounded-xl bg-[#252422] text-[#ddd] p-2 text-[7px] whitespace-pre-wrap">+ {change.content.slice(0,1000)}</pre><div className="grid grid-cols-2 gap-1.5 mt-2"><button onClick={() => {setFile({name:change.path.split('/').pop()||change.path,path:change.path,type:'file'});setCode(change.content);setOriginal(change.originalContent||'');setTab('files')}} className="py-2 rounded-lg bg-white text-[9px]">查看 / 编辑</button><button disabled={saving} onClick={() => void approveChange(change)} className="py-2 rounded-lg bg-[#292724] text-white text-[9px] disabled:opacity-40">批准</button></div></div>)}
+            {changes.map(change => <div key={change.path} className="p-3 rounded-2xl bg-white/65 border border-black/5"><div className="flex gap-2"><div className="text-[9px] font-mono flex-1 truncate">{change.path}</div><span className="text-[7px]">{change.operation||'update'}</span></div>{change.validation && <div className="mt-2 p-2 rounded-xl bg-[#eef5ef] text-[7px]"><b>✓ Meme self-check passed</b><div className="mt-1">{change.validation.summary}</div><div className="mt-1 text-[#777]">Diff: +{change.validation.changedLines} / -{change.validation.removedLines} · risk {change.risk || 'medium'}</div>{change.validation.concerns.length > 0 && <div className="mt-1 text-[#8f6f68]">注意：{change.validation.concerns.join(' · ')}</div>}</div>}{change.reason&&<div className="mt-2 p-2.5 rounded-xl bg-[#f6f2ec] text-[8px] leading-4">
+                <div><b>为什么改</b></div>
+                <div className="mt-0.5 text-[#777069]">{change.reason}</div>
+                <div className="mt-2"><b>提交判断</b></div>
+                <div className="mt-0.5 text-[#777069]">Meme 自检：{change.validation?.status === 'passed' ? '通过' : '未通过'} · GitHub CI：批准并提交后才会运行。不要把“自检通过”当成“CI 已证明”。</div>
+              </div>}<pre className="mt-2 max-h-24 overflow-hidden rounded-xl bg-[#252422] text-[#ddd] p-2 text-[7px] whitespace-pre-wrap">+ {change.content.slice(0,1000)}</pre><div className="grid grid-cols-2 gap-1.5 mt-2"><button onClick={() => {setFile({name:change.path.split('/').pop()||change.path,path:change.path,type:'file'});setCode(change.content);setOriginal(change.originalContent||'');setTab('files')}} className="py-2 rounded-lg bg-white text-[9px]">查看 / 编辑</button><button disabled={saving} onClick={() => void approveChange(change)} className="py-2 rounded-lg bg-[#292724] text-white text-[9px] disabled:opacity-40">批准</button></div></div>)}
             {!changes.length&&<div className="py-12 text-center text-[9px] text-[#888]">暂无 AI 修改草案。</div>}
           </section>
         )}
@@ -1598,9 +1610,3 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             {attachments.length > 0 && <div className="absolute bottom-14 left-0 right-0 flex gap-1.5 overflow-x-auto px-1 pb-1">{attachments.map((item, index) => <button key={item.name + index} onClick={() => setAttachments(current => current.filter((_, i) => i !== index))} className="shrink-0 max-w-40 px-2.5 py-1.5 rounded-xl bg-[#f0ede7] text-[8px] truncate">{item.kind === 'image' ? '照片 · ' : '文件 · '}{item.name} ×</button>)}</div>}
             <textarea value={prompt} onChange={event => setPrompt(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void ask(); } }} placeholder="告诉 MEME 你想改什么…" rows={1} className="flex-1 min-h-9 max-h-24 py-2.5 px-1 bg-transparent text-[10px] outline-none resize-none" />
             <button onClick={() => void ask()} disabled={aiBusy || !prompt.trim()} className="w-9 h-9 rounded-full bg-[#292724] text-white grid place-items-center disabled:opacity-25 shrink-0">{aiBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
