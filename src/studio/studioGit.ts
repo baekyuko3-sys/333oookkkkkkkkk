@@ -61,14 +61,21 @@ export async function applyAtomicChanges(
   message: string,
 ): Promise<GitCommitResult> {
   if (!changes.length) throw new Error('没有可提交的 Changes');
+  const normalizedPaths = changes.map(change => String(change.path || '').replace(/^\\/+|\\/+$/g, ''));
+  if (normalizedPaths.some(path => !path)) throw new Error('存在空的 Change 路径');
+  const duplicatePaths = normalizedPaths.filter((path, index) => normalizedPaths.indexOf(path) !== index);
+  if (duplicatePaths.length) {
+    throw new Error('存在重复的 Change 路径：' + Array.from(new Set(duplicatePaths)).join(', '));
+  }
   const head = await getBranchHead(owner, repo, branch, token);
   const commit = await request(apiBase(owner, repo) + '/git/commits/' + head, token);
   const baseTree = commit.tree.sha as string;
 
   const tree = [];
   for (const change of changes) {
+    const safePath = String(change.path).replace(/^\\/+|\\/+$/g, '');
     tree.push({
-      path: change.path,
+      path: safePath,
       mode: '100644',
       type: 'blob',
       ...(change.operation === 'delete'
