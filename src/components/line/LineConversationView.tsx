@@ -2395,7 +2395,7 @@ export function LineConversationView({
               settings,
               character: importedCharacter,
               characterProfile,
-              persona: activePersona ? { ...activePersona, setting: (activePersona as any).setting || '' } : activePersona,
+              persona: activePersona ? { ...activePersona, background: (activePersona as any).background || (activePersona as any).setting || '' } : activePersona,
               worldbooks: activeWorldbooks,
               memory: characterMemory,
               project: projectManifest,
