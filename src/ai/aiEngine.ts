@@ -749,10 +749,47 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
   const matchedWorldbookEntries = selectWorldBookEntries(worldbooks, scannedText, buildWorldBookScanResolver(input, scanDepth)).length;
 
   const providerInput: AiReplyInput = { ...input, onDelta: undefined };
+  const debugSystemPrompt = buildCharacterSystemPrompt(providerInput);
+  const debugMessages = buildConversationMessages(providerInput);
   trace.request = {
-    system: buildCharacterSystemPrompt(providerInput),
-    messages: buildConversationMessages(providerInput),
+    system: debugSystemPrompt,
+    messages: debugMessages,
+    payload: input.settings.provider === 'gemini'
+      ? {
+          endpoint: ((input.settings.apiBaseUrl || 'https://generativelanguage.googleapis.com/v1beta').replace(/\\/+$/, '')) +
+            '/models/' + encodeURIComponent(input.settings.model.trim()) + ':' +
+            (input.settings.streaming ? 'streamGenerateContent?alt=sse' : 'generateContent'),
+          body: {
+            systemInstruction: { parts: [{ text: debugSystemPrompt }] },
+            contents: [
+              ...debugMessages.map(message => ({
+                role: message.role === 'assistant' ? 'model' : 'user',
+                parts: [{ text: message.content }],
+              })),
+              { role: 'user', parts: [{ text: input.userMessage }] },
+            ],
+            generationConfig: {
+              temperature: Number(input.settings.temperature ?? 0.85),
+              maxOutputTokens: Math.max(128, Math.min(12000, Number(input.settings.maxOutputTokens) || 2200)),
+            },
+          },
+        }
+      : {
+          endpoint: normalizeOpenAiEndpoint(input.settings.apiBaseUrl),
+          body: {
+            model: input.settings.model.trim(),
+            stream: Boolean(input.settings.streaming),
+            temperature: Number(input.settings.temperature ?? 0.85),
+            max_tokens: Math.max(128, Math.min(12000, Number(input.settings.maxOutputTokens) || 2200)),
+            messages: [
+              { role: 'system', content: debugSystemPrompt },
+              ...debugMessages,
+              { role: 'user', content: input.userMessage },
+            ],
+          },
+        },
   };
+  saveTrace();
   let rawText = '';
   try {
     rawText = input.settings.provider === 'gemini'
