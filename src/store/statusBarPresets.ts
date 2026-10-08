@@ -50,7 +50,7 @@ export function getStatusBarPresets(): StatusBarPreset[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return DEFAULT_STATUS_BAR_PRESETS;
     const defaultsById = new Map(DEFAULT_STATUS_BAR_PRESETS.map(item => [item.id, item]));
-    return parsed.map(item => defaultsById.has(item?.id) ? { ...defaultsById.get(item.id)!, ...item, regex: defaultsById.get(item.id)!.regex, inputFormat: defaultsById.get(item.id)!.inputFormat, html: defaultsById.get(item.id)!.html, promptSuffix: defaultsById.get(item.id)!.promptSuffix } : item);
+    return parsed.map(item => defaultsById.has(item?.id) ? { ...defaultsById.get(item.id)!, ...item, regex: defaultsById.get(item.id)!.regex, html: defaultsById.get(item.id)!.html, promptSuffix: defaultsById.get(item.id)!.promptSuffix } : item);
   } catch {
     return DEFAULT_STATUS_BAR_PRESETS;
   }
