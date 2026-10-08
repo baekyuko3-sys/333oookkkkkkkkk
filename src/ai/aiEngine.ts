@@ -93,51 +93,40 @@ export function parseAiReplyPayload(
   cotTag?: string,
 ): Pick<AiReplyResult, 'text' | 'thinkingSummary' | 'actionDescription' | 'statusBarRaw'> {
   const raw = String(rawText || '').replace(/\r\n/g, '\n').trim();
-
   const readTag = (name: string, source: string = raw): string => {
     const match = source.match(new RegExp('<' + name + '>\\s*([\\s\\S]*?)\\s*</' + name + '>', 'i'));
     return match ? match[1].trim() : '';
   };
-
+  const readBracket = (name: string, source: string = raw): string => {
+    const match = source.match(new RegExp('\\[' + name + '\\]\\s*([\\s\\S]*?)\\s*\\[\\/' + name + '\\]', 'i'));
+    return match ? match[1].trim() : '';
+  };
+  const readTitled = (name: string, source: string = raw): string => {
+    const match = source.match(new RegExp('【' + name + '】\\s*([\\s\\S]*?)(?=【(?:COT|动作|状态栏)】|$)', 'i'));
+    return match ? match[1].trim() : '';
+  };
   const customTagName = cotTag?.match(/^<([A-Za-z][\\w:-]*)>/)?.[1] || '';
-  const thinkingSummary =
-    (customTagName ? readTag(customTagName) : '') ||
-    readTag('thinking') || readTag('cot') || readTag('think') ||
-    readTag('thought') || readTag('summary') || readTag('decision') ||
-    readTag('decision_summary') || '';
-
+  const thinkingSummary = (customTagName ? readTag(customTagName) : '') ||
+    readTag('thinking') || readTag('cot') || readTag('think') || readTag('thought') ||
+    readTag('summary') || readTag('decision') || readTag('decision_summary') ||
+    readBracket('COT') || readTitled('COT') || '';
   let withoutMetadata = raw;
   const metadataTags = new Set(['think','thought','thinking','cot','summary','decision','decision_summary']);
   if (customTagName) metadataTags.add(customTagName);
   for (const tag of metadataTags) {
-    withoutMetadata = withoutMetadata.replace(
-      new RegExp('<' + tag + '>[\\s\\S]*?</' + tag + '>', 'gi'),
-      '',
-    );
+    withoutMetadata = withoutMetadata.replace(new RegExp('<' + tag + '>[\\s\\S]*?</' + tag + '>', 'gi'), '');
   }
-
-  const actionDescription = readTag('action', withoutMetadata);
-  const statusMatch =
-    withoutMetadata.match(/\[状态栏\]\s*([\s\S]*?)\s*\[\/状态栏\]/i) ||
-    withoutMetadata.match(/<status>\s*([\s\S]*?)\s*<\/status>/i);
+  withoutMetadata = withoutMetadata.replace(/\[COT\][\s\S]*?\[\/COT\]/gi, '').replace(/【COT】[\s\S]*?(?=【(?:动作|状态栏)】|$)/gi, '');
+  const actionDescription = readTag('action', withoutMetadata) || readBracket('动作', withoutMetadata) || readTitled('动作', withoutMetadata) || '';
+  const statusMatch = withoutMetadata.match(/\[状态栏\]\s*([\s\S]*?)\s*\[\/状态栏\]/i) ||
+    withoutMetadata.match(/<status(?:bar)?>\s*([\s\S]*?)\s*<\/status(?:bar)?>/i) ||
+    withoutMetadata.match(/【状态栏】\s*([\s\S]*?)(?=【(?:动作|COT)】|$)/i);
   const statusBarRaw = statusMatch?.[1]?.trim() || '';
-  withoutMetadata = withoutMetadata
-    .replace(/\[状态栏\][\s\S]*?\[\/状态栏\]/gi, '')
-    .replace(/<status>[\s\S]*?<\/status>/gi, '');
-  const messageMatch = new RegExp('<message>\\s*([\\s\\S]*?)\\s*<\\/message>', 'i').exec(withoutMetadata);
-  const text = (messageMatch?.[1] || withoutMetadata
-    .replace(new RegExp('<action>[\\s\\S]*?<\\/action>', 'gi'), '')
-    .replace(new RegExp('<message>[\\s\\S]*?<\\/message>', 'gi'), ''))
-    .trim();
-
-  return {
-    text,
-    thinkingSummary: thinkingSummary || undefined,
-    actionDescription: actionDescription || undefined,
-    statusBarRaw: statusBarRaw || undefined,
-  };
+  withoutMetadata = withoutMetadata.replace(/\[状态栏\][\s\S]*?\[\/状态栏\]/gi, '').replace(/<status(?:bar)?>[\s\S]*?<\/status(?:bar)?>/gi, '').replace(/【状态栏】[\s\S]*?(?=【(?:动作|COT)】|$)/gi, '');
+  const messageMatch = /<message>\s*([\s\S]*?)\s*<\/message>/i.exec(withoutMetadata);
+  const text = (messageMatch?.[1] || withoutMetadata.replace(/<action>[\s\S]*?<\/action>/gi, '').replace(/\[动作\][\s\S]*?\[\/动作\]/gi, '').replace(/【动作】[\s\S]*?(?=【(?:状态栏|COT)】|$)/gi, '').replace(/<message>[\s\S]*?<\/message>/gi, '')).trim();
+  return { text, thinkingSummary: thinkingSummary || undefined, actionDescription: actionDescription || undefined, statusBarRaw: statusBarRaw || undefined };
 }
-
 export function resolveChannelAiSettings(channel: 'chat' | 'moments'): AiSettings {
   const settings = readAppSettings();
   const override: ChannelAiSettings = channel === 'moments' ? settings.momentsApiOverride : settings.chatApiOverride;
