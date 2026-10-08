@@ -19,7 +19,7 @@ import { createTogetherMusicSession, type TogetherMusicSession } from '../../sto
 import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
 import { appendStatusBarSnapshot, deleteStatusBarSnapshot, getStatusBarHistory, getStatusBarPresets, getStatusBarRandomMode, renderStatusBarHtml, extractStatusMatch, sanitizeHtmlFragment, saveStatusBarRandomMode, type StatusBarPreset, type StatusBarSnapshot } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset, type CotPresetTarget } from '../../store/cotPresets';
-import { clearAiDebugLog, readAiDebugLog, readAiDebugTrace, writeAiDebugTrace, type AiDebugEntry, type AiDebugTrace } from '../../store/aiDebug';
+import { clearAiDebugLog, readAiDebugLog, readAiDebugTrace, writeAiDebugTrace, pushAiDebugLog, type AiDebugEntry, type AiDebugTrace } from '../../store/aiDebug';
 import { PresetResourceManager } from './PresetResourceManager';
 import { appendLineMessage, editLineMessage, toggleLineReaction, setLineMessageFavorite, recordLineCall, markLineMessageFailed, clearLineConversation, recallLineMessage, updateLineMessage } from '../../store/lineRuntime';
 import { getLineConversationMessages, markLineConversationRead, saveLineConversationMessages, searchLineMessages, type LineRuntimeMessage } from '../../store/lineRuntime';
@@ -980,13 +980,25 @@ export function LineConversationView({
   }, [messages, statusBarEnabled]);
 
   const createStatusBarSnapshot = async (replyText: string, sourceMessageId: string | number, rawStatusOverride?: string) => {
+    const debugEvent = (level: 'info' | 'success' | 'error', event: string, message: string, meta?: Record<string, unknown>) => {
+      pushAiDebugLog({
+        level,
+        event: '[SANE333 STATUS BAR] ' + event,
+        message,
+        provider: conversationAiSettings().provider,
+        model: conversationAiSettings().model,
+        meta: { conversationId: conversationStorageId, ...meta },
+      });
+    };
+
     try {
       const latestPresets = getStatusBarPresets();
       if (!statusBarEnabled) {
-        console.warn('[SANE333 STATUS BAR] disabled');
+        debugEvent('info', 'disabled', '状态栏开关为关闭');
         return;
       }
       if (!latestPresets.length) {
+        debugEvent('error', 'preset:error', '没有任何状态栏预设');
         throw new Error('没有可用的状态栏预设');
       }
 
@@ -999,13 +1011,13 @@ export function LineConversationView({
         ? pool[Math.floor(Math.random() * pool.length)]
         : selectedPreset || pool[0];
 
-      console.info('[SANE333 STATUS BAR] snapshot:start', {
-        conversationId: conversationStorageId,
+      debugEvent('info', 'snapshot:start', '开始创建状态快照', {
         presetId: chosen.id,
         presetName: chosen.name,
         hasPrompt: Boolean(chosen.promptSuffix?.trim()),
-        hasRegex: Boolean(chosen.regex?.trim()),
-        hasHtml: Boolean(chosen.html?.trim()),
+        prompt: String(chosen.promptSuffix || ''),
+        regex: String(chosen.regex || ''),
+        htmlLength: String(chosen.html || '').length,
         rawOverride: Boolean(rawStatusOverride?.trim()),
       });
 
@@ -1025,14 +1037,33 @@ export function LineConversationView({
         activePersona?.name || '用户',
       );
 
+      debugEvent('info', 'ai:response', '状态栏 AI 原始返回已收到', {
+        rawStatus,
+        rawLength: rawStatus.length,
+      });
+
       if (!rawStatus.trim()) throw new Error('AI 没有返回状态栏内容');
 
       const extracted = chosen.regex ? extractStatusMatch(rawStatus, chosen.regex) : null;
+      debugEvent(extracted ? 'success' : 'error', extracted ? 'regex:matched' : 'regex:unmatched',
+        extracted ? 'Regex 匹配成功' : 'AI 返回内容没有匹配当前 Regex',
+        {
+          regex: String(chosen.regex || ''),
+          match: extracted?.match || '',
+          captures: extracted?.captures || [],
+          rawStatus,
+        }
+      );
+
       if (chosen.regex?.trim() && !extracted) {
         throw new Error('AI 返回内容没有匹配当前 Regex');
       }
 
       const html = renderStatusBarHtml(chosen, rawStatus);
+      debugEvent(html.trim() ? 'success' : 'error', html.trim() ? 'html:rendered' : 'html:empty',
+        html.trim() ? 'HTML Template 渲染成功' : 'HTML Template 渲染为空',
+        { htmlPreview: String(html || '').slice(0, 4000) });
+
       if (!html.trim()) throw new Error('HTML Template 渲染为空');
 
       const snapshot: StatusBarSnapshot = {
@@ -1050,14 +1081,13 @@ export function LineConversationView({
       setStatusBarHistory(next);
       setStatusBarHistoryIndex(Math.max(0, next.length - 1));
 
-      console.info('[SANE333 STATUS BAR] snapshot:saved', {
-        conversationId: conversationStorageId,
-        count: next.length,
-        matched: Boolean(extracted),
+      debugEvent('success', 'snapshot:saved', '状态栏快照已写入 History', {
+        historyCount: next.length,
+        snapshotId: snapshot.id,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('[SANE333 STATUS BAR] snapshot:failed', error);
+      debugEvent('error', 'snapshot:failed', message, { replyText: String(replyText || '').slice(0, 3000) });
       showToast(`状态栏生成失败：${message.slice(0, 55)}`);
     }
   };
@@ -4157,51 +4187,71 @@ export function LineConversationView({
       {/* 7. AI DEBUG SHEET — show the actual prompt, raw model output and parser result */}
       {showAiDebugSheet && (
         <div onClick={() => setShowAiDebugSheet(false)} className="absolute inset-0 bg-black/30 z-[80] flex items-end">
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-h-[88%] bg-[#111] text-[#eee] rounded-t-[22px] p-4 pb-5 flex flex-col">
-            <div className="w-8 h-1 bg-white/20 rounded-full mx-auto mb-3" />
-            <div className="flex items-center justify-between mb-3">
-              <div><div className="text-[8px] tracking-[1.6px] text-white/40 font-mono">AI TRACE · REAL OUTPUT</div><div className="text-sm font-semibold">AI 后台 · 实际代码链路</div></div>
-              <div className="flex gap-2"><button onClick={() => { setAiDebugTrace(readAiDebugTrace(conversationStorageId)); setAiDebugLog(readAiDebugLog()); }} className="text-[9px] px-2 py-1 rounded-lg bg-white/10">刷新</button><button onClick={() => { clearAiDebugLog(); setAiDebugTrace(null); setAiDebugLog([]); }} className="text-[9px] text-[#f1a9b5]">清空</button></div>
-            </div>
-            {aiDebugTrace ? (
-              <div className="flex-1 overflow-y-auto space-y-2 text-[9px]">
-                <div className="rounded-xl bg-white/5 p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-white/40 mb-1">当前链路阶段</div>
-                    <div className={`text-[10px] font-mono px-2 py-1 rounded-lg ${aiDebugTrace.error ? 'bg-[#4a2228] text-[#ffb8c0]' : 'bg-[#18362d] text-[#9be3c9]'}`}>
-                      {aiDebugTrace.stage || 'unknown'}
-                    </div>
-                  </div>
-                  {Array.isArray(aiDebugTrace.stages) && aiDebugTrace.stages.length > 0 && (
-                    <div className="mt-2 space-y-1">
-                      {aiDebugTrace.stages.map((item, index) => (
-                        <div key={item.stage + '-' + index} className="flex items-center gap-2 text-[8px] text-white/45">
-                          <span className="text-white/20">{index + 1}</span>
-                          <span className="font-mono text-white/70">{item.stage}</span>
-                          {item.detail && <span className="truncate">{item.detail}</span>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {aiDebugTrace.error && (
-                    <div className="mt-2 rounded-lg bg-[#301c20] px-2.5 py-2 text-[9px] text-[#ffadb8] break-words">
-                      {aiDebugTrace.error.message}
-                    </div>
-                  )}
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-h-[92%] bg-[#0b0b0c] text-[#e9e9ea] rounded-t-[22px] flex flex-col overflow-hidden font-mono">
+            <div className="px-4 pt-3 pb-2 border-b border-white/10 bg-[#111112]">
+              <div className="w-8 h-1 bg-white/15 rounded-full mx-auto mb-3" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-[8px] tracking-[1.8px] text-white/35">DEVELOPER CONSOLE · SANE333</div>
+                  <div className="text-[14px] font-semibold font-sans">开发者后台</div>
+                  <div className="text-[8px] text-white/35 mt-0.5">REAL REQUEST · RAW OUTPUT · PARSER · STATUS BAR PIPELINE</div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-xl bg-white/5 p-3"><div className="text-white/40 mb-1">开关</div><pre className="whitespace-pre-wrap break-all">{JSON.stringify(aiDebugTrace.switches || {}, null, 2)}</pre></div>
-                  <div className="rounded-xl bg-white/5 p-3"><div className="text-white/40 mb-1">上下文</div><pre className="whitespace-pre-wrap break-all">{JSON.stringify(aiDebugTrace.context || {}, null, 2)}</pre></div>
+                <div className="flex gap-1.5">
+                  <button onClick={() => { setAiDebugTrace(readAiDebugTrace(conversationStorageId)); setAiDebugLog(readAiDebugLog()); }} className="text-[8px] px-2 py-1.5 rounded-lg bg-white/8 border border-white/8">刷新</button>
+                  <button onClick={() => { clearAiDebugLog(); setAiDebugTrace(null); setAiDebugLog([]); }} className="text-[8px] px-2 py-1.5 rounded-lg text-[#f0aab5] bg-[#351c21]">清空</button>
+                  <button onClick={() => setShowAiDebugSheet(false)} className="text-[14px] px-2 py-1 rounded-lg bg-white/8">×</button>
                 </div>
-                <details open className="rounded-xl bg-white/5 p-3"><summary className="cursor-pointer font-semibold">① 实际发给 AI 的 System Prompt</summary><div className="flex justify-end mt-1"><button type="button" onClick={async () => { try { await navigator.clipboard.writeText(aiDebugTrace.request?.system || ''); showToast('已复制 System Prompt'); } catch { showToast('复制失败'); } }} className="px-2 py-1 rounded-lg bg-white/10 text-[8px] text-white/60">复制</button></div><pre className="mt-2 whitespace-pre-wrap break-words text-[#cfcfcf]">{aiDebugTrace.request?.system || '(无)'}</pre></details>
-                <details className="rounded-xl bg-white/5 p-3"><summary className="cursor-pointer font-semibold">② 实际发给 AI 的 Messages</summary><pre className="mt-2 whitespace-pre-wrap break-words text-[#cfcfcf]">{JSON.stringify(aiDebugTrace.request?.messages || [], null, 2)}</pre></details>
-                <details open className="rounded-xl bg-[#261b1f] p-3"><summary className="cursor-pointer font-semibold text-[#f0b6bf]">③ AI 原始返回（最重要）</summary><div className="flex justify-end mt-1"><button type="button" onClick={async () => { try { await navigator.clipboard.writeText(aiDebugTrace.rawResponse || ''); showToast('已复制 AI 原始返回'); } catch { showToast('复制失败'); } }} className="px-2 py-1 rounded-lg bg-white/10 text-[8px] text-white/70">复制</button></div><pre className="mt-2 whitespace-pre-wrap break-words text-[#f3dfe2]">{aiDebugTrace.rawResponse || '(无)'}</pre></details>
-                <details open className="rounded-xl bg-white/5 p-3"><summary className="cursor-pointer font-semibold">④ Parser 解析结果</summary><pre className="mt-2 whitespace-pre-wrap break-all">{JSON.stringify(aiDebugTrace.parsed || {}, null, 2)}</pre></details>
-                <details open className="rounded-xl bg-white/5 p-3"><summary className="cursor-pointer font-semibold">⑤ 最终进入聊天的数据</summary><pre className="mt-2 whitespace-pre-wrap break-all">{JSON.stringify(aiDebugTrace.final || {}, null, 2)}</pre></details>
-                {aiDebugTrace.error && <details open className="rounded-xl bg-[#301c20] p-3"><summary className="font-semibold text-[#ffadb8]">错误</summary><pre className="mt-2 whitespace-pre-wrap break-all">{JSON.stringify(aiDebugTrace.error, null, 2)}</pre></details>}
               </div>
-            ) : <div className="flex-1 grid place-items-center text-white/40 text-xs">还没有完整 Trace。发送一次角色消息后，这里会显示真正的 Prompt → 原始返回 → Parser → 最终消息。</div>}
-            <button onClick={() => setShowAiDebugSheet(false)} className="w-full mt-3 py-2.5 rounded-xl bg-white/10 text-white text-xs">关闭</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              <div className="rounded-xl border border-white/8 bg-[#111112] p-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-sans text-[9px] text-white/45">TRACE</span>
+                  <span className="text-[9px] text-[#9be3c9]">{aiDebugTrace?.stage || 'waiting'}</span>
+                </div>
+                {aiDebugTrace?.error && <div className="mt-2 rounded-lg bg-[#3a1e24] border border-[#6a303c] p-2 text-[9px] text-[#ffb9c3]">{aiDebugTrace.error.message}</div>}
+              </div>
+
+              <div className="rounded-xl border border-white/8 bg-[#09090a] overflow-hidden">
+                <div className="px-3 py-2 border-b border-white/8 text-[9px] text-white/45">LIVE LOG</div>
+                <div className="max-h-[280px] overflow-y-auto p-2 space-y-1">
+                  {aiDebugLog.length ? aiDebugLog.map(entry => (
+                    <details key={entry.id} className={`rounded-lg px-2.5 py-2 border ${entry.level === 'error' ? 'bg-[#221216] border-[#542630]' : entry.level === 'success' ? 'bg-[#101b17] border-[#1e4033]' : 'bg-[#111214] border-white/6'}`}>
+                      <summary className="cursor-pointer list-none flex items-start gap-2">
+                        <span className={`shrink-0 ${entry.level === 'error' ? 'text-[#ff91a1]' : entry.level === 'success' ? 'text-[#8ee1bf]' : 'text-[#aeb4bf]'}`}>{entry.level === 'error' ? '✕' : entry.level === 'success' ? '✓' : '›'}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[8px] text-white/28">{new Date(entry.time).toLocaleTimeString()}</span>
+                          <span className="block text-[9px] text-white/75 break-words">{entry.event} <span className="text-white/45">— {entry.message}</span></span>
+                        </span>
+                      </summary>
+                      {entry.meta && <pre className="mt-2 pt-2 border-t border-white/6 whitespace-pre-wrap break-all text-[8px] leading-relaxed text-[#c5c8cf]">{JSON.stringify(entry.meta, null, 2)}</pre>}
+                    </details>
+                  )) : <div className="py-10 text-center text-[8px] text-white/25">暂无后台日志。发送一条角色消息开始记录。</div>}
+                </div>
+              </div>
+
+              {aiDebugTrace?.request && (
+                <>
+                  <details className="rounded-xl bg-[#111112] border border-white/8 p-3">
+                    <summary className="cursor-pointer text-[9px] text-white/75">SYSTEM PROMPT</summary>
+                    <pre className="mt-2 whitespace-pre-wrap break-words text-[8px] leading-relaxed text-[#c7c9ce]">{aiDebugTrace.request.system || '(无)'}</pre>
+                  </details>
+                  <details className="rounded-xl bg-[#111112] border border-white/8 p-3">
+                    <summary className="cursor-pointer text-[9px] text-white/75">MESSAGES</summary>
+                    <pre className="mt-2 whitespace-pre-wrap break-words text-[8px] leading-relaxed text-[#c7c9ce]">{JSON.stringify(aiDebugTrace.request.messages || [], null, 2)}</pre>
+                  </details>
+                  <details open className="rounded-xl bg-[#171012] border border-[#4b242c] p-3">
+                    <summary className="cursor-pointer text-[9px] text-[#f2c1c8]">RAW AI RESPONSE</summary>
+                    <pre className="mt-2 whitespace-pre-wrap break-words text-[8px] leading-relaxed text-[#f0dfe2]">{aiDebugTrace.rawResponse || '(无)'}</pre>
+                  </details>
+                  <details className="rounded-xl bg-[#111112] border border-white/8 p-3">
+                    <summary className="cursor-pointer text-[9px] text-white/75">PARSER RESULT</summary>
+                    <pre className="mt-2 whitespace-pre-wrap break-all text-[8px] leading-relaxed text-[#c7c9ce]">{JSON.stringify(aiDebugTrace.parsed || {}, null, 2)}</pre>
+                  </details>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
