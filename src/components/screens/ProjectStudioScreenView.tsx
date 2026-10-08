@@ -267,7 +267,12 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       await list(item.path);
       return;
     }
-    if (!ready) return;
+    const linked = getGitHubSyncConfig();
+    const effectiveOwner = owner.trim() || linked.owner.trim();
+    const effectiveRepo = repo.trim() || linked.repo.trim();
+    const effectiveBranch = branch.trim() || linked.branch.trim();
+    const effectiveToken = token.trim() || getGitHubToken().trim();
+    if (!effectiveOwner || !effectiveRepo || !effectiveBranch || !effectiveToken) return;
     setBusy(true);
     try {
       const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + item.path.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(effectiveBranch);
@@ -283,18 +288,23 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const saveFile = async () => {
-    if (!file || !ready) return;
+    const linked = getGitHubSyncConfig();
+    const effectiveOwner = owner.trim() || linked.owner.trim();
+    const effectiveRepo = repo.trim() || linked.repo.trim();
+    const effectiveBranch = branch.trim() || linked.branch.trim();
+    const effectiveToken = token.trim() || getGitHubToken().trim();
+    if (!file || !effectiveOwner || !effectiveRepo || !effectiveBranch || !effectiveToken) return;
     setSaving(true);
     try {
       const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + file.path.split('/').map(encodeURIComponent).join('/');
-      await github(url, token, {
+      await github(url, effectiveToken, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: 'Studio: update ' + file.path,
           content: encodeBase64(code),
           sha: file.sha,
-          branch,
+          branch: effectiveBranch,
         }),
       });
       setOriginal(code);
@@ -439,10 +449,15 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const approveChange = async (change: Change) => {
-    if (!ready) { setTab('settings'); notify('先连接 GitHub'); return; }
+    const linked = getGitHubSyncConfig();
+    const effectiveOwner = owner.trim() || linked.owner.trim();
+    const effectiveRepo = repo.trim() || linked.repo.trim();
+    const effectiveBranch = branch.trim() || linked.branch.trim();
+    const effectiveToken = token.trim() || getGitHubToken().trim();
+    if (!effectiveOwner || !effectiveRepo || !effectiveBranch || !effectiveToken) { setTab('settings'); notify('先连接 GitHub'); return; }
     setSaving(true);
     try {
-      const result = await applyAtomicChanges(owner, repo, branch, token, [{ path: change.path, content: change.content, operation: change.operation || 'update' }], 'Studio: apply Meme change ' + change.path);
+      const result = await applyAtomicChanges(effectiveOwner, effectiveRepo, effectiveBranch, effectiveToken, [{ path: change.path, content: change.content, operation: change.operation || 'update' }], 'Studio: apply Meme change ' + change.path);
       setChanges(previous => previous.filter(item => item.path !== change.path));
       log('git', 'Applied ' + change.path + ' · ' + result.sha.slice(0,8));
       notify('已批准并写入：' + change.path);
@@ -453,8 +468,13 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const approveAllChanges = async () => {
-    if (!ready || !changes.length) return;
-    if (!window.confirm('确认把 ' + changes.length + ' 个文件作为一个原子 commit 写入 ' + branch + '？')) return;
+    const linked = getGitHubSyncConfig();
+    const effectiveOwner = owner.trim() || linked.owner.trim();
+    const effectiveRepo = repo.trim() || linked.repo.trim();
+    const effectiveBranch = branch.trim() || linked.branch.trim();
+    const effectiveToken = token.trim() || getGitHubToken().trim();
+    if (!effectiveOwner || !effectiveRepo || !effectiveBranch || !effectiveToken || !changes.length) return;
+    if (!window.confirm('确认把 ' + changes.length + ' 个文件作为一个原子 commit 写入 ' + effectiveBranch + '？')) return;
     setSaving(true);
     try {
       const result = await applyAtomicChanges(owner, repo, branch, token, changes.map(change => ({ path: change.path, content: change.content, operation: change.operation || 'update' })), 'Studio: apply Meme task · ' + sessionTitle);
