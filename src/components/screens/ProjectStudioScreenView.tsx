@@ -387,7 +387,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     const effectiveOwner = 'baekyuko3-sys';
     const effectiveRepo = '333oookkkkkkkkk';
     const effectiveBranch = 'main';
-    const effectiveToken = getGitHubToken().trim() || token.trim();
+    const effectiveToken = token.trim();
     if (effectiveOwner !== owner) setOwner(effectiveOwner);
     if (effectiveRepo !== repo) setRepo(effectiveRepo);
     if (effectiveBranch !== branch) setBranch(effectiveBranch);
@@ -540,12 +540,11 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const approveChange = async (change: Change) => {
-    const linked = getGitHubSyncConfig();
-    const effectiveOwner = owner.trim() || linked.owner.trim();
-    const effectiveRepo = repo.trim() || linked.repo.trim();
-    const effectiveBranch = branch.trim() || linked.branch.trim();
-    const effectiveToken = token.trim() || getGitHubToken().trim();
-    if (!effectiveOwner || !effectiveRepo || !effectiveBranch || !effectiveToken) { setTab('settings'); notify('先连接 GitHub'); return; }
+    const effectiveOwner = sharedOwner;
+    const effectiveRepo = sharedRepo;
+    const effectiveBranch = sharedBranch;
+    const effectiveToken = token.trim();
+    if (!effectiveToken) { setTab('settings'); notify('请先在 Studio Settings 填写 GitHub PAT'); return; }
     setSaving(true);
     try {
       const result = await applyAtomicChanges(effectiveOwner, effectiveRepo, effectiveBranch, effectiveToken, [{ path: change.path, content: change.content, operation: change.operation || 'update' }], 'Studio: apply Meme change ' + change.path);
