@@ -294,12 +294,11 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
     const directText = action?.type === 'message' || action?.type === 'done';
     const accessRefusal = directText && /无法(?:直接)?访问|不能(?:直接)?访问|没有(?:实时)?(?:浏览|访问)网页|没有.*github.*能力|请.*(?:粘贴|提供).*(?:代码|文件)|把.*(?:代码|源码).*给我/i.test(String(action.text || ''));
 
-    // Repository/coding tasks are not allowed to terminate on the model's first
-    // free-form answer. We already have a real repository preflight, so make the
-    // model continue from evidence instead of falling back to its generic abilities.
+    // Repository/coding tasks must produce real tool evidence before a final
+    // answer. This is deterministic: the model cannot skip straight to chat.
     if (round === 0 && requestNeedsRepository && directText && repositoryEvidenceAvailable && !forcedRepositoryRetry) {
       if (accessRefusal && !requestNeedsCodeChange) {
-        const verified = '可以。Studio 已经实际连接到 GitHub，并已读取仓库根目录。这个回答来自真实仓库检查，不是网页猜测。';
+        const verified = '可以。Studio 已经实际连接到 GitHub，并完成了真实仓库检查。';
         options.onEvent?.({ type: 'message', text: verified });
         options.onEvent?.({ type: 'done', text: verified });
         return { status: 'done' as const, text: verified, proposals };
@@ -310,7 +309,19 @@ export async function runMemeAgent(options: AgentOptions, userRequest: string, v
       history.push({
         role: 'assistant',
         content:
-          '[STUDIO CONTROL] 这是开发任务，不能在没有完成代码取证前结束。GitHub 仓库已经真实连接并完成根目录检查。下一步必须使用 inspect/search/read，定位与用户任务相关的真实源码；如果任务要求修改，最终必须输出 propose action 进入 Changes。不要输出关于“无法访问 GitHub”的普通聊天免责声明。'
+          '[STUDIO CONTROL] 不允许在没有真实仓库工具证据的情况下结束。仓库已经成功连接。现在必须使用 inspect/search/read 定位真实源码；如果用户要求修改/修复，必须继续到 propose，让修改进入 Changes。不要给出泛化的“无法访问 GitHub”或“请粘贴代码”回答。'
+      });
+      continue;
+    }
+
+    // A coding request that somehow reaches a direct answer after the forced
+    // first retry still gets one final hard gate before returning to the user.
+    if (requestNeedsCodeChange && requestNeedsRepository && directText && repositoryEvidenceAvailable && !accessRefusal && round < 2 && !proposals.length) {
+      history.push({ role: 'assistant', content: raw });
+      history.push({
+        role: 'assistant',
+        content:
+          '[STUDIO CONTROL] 这是明确的代码修改任务。不要结束对话。继续 inspect/search/read，并在确认根因后生成 propose action；任何实际修改都必须进入 Changes 等待批准。'
       });
       continue;
     }
