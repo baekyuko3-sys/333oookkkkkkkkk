@@ -17,7 +17,7 @@ import { getGroupPreset, getGroupPresets } from '../../store/groupPresets';
 import { getLineGroups, updateLineGroupMember, addLineGroupMemory, setLineGroupRelationships } from '../../store/lineGroups';
 import { createTogetherMusicSession, type TogetherMusicSession } from '../../store/togetherMusic';
 import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
-import { appendStatusBarSnapshot, deleteStatusBarSnapshot, getStatusBarHistory, getStatusBarPresets, getStatusBarRandomMode, renderStatusBarHtml, extractStatusMatch, sanitizeHtmlFragment, saveStatusBarRandomMode, type StatusBarPreset, type StatusBarSnapshot } from '../../store/statusBarPresets';
+import { appendStatusBarSnapshot, deleteStatusBarSnapshot, getStatusBarHistory, getStatusBarPresets, getStatusBarRandomMode, getStatusBarForCharacter, renderStatusBarHtml, extractStatusMatch, sanitizeHtmlFragment, saveStatusBarRandomMode, type StatusBarPreset, type StatusBarSnapshot } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset, type CotPresetTarget } from '../../store/cotPresets';
 import { clearAiDebugLog, readAiDebugLog, readAiDebugTrace, writeAiDebugTrace, pushAiDebugLog, type AiDebugEntry, type AiDebugTrace } from '../../store/aiDebug';
 import { PresetResourceManager } from './PresetResourceManager';
@@ -855,7 +855,8 @@ export function LineConversationView({
   );
   const [statusTab, setStatusTab] = useState<'preview' | 'regex' | 'format'>('preview');
   const [statusBarPresets, setStatusBarPresets] = usePersistentState<StatusBarPreset[]>('line:status-bar-presets', getStatusBarPresets());
-  const [activeStatusBarPresetId, setActiveStatusBarPresetId] = usePersistentState(`line:status-bar-active:${conversationStorageId}`, statusBarPresets[0]?.id || 'status-minimal');
+  const characterBoundStatusBar = getStatusBarForCharacter(characterId, 'line');
+  const [activeStatusBarPresetId, setActiveStatusBarPresetId] = usePersistentState(`line:status-bar-active:${conversationStorageId}`, characterBoundStatusBar?.id || statusBarPresets[0]?.id || 'status-minimal');
   const [statusBarHistory, setStatusBarHistory] = useState<StatusBarSnapshot[]>(() => getStatusBarHistory(conversationStorageId));
   const [statusBarHistoryIndex, setStatusBarHistoryIndex] = useState(Math.max(0, getStatusBarHistory(conversationStorageId).length - 1));
   const [statusBarRandomMode, setStatusBarRandomMode] = useState(() => getStatusBarRandomMode(conversationStorageId));
@@ -970,11 +971,15 @@ export function LineConversationView({
 
     const turnMessages = messages
       .filter(message => String(message.turnId || message.id) === turnId && message.sender === 'other' && message.type === 'ai-reply')
-      .map(message => String(message.text || '').trim())
-      .filter(Boolean);
-    const fullReply = turnMessages.join('\n') || String(latest.text || '').trim();
+      .map(message => ({
+        text: String(message.text || '').trim(),
+        statusBarRaw: String(message.statusBarRaw || message.metadata?.statusBarRaw || '').trim(),
+      }))
+      .filter(message => message.text || message.statusBarRaw);
+    const fullReply = turnMessages.map(message => message.text).filter(Boolean).join('\n') || String(latest.text || '').trim();
+    const rawStatus = turnMessages.map(message => message.statusBarRaw).find(Boolean) || String(latest.statusBarRaw || latest.metadata?.statusBarRaw || '').trim();
 
-    void createStatusBarSnapshot(fullReply, latest.id, undefined).finally(() => {
+    void createStatusBarSnapshot(fullReply, latest.id, rawStatus || undefined).finally(() => {
       statusBarProcessingRef.current.delete(turnId);
     });
   }, [messages, statusBarEnabled]);
@@ -1002,7 +1007,9 @@ export function LineConversationView({
         throw new Error('没有可用的状态栏预设');
       }
 
+      const characterPreset = getStatusBarForCharacter(characterId, 'line');
       const selectedPreset =
+        characterPreset ||
         latestPresets.find(preset => preset.id === activeStatusBarPresetId) ||
         statusBarPresets.find(preset => preset.id === activeStatusBarPresetId);
       const linePresets = latestPresets.filter(preset => preset.targets.includes('line'));
@@ -1643,12 +1650,14 @@ export function LineConversationView({
           matchedWorldbookEntries: result.matchedWorldbookEntries,
           thinkingSummary: index === 0 ? replyMetadata.thinkingSummary : undefined,
           actionDescription: index === 0 ? replyMetadata.actionDescription : undefined,
+          statusBarRaw: index === 0 ? result.statusBarRaw : undefined,
           showThinking: false,
           hasThinking: index === 0 && Boolean(replyMetadata.thinkingSummary),
           hasAction: index === 0 && Boolean(replyMetadata.actionDescription),
           metadata: {
             ...(replyMetadata.thinkingSummary ? { thinkingSummary: replyMetadata.thinkingSummary } : {}),
             ...(index === 0 && replyMetadata.actionDescription ? { actionDescription: replyMetadata.actionDescription } : {}),
+            ...(index === 0 && result.statusBarRaw ? { statusBarRaw: result.statusBarRaw } : {}),
           },
         })));
         return withoutStreaming.map((m) => m.id === msgId ? { ...m, isRead: true } : m);
@@ -4242,6 +4251,12 @@ export function LineConversationView({
                     <summary className="cursor-pointer text-[9px] text-[#f2c1c8]">RAW AI RESPONSE</summary>
                     <pre className="mt-2 whitespace-pre-wrap break-words text-[8px] leading-relaxed text-[#f0dfe2]">{aiDebugTrace.rawResponse || '(无)'}</pre>
                   </details>
+                  {aiDebugTrace?.parsed && (
+                    <details open className="rounded-xl bg-[#101716] border border-[#24473b] p-3">
+                      <summary className="cursor-pointer text-[9px] text-[#9be3c9]">THINKING / COT · 已与状态栏分离</summary>
+                      <pre className="mt-2 whitespace-pre-wrap break-all text-[8px] leading-relaxed text-[#cfe9df]">{String(aiDebugTrace.parsed.thinkingSummary || '(本轮没有可展示的思维链摘要)')}</pre>
+                    </details>
+                  )}
                   <details className="rounded-xl bg-[#111112] border border-white/8 p-3">
                     <summary className="cursor-pointer text-[9px] text-white/75">PARSER RESULT</summary>
                     <pre className="mt-2 whitespace-pre-wrap break-all text-[8px] leading-relaxed text-[#c7c9ce]">{JSON.stringify(aiDebugTrace.parsed || {}, null, 2)}</pre>
