@@ -378,16 +378,16 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
       '句子长度、语气词也必须遵守。角色性格、事实、剧情仍然保持不变。',
     ].join('\n') : '当前没有额外的聊天打字习惯设置。',
     '',
-    '【最终输出协议 · 最后一条规则，必须执行】',
+    '【输出协议】',
     input.cotTarget && cotPreset
-      ? 'COT 开启：绝对禁止省略 COT。先输出 ' + cotPreset.tag + '，其中 ... 必须替换成真实的1～3句角色决策摘要；然后输出 <action>...</action>；最后输出 <message>...</message>。三个标签必须全部出现且各出现一次。'
-      : 'COT 关闭：不要输出任何 COT 标签。',
+      ? 'COT 开启：输出 1～3 句可展示的高层角色决策摘要，使用当前预设标签 ' + cotPreset.tag + '。这是角色判断摘要，不是原始隐藏思维链。'
+      : 'COT 关闭：不要输出 COT 标签。',
     input.authorNote?.includes('【线上动作描写：开启】')
-      ? '动作开启：绝对禁止省略 <action>。必须输出真实、简短、具体的角色当前动作/反应。'
-      : '动作关闭：不要输出 <action>。',
-    '角色正文必须放在 <message>...</message> 中。不要把 COT、动作或解释写进 message。',
-    '最终只能采用这个结构：<cot>角色决策摘要</cot><action>角色动作或反应</action><message>角色真正发送的聊天内容</message>（如果 COT 使用其他标签，则把 cot 替换成该预设标签）。',
-    '不要输出 Markdown 代码块，不要输出结构说明，不要输出省略号作为标签内容。',
+      ? '动作描写开启：如果角色这一轮有自然动作/反应，输出一条简短具体的 <action>...</action>；不要把动作写成长篇旁白。'
+      : '动作描写关闭：不要输出 <action>。',
+    '正文直接输出正常角色聊天消息。<message>...</message> 不是必需格式；如果模型使用它，解析器会自动剥离外壳。',
+    'COT、动作和正文是三个独立层，不要把 COT 或动作混进正文。',
+    '不要输出 Markdown 代码块，不要输出格式说明。',
   ].join('\n');
 }
 
@@ -513,10 +513,14 @@ async function parseSseResponse(
   extractText: (data: any) => string,
   onDelta?: (delta: string) => void,
   idleTimeoutMs = 45000,
+  onReasoning?: (delta: string) => void,
+  extractReasoning?: (data: any) => string,
 ): Promise<string> {
   if (!response.body) {
     const data = await response.json();
     const text = extractText(data).trim();
+    const reasoning = extractReasoning?.(data) || '';
+    if (reasoning) onReasoning?.(reasoning);
     if (text) onDelta?.(text);
     return text;
   }
@@ -535,6 +539,8 @@ async function parseSseResponse(
     try {
       const data = JSON.parse(payload);
       const delta = extractText(data);
+      const reasoning = extractReasoning?.(data) || '';
+      if (reasoning) onReasoning?.(reasoning);
       if (delta) {
         fullText += delta;
         onDelta?.(delta);
@@ -588,6 +594,41 @@ function extractOpenAiText(data: any): string {
       return [];
     })
     .join('');
+}
+
+function extractOpenAiReasoning(data: any): string {
+  return (data?.choices || [])
+    .flatMap((choice: any) => [
+      choice?.message?.reasoning_content, choice?.message?.reasoning, choice?.message?.thinking,
+      choice?.delta?.reasoning_content, choice?.delta?.reasoning, choice?.delta?.thinking,
+    ])
+    .flatMap((value: unknown) => {
+      if (typeof value === 'string') return [value];
+      if (Array.isArray(value)) return value.flatMap((part: any) =>
+        typeof part === 'string' ? [part] :
+        typeof part?.text === 'string' ? [part.text] :
+        typeof part?.content === 'string' ? [part.content] : []
+      );
+      return [];
+    })
+    .filter(Boolean)
+    .join('');
+}
+
+function extractGeminiReasoning(data: any): string {
+  return (data?.candidates || [])
+    .flatMap((candidate: any) => candidate?.content?.parts || [])
+    .filter((part: any) => part?.thought === true || part?.type === 'thought' || part?.type === 'reasoning')
+    .map((part: any) => typeof part?.text === 'string' ? part.text : '')
+    .filter(Boolean)
+    .join('');
+}
+
+function wrapProviderReasoning(text: string, reasoning: string): string {
+  const cleanText = String(text || '').trim();
+  const cleanReasoning = String(reasoning || '').trim();
+  if (!cleanReasoning || /<(?:think|thinking|thought|cot|summary|decision|decision_summary)>/i.test(cleanText)) return cleanText;
+  return '<cot>' + cleanReasoning + '</cot>' + cleanText;
 }
 
 async function callGemini(input: AiReplyInput): Promise<string> {
@@ -649,13 +690,16 @@ async function callGemini(input: AiReplyInput): Promise<string> {
         input.onDelta?.(visible);
       }
     };
-    return parseSseResponse(response, extractGeminiText, revealMessage, 45000);
+    let reasoningStream = '';
+    const result = await parseSseResponse(response, extractGeminiText, revealMessage, 45000, (delta) => { reasoningStream += delta; }, extractGeminiReasoning);
+    return wrapProviderReasoning(result, reasoningStream);
   }
 
   const data = await response.json();
   const text = extractGeminiText(data).trim();
-  input.onDelta?.(text);
-  return text;
+  const result = wrapProviderReasoning(text, extractGeminiReasoning(data));
+  input.onDelta?.(result);
+  return result;
 }
 
 function normalizeOpenAiEndpoint(baseUrl: string): string {
@@ -739,13 +783,16 @@ async function callOpenAiCompatible(input: AiReplyInput): Promise<string> {
         input.onDelta?.(visible);
       }
     };
-    return parseSseResponse(response, extractOpenAiText, revealMessage, 45000);
+    let reasoningStream = '';
+    const result = await parseSseResponse(response, extractOpenAiText, revealMessage, 45000, (delta) => { reasoningStream += delta; }, extractOpenAiReasoning);
+    return wrapProviderReasoning(result, reasoningStream);
   }
 
   const data = await response.json();
   const text = extractOpenAiText(data).trim();
-  input.onDelta?.(text);
-  return text;
+  const result = wrapProviderReasoning(text, extractOpenAiReasoning(data));
+  input.onDelta?.(result);
+  return result;
 }
 
 export async function generateCharacterReply(input: AiReplyInput): Promise<AiReplyResult> {
