@@ -8,7 +8,7 @@ import { getCharacterAiProfile, mergeCharacterAiSettings } from '../store/charac
 import { resolveCharacterContext, selectWorldBookEntries } from './contextEngine';
 import { getCotForTarget, type CotPreset } from '../store/cotPresets';
 import { buildLineHumanBehaviorPrompt } from '../store/lineReality';
-import { pushAiDebugLog } from '../store/aiDebug';
+import { pushAiDebugLog, writeAiDebugTrace } from '../store/aiDebug';
 
 export type AiSettings = Pick<AppSettings, 'provider' | 'apiBaseUrl' | 'apiKey' | 'model' | 'streaming' | 'contextLength' | 'maxOutputTokens' | 'autoSave' | 'temperature' | 'topP' | 'topK' | 'frequencyPenalty' | 'presencePenalty' | 'seed'>;
 
@@ -716,7 +716,29 @@ async function callOpenAiCompatible(input: AiReplyInput): Promise<string> {
 export async function generateCharacterReply(input: AiReplyInput): Promise<AiReplyResult> {
   requireApiKey(input.settings);
   const startedAt = Date.now();
-  pushAiDebugLog({ level:'info', event:'request:start', message:'开始角色回复请求', provider:input.settings.provider, model:input.settings.model, meta:{ contextLength:input.settings.contextLength, temperature:input.temperature ?? input.settings.temperature, topP:input.topP ?? input.settings.topP, topK:input.topK ?? input.settings.topK, maxOutputTokens:input.settings.maxOutputTokens, worldbooks:(input.worldbooks||[]).length, messages:input.messages.length, cot:Boolean(input.cotPreset), action:input.authorNote?.includes('【线上动作描写：开启】') } });
+  const cotEnabled = Boolean(input.cotTarget && input.cotPreset);
+  const actionEnabled = input.authorNote?.includes('【线上动作描写：开启】') || false;
+  const trace: any = {
+    provider: input.settings.provider,
+    model: input.settings.model,
+    context: {
+      characterId: input.character?.id,
+      characterName: input.character?.name,
+      userPersona: input.persona?.name,
+      userMessage: input.userMessage,
+      messageCount: input.messages.length,
+    },
+    switches: {
+      cotEnabled,
+      cotTarget: input.cotTarget || null,
+      cotPreset: input.cotPreset ? { id: input.cotPreset.id, title: input.cotPreset.title, tag: input.cotPreset.tag } : null,
+      actionEnabled,
+      actionRule: actionEnabled ? '【线上动作描写：开启】' : '关闭',
+    },
+  };
+  const saveTrace = () => writeAiDebugTrace({ ...trace, durationMs: Date.now() - startedAt });
+
+  pushAiDebugLog({ level:'info', event:'request:start', message:'开始角色回复请求', provider:input.settings.provider, model:input.settings.model, meta:{ cot:cotEnabled, action:actionEnabled } });
 
   const worldbooks = input.worldbooks || [];
   const scanDepth = Math.max(1, Math.min(50, Math.max(12, ...worldbooks.flatMap(book => book.entries.map(entry => Number(entry.scanDepth || 0))))));
@@ -725,30 +747,50 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     .slice(-scanDepth)
     .map(message => message.text || message.transcript || '')
     .filter(Boolean)
-    .join('\n') + '\n' + input.userMessage;
+    .join('\\n') + '\\n' + input.userMessage;
   const matchedWorldbookEntries = selectWorldBookEntries(worldbooks, scannedText, buildWorldBookScanResolver(input, scanDepth)).length;
 
-  // Parse structured output only after the provider finishes. Raw <summary>/<action>
-  // tags must never be streamed directly into the chat bubble.
   const providerInput: AiReplyInput = { ...input, onDelta: undefined };
-  let rawText = '';
+  trace.request = {
+    system: buildCharacterSystemPrompt(providerInput),
+    messages: buildConversationMessages(providerInput),
+  };
   try {
     rawText = input.settings.provider === 'gemini'
       ? await callGemini(providerInput)
       : await callOpenAiCompatible(providerInput);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    trace.error = { message, stack: error instanceof Error ? error.stack : undefined };
+    saveTrace();
     pushAiDebugLog({ level:'error', event:'request:error', message, provider:input.settings.provider, model:input.settings.model, durationMs:Date.now()-startedAt });
     throw error;
   }
 
+  trace.rawResponse = rawText;
   const parsed = parseAiReplyPayload(rawText);
+  trace.parsed = {
+    thinkingSummary: parsed.thinkingSummary || null,
+    actionDescription: parsed.actionDescription || null,
+    text: parsed.text,
+    hasCot: Boolean(parsed.thinkingSummary),
+    hasAction: Boolean(parsed.actionDescription),
+  };
+
   if (!parsed.text) {
-    pushAiDebugLog({ level:'error', event:'response:empty', message:'模型返回为空', provider:input.settings.provider, model:input.settings.model, durationMs:Date.now()-startedAt });
+    trace.error = { message: 'AI_EMPTY_RESPONSE' };
+    saveTrace();
     throw new Error('AI_EMPTY_RESPONSE');
   }
 
   input.onDelta?.(parsed.text);
+  trace.final = {
+    text: parsed.text,
+    thinkingSummary: parsed.thinkingSummary || null,
+    actionDescription: parsed.actionDescription || null,
+    matchedWorldbookEntries,
+  };
+  saveTrace();
 
   pushAiDebugLog({ level:'success', event:'request:success', message:'角色回复成功', provider:input.settings.provider, model:input.settings.model, durationMs:Date.now()-startedAt, meta:{ textLength:parsed.text.length, hasCot:Boolean(parsed.thinkingSummary), hasAction:Boolean(parsed.actionDescription), matchedWorldbookEntries } });
   return {
@@ -760,7 +802,6 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     matchedWorldbookEntries,
   };
 }
-
 export async function testAiConnection(
   settings: AiSettings,
 ): Promise<{ ok: true; text: string } | never> {
