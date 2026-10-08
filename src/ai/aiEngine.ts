@@ -67,7 +67,7 @@ export interface AiReplyInput {
   typingHabit?: string;
   cotTarget?: 'line' | 'offline' | 'group';
   cotPreset?: Pick<CotPreset, 'id' | 'title' | 'template' | 'tag'>;
-  statusBarPreset?: Pick<StatusBarPreset, 'name' | 'inputFormat' | 'promptSuffix' | 'regex' | 'html'>;
+  statusBarPreset?: Pick<StatusBarPreset, 'name' | 'promptSuffix' | 'regex' | 'html'>;
   temperature?: number;
   topP?: number;
   topK?: number;
@@ -1243,13 +1243,10 @@ export async function generateStatusBarContent(
     '状态快照应包含当前角色最值得展示的状态，例如地点、时间、正在做什么、情绪、关系变化或其他对当前预设有意义的信息。',
     currentStatus ? '【最近状态（由旧到新，最后一条是最新）】\n' + currentStatus + '\n只在当前聊天提供依据时更新最新一条；时间只能向后推进，不要倒退或跳变。' : '【上一状态】暂无。',
     '【状态栏名称】' + preset.name,
-    '【状态栏专用 Prompt｜最高优先级】' + resolveMacros(preset.promptSuffix || '请按照当前状态栏预设格式输出状态内容。', { char: characterName, user: userName }),
-    '上面的“状态栏专用 Prompt”就是本预设要求模型生成的真实输出格式。必须严格执行其中的字段、顺序、分隔符、时间格式和内容要求；不要改写成其他状态栏格式。',
-    '【输入格式】' + resolveMacros(preset.inputFormat || '未单独定义；请直接以“状态栏专用 Prompt”指定的格式输出。', { char: characterName, user: userName }),
-    '【提取正则｜仅用于生成后解析】' + preset.regex,
-    '【Replace With / HTML｜仅用于生成后渲染】' + preset.html,
-    '【处理顺序】先严格按照状态栏专用 Prompt 生成原文 → 后台再用提取正则捕获 → 再将 $1、$2、$3……替换进 Replace With / HTML。你本人不要输出 HTML，不要输出正则，不要解释这个处理过程。',
-    '不要自行修改、解释或发明格式。输出只能是状态栏预设要求的原始文本，不要 Markdown、代码块、HTML 或额外文字。',
+    '【状态栏 Prompt｜唯一输出要求】' + resolveMacros(preset.promptSuffix || '请根据刚刚的聊天回复一份简洁的当前状态。', { char: characterName, user: userName }),
+    '只执行上面的 Prompt。它是唯一的状态栏生成要求。不要额外遵循任何预设格式，不要自行添加字段、分隔符、标签或固定包装。',
+    '只输出状态内容，不要输出状态栏标签，不要 Markdown、代码块、HTML、正则、解释或额外文字。',
+    '正则与 HTML 仅由应用在生成后处理，不能作为你的输出指令；如果当前预设配置了正则，正常生成内容即可，由应用负责解析。',
   ].join('\n');
 
   const userPrompt = [
