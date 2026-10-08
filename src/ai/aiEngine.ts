@@ -90,6 +90,8 @@ export function parseAiReplyPayload(rawText: string): Pick<AiReplyResult, 'text'
     readTag('think') ||
     readTag('thought') ||
     readTag('summary') ||
+    readTag('decision') ||
+    readTag('decision_summary') ||
     '';
 
   // Remove all non-message metadata before building the visible LINE message.
@@ -353,7 +355,14 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '',
     '【输出约束】',
     '禁止输出原始 <think>、<thought> 或隐藏推理。COT 不是原始内部思维链，而是给用户看的简短“角色决策记录”：只写高层次判断，不写隐性推理细节。',
-    input.cotTarget && cotPreset ? '【COT 显示】先输出极短的高层角色决策记录，必须严格使用当前 COT 预设的标签 ' + cotPreset.tag + '（最多 3 个短句，不展开逐步推理），随后必须立即输出 <message>...</message>。COT 与聊天正文必须严格分离。' : '',
+    input.cotTarget && cotPreset ? [
+      '【COT 强制输出】本轮 COT 已开启，这是硬性输出协议，不允许省略。',
+      '你必须先输出一段 1～3 句的高层角色决策记录，再输出角色消息；这段记录不是隐藏思维链，只能写简短、可展示的角色判断摘要。',
+      'COT 必须严格使用标签：' + cotPreset.tag + '。如果当前标签示例是 <cot>...</cot>，实际输出必须是 <cot>具体摘要</cot>，不能输出省略号。',
+      'COT 标签必须出现在 <message> 之前。不能只输出 <message> 而省略 COT。',
+      'COT 与聊天正文严格分离；最终可见聊天正文必须放在 <message>...</message> 中。',
+      '正确格式示例：' + cotPreset.tag.replace('...', '判断用户这句话的意思，并决定角色此刻最自然的回应方式。') + '<message>角色真正会发送的消息。</message>',
+    ].join('\\n') : '',
     '不要描述用户尚未明确做出的动作。',
     '不要把聊天回复写成旁白长文；保持手机消息的阅读节奏。',
     '不要用“角色动作 + 长段心理描写 + 一大段台词”代替聊天消息；动作描写如果开启必须单独放进 <action>...</action>，正文仍然是正常聊天消息。',
