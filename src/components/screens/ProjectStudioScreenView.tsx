@@ -1188,6 +1188,19 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       <main className="h-[calc(100%-100px)] overflow-y-auto no-scrollbar pb-20">
         {tab === 'chat' && (
           <section className="px-4 pb-28">
+            {agentEvents.length > 0 && (
+              <div className="mb-3 p-3 rounded-2xl bg-white/65 border border-black/5">
+                <div className="flex items-center justify-between">
+                  <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">MEME · ACTIVITY</div>
+                  <span className="text-[7px] text-[#999]">{agentRunning ? 'LIVE' : 'LAST RUN'}</span>
+                </div>
+                <div className="mt-2 space-y-1">
+                  {agentEvents.slice(-8).map((event, index) => (
+                    <div key={index} className="text-[8px] leading-4 text-[#6f6962] truncate">› {event}</div>
+                  ))}
+                </div>
+              </div>
+            )}
             {ciStatus !== 'idle' && (
               <div className="mb-3 p-3 rounded-2xl bg-white/75 border border-black/5 shadow-sm">
                 <div className="flex items-center gap-2">
