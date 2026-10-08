@@ -1007,7 +1007,6 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
               )}
             </div>
              </div>
-            </div>
             {!ready && <div className="mx-1 mb-2 px-3 py-2 rounded-xl bg-[#fff4f1] text-[8px] text-[#8f6f68]">还没连接 GitHub。可以先聊天；需要实际读取/修改仓库时再去连接。</div>}
           </section>
         )}
