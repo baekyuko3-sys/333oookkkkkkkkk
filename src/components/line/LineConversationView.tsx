@@ -1297,12 +1297,12 @@ export function LineConversationView({
             '【成员状态】\\n' + (activeGroup?.members || []).map(member => member.name + '：' + [member.online === false ? '离线' : '在线', member.mood || '', member.relationship || ''].filter(Boolean).join(' / ')).join('\\n'),
           ].filter(Boolean).join('\n'),
           stylePreset: activeCotPreset?.title || selectedPreset,
-        cotTarget: activeCotPreset ? 'line' : undefined,
-        cotPreset: activeCotPreset ? {
-          id: activeCotPreset.id,
-          title: activeCotPreset.title,
-          template: customCotTemplate || activeCotPreset.template,
-          tag: activeCotPreset.tag,
+        cotTarget: enableChainOfThought ? 'line' : undefined,
+        cotPreset: enableChainOfThought ? {
+          id: resolvedCotPreset.id,
+          title: resolvedCotPreset.title,
+          template: customCotTemplate || resolvedCotPreset.template,
+          tag: resolvedCotPreset.tag,
         } : undefined,
           typingHabit: [
             typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
@@ -2120,12 +2120,12 @@ export function LineConversationView({
           '不要重复上一条已经说过的内容，也不要突然改变话题；像真实聊天一样自然补完。',
         ].filter(Boolean).join('\\n'),
         stylePreset: activeCotPreset?.title || selectedPreset,
-        cotTarget: activeCotPreset ? 'line' : undefined,
-        cotPreset: activeCotPreset ? {
-          id: activeCotPreset.id,
-          title: activeCotPreset.title,
-          template: customCotTemplate || activeCotPreset.template,
-          tag: activeCotPreset.tag,
+        cotTarget: enableChainOfThought ? 'line' : undefined,
+        cotPreset: enableChainOfThought ? {
+          id: resolvedCotPreset.id,
+          title: resolvedCotPreset.title,
+          template: customCotTemplate || resolvedCotPreset.template,
+          tag: resolvedCotPreset.tag,
         } : undefined,
         typingHabit: [
           typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
@@ -2369,12 +2369,12 @@ export function LineConversationView({
               isGroup,
               authorNote: [lineConversationRules, authorsNote].filter(Boolean).join('\n'),
               stylePreset: activeCotPreset?.title || selectedPreset,
-        cotTarget: activeCotPreset ? 'line' : undefined,
-        cotPreset: activeCotPreset ? {
-          id: activeCotPreset.id,
-          title: activeCotPreset.title,
-          template: customCotTemplate || activeCotPreset.template,
-          tag: activeCotPreset.tag,
+        cotTarget: enableChainOfThought ? 'line' : undefined,
+        cotPreset: enableChainOfThought ? {
+          id: resolvedCotPreset.id,
+          title: resolvedCotPreset.title,
+          template: customCotTemplate || resolvedCotPreset.template,
+          tag: resolvedCotPreset.tag,
         } : undefined,
               typingHabit: [
           typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
@@ -2505,12 +2505,12 @@ export function LineConversationView({
         isGroup,
         authorNote: [lineConversationRules, '重新生成要求：' + instruction + '；这次只重新生成被选中的这一条消息，不要额外生成其他消息。'].filter(Boolean).join('\\n'),
         stylePreset: activeCotPreset?.title || selectedPreset,
-        cotTarget: activeCotPreset ? 'line' : undefined,
-        cotPreset: activeCotPreset ? {
-          id: activeCotPreset.id,
-          title: activeCotPreset.title,
-          template: customCotTemplate || activeCotPreset.template,
-          tag: activeCotPreset.tag,
+        cotTarget: enableChainOfThought ? 'line' : undefined,
+        cotPreset: enableChainOfThought ? {
+          id: resolvedCotPreset.id,
+          title: resolvedCotPreset.title,
+          template: customCotTemplate || resolvedCotPreset.template,
+          tag: resolvedCotPreset.tag,
         } : undefined,
         typingHabit: [
           typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
