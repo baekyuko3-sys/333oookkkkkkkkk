@@ -6219,6 +6219,8 @@ export function LineConversationView({
           setCotPresets={setCotPresets}
           activeStatusId={activeStatusBarPresetId}
           activeCotId={activeCotPresetId}
+          characterId={characterId}
+          characterName={contactName}
           onApplyStatus={applyStatusBarPreset}
           onApplyCot={applyCotPreset}
           onClose={() => setShowPresetResourceManager(null)}
