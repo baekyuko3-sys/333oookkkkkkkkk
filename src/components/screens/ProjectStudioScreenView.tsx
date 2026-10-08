@@ -76,6 +76,7 @@ function decodeBase64(value: string) {
 export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: ScreenType) => void }) {
   const [tab, setTab] = useState<Tab>('chat');
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [aiSettings, setAiSettings] = useState<AppSettings>(() => readAppSettings());
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
@@ -847,68 +848,50 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
   return (
     <div className="relative w-full h-full overflow-hidden" style={{ background: 'var(--paper)', color: 'var(--ink)' }}>
-      <header className="pt-11 px-4 pb-3 border-b border-black/10 bg-[#f7f4ee]/95">
-        <div className="flex items-center gap-2.5">
-          <button onClick={() => onNavigate('home')} className="w-8 h-8 rounded-full bg-white/70 grid place-items-center">
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div className="flex-1">
-            <div className="text-[8px] font-mono tracking-[2px] text-[#8b8782]">MEME · DEVELOPMENT STUDIO</div>
-            <div className="flex items-center gap-1.5">
-              <b className="text-[18px]">Studio</b>
-              <span className="text-[7px] px-1.5 py-0.5 rounded-full bg-[#292724] text-white">{ready ? 'GITHUB READY' : 'LOCAL MODE'}</span>
-            </div>
+      <header className="pt-10 px-3 pb-2 bg-[#f7f4ee]/92">
+        <div className="flex items-center gap-2">
+          <button onClick={() => onNavigate('home')} className="w-9 h-9 rounded-full bg-white/80 border border-black/5 grid place-items-center shadow-sm"><ArrowLeft className="w-4 h-4" /></button>
+          <div className="flex-1 min-w-0 text-center">
+            <div className="text-[7px] font-mono tracking-[2px] text-[#8b8782]">MEME · DEVELOPMENT STUDIO</div>
+            <div className="flex items-center justify-center gap-1.5"><b className="text-[19px] font-serif">Studio</b><span className="text-[6px] px-1.5 py-0.5 rounded-full bg-[#292724] text-white">{ready ? 'GITHUB READY' : 'LOCAL MODE'}</span></div>
+            <div className="text-[7px] text-[#9b958d] truncate">{owner} / {repo} · {branch}</div>
           </div>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setHistoryOpen(true)} className="w-8 h-8 rounded-full bg-white/70 grid place-items-center" aria-label="Session history">
-              <Clock3 className="w-4 h-4" />
-            </button>
-            <button onClick={() => setTab('settings')} className="w-8 h-8 rounded-full bg-white/70 grid place-items-center" aria-label="Studio settings">
-              <Settings2 className="w-4 h-4" />
-            </button>
+          <div className="flex gap-1">
+            <button onClick={() => setHistoryOpen(true)} className="w-9 h-9 rounded-full bg-white/80 border border-black/5 grid place-items-center shadow-sm" aria-label="History"><Clock3 className="w-4 h-4" /></button>
+            <button onClick={() => setWorkspaceOpen(true)} className="w-9 h-9 rounded-full bg-white/80 border border-black/5 grid place-items-center shadow-sm" aria-label="Workspace"><Settings2 className="w-4 h-4" /></button>
           </div>
-        </div>
-        <div className="mt-2 text-[8px] font-mono text-[#8b8782] flex justify-between">
-          <span>{owner} / {repo}</span>
-          <span>{branch}</span>
         </div>
       </header>
-
       <main className="h-[calc(100%-100px)] overflow-y-auto no-scrollbar pb-20">
         {tab === 'chat' && (
-          <section className="p-3.5 space-y-3">
-            <div className="flex items-center justify-between px-1 py-0.5">
-              <button onClick={() => setHistoryOpen(true)} className="min-w-0 text-left">
-                <div className="text-[7px] font-mono tracking-[1.5px] text-[#9a958d]">SESSION</div>
-                <div className="text-[10px] font-medium truncate max-w-[220px]">{sessionTitle}</div>
-              </button>
-              {aiBusy && <div className="flex items-center gap-1.5 text-[7px] text-[#8b8782]"><Loader2 className="w-3 h-3 animate-spin" /> MEME working</div>}
-            </div>
-            <div className="p-3.5 rounded-2xl bg-[#ebe6de] border border-black/5">
-              <div className="flex gap-2 items-center">
-                <div className="w-9 h-9 rounded-[13px] bg-[#292724] text-white grid place-items-center"><Sparkles className="w-4 h-4" /></div>
-                <div><b className="text-[12px]">hey, let's build ✦</b><div className="text-[9px] text-[#7c756e]">AI + GitHub · 在小手机里改代码</div></div>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5 mt-3">
-                <button onClick={() => setPrompt('检查当前项目的问题并给最小修复方案')} className="p-2 rounded-xl bg-white/70 text-[8px] text-left">检查代码</button>
-                <button onClick={() => setPrompt('把当前页面做得更高级、更干净，不删除已有功能')} className="p-2 rounded-xl bg-white/70 text-[8px] text-left">优化 UI</button>
-                <button onClick={() => setPrompt('帮我找可能的构建错误')} className="p-2 rounded-xl bg-white/70 text-[8px] text-left">找 Bug</button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {!conversation.length && <div className="p-3 rounded-2xl bg-white/70 border border-black/5 text-[10px] whitespace-pre-wrap">{message}</div>}
-              {conversation.map((item, index) => (
-                <div key={index} className={item.role === 'user' ? 'ml-7 p-3 rounded-2xl rounded-br-md bg-[#292724] text-white text-[10px] whitespace-pre-wrap' : 'mr-7 p-3 rounded-2xl rounded-bl-md bg-white/70 border border-black/5 text-[10px] whitespace-pre-wrap'}>
-                  <div className="mb-1 text-[7px] font-mono tracking-[1px] opacity-45">{item.role === 'user' ? 'YOU' : 'MEME'}</div>
-                  {item.content}
+          <section className="h-full px-4 pb-28 flex flex-col">
+            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
+              {!conversation.length ? (
+                <div className="h-full flex flex-col items-center justify-center text-center pb-6">
+                  <div className="w-12 h-12 rounded-[16px] bg-[#292724] text-white grid place-items-center shadow-sm mb-4"><Sparkles className="w-5 h-5" /></div>
+                  <div className="text-[21px] font-serif">有什么问题？</div>
+                  <p className="mt-3 max-w-[290px] text-[10px] leading-6 text-[#777069]">我是 Meme，你的小手机开发助手。检查代码、找 Bug、设计 UI、读取仓库、准备 Changes，我都会先看清楚再动手。</p>
+                  <div className="flex flex-wrap justify-center gap-2 mt-5 max-w-[310px]">
+                    {[
+                      ['检查代码', '检查当前项目的问题并给最小修复方案'],
+                      ['优化 UI', '把当前页面做得更高级、更干净，不删除已有功能'],
+                      ['找 Bug', '帮我找可能的构建错误'],
+                      ['看看仓库', '先读取项目结构，告诉我现在的 Studio 是怎么工作的'],
+                    ].map(([label, value]) => <button key={label} onClick={() => setPrompt(value)} className="px-3.5 py-2 rounded-full bg-white/85 border border-black/5 shadow-sm text-[8px] text-[#625d57]">{label}</button>)}
+                  </div>
                 </div>
-              ))}
-              {aiBusy && <div className="mr-7 p-3 rounded-2xl rounded-bl-md bg-[#292724] text-white text-[9px] font-mono"><Loader2 className="w-3 h-3 inline mr-1 animate-spin" />Meme 正在理解项目并工作…</div>}
+              ) : (
+                <div className="space-y-3 py-3">
+                  {conversation.map((item, index) => <div key={index} className={item.role === 'user' ? 'ml-8 p-3.5 rounded-2xl rounded-br-md bg-[#292724] text-white text-[10px] leading-5 whitespace-pre-wrap' : 'mr-5 p-3.5 rounded-2xl rounded-bl-md bg-white/80 border border-black/5 text-[10px] leading-5 whitespace-pre-wrap'}>
+                    <div className="mb-1 text-[6px] font-mono tracking-[1.5px] opacity-45">{item.role === 'user' ? 'YOU' : 'MEME'}</div>{item.content}
+                  </div>)}
+                  {aiBusy && <div className="mr-5 p-3.5 rounded-2xl rounded-bl-md bg-[#292724] text-white text-[9px]"><Loader2 className="w-3 h-3 inline mr-1 animate-spin" /> Meme 正在理解项目…</div>}
+                </div>
+              )}
             </div>
-            {!ready && <div className="p-3 rounded-2xl bg-[#fff4f1] text-[9px]">还没连接 GitHub。去 Settings 填 Token，就可以直接维护项目。</div>}
-</section>
+            {!ready && <div className="mx-1 mb-2 px-3 py-2 rounded-xl bg-[#fff4f1] text-[8px] text-[#8f6f68]">还没连接 GitHub。可以先聊天；需要实际读取/修改仓库时再去连接。</div>}
+          </section>
         )}
-
         {tab === 'git' && (
           <section className="p-3.5 space-y-3">
             <div className="p-3.5 rounded-2xl bg-[#ebe6de]"><div className="text-[8px] font-mono tracking-[2px] text-[#8b8782]">GIT WORKSPACE</div><b className="text-[17px]">History & Recovery</b><div className="mt-1 text-[9px] text-[#777069]">{owner}/{repo} · {branch}</div></div>
@@ -1047,71 +1030,35 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       </main>
 
       {historyOpen && (
-        <div className="absolute inset-0 z-[70]">
-          <button aria-label="Close session history" onClick={() => setHistoryOpen(false)} className="absolute inset-0 bg-black/20" />
+        <div className="absolute inset-0 z-[70]"><button onClick={() => setHistoryOpen(false)} className="absolute inset-0 bg-black/15" aria-label="Close history" />
           <aside className="absolute top-0 bottom-0 left-0 w-[82%] max-w-[310px] bg-[#f7f4ee] shadow-2xl border-r border-black/10 flex flex-col">
-            <div className="pt-11 px-4 pb-4 border-b border-black/10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-[8px] font-mono tracking-[2px] text-[#8b8782]">STUDIO SESSIONS</div>
-                  <div className="mt-1 text-[22px] font-serif">History</div>
-                </div>
-                <button onClick={() => setHistoryOpen(false)} className="w-8 h-8 rounded-full bg-white grid place-items-center"><X className="w-4 h-4" /></button>
-              </div>
-              <button onClick={startNewSession} className="mt-4 w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">
-                <Plus className="w-3.5 h-3.5 inline mr-1" /> New session
-              </button>
-            </div>
-            <div className="flex-1 overflow-auto p-3 space-y-1.5">
-              {sessions.map(session => (
-                <button key={session.id} onClick={() => {
-                  const restored = session.messages.map(message => ({
-                    role: message.role === 'meme' ? 'assistant' as const : 'user' as const,
-                    content: message.text,
-                  }));
-                  setSessionId(session.id);
-                  setSessionTitle(session.title);
-                  setConversation(restored.slice(-24));
-                  setMessage(restored.at(-1)?.content || '');
-                  setCurrentTask(null);
-                  setHistoryOpen(false);
-                  setTab('chat');
-                }} className={'w-full text-left p-3 rounded-2xl border ' + (session.id === sessionId ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/75 border-black/5')}>
-                  <div className="flex items-start gap-2">
-                    <MessageCircle className="w-3.5 h-3.5 mt-0.5 opacity-45" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[10px] truncate">{session.title || 'Untitled session'}</div>
-                      <div className={'mt-1 text-[7px] ' + (session.id === sessionId ? 'text-white/50' : 'text-[#999]')}>{new Date(session.updatedAt || session.createdAt).toLocaleString()} · {session.messages.length} messages</div>
-                    </div>
-                  </div>
-                </button>
-              ))}
-              {!sessions.length && <div className="py-16 text-center text-[9px] text-[#888]">还没有历史会话。<br/>开始第一次创作吧。</div>}
-            </div>
+            <div className="pt-11 px-4 pb-4 border-b border-black/10"><div className="flex items-center justify-between"><div><div className="text-[7px] font-mono tracking-[2px] text-[#8b8782]">STUDIO SESSIONS</div><div className="mt-1 text-[22px] font-serif">History</div></div><button onClick={() => setHistoryOpen(false)} className="w-8 h-8 rounded-full bg-white grid place-items-center"><X className="w-4 h-4" /></button></div>
+              <button onClick={startNewSession} className="mt-4 w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px]"><Plus className="w-3.5 h-3.5 inline mr-1" /> New session</button></div>
+            <div className="flex-1 overflow-auto p-3 space-y-1.5">{sessions.map(session => <button key={session.id} onClick={() => { const restored=session.messages.map(message=>({role:message.role==='meme'?'assistant' as const:'user' as const,content:message.text})); setSessionId(session.id);setSessionTitle(session.title);setConversation(restored.slice(-24));setMessage(restored.at(-1)?.content||'');setCurrentTask(null);setHistoryOpen(false);setTab('chat'); }} className={'w-full text-left p-3 rounded-2xl border '+(session.id===sessionId?'bg-[#292724] text-white border-[#292724]':'bg-white/75 border-black/5')}><div className="text-[10px] truncate">{session.title||'Untitled session'}</div><div className={'mt-1 text-[7px] '+(session.id===sessionId?'text-white/50':'text-[#999]')}>{new Date(session.updatedAt||session.createdAt).toLocaleString()} · {session.messages.length} messages</div></button>)}{!sessions.length&&<div className="py-16 text-center text-[9px] text-[#888]">还没有历史会话。<br/>开始第一次创作吧。</div>}</div>
           </aside>
         </div>
       )}
-
+      {workspaceOpen && (
+        <div className="absolute inset-0 z-[70]"><button onClick={() => setWorkspaceOpen(false)} className="absolute inset-0 bg-black/15" aria-label="Close workspace" />
+          <aside className="absolute top-0 bottom-0 right-0 w-[78%] max-w-[290px] bg-[#f7f4ee] shadow-2xl border-l border-black/10 flex flex-col">
+            <div className="pt-11 px-4 pb-4 border-b border-black/10"><div className="flex items-center justify-between"><div><div className="text-[7px] font-mono tracking-[2px] text-[#8b8782]">WORKSPACE</div><div className="mt-1 text-[22px] font-serif">Tools</div></div><button onClick={() => setWorkspaceOpen(false)} className="w-8 h-8 rounded-full bg-white grid place-items-center"><X className="w-4 h-4" /></button></div></div>
+            <div className="p-3 space-y-1.5 overflow-auto">{[
+              ['files','Files',FileCode2,'查看 / 编辑 GitHub 源码'],['changes','Changes',Upload,'审核 Meme 提出的修改'],['crafted','Crafted',Sparkles,'查看已经完成的工作'],['admin','Admin',ShieldAlert,'管理 Studio 操作记录'],['git','Git',Github,'查看 commit / CI / recovery'],['settings','Settings',KeyRound,'AI 与 GitHub 连接']
+            ].map(([value,label,Icon,desc])=><button key={String(value)} onClick={()=>{setTab(value as Tab);setWorkspaceOpen(false)}} className="w-full p-3 rounded-2xl bg-white/75 border border-black/5 text-left flex items-center gap-3"><div className="w-8 h-8 rounded-xl bg-[#ebe6de] grid place-items-center"><Icon className="w-3.5 h-3.5" /></div><div className="min-w-0 flex-1"><div className="text-[10px]">{String(label)}</div><div className="mt-0.5 text-[7px] text-[#999]">{String(desc)}</div></div><ChevronRight className="w-3 h-3 text-[#aaa]" /></button>)}</div>
+          </aside>
+        </div>
+      )}
       {notice && <div className="absolute z-50 bottom-20 left-4 right-4 p-2.5 rounded-xl bg-[#292724] text-white text-[9px] text-center">{notice}</div>}
 
       {tab === 'chat' && (
-        <div className="absolute z-40 left-3 right-3 bottom-[65px] flex gap-1.5">
-          <input value={prompt} onChange={event => setPrompt(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') void ask(); }} placeholder="告诉 MEME 你想改什么…" className="flex-1 p-2.5 rounded-xl bg-white border border-black/10 text-[9px] outline-none" />
-          <button onClick={() => void ask()} disabled={aiBusy || !prompt.trim()} className="w-10 rounded-xl bg-[#292724] text-white grid place-items-center disabled:opacity-30">
-            {aiBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-          </button>
+        <div className="absolute z-40 left-3 right-3 bottom-3">
+          <div className="rounded-2xl bg-white/92 border border-black/8 shadow-lg p-2 flex items-end gap-2">
+            <button onClick={() => setWorkspaceOpen(true)} className="w-9 h-9 rounded-full bg-[#f0ede7] grid place-items-center shrink-0" aria-label="Tools"><Plus className="w-4 h-4" /></button>
+            <textarea value={prompt} onChange={event => setPrompt(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void ask(); } }} placeholder="告诉 MEME 你想改什么…" rows={1} className="flex-1 min-h-9 max-h-24 py-2.5 px-1 bg-transparent text-[10px] outline-none resize-none" />
+            <button onClick={() => void ask()} disabled={aiBusy || !prompt.trim()} className="w-9 h-9 rounded-full bg-[#292724] text-white grid place-items-center disabled:opacity-25 shrink-0">{aiBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}</button>
+          </div>
         </div>
       )}
-
-      <nav className="absolute bottom-0 left-0 right-0 z-30 px-2 pb-3 pt-2 bg-[#f7f4ee]/95 border-t border-black/10 grid grid-cols-7 gap-1">
-        {tabButton('chat', 'Chat', MessageCircle)}
-        {tabButton('files', 'Files', FileCode2)}
-        {tabButton('changes', 'Changes', Upload)}
-        {tabButton('crafted', 'Crafted', Sparkles)}
-        {tabButton('admin', 'Admin', ShieldAlert)}
-        {tabButton('git', 'Git', Github)}
-        {tabButton('settings', 'Settings', KeyRound)}
-      </nav>
     </div>
   );
 }
