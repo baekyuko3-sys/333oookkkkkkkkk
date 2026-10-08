@@ -182,6 +182,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [ciStatus, setCiStatus] = useState<StudioCiStatus>('idle');
   const [ciStatusMessage, setCiStatusMessage] = useState('');
   const [ciStatusSha, setCiStatusSha] = useState('');
+  const STUDIO_CI_STATUS_STORE = 'studio:ci-status:';
   const [crafted, setCrafted] = useState<any[]>(() => { try { return JSON.parse(readStore('studio:crafted','[]')); } catch { return []; } });
   const [sessions, setSessions] = useState<StudioSession[]>(() => studioStorage.sessions());
   const [sessionId, setSessionId] = useState(() => {
@@ -200,6 +201,14 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       role: message.role === 'meme' ? 'assistant' as const : 'user' as const,
       content: message.text,
     })).slice(-24));
+    const savedStatus = readSavedCiStatus(first.id);
+    if (savedStatus) {
+      setCiStatus(savedStatus.status);
+      setCiStatusMessage(savedStatus.message);
+      setCiStatusSha(savedStatus.sha || '');
+    }
+    const savedTask = studioStorage.tasks().find(task => task.request.includes(first.title));
+    if (savedTask) setCurrentTask(savedTask);
   }, []);
 
   const startNewSession = () => {
@@ -222,7 +231,13 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setCurrentTask(null);
     setAgentEvents([]);
     updateChanges(() => []);
-    try { window.localStorage.removeItem('studio:changes:' + id); } catch {}
+    try {
+      window.localStorage.removeItem('studio:changes:' + id);
+      window.localStorage.removeItem(STUDIO_CI_STATUS_STORE + id);
+    } catch {}
+    setCiStatus('idle');
+    setCiStatusMessage('');
+    setCiStatusSha('');
     setHistoryOpen(false);
     setTab('chat');
   };
@@ -657,7 +672,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       notify('请先在 Studio Settings 填写 GitHub PAT');
       return;
     }
-    if (!window.confirm('确认把 ' + changes.length + ' 个文件作为一个原子 commit 写入 main？')) return;
+    if (!window.confirm('确认把 ' + changes.length + ' 个文件作为一个原子 commit 写入 ' + effectiveBranch + '？')) return;
     setSaving(true);
     try {
       const result = await applyAtomicChanges(
@@ -755,6 +770,28 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setCiStatus(status);
     setCiStatusMessage(message);
     if (sha) setCiStatusSha(sha);
+  };
+
+  const readSavedCiStatus = (id: string) => {
+    try {
+      const raw = window.localStorage.getItem(STUDIO_CI_STATUS_STORE + id);
+      return raw ? JSON.parse(raw) as { status: StudioCiStatus; message: string; sha: string } : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const updateCiStatus = (status: StudioCiStatus, message: string, sha = '') => {
+    setCiStatus(status);
+    setCiStatusMessage(message);
+    if (sha) setCiStatusSha(sha);
+    try {
+      window.localStorage.setItem(STUDIO_CI_STATUS_STORE + sessionId, JSON.stringify({
+        status,
+        message,
+        sha: sha || ciStatusSha,
+      }));
+    } catch {}
   };
 
   const buildCIRepairContext = async (ciError: string, failedSha: string) => {
