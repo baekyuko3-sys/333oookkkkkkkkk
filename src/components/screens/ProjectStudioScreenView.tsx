@@ -3,6 +3,7 @@ import { ArrowLeft, Check, ChevronRight, Clock3, FileCode2, Folder, Github, KeyR
 import type { ScreenType } from '../../types';
 import { generateCreativeText, listOpenAiCompatibleModels } from '../../ai/aiEngine';
 import { readAppSettings, saveAppSettings, type AppSettings } from '../../store/appSettings';
+import { getGitHubSyncConfig, getGitHubToken } from '../../store/githubSync';
 import { runMemeAgent, type MemeCodingMode } from '../../studio/memeAgent';
 import { studioStorage } from '../../studio/studioStorage';
 import { applyAtomicChanges, compare, createBranch, createPullRequest, getWorkflowRunsForCommit, getWorkflowJobs, getJobLog, rollbackBranch } from '../../studio/studioGit';
@@ -81,10 +82,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [testingAi, setTestingAi] = useState(false);
-  const [owner, setOwner] = useState(() => readStore(STORE.owner, 'baekyuko3-sys'));
-  const [repo, setRepo] = useState(() => readStore(STORE.repo, '333oookkkkkkkkk'));
-  const [branch, setBranch] = useState(() => readStore(STORE.branch, 'main'));
-  const [token, setToken] = useState(() => readStore(STORE.token));
+  const [owner, setOwner] = useState(() => readStore(STORE.owner, getGitHubSyncConfig().owner || 'baekyuko3-sys'));
+  const [repo, setRepo] = useState(() => readStore(STORE.repo, getGitHubSyncConfig().repo || '333oookkkkkkkkk'));
+  const [branch, setBranch] = useState(() => readStore(STORE.branch, getGitHubSyncConfig().branch || 'main'));
+  const [token, setToken] = useState(() => readStore(STORE.token, getGitHubToken()));
 
   const [items, setItems] = useState<Item[]>([]);
   const [path, setPath] = useState('');
@@ -153,6 +154,8 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     studioStorage.saveSessions(next);
   };
 
+  const connectedGithub = getGitHubSyncConfig();
+  const linkedGithub = Boolean(connectedGithub.owner.trim() && connectedGithub.repo.trim() && connectedGithub.branch.trim() && getGitHubToken().trim());
   const ready = Boolean(owner.trim() && repo.trim() && branch.trim() && token.trim());
   const aiReady = Boolean(aiSettings.apiBaseUrl.trim() && aiSettings.apiKey.trim() && aiSettings.model.trim());
   const dirty = Boolean(file && code !== original);
@@ -166,6 +169,19 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
   const saveSettings = () => {
     saveAppSettings(aiSettings);
+    // Keep Studio and the phone's GitHub connection on the same source of truth.
+    // Studio-specific values remain as an optional override for advanced use.
+    const linked = getGitHubSyncConfig();
+    if (owner.trim() && repo.trim()) {
+      window.localStorage.setItem('phone:github-sync', JSON.stringify({
+        ...linked,
+        enabled: true,
+        owner: owner.trim(),
+        repo: repo.trim(),
+        branch: branch.trim() || linked.branch || 'main',
+      }));
+    }
+    if (token.trim()) window.localStorage.setItem('sane333:github-token', token.trim());
     writeStore(STORE.owner, owner);
     writeStore(STORE.repo, repo);
     writeStore(STORE.branch, branch);
@@ -211,7 +227,19 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const list = async (folder = '') => {
-    if (!ready) {
+    // Re-sync from the shared phone GitHub connection before every real repo operation.
+    const linked = getGitHubSyncConfig();
+    const linkedToken = getGitHubToken();
+    const effectiveOwner = owner.trim() || linked.owner.trim();
+    const effectiveRepo = repo.trim() || linked.repo.trim();
+    const effectiveBranch = branch.trim() || linked.branch.trim();
+    const effectiveToken = token.trim() || linkedToken.trim();
+    if (effectiveOwner !== owner) setOwner(effectiveOwner);
+    if (effectiveRepo !== repo) setRepo(effectiveRepo);
+    if (effectiveBranch !== branch) setBranch(effectiveBranch);
+    if (effectiveToken !== token) setToken(effectiveToken);
+    const effectiveReady = Boolean(effectiveOwner && effectiveRepo && effectiveBranch && effectiveToken);
+    if (!effectiveReady) {
       setTab('settings');
       notify('先在 Settings 连接 GitHub');
       return;
@@ -219,8 +247,8 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setBusy(true);
     try {
       const clean = folder.split('/').filter(Boolean).map(encodeURIComponent).join('/');
-      const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + clean + '?ref=' + encodeURIComponent(branch);
-      const data = await github(url, token);
+      const url = 'https://api.github.com/repos/' + effectiveOwner + '/' + effectiveRepo + '/contents/' + clean + '?ref=' + encodeURIComponent(effectiveBranch);
+      const data = await github(url, effectiveToken);
       const array = Array.isArray(data) ? data : [data];
       setItems(array.map((item: any) => ({
         name: item.name,
@@ -244,8 +272,8 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     if (!ready) return;
     setBusy(true);
     try {
-      const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + item.path.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(branch);
-      const data = await github(url, token);
+      const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + item.path.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(effectiveBranch);
+      const data = await github(url, effectiveToken);
       setFile(item);
       setCode(decodeBase64(data.content));
       setOriginal(decodeBase64(data.content));
@@ -283,6 +311,17 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
 
   const ask = async () => {
     if (!prompt.trim()) return;
+    // Studio must use the same linked GitHub credentials as the rest of the app.
+    const linked = getGitHubSyncConfig();
+    const linkedToken = getGitHubToken();
+    const effectiveOwner = owner.trim() || linked.owner.trim();
+    const effectiveRepo = repo.trim() || linked.repo.trim();
+    const effectiveBranch = branch.trim() || linked.branch.trim();
+    const effectiveToken = token.trim() || linkedToken.trim();
+    if (effectiveOwner !== owner) setOwner(effectiveOwner);
+    if (effectiveRepo !== repo) setRepo(effectiveRepo);
+    if (effectiveBranch !== branch) setBranch(effectiveBranch);
+    if (effectiveToken !== token) setToken(effectiveToken);
     if (!aiSettings.apiKey.trim() || !aiSettings.model.trim() || !aiSettings.apiBaseUrl.trim()) {
       setTab('settings');
       notify('先填写 AI API Base URL、Key 和 Model');
@@ -305,7 +344,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setTaskSteps(['理解需求', '检查相关文件', '准备修改', '等待 Changes 审批']);
     setSessionTitle(request.slice(0, 32));
     try {
-      const project = owner + '/' + repo + '@' + branch;
+      const project = effectiveOwner + '/' + effectiveRepo + '@' + effectiveBranch;
       const result = await runMemeAgent({
         apiBaseUrl: aiSettings.apiBaseUrl,
         apiKey: aiSettings.apiKey,
@@ -322,8 +361,8 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             description: 'Inspect a repository directory.',
             run: async ({ path: target = '' }) => {
               const clean = String(target).split('/').filter(Boolean).map(encodeURIComponent).join('/');
-              const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + clean + '?ref=' + encodeURIComponent(branch);
-              const data = await github(url, token);
+              const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + clean + '?ref=' + encodeURIComponent(effectiveBranch);
+              const data = await github(url, effectiveToken);
               return Array.isArray(data)
                 ? data.map((item: any) => ({ name: item.name, path: item.path, type: item.type, sha: item.sha }))
                 : { name: data.name, path: data.path, type: data.type, sha: data.sha };
@@ -334,8 +373,8 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             description: 'Read a repository file.',
             run: async ({ path: target }) => {
               const clean = String(target).split('/').filter(Boolean).map(encodeURIComponent).join('/');
-              const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + clean + '?ref=' + encodeURIComponent(branch);
-              const data = await github(url, token);
+              const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + clean + '?ref=' + encodeURIComponent(effectiveBranch);
+              const data = await github(url, effectiveToken);
               if (Array.isArray(data)) return { error: 'Path is a directory', items: data.map((item: any) => item.path) };
               return { path: data.path, sha: data.sha, content: decodeBase64(data.content).slice(0, 60000) };
             },
@@ -345,7 +384,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             description: 'Search the repository code.',
             run: async ({ query }) => {
               const q = encodeURIComponent(String(query) + ' repo:' + owner + '/' + repo);
-              const data = await github('https://api.github.com/search/code?q=' + q, token);
+              const data = await github('https://api.github.com/search/code?q=' + q, effectiveToken);
               return (data.items || []).slice(0, 20).map((item: any) => ({ path: item.path, name: item.name, sha: item.sha }));
             },
           },
@@ -512,7 +551,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     }
 
     try {
-      const data = await github(base + '/commits?sha=' + encodeURIComponent(branch) + '&per_page=6', token);
+      const data = await github(base + '/commits?sha=' + encodeURIComponent(effectiveBranch) + '&per_page=6', token);
       recentCommits = (data || []).slice(0, 6).map((item: any) => ({
         sha: item.sha,
         message: item.commit?.message?.split('\\n')[0],
@@ -634,7 +673,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             run: async ({ path: target = '' }) => {
               const clean = String(target).split('/').filter(Boolean).map(encodeURIComponent).join('/');
               const data = await github(
-                'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + clean + '?ref=' + encodeURIComponent(branch),
+                'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + clean + '?ref=' + encodeURIComponent(effectiveBranch),
                 token
               );
               return Array.isArray(data)
@@ -648,7 +687,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             run: async ({ path: target }) => {
               const clean = String(target).split('/').filter(Boolean).map(encodeURIComponent).join('/');
               const data = await github(
-                'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + clean + '?ref=' + encodeURIComponent(branch),
+                'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + clean + '?ref=' + encodeURIComponent(effectiveBranch),
                 token
               );
               if (Array.isArray(data)) return { error: 'Path is a directory', items: data.map((item: any) => item.path) };
@@ -660,7 +699,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
             description: 'Search repository code for symbols, imports, error messages, or related implementation.',
             run: async ({ query }) => {
               const q = encodeURIComponent(String(query) + ' repo:' + owner + '/' + repo);
-              const data = await github('https://api.github.com/search/code?q=' + q, token);
+              const data = await github('https://api.github.com/search/code?q=' + q, effectiveToken);
               return (data.items || []).slice(0, 20).map((item: any) => ({ path: item.path, name: item.name, sha: item.sha }));
             },
           },
@@ -785,8 +824,8 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setSaving(true);
     try {
       const target = targetPath.trim().replace(/^\/+|\/+$/g, '');
-      const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + target.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(branch);
-      const data = await github(url, token);
+      const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + target.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(effectiveBranch);
+      const data = await github(url, effectiveToken);
       if (Array.isArray(data)) throw new Error('这是目录，请使用递归删除');
       await github(url.split('?')[0], token, {
         method: 'DELETE',
@@ -805,8 +844,8 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const deleteTree = async (root: string): Promise<void> => {
     const target = root.trim().replace(/^\/+|\/+$/g, '');
     if (!target || !ready) return;
-    const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + target.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(branch);
-    const data = await github(url, token);
+    const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + target.split('/').map(encodeURIComponent).join('/') + '?ref=' + encodeURIComponent(effectiveBranch);
+    const data = await github(url, effectiveToken);
     if (!Array.isArray(data)) {
       await github(url.split('?')[0], token, {
         method: 'DELETE',
@@ -895,7 +934,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
         {tab === 'git' && (
           <section className="p-3.5 space-y-3">
             <div className="p-3.5 rounded-2xl bg-[#ebe6de]"><div className="text-[8px] font-mono tracking-[2px] text-[#8b8782]">GIT WORKSPACE</div><b className="text-[17px]">History & Recovery</b><div className="mt-1 text-[9px] text-[#777069]">{owner}/{repo} · {branch}</div></div>
-            <button onClick={async () => { try { const data=await github('https://api.github.com/repos/'+owner+'/'+repo+'/commits?sha='+encodeURIComponent(branch)+'&per_page=20',token); setGitCommits(data || []); log('git','Loaded commit history'); } catch(e){ notify(e instanceof Error ? e.message : 'Git 历史读取失败'); } }} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">刷新提交历史</button>
+            <button onClick={async () => { try { const data=await github('https://api.github.com/repos/'+owner+'/'+repo+'/commits?sha='+encodeURIComponent(effectiveBranch)+'&per_page=20',token); setGitCommits(data || []); log('git','Loaded commit history'); } catch(e){ notify(e instanceof Error ? e.message : 'Git 历史读取失败'); } }} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">刷新提交历史</button>
             {gitCommits.map((c:any)=><div key={c.sha} className="p-3 rounded-2xl bg-white/65"><div className="text-[9px]">{c.commit?.message?.split('\n')[0]}</div><div className="mt-1 text-[7px] font-mono text-[#888]">{c.sha?.slice(0,8)}</div></div>)}
             {!gitCommits.length && <div className="py-10 text-center text-[9px] text-[#888]">刷新后查看最近提交。</div>}
             <div className="p-3 rounded-2xl bg-[#fff4f1] text-[8px] text-[#8f6f68]">回滚入口会要求二次确认；不会让 Meme 悄悄改写历史。</div>
