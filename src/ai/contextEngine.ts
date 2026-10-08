@@ -248,6 +248,9 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
         '当前日程：' + (live.currentScheduleTitle || '无'),
         '下一行动：' + (live.nextActionTitle || '无') + (live.nextActionAt ? '（' + live.nextActionAt + '）' : ''),
         '最近互动：' + (live.lastInteractionAt || '暂无'),
+        '刚才的线上动作：' + (live.lastAction || '无；不要强行编造动作'),
+        '刚才的角色决策摘要：' + (live.lastThinkingSummary || '无；不要把隐藏思维当作聊天内容'),
+        '刚才的状态栏：' + (live.lastStatusRaw || '无'),
         '当前场景：' + (runtime.currentScene || '无'),
       ].join('\n')
     : '当前没有可用的角色实时世界状态。';
