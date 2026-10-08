@@ -1046,6 +1046,7 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
   };
   trace.parsed = {
     thinkingSummary: parsed.thinkingSummary || null,
+    reasoningSeparated: Boolean(parsed.thinkingSummary),
     actionDescription: parsed.actionDescription || null,
     statusBarRaw: parsed.statusBarRaw || null,
     rawResponseLength: rawText.length,
@@ -1070,6 +1071,7 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
   markTraceStage('final-ready', 'replyLength=' + parsed.text.length);
   trace.final = {
     text: parsed.text,
+    thinkingSummary: parsed.thinkingSummary || null,
     thinkingSummary: parsed.thinkingSummary || null,
     actionDescription: parsed.actionDescription || null,
     statusBarRaw: parsed.statusBarRaw || null,
