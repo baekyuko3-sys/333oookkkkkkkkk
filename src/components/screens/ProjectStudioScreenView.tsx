@@ -93,6 +93,8 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [code, setCode] = useState('');
   const [original, setOriginal] = useState('');
   const [prompt, setPrompt] = useState('');
+  const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
+  const [attachments, setAttachments] = useState<Array<{ name: string; kind: 'image' | 'file'; size: number }>>([]);
   const [message, setMessage] = useState('hey ✦ 我是 Studio。你告诉我想改什么，我们一起改这个小手机。');
   const [conversation, setConversation] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
   const [changes, setChanges] = useState<Change[]>([]);
@@ -368,7 +370,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     // React state updates are asynchronous. Build the history synchronously so
     // Meme receives the message that was just submitted on its first round.
     const baseConversation = overrideConversation ?? conversation;
-    const nextConversation = [...baseConversation, { role: 'user' as const, content: request }].slice(-24);
+    const nextConversation = [...baseConversation, { role: 'user' as const, content: requestWithAttachments }].slice(-24);
     setConversation(nextConversation);
     persistSession(nextConversation, request.slice(0, 32));
     setAiBusy(true);
@@ -973,7 +975,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       <main className="h-[calc(100%-100px)] overflow-y-auto no-scrollbar pb-20">
         {tab === 'chat' && (
           <section className="h-full px-4 pb-28 flex flex-col">
-            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar"><div className="min-h-full flex flex-col"><div className="mt-auto w-full pb-4">
+            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar"><div className="w-full pb-4 pt-2">
               {!conversation.length ? (
                 <div className="h-full flex flex-col items-center justify-center text-center pb-6">
                   <div className="w-12 h-12 rounded-[16px] bg-[#292724] text-white grid place-items-center shadow-sm mb-4"><Sparkles className="w-5 h-5" /></div>
@@ -1177,7 +1179,36 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
       {tab === 'chat' && (
         <div className="absolute z-40 left-3 right-3 bottom-3">
           <div className="rounded-2xl bg-white/92 border border-black/8 shadow-lg p-2 flex items-end gap-2">
-            <button onClick={() => setWorkspaceOpen(true)} className="w-9 h-9 rounded-full bg-[#f0ede7] grid place-items-center shrink-0" aria-label="Tools"><Plus className="w-4 h-4" /></button>
+            <div className="relative shrink-0">
+              <button onClick={() => setAttachmentMenuOpen(value => !value)} className="w-9 h-9 rounded-full bg-[#f0ede7] grid place-items-center" aria-label="添加照片或文件"><Plus className="w-4 h-4" /></button>
+              {attachmentMenuOpen && <div className="absolute bottom-11 left-0 w-36 rounded-2xl bg-white border border-black/8 shadow-xl p-1.5 z-50">
+                <label className="flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-[#f3f0ea] text-[9px] cursor-pointer">
+                  <span className="w-6 h-6 rounded-lg bg-[#eee9df] grid place-items-center">▧</span>
+                  照片
+                  <input type="file" accept="image/*" className="hidden" multiple onChange={event => {
+                    const files = Array.from(event.target.files || []);
+                    if (files.length) {
+                      setAttachments(current => [...current, ...files.map(file => ({ name: file.name, kind: 'image' as const, size: file.size }))].slice(-4));
+                      setAttachmentMenuOpen(false);
+                    }
+                    event.currentTarget.value = '';
+                  }} />
+                </label>
+                <label className="flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-[#f3f0ea] text-[9px] cursor-pointer">
+                  <span className="w-6 h-6 rounded-lg bg-[#eee9df] grid place-items-center">□</span>
+                  文件
+                  <input type="file" className="hidden" multiple onChange={event => {
+                    const files = Array.from(event.target.files || []);
+                    if (files.length) {
+                      setAttachments(current => [...current, ...files.map(file => ({ name: file.name, kind: 'file' as const, size: file.size }))].slice(-4));
+                      setAttachmentMenuOpen(false);
+                    }
+                    event.currentTarget.value = '';
+                  }} />
+                </label>
+              </div>}
+            </div>
+            {attachments.length > 0 && <div className="absolute bottom-14 left-0 right-0 flex gap-1.5 overflow-x-auto px-1 pb-1">{attachments.map((item, index) => <button key={item.name + index} onClick={() => setAttachments(current => current.filter((_, i) => i !== index))} className="shrink-0 max-w-40 px-2.5 py-1.5 rounded-xl bg-[#f0ede7] text-[8px] truncate">{item.kind === 'image' ? '照片 · ' : '文件 · '}{item.name} ×</button>)}</div>}
             <textarea value={prompt} onChange={event => setPrompt(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void ask(); } }} placeholder="告诉 MEME 你想改什么…" rows={1} className="flex-1 min-h-9 max-h-24 py-2.5 px-1 bg-transparent text-[10px] outline-none resize-none" />
             <button onClick={() => void ask()} disabled={aiBusy || !prompt.trim()} className="w-9 h-9 rounded-full bg-[#292724] text-white grid place-items-center disabled:opacity-25 shrink-0">{aiBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}</button>
           </div>
