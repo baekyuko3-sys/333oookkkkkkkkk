@@ -87,6 +87,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   const [repo, setRepo] = useState(() => readStore(STORE.repo));
   const [branch, setBranch] = useState(() => readStore(STORE.branch, 'main'));
   const [token, setToken] = useState(() => readStore(STORE.token));
+  const [githubBranches, setGithubBranches] = useState<string[]>([]);
 
   const [items, setItems] = useState<Item[]>([]);
   const [path, setPath] = useState('');
@@ -186,47 +187,8 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   // Studio owns its GitHub PAT. Do not silently substitute the phone-wide
   // GitHub token: this workspace must use the PAT entered in Studio Settings.
   const sharedToken = token.trim();
-  const hasGithubCredentials = Boolean(sharedOwner && sharedRepo && sharedBranch && sharedToken);
+  const hasGithubCredentials = Boolean(sharedOwner && sharedRepo && sharedToken);
   const ready = githubVerified && hasGithubCredentials;
-
-  useEffect(() => {
-    if (!sharedOwner || !sharedRepo || !sharedBranch || !sharedToken) {
-      setGithubVerified(false);
-      setGithubError(
-        !sharedOwner || !sharedRepo
-          ? '请先在 Studio Settings 填写 Owner 和 Repository'
-          : '请先在 Studio Settings 填写 GitHub PAT'
-      );
-      return;
-    }
-    let cancelled = false;
-    setGithubVerified(false);
-    setGithubError('正在验证 Studio PAT…');
-    void github('https://api.github.com/user', sharedToken)
-      .then(async () => github('https://api.github.com/repos/' + encodeURIComponent(sharedOwner) + '/' + encodeURIComponent(sharedRepo), sharedToken))
-      .then(async repository => {
-        if (repository?.permissions && repository.permissions.push === false) {
-          throw new Error('这个 Studio PAT 没有对目标仓库的写权限');
-        }
-        const targetBranch = sharedBranch || repository.default_branch || 'main';
-        await github(
-          'https://api.github.com/repos/' + encodeURIComponent(sharedOwner) + '/' + encodeURIComponent(sharedRepo) +
-          '/contents/?ref=' + encodeURIComponent(targetBranch),
-          sharedToken
-        );
-        if (!cancelled) {
-          setGithubVerified(true);
-          setGithubError('');
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setGithubVerified(false);
-          setGithubError(error instanceof Error ? error.message : String(error));
-        }
-      });
-    return () => { cancelled = true; };
-  }, [sharedOwner, sharedRepo, sharedBranch, sharedToken]);
 
   const aiReady = Boolean(aiSettings.apiBaseUrl.trim() && aiSettings.apiKey.trim() && aiSettings.model.trim());
   const dirty = Boolean(file && code !== original);
@@ -1173,16 +1135,57 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
               <button onClick={() => void testAi()} disabled={testingAi || !aiReady} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px] disabled:opacity-40">{testingAi ? '测试中…' : '测试 AI 连接'}</button>
             </div>
             <div className="p-3 rounded-2xl bg-white/60 space-y-2">
+            <div className="p-3 rounded-2xl bg-white/60 space-y-2">
               <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">GITHUB PROJECT</div>
               <div className="grid grid-cols-2 gap-1.5">
-                <input value={owner} onChange={event => { setOwner(event.target.value); setGithubVerified(false); }} placeholder="Owner" className="p-2.5 rounded-xl text-[9px] outline-none" />
-                <input value={repo} onChange={event => { setRepo(event.target.value); setGithubVerified(false); }} placeholder="Repository" className="p-2.5 rounded-xl text-[9px] outline-none" />
+                <input value={owner} onChange={event => { setOwner(event.target.value); setGithubVerified(false); setGithubError(""); }} placeholder="Owner" className="p-2.5 rounded-xl text-[9px] outline-none" />
+                <input value={repo} onChange={event => { setRepo(event.target.value); setGithubVerified(false); setGithubError(""); }} placeholder="Repository" className="p-2.5 rounded-xl text-[9px] outline-none" />
               </div>
-              <input value={branch} onChange={event => { setBranch(event.target.value); setGithubVerified(false); }} placeholder="Branch" className="w-full p-2.5 rounded-xl text-[9px] outline-none" />
-              <input type="password" value={token} onChange={event => setToken(event.target.value)} placeholder="Fine-grained GitHub Token" className="w-full p-2.5 rounded-xl text-[9px] outline-none" />
-              <div className="text-[8px] leading-relaxed text-[#888]">建议 Token 只开放这个仓库的 Contents 读写权限。</div>
+              <input type="password" value={token} onChange={event => { setToken(event.target.value); setGithubVerified(false); setGithubError(""); }} placeholder="GitHub PAT" className="w-full p-2.5 rounded-xl text-[9px] outline-none" />
+              <div className="text-[8px] leading-relaxed text-[#888]">只需要 Owner、Repository、PAT。这里不会调用 GitHub OAuth，也不会请求 /user。</div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button onClick={() => {
+                  const ownerText = owner.trim(); const repoText = repo.trim();
+                  if (!ownerText || !repoText) return notify('请先填写 Owner 和 Repository');
+                  window.open('https://github.com/' + encodeURIComponent(ownerText) + '/' + encodeURIComponent(repoText), '_blank', 'noopener,noreferrer');
+                }} className="py-2.5 rounded-xl bg-white border border-black/5 text-[9px]"><Github className="w-3 h-3 inline mr-1" />网页测试</button>
+                <button onClick={saveSettings} className="py-2.5 rounded-xl bg-[#292724] text-white text-[9px]"><Check className="w-3 h-3 inline mr-1" />保存</button>
+              </div>
+              <select value={branch || "main"} onChange={event => { setBranch(event.target.value); setGithubVerified(false); setGithubError(""); }} disabled={!githubBranches.length} className="w-full p-2.5 rounded-xl text-[9px] outline-none bg-white/80 disabled:opacity-50" aria-label="提交目标分支">
+                {githubBranches.length ? githubBranches.map(name => <option key={name} value={name}>{name === "main" ? "main · 推荐提交目标" : name}</option>) : <option value={branch || "main"}>{branch || "main"} · 连接后读取</option>}
+              </select>
+              <button onClick={async () => {
+                const ownerText = owner.trim();
+                const repoText = repo.trim();
+                const studioPat = token.trim();
+                if (!ownerText || !repoText || !studioPat) { setGithubVerified(false); setGithubError('请填写 Owner、Repository 和 GitHub PAT'); notify('请填写 Owner、Repository 和 GitHub PAT'); return; }
+                setGithubVerified(false);
+                setGithubError('正在连接 GitHub 仓库…');
+                try {
+                  const base = "https://api.github.com/repos/" + encodeURIComponent(ownerText) + "/" + encodeURIComponent(repoText);
+                  const repository = await github(base, studioPat);
+                  if (repository?.permissions && repository.permissions.push === false) throw new Error("PAT 可以读取仓库，但没有写权限");
+                  const branches = await github(base + "/branches?per_page=100", studioPat);
+                  const names = Array.isArray(branches) ? branches.map((item:any) => String(item?.name || "")).filter(Boolean) : [];
+                  setGithubBranches(names);
+                  const chosenBranch = names.includes("main") ? "main" : String(repository?.default_branch || names[0] || "main");
+                  await github(base + "/contents/?ref=" + encodeURIComponent(chosenBranch), studioPat);
+                  setOwner(ownerText); setRepo(repoText); setBranch(chosenBranch); setToken(studioPat);
+                  writeStore(STORE.owner, ownerText); writeStore(STORE.repo, repoText); writeStore(STORE.branch, chosenBranch); writeStore(STORE.token, studioPat);
+                  setGithubVerified(true);
+                  setGithubError('');
+                  await list("");
+                  notify('GitHub 已连接：' + ownerText + '/' + repoText + ' · ' + chosenBranch);
+                } catch (error) {
+                  setGithubVerified(false);
+                  const detail = error instanceof Error ? error.message : 'GitHub 仓库连接失败';
+                  setGithubError(detail);
+                  notify(detail);
+                }
+              }} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-[9px]"><Github className="w-3 h-3 inline mr-1" />连接 GitHub</button>
+              {githubError && <div className="text-[8px] leading-relaxed text-[#8f6f68]">原因：{githubError}</div>}
+              {ready && <div className="text-[8px] leading-relaxed text-[#66705f]">GITHUB READY · {owner}/{repo} · 提交到 {branch || "main"}</div>}
             </div>
-            <div className="p-3 rounded-2xl bg-white/60 space-y-2">
               <div className="text-[8px] font-mono tracking-[1.5px] text-[#8b8782]">MEME · CODING MODE</div>
               <select value={memeMode} onChange={event => { const value = event.target.value as MemeCodingMode; setMemeMode(value); writeStore(MEME_MODE_STORE, value); }} className="w-full p-2.5 rounded-xl bg-white/80 text-[9px] outline-none">
                 <option value="always-ask">Always ask · 每次修改都确认</option>
@@ -1195,9 +1198,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
               <button onClick={saveSettings} className="py-2.5 rounded-xl bg-[#292724] text-white text-[9px]"><Check className="w-3 h-3 inline mr-1" />保存</button>
               <button onClick={async () => {
   try {
-    if (!sharedOwner || !sharedRepo || !sharedBranch || !sharedToken) throw new Error('GitHub 仓库连接信息不完整');
-    const who = await github('https://api.github.com/user', sharedToken);
-    const repository = await github('https://api.github.com/repos/' + encodeURIComponent(sharedOwner) + '/' + encodeURIComponent(sharedRepo), sharedToken);
+    if (!sharedOwner || !sharedRepo || !sharedBranch || !sharedToken) throw new Error('GitHub 仓库连接信息不完整');    const repository = await github('https://api.github.com/repos/' + encodeURIComponent(sharedOwner) + '/' + encodeURIComponent(sharedRepo), sharedToken);
     if (repository?.permissions && repository.permissions.push === false) {
       throw new Error('PAT 有效，但没有对当前 Studio 仓库的写权限');
     }
