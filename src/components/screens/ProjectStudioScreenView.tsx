@@ -641,7 +641,10 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
   };
 
   const approveAllChanges = async () => {
-    const effectiveToken = token.trim();
+    const effectiveOwner = sharedOwner;
+    const effectiveRepo = sharedRepo;
+    const effectiveBranch = sharedBranch;
+    const effectiveToken = sharedToken;
     if (!effectiveToken || !changes.length) {
       setTab('settings');
       notify('请先在 Studio Settings 填写 GitHub PAT');
@@ -651,9 +654,9 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     setSaving(true);
     try {
       const result = await applyAtomicChanges(
-        owner.trim(),
-        repo.trim(),
-        branch.trim() || 'main',
+        effectiveOwner,
+        effectiveRepo,
+        effectiveBranch,
         effectiveToken,
         changes.map(change => ({ path: change.path, content: change.content, operation: change.operation || 'update' })),
         'Studio: apply Meme task · ' + sessionTitle,
@@ -687,19 +690,19 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     if (!ready) return;
     const name=window.prompt('新分支名称','meme/'+Date.now());
     if (!name) return;
-    try { await createBranch(owner.trim(),repo.trim(),name,branch.trim() || 'main',token.trim()); notify('已创建分支：'+name); log('git','Created branch '+name); }
+    try { await createBranch(sharedOwner,sharedRepo,name,sharedBranch,sharedToken); notify('已创建分支：'+name); log('git','Created branch '+name); }
     catch(error){ notify(error instanceof Error ? error.message : '创建分支失败'); }
   };
 
   const openPullRequest = async () => {
-    if (!ready || branch === 'main') { notify('PR 需要一个非 main 分支'); return; }
-    try { const result=await createPullRequest(owner.trim(),repo.trim(),branch,'main','Studio · '+sessionTitle,'Created by Meme Studio.',token.trim(),true); setPrUrl(result.html_url || result.url || ''); notify('Draft PR 已创建'); }
+    if (!ready || sharedBranch === 'main') { notify('PR 需要一个非 main 分支'); return; }
+    try { const result=await createPullRequest(sharedOwner,sharedRepo,sharedBranch,'main','Studio · '+sessionTitle,'Created by Meme Studio.',sharedToken,true); setPrUrl(result.html_url || result.url || ''); notify('Draft PR 已创建'); }
     catch(error){ notify(error instanceof Error ? error.message : 'PR 创建失败'); }
   };
 
   const loadDiff = async () => {
     try {
-      const data=await compare(owner.trim(),repo.trim(),'main',branch,token.trim());
+      const data=await compare(sharedOwner,sharedRepo,'main',sharedBranch,sharedToken);
       const files=(data.files||[]).map((item:any)=>item.filename+' · '+item.status+' · +'+item.additions+' -'+item.deletions).join('\\n');
       setCiText(files || '没有差异'); setTab('changes');
     } catch(error){ notify(error instanceof Error ? error.message : 'Diff 获取失败'); }
@@ -709,7 +712,7 @@ export function ProjectStudioScreenView({ onNavigate }: { onNavigate: (screen: S
     if (!ready || !sha) return;
     if (!window.confirm('确认把当前分支恢复到这个 commit？\\n' + sha.slice(0,8) + '\\n此操作会改变远端分支指向。')) return;
     try {
-      await rollbackBranch(owner.trim(), repo.trim(), branch.trim() || 'main', sha, token.trim());
+      await rollbackBranch(sharedOwner, sharedRepo, sharedBranch, sha, sharedToken);
       notify('已恢复到 ' + sha.slice(0,8));
       log('git', 'Rollback ' + branch + ' -> ' + sha.slice(0,8));
       setGitCommits([]);
