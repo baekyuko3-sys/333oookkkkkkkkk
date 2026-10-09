@@ -150,7 +150,6 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
     const start = dragStartRef.current;
     if (!phone || !start || start.id !== id || isHidden(page, id)) return;
     const rect = phone.getBoundingClientRect();
-    const metrics = itemMetrics(id);
     const raw = {
       id,
       x: clientX - rect.left - start.offsetX,
