@@ -391,7 +391,14 @@ export function LineConversationView({
   // Mobile LINE-style gesture: swipe a message left to quote/reply to it.
   const [swipingMessageId, setSwipingMessageId] = useState<number | string | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
-  const messageSwipeRef = useRef<{ id: number | string; startX: number; startY: number; active: boolean; longPressTriggered?: boolean } | null>(null);
+  const messageSwipeRef = useRef<{
+    id: number | string;
+    startX: number;
+    startY: number;
+    active: boolean;
+    horizontalIntent?: boolean;
+    longPressTriggered?: boolean;
+  } | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
   const clearMessageLongPress = () => {
     if (longPressTimerRef.current !== null) {
@@ -399,54 +406,78 @@ export function LineConversationView({
       longPressTimerRef.current = null;
     }
   };
-  const handleMessagePointerDown = (event: PointerEvent, msg: any) => {
-    if (isMultiSelectMode || event.pointerType === 'mouse') return;
-    clearMessageLongPress();
-    messageSwipeRef.current = { id: msg.id, startX: event.clientX, startY: event.clientY, active: true, longPressTriggered: false };
-    setSwipingMessageId(msg.id);
+  const resetMessageSwipeVisual = (messageId?: number | string) => {
+    setSwipingMessageId(current => messageId === undefined || current === messageId ? null : current);
     setSwipeOffset(0);
+  };
+  const handleMessagePointerDown = (event: PointerEvent, msg: any) => {
+    if (isMultiSelectMode || event.pointerType === 'mouse' || event.button !== 0) return;
+    clearMessageLongPress();
+    // Don't update React state or capture the pointer on touch-down. Native
+    // vertical scrolling should start immediately and remain browser-controlled.
+    messageSwipeRef.current = {
+      id: msg.id,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: true,
+      horizontalIntent: false,
+      longPressTriggered: false,
+    };
     longPressTimerRef.current = window.setTimeout(() => {
       const current = messageSwipeRef.current;
-      if (!current || current.id !== msg.id || !current.active) return;
+      if (!current || current.id !== msg.id || !current.active || current.horizontalIntent) return;
       current.longPressTriggered = true;
       current.active = false;
-      setSwipingMessageId(null);
-      setSwipeOffset(0);
+      resetMessageSwipeVisual(msg.id);
       setContextMenuMsg(msg);
     }, 520);
   };
   const handleMessagePointerMove = (event: PointerEvent, msg: any) => {
     const start = messageSwipeRef.current;
     if (!start || !start.active || start.id !== msg.id || isMultiSelectMode || event.pointerType === 'mouse') return;
-    const dxRaw = event.clientX - start.startX;
+
+    const dx = event.clientX - start.startX;
     const dy = event.clientY - start.startY;
-    if (Math.abs(dxRaw) > 10 || Math.abs(dy) > 10) clearMessageLongPress();
-    if (Math.abs(dy) > Math.abs(dxRaw) + 18) {
-      messageSwipeRef.current = null;
-      setSwipingMessageId(null);
-      setSwipeOffset(0);
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+
+    if (absX > 9 || absY > 9) clearMessageLongPress();
+
+    // As soon as movement is clearly vertical, abandon gesture tracking. No
+    // pointer capture and no state updates are performed while the list scrolls.
+    if (absY > 9 && absY > absX + 7) {
+      start.active = false;
+      start.horizontalIntent = false;
+      resetMessageSwipeVisual(msg.id);
       return;
     }
-    const dx = Math.min(0, dxRaw);
-    setSwipeOffset(Math.max(-82, dx));
+
+    // Only animate a reply gesture after a deliberate horizontal movement.
+    if (absX > 12 && absX > absY + 7) {
+      start.horizontalIntent = true;
+      setSwipingMessageId(msg.id);
+      setSwipeOffset(Math.max(-82, Math.min(0, dx)));
+    }
   };
   const handleMessagePointerUp = (event: PointerEvent, msg: any) => {
     clearMessageLongPress();
     const start = messageSwipeRef.current;
     messageSwipeRef.current = null;
-    if (!start || start.id !== msg.id || isMultiSelectMode || event.pointerType === 'mouse') return;
-    if (start.longPressTriggered) {
-      setSwipingMessageId(null);
-      setSwipeOffset(0);
+    if (!start || start.id !== msg.id || isMultiSelectMode || event.pointerType === 'mouse') {
+      resetMessageSwipeVisual(msg.id);
       return;
     }
-    const confirmed = swipeOffset <= -64;
-    if (confirmed) {
+    if (start.longPressTriggered) {
+      resetMessageSwipeVisual(msg.id);
+      return;
+    }
+
+    const dx = event.clientX - start.startX;
+    if (start.horizontalIntent && dx <= -64) {
       setReplyingToMsg(msg);
       showToast('已引用这条消息');
     }
-    setSwipingMessageId(null);
-    setSwipeOffset(0);
+    resetMessageSwipeVisual(msg.id);
   };
   const cancelMessageSwipe = () => {
     clearMessageLongPress();
@@ -481,7 +512,6 @@ export function LineConversationView({
   const [editingMessageText, setEditingMessageText] = useState('');
   const [swipedMessageId, setSwipedMessageId] = useState<number | null>(null);
   const [swipeAction, setSwipeAction] = useState<'edit' | 'quote' | null>(null);
-  const swipeStartXRef = useRef<number | null>(null);
 
   // 思维链只显示安全的高层摘要，不显示隐藏推理
   const [enableChainOfThought, setEnableChainOfThought] = usePersistentState<boolean>(`line:generate-thinking-summary:${conversationStorageId}`, true);
@@ -3428,26 +3458,6 @@ export function LineConversationView({
               {/* Bubble content container */}
               <div
                 className={`max-w-[78%] relative touch-pan-y select-none ${isMe ? 'items-end' : 'items-start'}`}
-                onPointerDown={(e) => {
-                  swipeStartXRef.current = e.clientX;
-                  (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-                }}
-                onPointerUp={(e) => {
-                  const startX = swipeStartXRef.current;
-                  const delta = e.clientX - (startX ?? e.clientX);
-                  swipeStartXRef.current = null;
-                  if (delta < -30) {
-                    // 左滑：打开当前消息的操作菜单；编辑只是菜单中的一个操作。
-                    setContextMenuMsg(msg);
-                    setSwipedMessageId(null);
-                    setSwipeAction(null);
-                  } else if (delta > 30) {
-                    // 右滑：直接引用当前这一条消息。
-                    setReplyingToMsg(msg);
-                    setSwipedMessageId(null);
-                    setSwipeAction(null);
-                  }
-                }}
               >
                 {/* COT · iMessage-style compact disclosure */}
                 {!isMe && hasThinking && (
@@ -3481,11 +3491,11 @@ export function LineConversationView({
                 {lineActionDescriptionsEnabled && msg.actionDescription && !msg.isRecalled && (
                   <div className="w-full flex items-center justify-center my-2.5 px-4 animate-in fade-in">
                     <div className="relative flex items-center justify-center gap-2 max-w-[88%] text-center">
-                      <span className="h-px w-5 shrink-0 bg-[#eadce1]" />
-                      <span className="max-w-[78%] rounded-full border border-[#f0e3e7] bg-[#fcf7f8] px-3 py-1 text-[10.5px] leading-[1.6] italic tracking-[0.01em] text-[#927b83] shadow-[0_1px_2px_rgba(125,89,101,0.04)]">
+                      <span className="h-px w-6 shrink-0 bg-[#eee8eb]" />
+                      <span className="max-w-[78%] text-[10.5px] leading-[1.6] italic tracking-[0.01em] text-[#9b9599]">
                         {msg.actionDescription}
                       </span>
-                      <span className="h-px w-5 shrink-0 bg-[#eadce1]" />
+                      <span className="h-px w-6 shrink-0 bg-[#eee8eb]" />
                     </div>
                   </div>
                 )}
