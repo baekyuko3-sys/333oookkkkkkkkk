@@ -3192,16 +3192,6 @@ export function LineConversationView({
                         ? tx('在线 · 点击查看主页', 'オンライン · プロフィール')
                         : tx('离线 · 点击查看主页', 'オフライン · プロフィール')}
                     </span>
-                    {!isGroup && (
-                      <button
-                        type="button"
-                        onClick={(event) => { event.stopPropagation(); setShowSettings(true); setShowStatusBarSettings(true); }}
-                        className="ml-1 px-2 py-0.5 rounded-full border border-[#eadfe2] bg-[#fbf5f6] text-[9px] font-medium text-[#9b6874] shrink-0"
-                        title="状态栏预设与 Regex / HTML 设置"
-                      >
-                        状态栏设置
-                      </button>
-                    )}
                   </div>
 
                   {friendDeleted && (
