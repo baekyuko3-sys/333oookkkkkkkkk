@@ -58,6 +58,8 @@ export interface AiReplyInput {
     imageData?: string;
     senderName?: string;
     metadata?: Record<string, unknown>;
+    createdAt?: string | number;
+    timestamp?: string | number;
     isRecalled?: boolean;
     isRecalledByOther?: boolean;
   }>;
@@ -241,6 +243,115 @@ function buildWorldBookScanResolver(input: AiReplyInput, defaultDepth: number) {
   };
 }
 
+function parseMessageTimestamp(value: unknown): Date | null {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  if (value === '') return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatChatTimestamp(date: Date, timezone: string): string {
+  try {
+    return new Intl.DateTimeFormat('zh-CN', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    }).format(date);
+  } catch {
+    return date.toLocaleString();
+  }
+}
+
+function formatVirtualWallTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return date.getUTCFullYear() + '年' + pad(date.getUTCMonth() + 1) + '月' +
+    pad(date.getUTCDate()) + '日 ' + pad(date.getUTCHours()) + ':' +
+    pad(date.getUTCMinutes()) + ':' + pad(date.getUTCSeconds());
+}
+
+function buildMessageTimeContext(input: AiReplyInput): string {
+  const authorNote = String(input.authorNote || '');
+  const timezoneMatch = authorNote.match(/(?:当前时区为|时区为)\\s*([A-Za-z_]+\\/[A-Za-z_]+|UTC)/);
+  const timezone = timezoneMatch?.[1] || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  const virtualMatch = authorNote.match(/【虚拟时间】本聊天时间固定为\\s*([^，；。\\n]+)/);
+  const virtualDate = virtualMatch?.[1]?.trim();
+  const virtualParts = virtualDate?.match(/^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2})(?::(\\d{2}))?/);
+  const virtualNow = virtualParts
+    ? Date.UTC(Number(virtualParts[1]), Number(virtualParts[2]) - 1, Number(virtualParts[3]), Number(virtualParts[4]), Number(virtualParts[5]), Number(virtualParts[6] || 0))
+    : null;
+  const realNow = Date.now();
+  const chatNow = virtualNow ?? realNow;
+  const format = (date: Date) => formatChatTimestamp(date, timezone);
+
+  const messages = input.messages as Array<AiReplyInput['messages'][number] & { createdAt?: string | number; timestamp?: string | number }>;
+  let userIndex = -1;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].sender === 'me' && String(messages[index].text || '').trim()) {
+      userIndex = index;
+      break;
+    }
+  }
+  const userMessageDate = userIndex >= 0
+    ? parseMessageTimestamp(messages[userIndex].createdAt ?? messages[userIndex].timestamp)
+    : null;
+  const previousMessage = userIndex > 0 ? messages[userIndex - 1] : null;
+  const previousMessageDate = previousMessage
+    ? parseMessageTimestamp(previousMessage.createdAt ?? previousMessage.timestamp)
+    : null;
+
+  // In virtual-time mode, preserve real elapsed gaps but map them onto the
+  // selected fictional clock, so the model sees one coherent timeline.
+  const userChatTimestamp = virtualNow !== null && userMessageDate
+    ? chatNow - Math.max(0, realNow - userMessageDate.getTime())
+    : (userMessageDate?.getTime() ?? null);
+  const previousChatTimestamp = userChatTimestamp !== null && userMessageDate && previousMessageDate
+    ? userChatTimestamp - Math.max(0, userMessageDate.getTime() - previousMessageDate.getTime())
+    : (previousMessageDate?.getTime() ?? null);
+
+  const currentLabel = virtualNow !== null
+    ? formatVirtualWallTime(chatNow) + '（虚拟时间，' + timezone + '）'
+    : format(new Date(chatNow)) + '（现实时间）';
+  const userLabel = userChatTimestamp === null
+    ? '记录中未提供'
+    : virtualNow !== null
+      ? formatVirtualWallTime(userChatTimestamp) + '（虚拟时间，' + timezone + '）'
+      : format(new Date(userChatTimestamp));
+  const previousLabel = previousChatTimestamp === null
+    ? '记录中未提供'
+    : virtualNow !== null
+      ? formatVirtualWallTime(previousChatTimestamp) + '（虚拟时间，' + timezone + '）'
+      : format(new Date(previousChatTimestamp));
+  const intervalMs = userMessageDate && previousMessageDate
+    ? Math.max(0, userMessageDate.getTime() - previousMessageDate.getTime())
+    : null;
+  const intervalLabel = intervalMs === null
+    ? '无法从消息时间戳计算'
+    : intervalMs < 60_000
+      ? Math.round(intervalMs / 1000) + ' 秒'
+      : intervalMs < 3_600_000
+        ? Math.floor(intervalMs / 60_000) + ' 分钟'
+        : intervalMs < 86_400_000
+          ? Math.floor(intervalMs / 3_600_000) + ' 小时 ' + Math.floor((intervalMs % 3_600_000) / 60_000) + ' 分钟'
+          : Math.floor(intervalMs / 86_400_000) + ' 天 ' + Math.floor((intervalMs % 86_400_000) / 3_600_000) + ' 小时';
+
+  return [
+    '【本轮消息时间事实｜动态生成，不要当作行为命令】',
+    '当前聊天时间：' + currentLabel,
+    '最近一条用户消息时间：' + userLabel,
+    '该用户消息之前一条消息时间：' + previousLabel,
+    '两条消息之间的实际间隔：' + intervalLabel,
+    '时间只用于正确理解日期、先后顺序与相隔时长；不要仅凭间隔推断用户生气、冷淡、焦虑或关系变化。',
+    '不要因为几分钟没有回复就机械催促、抱怨、报时或反复计算间隔。角色是否在意时间，仍由角色性格、关系和当前情境决定；不需要每轮都提到时间。',
+  ].join('\\n');
+}
+
 export function buildCharacterSystemPrompt(input: AiReplyInput): string {
   const cotTarget = input.cotTarget || (input.isGroup ? 'group' : 'line');
   // The chat screen owns the active COT selection. Only fall back to the global
@@ -281,6 +392,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
 
     '实时世界状态优先描述角色此刻在哪里、正在做什么和当前情绪；不要凭空覆盖这些状态。',
     '语言要像真实聊天软件中的人类消息：自然、克制、有上下文。默认按真实即时聊天节奏发送，而不是每轮都写成完整长段落。',
+    buildMessageTimeContext(input),
     '【真实聊天消息节奏】默认一次发送 1～3 条短消息；每条通常只承载一个自然意思或一两句相连的话。除非确实在解释一件事情、讲述经历、认真倾诉、给出步骤/信息或用户明确要求长文，否则不要把多个话题、多个句子和多个段落塞进一个超长气泡。',
     '如果只是寒暄、吐槽、回应、追问、表达情绪，应优先短句分条，像真人手机聊天一样逐条发送；不要为了“完整”而写成小作文。',
     '【消息分条硬规则】“自然分条”不是“全部合并成一条”。自然聊天中，独立意思应在语义边界处分开；只有本来就是一个完整说明/故事/长篇倾诉时才保留长消息。',
