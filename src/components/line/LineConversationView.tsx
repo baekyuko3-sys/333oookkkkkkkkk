@@ -487,6 +487,24 @@ export function LineConversationView({
   const [enableChainOfThought, setEnableChainOfThought] = usePersistentState<boolean>(`line:generate-thinking-summary:${conversationStorageId}`, true);
   const [showChainOfThoughtInChat, setShowChainOfThoughtInChat] = usePersistentState<boolean>(`line:show-thinking-in-chat:${conversationStorageId}`, true);
   const [lineActionDescriptionsEnabled, setLineActionDescriptionsEnabled] = usePersistentState<boolean>(`line:show-action-descriptions:${conversationStorageId}`, true);
+  // The previous default was off and was persisted automatically for many existing
+  // conversations. One-time migration makes the new default effective there too.
+  // Users can still switch the option off again after this migration.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const migrationKey = `line:show-action-descriptions-default-v2:${conversationStorageId}`;
+    try {
+      if (window.localStorage.getItem(migrationKey)) return;
+      const settingKey = `line:show-action-descriptions:${conversationStorageId}`;
+      const storedSetting = window.localStorage.getItem(settingKey);
+      if (storedSetting === null || storedSetting === 'false') {
+        setLineActionDescriptionsEnabled(true);
+      }
+      window.localStorage.setItem(migrationKey, 'true');
+    } catch {
+      // A storage error must not block Line from opening.
+    }
+  }, [conversationStorageId, setLineActionDescriptionsEnabled]);
   const [preventUserFabrication, setPreventUserFabrication] = usePersistentState<boolean>(`line:prevent-user-fabrication:${conversationStorageId}`, true);
   const [naturalAddressing, setNaturalAddressing] = usePersistentState<boolean>(`line:behavior-natural-addressing:${conversationStorageId}`, true);
   const [stableNicknames, setStableNicknames] = usePersistentState<boolean>(`line:behavior-stable-nicknames:${conversationStorageId}`, true);
@@ -2885,9 +2903,6 @@ export function LineConversationView({
       updateLineMessage(conversationStorageId, target.id, {
         text: rerolledText,
         status: 'delivered',
-        thinkingSummary: result.thinkingSummary,
-        actionDescription: result.actionDescription,
-        statusBarRaw: result.statusBarRaw,
         metadata: {
           ...(target.metadata || {}),
           thinkingSummary: result.thinkingSummary,
