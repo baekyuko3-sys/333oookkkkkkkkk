@@ -98,30 +98,53 @@ export function parseAiReplyPayload(
   statusRegex?: string,
 ): Pick<AiReplyResult, 'text' | 'thinkingSummary' | 'actionDescription' | 'statusBarRaw'> {
   const raw = String(rawText || '').replace(/\r\n/g, '\n').trim();
+  const escapeRegex = (value: string): string => value.replace(/[.*+?^$()|[\]{}\\]/g, '\\$&');
   const readTag = (name: string, source: string = raw): string => {
-    const match = source.match(new RegExp('<' + name + '>\\s*([\\s\\S]*?)\\s*</' + name + '>', 'i'));
+    const escapedName = escapeRegex(name);
+    const match = source.match(new RegExp('<\\s*' + escapedName + '\\s*>\\s*([\\s\\S]*?)\\s*<\\/\\s*' + escapedName + '\\s*>', 'i'));
+    return match ? match[1].trim() : '';
+  };
+  // COT is sometimes returned without its closing tag. Stop at the beginning
+  // of the visible reply/action/status section so malformed metadata cannot leak
+  // into the chat bubble or swallow the explicit <message> payload.
+  const readMetadataTag = (name: string, source: string = raw): string => {
+    const escapedName = escapeRegex(name);
+    const boundary = '(?=<message\\b|<action\\b|<status(?:bar)?\\b|\\[状态栏\\]|【(?:动作|状态栏)】|$)';
+    const match = source.match(new RegExp(
+      '<\\s*' + escapedName + '\\s*>([\\s\\S]*?)(?:<\\/\\s*' + escapedName + '\\s*>|' + boundary + ')',
+      'i',
+    ));
     return match ? match[1].trim() : '';
   };
   const readBracket = (name: string, source: string = raw): string => {
-    const match = source.match(new RegExp('\\[' + name + '\\]\\s*([\\s\\S]*?)\\s*\\[\\/' + name + '\\]', 'i'));
+    const escapedName = escapeRegex(name);
+    const match = source.match(new RegExp('\\[' + escapedName + '\\]\\s*([\\s\\S]*?)\\s*\\[\\/' + escapedName + '\\]', 'i'));
     return match ? match[1].trim() : '';
   };
   const readTitled = (name: string, source: string = raw): string => {
-    const match = source.match(new RegExp('【' + name + '】\\s*([\\s\\S]*?)(?=【(?:COT|动作|状态栏)】|$)', 'i'));
+    const escapedName = escapeRegex(name);
+    const match = source.match(new RegExp('【' + escapedName + '】\\s*([\\s\\S]*?)(?=<message\\b|【(?:COT|动作|状态栏)】|$)', 'i'));
     return match ? match[1].trim() : '';
   };
-  const customTagName = cotTag?.match(/^<([A-Za-z][\\w:-]*)>/)?.[1] || '';
-  const thinkingSummary = (customTagName ? readTag(customTagName) : '') ||
-    readTag('thinking') || readTag('cot') || readTag('think') || readTag('thought') ||
-    readTag('summary') || readTag('decision') || readTag('decision_summary') ||
+  const customTagName = cotTag?.match(/^<\\s*([A-Za-z][\\w:-]*)\\s*>/)?.[1] || '';
+  const thinkingSummary = (customTagName ? readMetadataTag(customTagName) : '') ||
+    readMetadataTag('thinking') || readMetadataTag('cot') || readMetadataTag('think') || readMetadataTag('thought') ||
+    readMetadataTag('summary') || readMetadataTag('decision') || readMetadataTag('decision_summary') ||
     readBracket('COT') || readTitled('COT') || '';
   let withoutMetadata = raw;
   const metadataTags = new Set(['think','thought','thinking','cot','summary','decision','decision_summary']);
-  if (customTagName) metadataTags.add(customTagName);
+  if (customTagName && !['message', 'action', 'status', 'statusbar'].includes(customTagName.toLowerCase())) metadataTags.add(customTagName);
+  const metadataBoundary = '(?=<message\\b|<action\\b|<status(?:bar)?\\b|\\[状态栏\\]|【(?:动作|状态栏)】|$)';
   for (const tag of metadataTags) {
-    withoutMetadata = withoutMetadata.replace(new RegExp('<' + tag + '>[\\s\\S]*?</' + tag + '>', 'gi'), '');
+    const escapedTag = escapeRegex(tag);
+    withoutMetadata = withoutMetadata.replace(
+      new RegExp('<\\s*' + escapedTag + '\\s*>[\\s\\S]*?(?:<\\/\\s*' + escapedTag + '\\s*>|' + metadataBoundary + ')', 'gi'),
+      '',
+    );
   }
-  withoutMetadata = withoutMetadata.replace(/\[COT\][\s\S]*?\[\/COT\]/gi, '').replace(/【COT】[\s\S]*?(?=【(?:动作|状态栏)】|$)/gi, '');
+  withoutMetadata = withoutMetadata
+    .replace(/\\[COT\\][\\s\\S]*?(?:\\[\\/COT\\]|(?=<message\\b|<action\\b|<status(?:bar)?\\b|\\[动作\\]|\\[状态栏\\]|【(?:动作|状态栏)】)|$)/gi, '')
+    .replace(/【COT】[\\s\\S]*?(?=<message\\b|<action\\b|<status(?:bar)?\\b|【(?:动作|状态栏)】|$)/gi, '');
   const actionDescription = readTag('action', withoutMetadata) || readBracket('动作', withoutMetadata) || readTitled('动作', withoutMetadata) || '';
   const statusMatch = withoutMetadata.match(/\[状态栏\]\s*([\s\S]*?)\s*\[\/状态栏\]/i) ||
     withoutMetadata.match(/<status(?:bar)?>\s*([\s\S]*?)\s*<\/status(?:bar)?>/i) ||
