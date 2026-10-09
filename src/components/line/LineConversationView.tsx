@@ -1784,7 +1784,7 @@ export function LineConversationView({
           authorsNote,
           relationshipContext.trim() ? '【你们过去的关系背景】\n' + relationshipContext.trim() : '',
           messages.length === 0 && selectedOpeningContext.trim() ? '【角色卡开场白 / 前情提要】\n' + selectedOpeningContext.trim() : '',
-           `【预设流程输出】本轮必须先输出简短、可展示的角色决策摘要，使用 <preset_flow>...</preset_flow>，然后输出 <message>...</message>。这只是高层决策摘要，不得输出隐藏逐步推理。无论聊天界面的预设流程卡片是展开还是折叠，当前预设规则都必须参与生成；显示开关只控制界面呈现，不控制预设执行。`,
+           `【预设流程输出】必须依照预设 App 中当前启用的条目顺序逐项执行，并在 <preset_flow>...</preset_flow> 中完整记录每一步的执行结论；不可缩减成 1～3 句总摘要。随后输出角色正文。流程语言遵循角色语言设定；未指定时跟随用户当前消息语言。`,
           lineActionDescriptionsEnabled ? '【线上动作描写：开启】本轮如果有动作/反应必须输出 <action>...</action>，动作与正文分离。' : '【线上动作描写：关闭】不要输出 <action> 标签。',
         ].filter(Boolean).join('\\n'),
         typingHabit: [
