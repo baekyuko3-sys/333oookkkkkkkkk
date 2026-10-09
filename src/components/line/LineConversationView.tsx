@@ -1650,7 +1650,7 @@ export function LineConversationView({
             activeGroup?.events?.length ? '【群事件记忆】\\n' + activeGroup.events.slice(-12).map(item => item.text).join('\\n') : '',
             '【成员状态】\\n' + (activeGroup?.members || []).map(member => member.name + '：' + [member.online === false ? '离线' : '在线', member.mood || '', member.relationship || ''].filter(Boolean).join(' / ')).join('\\n'),
           ].filter(Boolean).join('\n'),
-          stylePreset: resolvedCotPreset.title || selectedPreset,
+          stylePreset: selectedPreset,
         cotTarget: isGroup ? 'group' : 'line',
         cotPreset: undefined,
           typingHabit: [
@@ -1767,7 +1767,7 @@ export function LineConversationView({
         messages: [...messages, newMsg].map(message => ({ ...message, sender: message.sender || 'other' })),
         userMessage: userText,
         isGroup,
-        stylePreset: resolvedCotPreset.title || selectedPreset,
+        stylePreset: selectedPreset,
         cotTarget: isGroup ? 'group' : 'line',
         cotPreset: undefined,
         statusBarPreset: turnStatusPreset,
