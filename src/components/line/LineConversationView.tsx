@@ -2562,6 +2562,7 @@ export function LineConversationView({
                 {
                   sender: 'me',
                   text: '我给你发了一张图片，请看看这张图片并自然回应。',
+                  createdAt: new Date().toISOString(),
                   imageData: mediaUrl,
                 },
               ],
