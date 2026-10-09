@@ -81,10 +81,18 @@ export function saveLineConversationMessages(id: string, messages: LineRuntimeMe
 }
 
 export function normalizeLineMessage(message: LineRuntimeMessage, fallbackIndex = 0): LineRuntimeMessage {
+  const legacyTimestamp = (message as LineRuntimeMessage & { timestamp?: string | number }).timestamp;
+  const timestampValue = message.createdAt || (
+    typeof legacyTimestamp === 'number'
+      ? new Date(legacyTimestamp < 1e12 ? legacyTimestamp * 1000 : legacyTimestamp).toISOString()
+      : legacyTimestamp
+  );
   return {
     ...message,
     id: message.id ?? `line-msg-${Date.now()}-${fallbackIndex}`,
-    createdAt: message.createdAt || new Date().toISOString(),
+    // Do not invent "today" for imported/legacy messages that have no real timestamp.
+    // Real timestamps are preserved; new messages already receive createdAt when created.
+    ...(timestampValue ? { createdAt: timestampValue } : { createdAt: undefined }),
     status: message.status || (message.sender === 'me' ? 'sent' : 'delivered'),
   };
 }
