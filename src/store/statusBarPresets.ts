@@ -429,7 +429,10 @@ export function renderStatusBarHtml(
     .replace(/'/g, '&#39;');
   let html = String(preset.html || '');
   html = html.replace(/\{\{(?:match|status)\}\}/g, escapeHtml(values.match || ''));
-  html = html.replace(/\{\{([\w-]+)\}\}/g, (_, key: string) => { const aliases: Record<string, string> = { location: '1', time: '2', activity: '3', mood: '4', favor: '5' }; return escapeHtml(values[key] ?? (aliases[key] ? values[aliases[key]] : '') ?? ''); });
+  // Resolve only placeholders explicitly provided by the selected Regex captures.
+  // Do not map generic names (location/time/activity/mood/favor) to fixed capture
+  // positions: every imported preset owns its own Regex and HTML contract.
+  html = html.replace(/\{\{([\w-]+)\}\}/g, (_, key: string) => escapeHtml(values[key] ?? ''));
   html = html.replace(/\$(\d+)/g, (_, index: string) => escapeHtml(values[index] ?? ''));
   return html;
 }
