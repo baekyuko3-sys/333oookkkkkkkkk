@@ -200,49 +200,17 @@ export function splitStatusBarFromText(text: string, regexSource: string): { tex
   const cutIndex = prefix.length >= 2 ? source.indexOf(prefix) : -1;
   const extracted = extractStatusMatch(source, regexSource);
 
-  if (extracted?.match) {
-    // Imported Tavern Regexes sometimes capture only the first part of a
-    // multi-field status payload (for example [QA:...] but not the trailing
-    // QT/A/AT fields). Since a status bar is a suffix of the same AI response,
-    // preserve the entire suffix as status data instead of leaking its tail
-    // into the visible chat bubble.
-    const suffixStart = prefix.length >= 2 ? source.lastIndexOf(prefix) : -1;
-    const matchAfterPrefix = suffixStart >= 0 ? source.indexOf(extracted.match, suffixStart) : -1;
-    if (suffixStart >= 0 && matchAfterPrefix >= suffixStart) {
-      const suffix = source.slice(suffixStart).trim();
-      if (suffix && suffix.includes(extracted.match)) {
-        return {
-          text: tidyAfterStatusRemoval(source.slice(0, suffixStart)),
-          status: suffix,
-        };
-      }
-    }
+  if (!extracted?.match) return { text: source, status: '' };
 
-    const globalRegex = new RegExp(regex.source, regex.flags.includes('g') ? regex.flags : regex.flags + 'g');
-    let cleaned: string;
-    if (globalRegex.test(source)) {
-      globalRegex.lastIndex = 0;
-      cleaned = source.replace(globalRegex, '');
-    } else if (source.includes(extracted.match)) {
-      cleaned = source.split(extracted.match).join('');
-    } else if (cutIndex >= 0) {
-      cleaned = source.slice(0, cutIndex);
-    } else {
-      cleaned = source;
-    }
-    return { text: tidyAfterStatusRemoval(cleaned), status: extracted.match.trim() };
-  }
-
-  // Use the last occurrence because the configured prefix belongs to the
-  // terminal status block; earlier text may quote a similar marker.
-  const suffixCutIndex = prefix.length >= 2 ? source.lastIndexOf(prefix) : -1;
-  if (suffixCutIndex >= 0) {
-    return { text: tidyAfterStatusRemoval(source.slice(0, suffixCutIndex)), status: source.slice(suffixCutIndex).trim() };
-  }
-  if (cutIndex >= 0) {
-    return { text: tidyAfterStatusRemoval(source.slice(0, cutIndex)), status: source.slice(cutIndex).trim() };
-  }
-  return { text: source, status: '' };
+  // Remove exactly the substring matched by the selected preset Regex. Preserve
+  // all other text verbatim; never infer a status prefix or extend the match.
+  const matchIndex = source.indexOf(extracted.match);
+  if (matchIndex < 0) return { text: source, status: '' };
+  const cleaned = source.slice(0, matchIndex) + source.slice(matchIndex + extracted.match.length);
+  return {
+    text: tidyAfterStatusRemoval(cleaned),
+    status: extracted.match.trim(),
+  };
 }
 
 function escapeHtmlText(value: string): string {
@@ -279,33 +247,9 @@ export function extractStatusMatch(text: string, regexSource: string): { match: 
     return null;
   };
 
-  // First honour the preset exactly. If the model omitted a comma between
-  // labelled fields (for example "... A=value AT=time" instead of
-  // "... A=value, AT=time"), retry a tolerant copy that makes only commas
-  // immediately following the common non-greedy capture "(.*?)" optional.
-  // This keeps existing user Regex definitions intact while recovering common
-  // punctuation drift from model-generated status payloads.
-  let match = findMatch(regex);
-  if (!match) {
-    let source = String(regexSource || '').trim();
-    let pattern = source;
-    let flags = 'gs';
-    if (source.startsWith('/') && source.lastIndexOf('/') > 0) {
-      const end = source.lastIndexOf('/');
-      pattern = source.slice(1, end);
-      flags = Array.from(new Set((source.slice(end + 1) + 's').split(''))).join('');
-    }
-    const relaxedPattern = pattern.replace(/(\(\.\*\?\))\s*[,，]\s*/g, '$1\\s*[,，]?\\s*');
-    if (relaxedPattern !== pattern) {
-      try {
-        const relaxedFlags = Array.from(new Set((flags + 's').split(''))).join('');
-        match = findMatch(new RegExp(relaxedPattern, relaxedFlags));
-      } catch {
-        // If the fallback variant itself is invalid, preserve the original miss.
-      }
-    }
-  }
-
+  // Respect the imported preset exactly. Do not silently rewrite its Regex,
+  // because its capture groups and HTML template are a user-defined contract.
+  const match = findMatch(regex);
   if (!match) return null;
   return {
     match: match[0] || '',
