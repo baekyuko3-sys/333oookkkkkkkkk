@@ -1290,6 +1290,9 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
         })),
         userPrompt: input.userMessage,
         temperature: Math.min(0.65, Number(input.temperature ?? input.settings.temperature ?? 0.85)),
+        // COT is a separate planning request; allow slower local/Docker-compatible endpoints
+        // more time than the normal 30-second request timeout.
+        timeoutMs: 60000,
         macroNames: replyMacroNames,
       });
 
