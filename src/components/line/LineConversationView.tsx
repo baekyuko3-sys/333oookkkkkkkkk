@@ -1561,6 +1561,7 @@ export function LineConversationView({
               : '【一次性回复条数】关闭：按自然聊天节奏决定本轮消息条数。',
           ].join('；'),
           temperature: Number(presetTemp) || 0.85,
+          debugConversationId: conversationStorageId,
           onDelta: delta => {
             streamedText += delta;
             const clean = streamedText.trim();
@@ -2406,6 +2407,7 @@ export function LineConversationView({
           '断句：' + typingSentenceBreak,
         ].join('；'),
         temperature: Number(presetTemp) || 0.85,
+        debugConversationId: conversationStorageId,
         onDelta: delta => {
           streamedText += delta;
           const clean = streamedText.trim();
@@ -2689,6 +2691,7 @@ export function LineConversationView({
           '断句：' + typingSentenceBreak,
         ].join('；'),
               temperature: Number(presetTemp) || 0.85,
+              debugConversationId: conversationStorageId,
               onDelta: delta => {
                 streamed += delta;
                 setMessages(prev => {
@@ -2861,6 +2864,7 @@ export function LineConversationView({
           '断句：' + typingSentenceBreak,
         ].join('；'),
         temperature: Number(presetTemp) || 0.85,
+        debugConversationId: conversationStorageId,
         onDelta: delta => {
           streamed += delta;
           setMessages(prev => prev.map(message =>
@@ -3450,6 +3454,8 @@ export function LineConversationView({
                   <div className={`mb-1.5 ${cotStyle === 'minimal' ? '' : 'rounded-[11px] border px-2.5 py-1.5'} ${cotStyleClass}`}>
                     <button
                       type="button"
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onPointerUp={(event) => event.stopPropagation()}
                       onClick={() =>
                         setMessages((prev) =>
                           prev.map((m) =>
@@ -4435,7 +4441,7 @@ export function LineConversationView({
                   {aiDebugTrace?.parsed && (
                     <details open className="rounded-xl bg-[#101716] border border-[#24473b] p-3">
                       <summary className="cursor-pointer text-[9px] text-[#9be3c9]">THINKING / COT · 已与状态栏分离</summary>
-                      <pre className="mt-2 whitespace-pre-wrap break-all text-[8px] leading-relaxed text-[#cfe9df]">{String(aiDebugTrace.parsed.thinkingSummary || '(本轮没有可展示的思维链摘要)')}</pre>
+                      <pre className="mt-2 whitespace-pre-wrap break-all text-[8px] leading-relaxed text-[#cfe9df]">{String(aiDebugTrace.parsed.thinkingSummary || aiDebugTrace.final?.thinkingSummary || '(本轮没有可展示的思维链摘要)')}</pre>
                     </details>
                   )}
                   <details className="rounded-xl bg-[#111112] border border-white/8 p-3">
