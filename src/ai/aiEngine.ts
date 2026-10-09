@@ -548,6 +548,8 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     context.worldBookAfter ? '【世界书 · 角色定义后】\n' + context.worldBookAfter : '',
     '',
     input.stylePreset ? '【聊天风格预设】\n' + input.stylePreset : '【聊天风格预设】自然、沉浸、像真实聊天。',
+    appPresetInstructions,
+    '【预设流程展示协议】本轮先输出 1～3 句安全、简短、可展示的角色决策摘要，使用 <preset_flow>...</preset_flow>；随后输出正常角色内容，放在 <message>...</message> 中。摘要不是隐藏思维链，不得展示逐步推理。显示开关只影响 UI，不影响预设规则执行。',
     input.authorNote ? '【作者注释】\n' + input.authorNote : '【作者注释】无。',
     cotPreset ? [
       '【COT 角色回复决策器】先完成角色判断，再输出角色消息：结合当前消息与最近上下文 → 角色设定/关系 → 用户真实意图 → 角色情绪与立场 → 决定自然回应方式与长度 → 检查 OOC/未知信息/是否替用户行动。不要展示隐藏推理。',
