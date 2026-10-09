@@ -5096,7 +5096,6 @@ export function LineConversationView({
                 disabled={!currentStatusSnapshot}
                 className="flex-1 h-11 rounded-full border border-[#d8c7cb] bg-white/90 text-[#9b6874] text-[11px] font-semibold shadow-[0_3px_12px_rgba(80,50,60,0.08)] transition-all hover:bg-[#fbf2f4] active:scale-[0.98] disabled:opacity-30 disabled:shadow-none"
               >删除当前状态</button>
-              <button onClick={() => { setShowRenderedStatusBarModal(false); setShowPresetResourceManager('status'); }} className="flex-1 h-11 rounded-full bg-[#292724] text-white text-[11px] font-semibold shadow-[0_5px_16px_rgba(35,30,28,0.2)] transition-all hover:bg-[#403b37] active:scale-[0.98]">状态栏设置</button>
             </div>
           </div>
         </div>
