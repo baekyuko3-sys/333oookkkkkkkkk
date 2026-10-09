@@ -1171,13 +1171,26 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     saveTrace();
 
     try {
-      const roleContextPrompt = debugSystemPrompt.split('【当前任务 · 绝对最高优先级】')[0] || debugSystemPrompt;
+      // Rebuild only the context for the planning phase. Generated LINE author
+      // notes contain final-output directives (emit the COT tag, then <message>,
+      // and optionally <action>); those must not leak into this prepass.
+      const prepassAuthorNote = String(providerInput.authorNote || '')
+        .replace(/【COT 输出：(?:开启|关闭)】[\s\S]*?(?=\\n|\r?\n|$)/g, '')
+        .replace(/【线上动作描写：(?:开启|关闭)】[\s\S]*?(?=\\n|\r?\n|$)/g, '');
+      const prepassProviderInput: AiReplyInput = {
+        ...providerInput,
+        authorNote: prepassAuthorNote,
+        statusBarPreset: undefined,
+      };
+      const prepassBasePrompt = buildCharacterSystemPrompt(prepassProviderInput);
+      const roleContextPrompt = prepassBasePrompt.split('【当前任务 · 绝对最高优先级】')[0] || prepassBasePrompt;
       const decisionSystemPrompt = [
         roleContextPrompt,
         '',
         '【COT 前置阶段｜必须先完成】',
         '你现在只负责当前用户消息的角色回复决策，不要生成最终聊天回复、动作描写或状态栏。',
         '必须实际应用上方当前选中的 COT 预设，以及角色卡、人物关系、长期记忆、世界状态、作者注释和最近聊天上下文。',
+        '将预设内的 STEP/判断标准用于决策；如果预设模板包含 FINAL、最终输出、标签或聊天正文格式要求，那些只属于第二阶段，不能在本阶段执行。',
         '在内部完成必要的角色判断，但不要输出逐步推理、私密思维链或冗长 STEP 列表。',
         '只输出 1～3 句、面向用户可展示的高层角色决策摘要：说明角色如何理解当前消息、当前立场/情绪，以及这将如何影响回复的语气或长度。',
         '只输出摘要正文，不要输出标签、JSON、Markdown 代码块、最终回复或状态栏。不能用省略号或模板占位符代替摘要。',
