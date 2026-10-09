@@ -201,6 +201,23 @@ export function splitStatusBarFromText(text: string, regexSource: string): { tex
   const extracted = extractStatusMatch(source, regexSource);
 
   if (extracted?.match) {
+    // Imported Tavern Regexes sometimes capture only the first part of a
+    // multi-field status payload (for example [QA:...] but not the trailing
+    // QT/A/AT fields). Since a status bar is a suffix of the same AI response,
+    // preserve the entire suffix as status data instead of leaking its tail
+    // into the visible chat bubble.
+    const suffixStart = prefix.length >= 2 ? source.lastIndexOf(prefix) : -1;
+    const matchAfterPrefix = suffixStart >= 0 ? source.indexOf(extracted.match, suffixStart) : -1;
+    if (suffixStart >= 0 && matchAfterPrefix >= suffixStart) {
+      const suffix = source.slice(suffixStart).trim();
+      if (suffix && suffix.includes(extracted.match)) {
+        return {
+          text: tidyAfterStatusRemoval(source.slice(0, suffixStart)),
+          status: suffix,
+        };
+      }
+    }
+
     const globalRegex = new RegExp(regex.source, regex.flags.includes('g') ? regex.flags : regex.flags + 'g');
     let cleaned: string;
     if (globalRegex.test(source)) {
@@ -216,6 +233,12 @@ export function splitStatusBarFromText(text: string, regexSource: string): { tex
     return { text: tidyAfterStatusRemoval(cleaned), status: extracted.match.trim() };
   }
 
+  // Use the last occurrence because the configured prefix belongs to the
+  // terminal status block; earlier text may quote a similar marker.
+  const suffixCutIndex = prefix.length >= 2 ? source.lastIndexOf(prefix) : -1;
+  if (suffixCutIndex >= 0) {
+    return { text: tidyAfterStatusRemoval(source.slice(0, suffixCutIndex)), status: source.slice(suffixCutIndex).trim() };
+  }
   if (cutIndex >= 0) {
     return { text: tidyAfterStatusRemoval(source.slice(0, cutIndex)), status: source.slice(cutIndex).trim() };
   }
