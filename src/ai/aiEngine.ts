@@ -99,79 +99,131 @@ export function parseAiReplyPayload(
 ): Pick<AiReplyResult, 'text' | 'thinkingSummary' | 'actionDescription' | 'statusBarRaw'> {
   const raw = String(rawText || '').replace(/\r\n/g, '\n').trim();
   const escapeRegex = (value: string): string => value.replace(/[.*+?^$()|[\]{}\\]/g, '\\$&');
-  const readTag = (name: string, source: string = raw): string => {
-    const escapedName = escapeRegex(name);
-    const match = source.match(new RegExp('<\\s*' + escapedName + '\\s*>\\s*([\\s\\S]*?)\\s*<\\/\\s*' + escapedName + '\\s*>', 'i'));
-    return match ? match[1].trim() : '';
-  };
-  // COT is sometimes returned without its closing tag. Stop at the beginning
-  // of the visible reply/action/status section so malformed metadata cannot leak
-  // into the chat bubble or swallow the explicit <message> payload.
-  const readMetadataTag = (name: string, source: string = raw): string => {
-    const escapedName = escapeRegex(name);
-    const boundary = '(?=<message\\b|<action\\b|<status(?:bar)?\\b|\\[状态栏\\]|【(?:动作|状态栏)】|$)';
+
+  // The presets may intentionally use different visible summary formats:
+  // XML tags (<cot>, <think>, or a custom tag), bracket tags ([COT]), or
+  // titled sections (【COT】). These are all display summaries, never hidden
+  // step-by-step reasoning.
+  const sectionBoundary = '(?=<\\s*message\\b|<\\s*action\\b|<\\s*status(?:bar)?\\b|\\[\\s*(?:动作|状态栏)\\s*\\]|【\\s*(?:COT|动作|状态栏)\\s*】|$)';
+  const angleTagName = cotTag?.match(/^<\s*([A-Za-z][\w:-]*)\s*>/)?.[1] || '';
+  const bracketTagName = cotTag?.match(/^\[\s*([A-Za-z][\w:-]*)\s*\]/)?.[1] || '';
+  const titledTagName = cotTag?.match(/^【\s*([^】]+?)\s*】/)?.[1]?.trim() || '';
+
+  const readAngleSection = (name: string, source: string = raw): string => {
+    const tag = escapeRegex(name);
     const match = source.match(new RegExp(
-      '<\\s*' + escapedName + '\\s*>([\\s\\S]*?)(?:<\\/\\s*' + escapedName + '\\s*>|' + boundary + ')',
+      '<\\s*' + tag + '\\s*>([\\s\\S]*?)(?:<\\s*\\/\\s*' + tag + '\\s*>|' + sectionBoundary + ')',
       'i',
     ));
     return match ? match[1].trim() : '';
   };
-  const readBracket = (name: string, source: string = raw): string => {
-    const escapedName = escapeRegex(name);
-    const match = source.match(new RegExp('\\[' + escapedName + '\\]\\s*([\\s\\S]*?)\\s*\\[\\/' + escapedName + '\\]', 'i'));
+  const readBracketSection = (name: string, source: string = raw): string => {
+    const tag = escapeRegex(name);
+    const boundary = '(?=<\\s*message\\b|<\\s*action\\b|<\\s*status(?:bar)?\\b|\\[\\s*(?:动作|状态栏)\\s*\\]|【\\s*(?:COT|动作|状态栏)\\s*】|$)';
+    const match = source.match(new RegExp(
+      '\\[\\s*' + tag + '\\s*\\]([\\s\\S]*?)(?:\\[\\s*\\/\\s*' + tag + '\\s*\\]|' + boundary + ')',
+      'i',
+    ));
     return match ? match[1].trim() : '';
   };
-  const readTitled = (name: string, source: string = raw): string => {
-    const escapedName = escapeRegex(name);
-    const match = source.match(new RegExp('【' + escapedName + '】\\s*([\\s\\S]*?)(?=<message\\b|【(?:COT|动作|状态栏)】|$)', 'i'));
+  const readTitledSection = (name: string, source: string = raw): string => {
+    const tag = escapeRegex(name);
+    const boundary = '(?=<\\s*message\\b|<\\s*action\\b|<\\s*status(?:bar)?\\b|\\[\\s*(?:动作|状态栏)\\s*\\]|【\\s*(?:COT|动作|状态栏)\\s*】|$)';
+    const match = source.match(new RegExp('【\\s*' + tag + '\\s*】([\\s\\S]*?)' + boundary, 'i'));
     return match ? match[1].trim() : '';
   };
-  const customTagName = cotTag?.match(/^<\s*([A-Za-z][\w:-]*)\s*>/)?.[1] || '';
-  const thinkingSummary = (customTagName ? readMetadataTag(customTagName) : '') ||
-    readMetadataTag('thinking') || readMetadataTag('cot') || readMetadataTag('think') || readMetadataTag('thought') ||
-    readMetadataTag('summary') || readMetadataTag('decision') || readMetadataTag('decision_summary') ||
-    readBracket('COT') || readTitled('COT') || '';
+  const stripAngleSection = (source: string, name: string): string => {
+    const tag = escapeRegex(name);
+    return source.replace(new RegExp(
+      '<\\s*' + tag + '\\s*>[\\s\\S]*?(?:<\\s*\\/\\s*' + tag + '\\s*>|' + sectionBoundary + ')',
+      'gi',
+    ), '');
+  };
+  const stripBracketSection = (source: string, name: string): string => {
+    const tag = escapeRegex(name);
+    const boundary = '(?=<\\s*message\\b|<\\s*action\\b|<\\s*status(?:bar)?\\b|\\[\\s*(?:动作|状态栏)\\s*\\]|【\\s*(?:COT|动作|状态栏)\\s*】|$)';
+    return source.replace(new RegExp(
+      '\\[\\s*' + tag + '\\s*\\][\\s\\S]*?(?:\\[\\s*\\/\\s*' + tag + '\\s*\\]|' + boundary + ')',
+      'gi',
+    ), '');
+  };
+  const stripTitledSection = (source: string, name: string): string => {
+    const tag = escapeRegex(name);
+    const boundary = '(?=<\\s*message\\b|<\\s*action\\b|<\\s*status(?:bar)?\\b|\\[\\s*(?:动作|状态栏)\\s*\\]|【\\s*(?:COT|动作|状态栏)\\s*】|$)';
+    return source.replace(new RegExp('【\\s*' + tag + '\\s*】[\\s\\S]*?' + boundary, 'gi'), '');
+  };
+
+  const configuredCot = angleTagName
+    ? readAngleSection(angleTagName)
+    : bracketTagName
+      ? readBracketSection(bracketTagName)
+      : titledTagName
+        ? readTitledSection(titledTagName)
+        : '';
+  const thinkingSummary = configuredCot ||
+    readAngleSection('cot') || readAngleSection('thinking') || readAngleSection('think') ||
+    readAngleSection('thought') || readAngleSection('summary') || readAngleSection('decision') ||
+    readAngleSection('decision_summary') ||
+    readBracketSection('COT') || readTitledSection('COT') || '';
+
   let withoutMetadata = raw;
-  const metadataTags = new Set(['think','thought','thinking','cot','summary','decision','decision_summary']);
-  if (customTagName && !['message', 'action', 'status', 'statusbar'].includes(customTagName.toLowerCase())) metadataTags.add(customTagName);
-  const metadataBoundary = '(?=<message\\b|<action\\b|<status(?:bar)?\\b|\\[状态栏\\]|【(?:动作|状态栏)】|$)';
-  for (const tag of metadataTags) {
-    const escapedTag = escapeRegex(tag);
-    withoutMetadata = withoutMetadata.replace(
-      new RegExp('<\\s*' + escapedTag + '\\s*>[\\s\\S]*?(?:<\\/\\s*' + escapedTag + '\\s*>|' + metadataBoundary + ')', 'gi'),
-      '',
-    );
+  const metadataTags = new Set(['think', 'thought', 'thinking', 'cot', 'summary', 'decision', 'decision_summary']);
+  if (angleTagName && !['message', 'action', 'status', 'statusbar'].includes(angleTagName.toLowerCase())) metadataTags.add(angleTagName);
+  for (const tag of metadataTags) withoutMetadata = stripAngleSection(withoutMetadata, tag);
+  withoutMetadata = stripBracketSection(withoutMetadata, 'COT');
+  withoutMetadata = stripTitledSection(withoutMetadata, 'COT');
+  if (bracketTagName && !['message', 'action', 'status', 'statusbar', 'cot'].includes(bracketTagName.toLowerCase())) {
+    withoutMetadata = stripBracketSection(withoutMetadata, bracketTagName);
   }
-  withoutMetadata = withoutMetadata
-    .replace(/\[COT\][\s\S]*?(?:\[\/COT\]|(?=<message\b|<action\b|<status(?:bar)?\b|\[动作\]|\[状态栏\]|【(?:动作|状态栏)】)|$)/gi, '')
-    .replace(/【COT】[\s\S]*?(?=<message\b|<action\b|<status(?:bar)?\b|【(?:动作|状态栏)】|$)/gi, '');
-  const actionDescription = readTag('action', withoutMetadata) || readBracket('动作', withoutMetadata) || readTitled('动作', withoutMetadata) || '';
-  // Explicit status delimiters are authoritative. Apply Regex to their inner
-  // payload later, not to the entire reply (where an anchored pattern could
-  // accidentally match body text or fail because the wrapper surrounds it).
-  const statusMatch = withoutMetadata.match(/\[状态栏\]\s*([\s\S]*?)\s*\[\/状态栏\]/i) ||
-    withoutMetadata.match(/<status(?:bar)?>\s*([\s\S]*?)\s*<\/status(?:bar)?>/i) ||
-    withoutMetadata.match(/【状态栏】\s*([\s\S]*?)(?=【(?:动作|COT)】|$)/i);
+  if (titledTagName && !['动作', '状态栏'].includes(titledTagName)) {
+    withoutMetadata = stripTitledSection(withoutMetadata, titledTagName);
+  }
+
+  const actionDescription = readAngleSection('action', withoutMetadata) ||
+    readBracketSection('动作', withoutMetadata) ||
+    readTitledSection('动作', withoutMetadata) || '';
+
+  // Remove action metadata even when the chosen delimiter contains whitespace,
+  // uses an alternate supported format, or has an omitted closing delimiter.
+  withoutMetadata = stripAngleSection(withoutMetadata, 'action');
+  withoutMetadata = stripBracketSection(withoutMetadata, '动作');
+  withoutMetadata = stripTitledSection(withoutMetadata, '动作');
+
+  // Explicit status wrappers take priority. Regex fallback is for legacy imported
+  // presets that emit the matched status directly without a wrapper.
+  const statusMatch = withoutMetadata.match(/\[\s*状态栏\s*\]\s*([\s\S]*?)\s*\[\s*\/\s*状态栏\s*\]/i) ||
+    withoutMetadata.match(/<\s*status(?:bar)?\s*>([\s\S]*?)\s*<\s*\/\s*status(?:bar)?\s*>/i) ||
+    withoutMetadata.match(/【\s*状态栏\s*】([\s\S]*?)(?=<\s*message\b|<\s*action\b|【\s*(?:动作|COT)\s*】|$)/i);
   let statusBarRaw = '';
   if (statusMatch) {
     statusBarRaw = statusMatch[1].trim();
     withoutMetadata = withoutMetadata.replace(statusMatch[0], '');
   } else if (statusRegex?.trim()) {
-    // Compatibility path for imported Tavern/UWU presets whose models output
-    // the Regex-matched status directly without a wrapper tag.
     const split = splitStatusBarFromText(withoutMetadata, statusRegex);
     if (split.status) {
       statusBarRaw = split.status;
       withoutMetadata = split.text;
     }
   }
+
   withoutMetadata = withoutMetadata
-    .replace(/\[状态栏\][\s\S]*?\[\/状态栏\]/gi, '')
-    .replace(/<status(?:bar)?>[\s\S]*?<\/status(?:bar)?>/gi, '')
-    .replace(/【状态栏】[\s\S]*?(?=【(?:动作|COT)】|$)/gi, '');
-  const messageMatch = /<message>\s*([\s\S]*?)\s*<\/message>/i.exec(withoutMetadata);
-  const text = (messageMatch?.[1] || withoutMetadata.replace(/<action>[\s\S]*?<\/action>/gi, '').replace(/\[动作\][\s\S]*?\[\/动作\]/gi, '').replace(/【动作】[\s\S]*?(?=【(?:状态栏|COT)】|$)/gi, '').replace(/<message>[\s\S]*?<\/message>/gi, '')).trim();
-  return { text, thinkingSummary: thinkingSummary || undefined, actionDescription: actionDescription || undefined, statusBarRaw: statusBarRaw || undefined };
+    .replace(/\[\s*状态栏\s*\][\s\S]*?(?:\[\s*\/\s*状态栏\s*\]|$)/gi, '')
+    .replace(/<\s*status(?:bar)?\s*>[\s\S]*?(?:<\s*\/\s*status(?:bar)?\s*>|$)/gi, '')
+    .replace(/【\s*状态栏\s*】[\s\S]*$/gi, '');
+
+  const messageMatch = /<\s*message\s*>([\s\S]*?)<\s*\/\s*message\s*>/i.exec(withoutMetadata);
+  const text = (messageMatch?.[1] || withoutMetadata
+    .replace(/<\s*action\s*>[\s\S]*?(?:<\s*\/\s*action\s*>|$)/gi, '')
+    .replace(/\[\s*动作\s*\][\s\S]*?(?:\[\s*\/\s*动作\s*\]|$)/gi, '')
+    .replace(/【\s*动作\s*】[\s\S]*$/gi, '')
+    .replace(/<\s*message\s*>[\s\S]*?<\s*\/\s*message\s*>/gi, '')).trim();
+
+  return {
+    text,
+    thinkingSummary: thinkingSummary || undefined,
+    actionDescription: actionDescription || undefined,
+    statusBarRaw: statusBarRaw || undefined,
+  };
 }
 export function resolveChannelAiSettings(channel: 'chat' | 'moments'): AiSettings {
   const settings = readAppSettings();
@@ -508,7 +560,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '不要因为旧消息里出现过的问题、请求或关键词，就再次回答那个旧问题。',
     '',
     '【输出约束】',
-    '禁止输出原始 <think>、<thought> 或隐藏推理。COT 不是原始内部思维链，而是给用户看的简短“角色决策记录”：只写高层次判断，不写隐性推理细节。',
+    '禁止输出模型的隐藏推理、逐步推演或私密思维链。当前启用的 COT 标签只承载可展示的高层角色决策摘要；即使所选预设使用 <think>...</think> 标签，也只允许把简短摘要放进该标签，绝不能输出隐藏推理过程。',
     input.cotTarget && cotPreset ? [
       '【COT 强制输出】本轮 COT 已开启，这是硬性输出协议，不允许省略。',
       '你必须先输出一段 1～3 句的高层角色决策记录，再输出角色消息；这段记录不是隐藏思维链，只能写简短、可展示的角色判断摘要。',

@@ -244,7 +244,11 @@ export function LineConversationView({
         transcript: message.transcript,
         fileName: message.fileName,
         thinking: message.thinking,
-        actionDescription: message.actionDescription,
+        thinkingSummary: message.thinkingSummary || message.metadata?.thinkingSummary,
+        actionDescription: message.actionDescription || message.metadata?.actionDescription,
+        statusBarRaw: message.statusBarRaw || message.metadata?.statusBarRaw,
+        hasThinking: message.hasThinking,
+        hasAction: message.hasAction,
       },
     }));
     // Mirror the whole visible conversation so older messages remain searchable,
@@ -482,7 +486,25 @@ export function LineConversationView({
   // 思维链只显示安全的高层摘要，不显示隐藏推理
   const [enableChainOfThought, setEnableChainOfThought] = usePersistentState<boolean>(`line:generate-thinking-summary:${conversationStorageId}`, true);
   const [showChainOfThoughtInChat, setShowChainOfThoughtInChat] = usePersistentState<boolean>(`line:show-thinking-in-chat:${conversationStorageId}`, true);
-  const [lineActionDescriptionsEnabled, setLineActionDescriptionsEnabled] = usePersistentState<boolean>(`line:show-action-descriptions:${conversationStorageId}`, false);
+  const [lineActionDescriptionsEnabled, setLineActionDescriptionsEnabled] = usePersistentState<boolean>(`line:show-action-descriptions:${conversationStorageId}`, true);
+  // The previous default was off and was persisted automatically for many existing
+  // conversations. One-time migration makes the new default effective there too.
+  // Users can still switch the option off again after this migration.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const migrationKey = `line:show-action-descriptions-default-v2:${conversationStorageId}`;
+    try {
+      if (window.localStorage.getItem(migrationKey)) return;
+      const settingKey = `line:show-action-descriptions:${conversationStorageId}`;
+      const storedSetting = window.localStorage.getItem(settingKey);
+      if (storedSetting === null || storedSetting === 'false') {
+        setLineActionDescriptionsEnabled(true);
+      }
+      window.localStorage.setItem(migrationKey, 'true');
+    } catch {
+      // A storage error must not block Line from opening.
+    }
+  }, [conversationStorageId, setLineActionDescriptionsEnabled]);
   const [preventUserFabrication, setPreventUserFabrication] = usePersistentState<boolean>(`line:prevent-user-fabrication:${conversationStorageId}`, true);
   const [naturalAddressing, setNaturalAddressing] = usePersistentState<boolean>(`line:behavior-natural-addressing:${conversationStorageId}`, true);
   const [stableNicknames, setStableNicknames] = usePersistentState<boolean>(`line:behavior-stable-nicknames:${conversationStorageId}`, true);
@@ -1562,6 +1584,15 @@ export function LineConversationView({
             turnId, sender: 'other', senderName: character.name, text, time: formatLineMessageClock({ createdAt: new Date().toISOString() }, chatTimezone), createdAt: new Date().toISOString(),
             type: 'ai-reply', aiModel: result.model,
             matchedWorldbookEntries: result.matchedWorldbookEntries, status: 'delivered',
+            thinkingSummary: partIndex === 0 ? result.thinkingSummary : undefined,
+            actionDescription: partIndex === 0 ? result.actionDescription : undefined,
+            showThinking: false,
+            hasThinking: partIndex === 0 && Boolean(result.thinkingSummary),
+            hasAction: partIndex === 0 && Boolean(result.actionDescription),
+            metadata: {
+              ...(partIndex === 0 && result.thinkingSummary ? { thinkingSummary: result.thinkingSummary } : {}),
+              ...(partIndex === 0 && result.actionDescription ? { actionDescription: result.actionDescription } : {}),
+            },
           })));
           return withoutStreaming;
         });
@@ -2388,9 +2419,38 @@ export function LineConversationView({
 
       const finalText = String(result.text || streamedText || '').trim();
       if (!finalText) throw new Error('角色没有返回任何内容，请检查 API、模型或网络连接。');
+      const replyMetadata = {
+        thinkingSummary: result.thinkingSummary,
+        actionDescription: result.actionDescription,
+        statusBarRaw: result.statusBarRaw,
+      };
       setMessages(prev => {
-        if (prev.some(m => m.id === continuationId)) return prev.map(m => m.id === continuationId ? { ...m, text: finalText, status: 'delivered', aiModel: result.model, statusBarRaw: result.statusBarRaw, metadata: { ...(m.metadata || {}), statusBarRaw: result.statusBarRaw } } : m);
-        return [...prev, { id: continuationId, sender: 'other', type: 'ai-reply', text: finalText, time: '刚刚', createdAt: new Date().toISOString(), status: 'delivered', aiModel: result.model, statusBarRaw: result.statusBarRaw, metadata: { statusBarRaw: result.statusBarRaw } }];
+        if (prev.some(m => m.id === continuationId)) return prev.map(m => m.id === continuationId ? {
+          ...m,
+          text: finalText,
+          status: 'delivered',
+          aiModel: result.model,
+          ...replyMetadata,
+          hasThinking: Boolean(result.thinkingSummary),
+          hasAction: Boolean(result.actionDescription),
+          showThinking: false,
+          metadata: { ...(m.metadata || {}), ...replyMetadata },
+        } : m);
+        return [...prev, {
+          id: continuationId,
+          sender: 'other',
+          type: 'ai-reply',
+          text: finalText,
+          time: '刚刚',
+          createdAt: new Date().toISOString(),
+          status: 'delivered',
+          aiModel: result.model,
+          ...replyMetadata,
+          hasThinking: Boolean(result.thinkingSummary),
+          hasAction: Boolean(result.actionDescription),
+          showThinking: false,
+          metadata: replyMetadata,
+        }];
       });
       appendLineMessage(conversationStorageId, {
         id: continuationId,
@@ -2399,6 +2459,7 @@ export function LineConversationView({
         kind: 'text',
         status: 'delivered',
         createdAt: new Date().toISOString(),
+        metadata: replyMetadata,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : '继续生成失败';
@@ -2644,10 +2705,38 @@ export function LineConversationView({
             setMessages(prev => {
               if (prev.some(message => message.id === replyMsgId)) {
                 return prev.map(message => message.id === replyMsgId
-                  ? { ...message, text: result.text, aiModel: result.model, status: 'delivered', statusBarRaw: result.statusBarRaw, metadata: { ...(message.metadata || {}), statusBarRaw: result.statusBarRaw } }
+                  ? {
+                    ...message,
+                    text: result.text,
+                    aiModel: result.model,
+                    status: 'delivered',
+                    thinkingSummary: result.thinkingSummary,
+                    actionDescription: result.actionDescription,
+                    statusBarRaw: result.statusBarRaw,
+                    hasThinking: Boolean(result.thinkingSummary),
+                    hasAction: Boolean(result.actionDescription),
+                    showThinking: false,
+                    metadata: { ...(message.metadata || {}), thinkingSummary: result.thinkingSummary, actionDescription: result.actionDescription, statusBarRaw: result.statusBarRaw },
+                  }
                   : message);
               }
-              return [...prev, { id: replyMsgId, sender: 'other', type: 'ai-reply', text: result.text, time: '刚刚', createdAt: new Date().toISOString(), aiModel: result.model, status: 'delivered', statusBarRaw: result.statusBarRaw, metadata: { statusBarRaw: result.statusBarRaw } }];
+              return [...prev, {
+                id: replyMsgId,
+                sender: 'other',
+                type: 'ai-reply',
+                text: result.text,
+                time: '刚刚',
+                createdAt: new Date().toISOString(),
+                aiModel: result.model,
+                status: 'delivered',
+                thinkingSummary: result.thinkingSummary,
+                actionDescription: result.actionDescription,
+                statusBarRaw: result.statusBarRaw,
+                hasThinking: Boolean(result.thinkingSummary),
+                hasAction: Boolean(result.actionDescription),
+                showThinking: false,
+                metadata: { thinkingSummary: result.thinkingSummary, actionDescription: result.actionDescription, statusBarRaw: result.statusBarRaw },
+              }];
             });
 
             const latestSettings = readAppSettings();
@@ -2786,12 +2875,44 @@ export function LineConversationView({
       setMessages(prev => {
         const next = [...prev];
         const existingIndex = next.findIndex(m => m.id === target.id);
-        const nextMessage = { ...target, text: rerolledText, status: 'delivered', editedAt: new Date().toISOString(), aiModel: result.model, statusBarRaw: result.statusBarRaw, metadata: { ...(target.metadata || {}), statusBarRaw: result.statusBarRaw }, error: undefined, edited: true };
+        const nextMessage = {
+          ...target,
+          text: rerolledText,
+          status: 'delivered',
+          editedAt: new Date().toISOString(),
+          aiModel: result.model,
+          thinkingSummary: result.thinkingSummary,
+          actionDescription: result.actionDescription,
+          statusBarRaw: result.statusBarRaw,
+          hasThinking: Boolean(result.thinkingSummary),
+          hasAction: Boolean(result.actionDescription),
+          showThinking: false,
+          metadata: {
+            ...(target.metadata || {}),
+            thinkingSummary: result.thinkingSummary,
+            actionDescription: result.actionDescription,
+            statusBarRaw: result.statusBarRaw,
+          },
+          error: undefined,
+          edited: true,
+        };
         if (existingIndex >= 0) next[existingIndex] = nextMessage;
         else next.splice(Math.min(targetIndex, next.length), 0, nextMessage);
         return next;
       });
-      updateLineMessage(conversationStorageId, target.id, { text: rerolledText, status: 'delivered', error: undefined, edited: true, editedAt: new Date().toISOString() });
+      updateLineMessage(conversationStorageId, target.id, {
+        text: rerolledText,
+        status: 'delivered',
+        metadata: {
+          ...(target.metadata || {}),
+          thinkingSummary: result.thinkingSummary,
+          actionDescription: result.actionDescription,
+          statusBarRaw: result.statusBarRaw,
+        },
+        error: undefined,
+        edited: true,
+        editedAt: new Date().toISOString(),
+      });
       if (statusBarEnabled && !isGroup) await createStatusBarSnapshot(rerolledText, target.id, result.statusBarRaw, turnStatusPreset, true);
       showToast('这一条已经重新生成');
     } catch (error) {
