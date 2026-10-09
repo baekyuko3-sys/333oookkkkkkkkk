@@ -688,8 +688,21 @@ function buildConversationMessages(input: AiReplyInput) {
   // Exclude the current user turn here; it is appended exactly once as the final
   // user message below, which makes its priority unambiguous to both Gemini and
   // OpenAI-compatible models.
+  // Remove the exact user turn being answered, not blindly the last message.
+  // Continue/regenerate flows can end with an assistant message; slicing the last
+  // item there silently discarded the most recent character context.
+  let currentTurnIndex = -1;
+  const currentUserText = String(input.userMessage || '').trim();
+  for (let index = eligible.length - 1; index >= 0; index -= 1) {
+    const message = eligible[index];
+    const text = String(message.text || message.transcript || '').trim();
+    if (message.sender === 'me' && text === currentUserText) {
+      currentTurnIndex = index;
+      break;
+    }
+  }
   const historySource = eligible
-    .slice(0, -1)
+    .filter((_, index) => index !== currentTurnIndex)
     .slice(-(turnBudget * 2));
 
   const history = historySource.map(message => ({
@@ -1203,7 +1216,6 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
                 role: message.role === 'assistant' ? 'model' : 'user',
                 parts: [{ text: message.content }],
               })),
-              { role: 'user', parts: [{ text: input.userMessage }] },
             ],
             generationConfig: {
               temperature: Number(input.settings.temperature ?? 0.85),
@@ -1221,7 +1233,6 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
             messages: [
               { role: 'system', content: debugSystemPrompt },
               ...debugMessages,
-              { role: 'user', content: input.userMessage },
             ],
           },
         },
@@ -1270,15 +1281,8 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
         '按这份模板中的判断顺序完成角色决策；只将可展示的高层决策总结成 1～3 句。不要展示逐步推理，也不要生成第二套或默认模板的 COT。',
         '将预设内的 STEP/判断标准用于决策；如果预设模板包含 FINAL、最终输出、标签或聊天正文格式要求，那些只属于第二阶段，不能在本阶段执行。',
         '在内部完成必要的角色判断，但不要输出逐步推理、私密思维链或冗长 STEP 列表。',
-        '不要把整套模板压缩成一句笼统的话。请按当前模板的判断阶段输出 6 行简洁、面向用户可展示的决策摘要，每行只写一条具体结论；这是高层摘要，不是隐藏的逐步推理。',
-        '每行必须使用以下标签，并根据当前消息、角色设定与前文填写具体内容，不要照抄标签后的说明：',
-        'STEP 1: CONTEXT：当前消息与相关前文的情境。',
-        'STEP 2: CHARACTER：角色设定、关系与当前状态对回应最重要的影响。',
-        'STEP 3: MEANING：用户当前消息明确表达的意思，不猜测未说出的意图。',
-        'STEP 4: REACTION：角色当前态度或情绪的简洁概括。',
-        'STEP 5: RESPONSE：角色准备采用的回应方式与长度。',
-        'STEP 6: CHECK：确认没有 OOC、重复回答旧话题或替用户决定行为。',
-        '只输出这 6 行摘要正文，不要输出最终回复、动作描写、状态栏、JSON 或 Markdown 代码块。每行尽量简短但必须包含本轮的具体判断；不能用省略号或模板占位符代替。',
+        '严格按照当前选中预设的决策阶段理解和组织摘要；预设中的阶段名称、顺序、关注点优先于任何通用模板。不要强行改写成固定的 STEP 1-6，也不要遗漏预设中与本轮相关的关键阶段。',
+        '只输出简洁、可展示的高层角色决策摘要（通常 3～7 行，按预设实际结构决定）；每行应写具体结论而非复制模板或占位符。不要输出最终回复、动作描写、状态栏、JSON 或 Markdown 代码块。',
         '下面是本轮唯一需要处理的用户消息：',
         '<<<CURRENT_USER_MESSAGE>>>',
         input.userMessage,
