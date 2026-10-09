@@ -278,11 +278,11 @@ function formatVirtualWallTime(timestamp: number): string {
 
 function buildMessageTimeContext(input: AiReplyInput): string {
   const authorNote = String(input.authorNote || '');
-  const timezoneMatch = authorNote.match(/(?:当前时区为|时区为)\\s*([A-Za-z_]+\\/[A-Za-z_]+|UTC)/);
+  const timezoneMatch = authorNote.match(/(?:当前时区为|时区为)\s*([A-Za-z_]+\/[A-Za-z_]+|UTC)/);
   const timezone = timezoneMatch?.[1] || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  const virtualMatch = authorNote.match(/【虚拟时间】本聊天时间固定为\\s*([^，；。\\n]+)/);
+  const virtualMatch = authorNote.match(/【虚拟时间】本聊天时间固定为\s*([^，；。\n]+)/);
   const virtualDate = virtualMatch?.[1]?.trim();
-  const virtualParts = virtualDate?.match(/^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2})(?::(\\d{2}))?/);
+  const virtualParts = virtualDate?.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
   const virtualNow = virtualParts
     ? Date.UTC(Number(virtualParts[1]), Number(virtualParts[2]) - 1, Number(virtualParts[3]), Number(virtualParts[4]), Number(virtualParts[5]), Number(virtualParts[6] || 0))
     : null;
@@ -349,7 +349,7 @@ function buildMessageTimeContext(input: AiReplyInput): string {
     '两条消息之间的实际间隔：' + intervalLabel,
     '时间只用于正确理解日期、先后顺序与相隔时长；不要仅凭间隔推断用户生气、冷淡、焦虑或关系变化。',
     '不要因为几分钟没有回复就机械催促、抱怨、报时或反复计算间隔。角色是否在意时间，仍由角色性格、关系和当前情境决定；不需要每轮都提到时间。',
-  ].join('\\n');
+  ].join('\n');
 }
 
 export function buildCharacterSystemPrompt(input: AiReplyInput): string {
