@@ -1042,7 +1042,11 @@ export function LineConversationView({
         throw new Error('没有可用的状态栏预设');
       }
 
-      const chosen = presetOverride || resolveStatusBarPresetForTurn();
+      // Prefer the exact preset captured for this AI turn, then the current
+      // character binding, and only then the chat's active/global fallback.
+      const chosen = presetOverride
+        || getStatusBarForCharacter(characterId, 'line')
+        || resolveStatusBarPresetForTurn();
       if (!chosen) throw new Error('没有可用的状态栏预设');
 
       debugEvent('info', 'snapshot:start', '开始创建状态快照', {
