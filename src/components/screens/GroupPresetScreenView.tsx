@@ -166,7 +166,7 @@ export function GroupPresetScreenView({ onNavigate }: { onNavigate: (screen: Scr
     const copy = JSON.parse(JSON.stringify(selectedPreset)) as Preset; copy.id = 'preset-' + Date.now().toString(36); copy.name += ' · 副本'; copy.isDefault = false; copy.entries = copy.entries.map(e => ({ ...e, id: 'entry-' + Math.random().toString(36).slice(2, 9) }));
     setLibraries(prev => ({ ...prev, [scope]: [copy, ...prev[scope]] })); setSelectedIds(prev => ({ ...prev, [scope]: copy.id })); setSelectedEntryId(copy.entries[0]?.id || null); setEntryDraft(null); notify('已复制预设');
   };
-  const setDefault = () => { if (!selectedPreset) return; setLibraries(prev => ({ ...prev, [scope]: prev[scope].map(p => ({ ...p, isDefault: p.id === selectedPreset.id })) })); notify('已设为此分类默认预设'); };
+  const setDefault = () => { if (!selectedPreset) return; setLibraries(prev => ({ ...prev, [scope]: prev[scope].map(p => ({ ...p, isDefault: p.id === selectedPreset.id })) })); setSelectedIds(prev => ({ ...prev, [scope]: selectedPreset.id })); notify('已设为此分类默认预设并立即生效'); };
   const exportSelected = () => selectedPreset && downloadJson(selectedPreset.name.replace(/[\\/:*?"<>|]/g, '_') + '.json', { format: 'sane333-preset', version: 1, preset: selectedPreset });
   const exportAll = () => downloadJson('sane333-preset-libraries.json', { format: 'sane333-preset-libraries', version: 1, libraries });
   const importFile = async (file?: File) => {
