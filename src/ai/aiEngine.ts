@@ -190,21 +190,22 @@ export function parseAiReplyPayload(
   withoutMetadata = stripBracketSection(withoutMetadata, '动作');
   withoutMetadata = stripTitledSection(withoutMetadata, '动作');
 
-  // Explicit status wrappers take priority. Regex fallback is for legacy imported
-  // presets that emit the matched status directly without a wrapper.
-  const statusMatch = withoutMetadata.match(/\[\s*状态栏\s*\]\s*([\s\S]*?)\s*\[\s*\/\s*状态栏\s*\]/i) ||
-    withoutMetadata.match(/<\s*status(?:bar)?\s*>([\s\S]*?)\s*<\s*\/\s*status(?:bar)?\s*>/i) ||
-    withoutMetadata.match(/【\s*状态栏\s*】([\s\S]*?)(?=<\s*message\b|<\s*action\b|【\s*(?:动作|COT)\s*】|$)/i);
+  // The selected status-bar preset's Regex is authoritative whenever configured.
+  // Only use wrapper tags as a compatibility fallback when there is no Regex.
   let statusBarRaw = '';
-  if (statusMatch) {
-    statusBarRaw = statusMatch[1].trim();
-    withoutMetadata = withoutMetadata.replace(statusMatch[0], '');
-  } else if (statusRegex?.trim()) {
-    // The selected preset's Regex is the only rule that defines the status payload.
+  if (statusRegex?.trim()) {
     const split = splitStatusBarFromText(withoutMetadata, statusRegex);
     if (split.status) {
       statusBarRaw = split.status;
       withoutMetadata = split.text;
+    }
+  } else {
+    const statusMatch = withoutMetadata.match(/\[\s*状态栏\s*\]\s*([\s\S]*?)\s*\[\s*\/\s*状态栏\s*\]/i) ||
+      withoutMetadata.match(/<\s*status(?:bar)?\s*>([\s\S]*?)\s*<\s*\/\s*status(?:bar)?\s*>/i) ||
+      withoutMetadata.match(/【\s*状态栏\s*】([\s\S]*?)(?=<\s*message\b|<\s*action\b|【\s*(?:动作|COT)\s*】|$)/i);
+    if (statusMatch) {
+      statusBarRaw = statusMatch[1].trim();
+      withoutMetadata = withoutMetadata.replace(statusMatch[0], '');
     }
   }
 
