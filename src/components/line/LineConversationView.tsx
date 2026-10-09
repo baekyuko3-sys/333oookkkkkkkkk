@@ -3481,11 +3481,11 @@ export function LineConversationView({
                 {lineActionDescriptionsEnabled && msg.actionDescription && !msg.isRecalled && (
                   <div className="w-full flex items-center justify-center my-2.5 px-4 animate-in fade-in">
                     <div className="relative flex items-center justify-center gap-2 max-w-[88%] text-center">
-                      <span className="h-px w-6 shrink-0 bg-[#eee8eb]" />
-                      <span className="max-w-[78%] text-[10.5px] leading-[1.6] italic tracking-[0.01em] text-[#9b9599]">
+                      <span className="h-px w-5 shrink-0 bg-[#eadce1]" />
+                      <span className="max-w-[78%] rounded-full border border-[#f0e3e7] bg-[#fcf7f8] px-3 py-1 text-[10.5px] leading-[1.6] italic tracking-[0.01em] text-[#927b83] shadow-[0_1px_2px_rgba(125,89,101,0.04)]">
                         {msg.actionDescription}
                       </span>
-                      <span className="h-px w-6 shrink-0 bg-[#eee8eb]" />
+                      <span className="h-px w-5 shrink-0 bg-[#eadce1]" />
                     </div>
                   </div>
                 )}
