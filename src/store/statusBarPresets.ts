@@ -240,18 +240,49 @@ export function resolveStatusBarTokens(
 }
 
 export function extractStatusMatch(text: string, regexSource: string): { match: string; captures: string[]; groups: Record<string,string> } | null {
-  // Match the current preset's Regex as authored; punctuation normalization can corrupt values.
   const regex = parseRegex(regexSource);
   if (!regex) return null;
+
   const input = String(text || '').trim();
   const stripped = input.replace(/^```[a-zA-Z0-9_-]*\s*/, '').replace(/\s*```$/, '').trim();
   const candidates = stripped && stripped !== input ? [input, stripped] : [input];
-  let match: RegExpExecArray | null = null;
-  for (const candidate of candidates) {
-    regex.lastIndex = 0;
-    match = regex.exec(candidate);
-    if (match) break;
+
+  const findMatch = (matcher: RegExp): RegExpExecArray | null => {
+    for (const candidate of candidates) {
+      matcher.lastIndex = 0;
+      const found = matcher.exec(candidate);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  // First honour the preset exactly. If the model omitted a comma between
+  // labelled fields (for example "... A=value AT=time" instead of
+  // "... A=value, AT=time"), retry a tolerant copy that makes only commas
+  // immediately following the common non-greedy capture "(.*?)" optional.
+  // This keeps existing user Regex definitions intact while recovering common
+  // punctuation drift from model-generated status payloads.
+  let match = findMatch(regex);
+  if (!match) {
+    let source = String(regexSource || '').trim();
+    let pattern = source;
+    let flags = 'gs';
+    if (source.startsWith('/') && source.lastIndexOf('/') > 0) {
+      const end = source.lastIndexOf('/');
+      pattern = source.slice(1, end);
+      flags = Array.from(new Set((source.slice(end + 1) + 's').split(''))).join('');
+    }
+    const relaxedPattern = pattern.replace(/(\(\.\*\?\))\s*[,，]\s*/g, '$1\\s*[,，]?\\s*');
+    if (relaxedPattern !== pattern) {
+      try {
+        const relaxedFlags = Array.from(new Set((flags + 's').split(''))).join('');
+        match = findMatch(new RegExp(relaxedPattern, relaxedFlags));
+      } catch {
+        // If the fallback variant itself is invalid, preserve the original miss.
+      }
+    }
   }
+
   if (!match) return null;
   return {
     match: match[0] || '',
