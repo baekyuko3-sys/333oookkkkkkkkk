@@ -291,6 +291,132 @@ export function extractStatusMatch(text: string, regexSource: string): { match: 
   };
 }
 
+function sanitizeStatusBarCssDeclarations(css: string): string {
+  return String(css || '').split(';').map(declaration => declaration.trim()).filter(declaration => {
+    if (!declaration) return false;
+    const colon = declaration.indexOf(':');
+    if (colon < 1) return false;
+    const property = declaration.slice(0, colon).trim();
+    const value = declaration.slice(colon + 1).trim();
+    if (!/^(?:--[\w-]+|[a-z-]+)$/i.test(property) || !value) return false;
+    if (/expression\s*\(|javascript\s*:|vbscript\s*:|-moz-binding|behavior\s*:|url\s*\(/i.test(value)) return false;
+    if (property.toLowerCase() === 'position' && /^fixed$/i.test(value)) return false;
+    return true;
+  }).join(';');
+}
+
+function findCssBlockEnd(css: string, openingBrace: number): number {
+  let depth = 1;
+  let quote = '';
+  let escaped = false;
+  for (let index = openingBrace + 1; index < css.length; index += 1) {
+    const char = css[index];
+    if (escaped) { escaped = false; continue; }
+    if (char === '\\') { escaped = true; continue; }
+    if (quote) {
+      if (char === quote) quote = '';
+      continue;
+    }
+    if (char === '"' || char === "'") { quote = char; continue; }
+    if (char === '{') depth += 1;
+    if (char === '}') {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+
+function scopeStatusBarCss(css: string): string {
+  const source = String(css || '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/@import\b[^;]*;?/gi, '');
+  let cursor = 0;
+  let output = '';
+
+  while (cursor < source.length) {
+    while (/\s/.test(source[cursor] || '') || source[cursor] === ';') cursor += 1;
+    if (cursor >= source.length) break;
+    const openingBrace = source.indexOf('{', cursor);
+    if (openingBrace < 0) break;
+    const closingBrace = findCssBlockEnd(source, openingBrace);
+    if (closingBrace < 0) break;
+
+    const selector = source.slice(cursor, openingBrace).trim();
+    const body = source.slice(openingBrace + 1, closingBrace);
+    cursor = closingBrace + 1;
+    if (!selector) continue;
+
+    if (/^@(media|supports|container)\b/i.test(selector)) {
+      const inner = scopeStatusBarCss(body);
+      if (inner) output += selector + '{' + inner + '}';
+      continue;
+    }
+    if (selector.startsWith('@')) continue;
+
+    const scopedSelectors = selector.split(',').map(item => {
+      let value = item.trim();
+      if (!value || /[{}]/.test(value)) return '';
+      value = value.replace(/(^|[\s>+~])(?:html|body|:root)(?=$|[\s>+~.#[:])/gi, '$1.uwu-status-render');
+      if (!value.startsWith('.uwu-status-render')) value = '.uwu-status-render ' + value;
+      return value;
+    }).filter(Boolean);
+    const declarations = sanitizeStatusBarCssDeclarations(body);
+    if (scopedSelectors.length && declarations) {
+      output += scopedSelectors.join(',') + '{' + declarations + '}';
+    }
+  }
+
+  return output;
+}
+
+/**
+ * Sanitize custom status-bar markup while retaining its visual CSS inside a
+ * single presentation root. Preset definitions, prompts, and Regexes are not
+ * changed by this rendering helper.
+ */
+export function sanitizeStatusBarHtml(html: string): string {
+  if (typeof window === 'undefined') return '';
+  const template = document.createElement('template');
+  template.innerHTML = String(html || '');
+
+  template.content.querySelectorAll('script,iframe,object,embed,form,link,meta').forEach(node => node.remove());
+  template.content.querySelectorAll('style').forEach(node => {
+    const style = node as HTMLStyleElement;
+    const scopedCss = scopeStatusBarCss(style.textContent || '');
+    if (!scopedCss) style.remove();
+    else style.textContent = scopedCss;
+  });
+  template.content.querySelectorAll('*').forEach(node => {
+    Array.from(node.attributes).forEach(attribute => {
+      const name = attribute.name.toLowerCase();
+      const value = attribute.value.trim().toLowerCase();
+      if (name.startsWith('on') || name === 'srcdoc' || ((name === 'href' || name === 'src') && value.startsWith('javascript:'))) {
+        node.removeAttribute(attribute.name);
+      }
+      if (name === 'style') {
+        const safeStyle = sanitizeStatusBarCssDeclarations(attribute.value);
+        if (safeStyle) node.setAttribute('style', safeStyle);
+        else node.removeAttribute('style');
+      }
+    });
+  });
+  return template.innerHTML.trim();
+}
+
+/** Restore safe styles for older saved snapshots created before CSS was retained. */
+export function restoreStatusBarPresentationStyles(renderedHtml: string, presetHtml: string): string {
+  const rendered = String(renderedHtml || '');
+  if (/<style\b/i.test(rendered) || typeof window === 'undefined') return rendered;
+  const template = document.createElement('template');
+  template.innerHTML = String(presetHtml || '');
+  const styleBlocks = Array.from(template.content.querySelectorAll('style'))
+    .map(node => scopeStatusBarCss(node.textContent || ''))
+    .filter(Boolean);
+  if (!styleBlocks.length) return rendered;
+  return '<style>' + styleBlocks.join('\n') + '</style>' + rendered;
+}
+
 export function sanitizeHtmlFragment(html: string): string {
   if (typeof window === 'undefined') return '';
   const template = document.createElement('template');
