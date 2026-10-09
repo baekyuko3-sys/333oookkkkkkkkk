@@ -12,6 +12,7 @@ import { getCotForTarget, type CotPreset } from '../store/cotPresets';
 import { buildLineHumanBehaviorPrompt } from '../store/lineReality';
 import { pushAiDebugLog, writeAiDebugTrace } from '../store/aiDebug';
 import { resolveMacros, type MacroNames } from './macros';
+import { buildPromptPresetInstructions } from '../store/promptPresets';
 
 export type AiSettings = Pick<AppSettings, 'provider' | 'apiBaseUrl' | 'apiKey' | 'model' | 'streaming' | 'contextLength' | 'maxOutputTokens' | 'autoSave' | 'temperature' | 'topP' | 'topK' | 'frequencyPenalty' | 'presencePenalty' | 'seed'>;
 
@@ -160,14 +161,14 @@ export function parseAiReplyPayload(
       : titledTagName
         ? readTitledSection(titledTagName)
         : '';
-  const thinkingSummary = configuredCot ||
+  const thinkingSummary = readAngleSection('preset_flow') || configuredCot ||
     readAngleSection('cot') || readAngleSection('thinking') || readAngleSection('think') ||
     readAngleSection('thought') || readAngleSection('summary') || readAngleSection('decision') ||
     readAngleSection('decision_summary') ||
     readBracketSection('COT') || readTitledSection('COT') || '';
 
   let withoutMetadata = raw;
-  const metadataTags = new Set(['think', 'thought', 'thinking', 'cot', 'summary', 'decision', 'decision_summary']);
+  const metadataTags = new Set(['preset_flow', 'think', 'thought', 'thinking', 'cot', 'summary', 'decision', 'decision_summary']);
   if (angleTagName && !['message', 'action', 'status', 'statusbar'].includes(angleTagName.toLowerCase())) metadataTags.add(angleTagName);
   for (const tag of metadataTags) withoutMetadata = stripAngleSection(withoutMetadata, tag);
   withoutMetadata = stripBracketSection(withoutMetadata, 'COT');
@@ -443,6 +444,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
   // The chat screen owns the active COT selection. Only fall back to the global
   // assignment when the caller does not provide the conversation's selected preset.
   const cotPreset = input.cotPreset || getCotForTarget(cotTarget);
+  const appPresetInstructions = buildPromptPresetInstructions(input.isGroup ? 'group' : 'single');
   const applicableWorldBooks = getApplicableWorldBooks(input);
   const scopedInput = { ...input, worldbooks: applicableWorldBooks };
   const scanDepth = Math.max(1, Math.min(50, Math.max(
