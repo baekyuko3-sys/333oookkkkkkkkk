@@ -469,7 +469,7 @@ export function LineConversationView({
   }, [messages, unreadAnchorId]);
 
 
-  // Mobile LINE-style gesture: swipe a message left to quote/reply to it.
+  // Mobile LINE-style gestures: swipe right to quote; swipe left to edit your own message or open the message menu.
   const [swipingMessageId, setSwipingMessageId] = useState<number | string | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const messageSwipeRef = useRef<{
@@ -494,8 +494,7 @@ export function LineConversationView({
   const handleMessagePointerDown = (event: PointerEvent, msg: any) => {
     if (isMultiSelectMode || event.pointerType === 'mouse' || event.button !== 0) return;
     clearMessageLongPress();
-    // Don't update React state or capture the pointer on touch-down. Native
-    // vertical scrolling should start immediately and remain browser-controlled.
+    // Keep native vertical scrolling browser-controlled.
     messageSwipeRef.current = {
       id: msg.id,
       startX: event.clientX,
@@ -524,8 +523,6 @@ export function LineConversationView({
 
     if (absX > 9 || absY > 9) clearMessageLongPress();
 
-    // As soon as movement is clearly vertical, abandon gesture tracking. No
-    // pointer capture and no state updates are performed while the list scrolls.
     if (absY > 9 && absY > absX + 7) {
       start.active = false;
       start.horizontalIntent = false;
@@ -533,11 +530,10 @@ export function LineConversationView({
       return;
     }
 
-    // Only animate a reply gesture after a deliberate horizontal movement.
     if (absX > 12 && absX > absY + 7) {
       start.horizontalIntent = true;
       setSwipingMessageId(msg.id);
-      setSwipeOffset(Math.max(-82, Math.min(0, dx)));
+      setSwipeOffset(Math.max(-82, Math.min(82, dx)));
     }
   };
   const handleMessagePointerUp = (event: PointerEvent, msg: any) => {
@@ -554,9 +550,21 @@ export function LineConversationView({
     }
 
     const dx = event.clientX - start.startX;
-    if (start.horizontalIntent && dx <= -64) {
+    if (start.horizontalIntent && dx >= 64) {
       setReplyingToMsg(msg);
       showToast('已引用这条消息');
+    } else if (start.horizontalIntent && dx <= -64) {
+      if (msg.sender === 'me' && msg.text) {
+        const numericId = Number(msg.id);
+        if (Number.isFinite(numericId)) {
+          setEditingMessageId(numericId);
+          setEditingMessageText(String(msg.text || ''));
+        } else {
+          setContextMenuMsg(msg);
+        }
+      } else {
+        setContextMenuMsg(msg);
+      }
     }
     resetMessageSwipeVisual(msg.id);
   };
@@ -3458,16 +3466,16 @@ export function LineConversationView({
               style={{ touchAction: 'pan-y' }}
               className={`relative flex items-end gap-2 group ${sameAsNext ? 'mb-0.5' : 'mb-2'}`}
             >
-              {swipingMessageId === msg.id && swipeOffset < -8 && (
+              {swipingMessageId === msg.id && Math.abs(swipeOffset) > 8 && (
                 <div
-                  className={`absolute right-0 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full border transition-all duration-100 ${
-                    swipeOffset <= -64
+                  className={`absolute ${swipeOffset > 0 ? 'left-0' : 'right-0'} top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full border transition-all duration-100 ${
+                    Math.abs(swipeOffset) >= 64
                       ? 'w-9 h-9 bg-[#f8eef1] border-[#e5cbd2] text-[#ae7e89] scale-100 shadow-sm'
                       : 'w-7 h-7 bg-[#fafafa] border-[#ededee] text-[#b5b5b8] scale-90'
                   }`}
-                  aria-label="引用消息"
+                  aria-label={swipeOffset > 0 ? '引用消息' : (msg.sender === 'me' ? '编辑消息' : '消息菜单')}
                 >
-                  <CornerUpLeft className="w-3.5 h-3.5" />
+                  {swipeOffset > 0 ? <CornerUpLeft className="w-3.5 h-3.5" /> : <Edit3 className="w-3.5 h-3.5" />}
                 </div>
               )}
               {(() => {
