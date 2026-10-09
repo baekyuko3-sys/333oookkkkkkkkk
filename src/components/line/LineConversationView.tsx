@@ -80,7 +80,7 @@ function formatLineMessageClock(message: any, timezone: string, displayLocale: L
   const raw = message?.createdAt || message?.timestamp;
   const date = raw ? new Date(raw) : null;
   if (!date || Number.isNaN(date.getTime())) return String(message?.time || '');
-  const options: Intl.DateTimeFormatOptions = { timeZone: timezone, hour: 'numeric', minute: '2-digit', hour12: displayLocale === 'en-US' };
+  const options: Intl.DateTimeFormatOptions = { timeZone: timezone, hour: 'numeric', minute: '2-digit', hour12: true };
   try {
     return new Intl.DateTimeFormat(displayLocale, options).format(date);
   } catch {
@@ -95,12 +95,12 @@ function formatLineMessageExactDateTime(message: any, timezone: string, displayL
   try {
     return new Intl.DateTimeFormat(displayLocale, {
       timeZone: timezone, year: 'numeric', month: 'short', day: 'numeric', weekday: 'long',
-      hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: displayLocale === 'en-US',
+      hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true,
     }).format(date);
   } catch {
     return new Intl.DateTimeFormat(displayLocale, {
       year: 'numeric', month: 'short', day: 'numeric', weekday: 'long',
-      hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: displayLocale === 'en-US',
+      hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true,
     }).format(date);
   }
 }
