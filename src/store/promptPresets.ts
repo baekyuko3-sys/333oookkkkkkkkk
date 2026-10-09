@@ -48,6 +48,26 @@ const DEFAULT_OFFLINE_PRESETS: PromptPreset[] = [
       { id: 'user-agency-daily', name: '不代写用户', content: '只写角色和环境，不替用户安排台词、行动、想法或感受；把下一步交还给用户。', enabled: true, role: 'system', position: 'after_history', order: 4 },
     ],
   },
+  {
+    id: 'offline-character-perspective', name: '角色视角沉浸', scope: 'offline',
+    desc: '贴近当前角色的感知与知识边界，让情绪通过观察和行动自然流露。',
+    entries: [
+      { id: 'pov-senses', name: '角色感知范围', content: '主要描写当前视角角色能够看见、听见、触碰、记起或合理推断的内容；不要突然切换到全知视角。', enabled: true, role: 'system', position: 'before_main', order: 1 },
+      { id: 'pov-subtext', name: '情绪留在细节里', content: '用选择性注意、动作迟疑、说话方式和对话中的回避表现情绪；少用直接心理总结，不替其他角色断言内心。', enabled: true, role: 'system', position: 'after_main', order: 2 },
+      { id: 'pov-dialogue', name: '角色化对白', content: '每句对白都应符合角色的经历、身份、关系和当下目的；避免所有角色都使用同一种文艺腔或解释型长句。', enabled: true, role: 'system', position: 'after_main', order: 3 },
+      { id: 'pov-agency', name: '停在互动节点', content: '只推进角色能主动完成的动作和环境变化；在需要用户选择、回答或行动的位置停下，不代写用户。', enabled: true, role: 'system', position: 'after_history', order: 4 },
+    ],
+  },
+  {
+    id: 'offline-plot-causality', name: '强情节因果推进', scope: 'offline',
+    desc: '适合事件驱动剧情：每次推进有动机、有后果，并为后续留下可追踪线索。',
+    entries: [
+      { id: 'plot-goal', name: '本轮推进目标', content: '围绕当前场景最重要的冲突或目标推进一小步；不要同时开启过多新事件，也不要重复已经完成的情节。', enabled: true, role: 'system', position: 'before_main', order: 1 },
+      { id: 'plot-cause', name: '行动与后果', content: '角色的决定必须来自已知动机、环境压力或已有信息；重要行动应产生合理后果，不能为制造戏剧性而随机转折。', enabled: true, role: 'system', position: 'after_main', order: 2 },
+      { id: 'plot-continuity', name: '线索与信息边界', content: '保持物件、伤势、地点、时间、承诺和角色知情范围一致；将事实、猜测、误会和谎言区分清楚。', enabled: true, role: 'system', position: 'after_main', order: 3 },
+      { id: 'plot-cliffhanger', name: '自然收束', content: '结尾可以留下一个具体动作、问题、发现或未解决的压力，但不要每轮强行反转或用刻意悬念截断自然交流。', enabled: true, role: 'system', position: 'after_history', order: 4 },
+    ],
+  },
 ];
 
 function readLibraries(): Libraries {
@@ -104,4 +124,14 @@ export function buildPromptPresetInstructions(scope: PromptPresetScope): string 
  const pos: Record<string,string> = { before_main:'主要规则前', after_main:'主要规则后', before_history:'历史记录前', after_history:'历史记录后', in_history:'历史记录内', post_history:'历史记录后置' };
  const entries = [...(preset.entries || [])].filter(e => e.enabled !== false && String(e.content || '').trim()).sort((a,b) => Number(a.order || 0) - Number(b.order || 0));
  return ['【预设 App · 当前生效】','分类：' + scope,'预设：' + preset.name,preset.desc || '',...entries.map((e,i) => '['+(i+1)+'] '+(e.name || '规则')+'（'+(pos[e.position || 'after_main'] || '主要规则后')+'；角色：'+(e.role || 'system')+'）\n'+String(e.content || '').trim())].filter(Boolean).join('\n\n');
+}
+
+export function setActivePromptPreset(scope: PromptPresetScope, presetId: string): void {
+  if (typeof window === 'undefined') return;
+  const libraries = readLibraries();
+  if (!libraries[scope].some(preset => preset.id === presetId)) throw new Error('找不到要启用的预设。');
+  const active = JSON.parse(localStorage.getItem(ACTIVE_KEY) || '{}') as Partial<Record<PromptPresetScope, string>>;
+  active[scope] = presetId;
+  localStorage.setItem(ACTIVE_KEY, JSON.stringify(active));
+  window.dispatchEvent(new CustomEvent('sane333:prompt-presets-changed', { detail: { scope, presetId } }));
 }
