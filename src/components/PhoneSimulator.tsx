@@ -71,6 +71,29 @@ export function PhoneSimulator({
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [appearance, setAppearance] = useState(() => readAppearance());
   const [screenHistory, setScreenHistory] = useState<ScreenType[]>(['home']);
+  const [statusBarNow, setStatusBarNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const refreshClock = () => setStatusBarNow(new Date());
+    refreshClock();
+    const timer = window.setInterval(refreshClock, 30_000);
+    window.addEventListener('focus', refreshClock);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshClock);
+    };
+  }, []);
+
+  const statusBarTime = statusBarNow.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const statusBarDate = statusBarNow.toLocaleDateString('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+    weekday: 'short',
+  });
 
   const navigateTo = (next: ScreenType) => {
     if (next === currentScreen) return;
@@ -163,7 +186,10 @@ export function PhoneSimulator({
         
         {/* Statusbar (Exact from user template) */}
         <div className="absolute z-20 top-0 left-0 right-0 h-[42px] flex items-center justify-between px-6 text-[12px] font-[650] tracking-[0.2px] text-[var(--ink)]">
-          <span>9:41</span>
+          <div className="flex items-baseline gap-1.5 tabular-nums" aria-label={statusBarNow.toLocaleString()}>
+            <span>{statusBarTime}</span>
+            <span className="text-[9px] font-medium tracking-normal opacity-75">{statusBarDate}</span>
+          </div>
           
           {/* Dynamic Island pill */}
           <div 
