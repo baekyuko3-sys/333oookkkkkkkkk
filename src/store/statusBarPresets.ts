@@ -104,7 +104,13 @@ export function exportStatusBarPreset(preset: StatusBarPreset): string {
 }
 
 export function exportStatusBarPresets(presets = getStatusBarPresets()): string {
-  return JSON.stringify(presets.map(toExternalStatusBarPreset), null, 2);
+  // Bulk backup must preserve every app-specific field (targets, description and timestamps),
+  // while the single-preset export above stays compatible with Tavern/POME-style files.
+  return JSON.stringify({
+    format: 'sane333-status-bar-presets',
+    version: 1,
+    presets,
+  }, null, 2);
 }
 
 export function importStatusBarPresets(raw: string): StatusBarPreset[] {
