@@ -9,8 +9,17 @@ export function getActivePromptPreset(scope: PromptPresetScope): Preset | null {
  if (typeof window === 'undefined') return null;
  try { const lib = JSON.parse(localStorage.getItem(LIBRARIES_KEY) || 'null') as Libraries | null; const list = lib?.[scope]; if (!Array.isArray(list) || !list.length) return null; const active = JSON.parse(localStorage.getItem(ACTIVE_KEY) || '{}') as Partial<Record<PromptPresetScope,string>>; return list.find(p => p.id === active[scope]) || list.find(p => p.isDefault) || list[0] || null; } catch { return null; }
 }
+export function getPromptPresetFlowSteps(scope: PromptPresetScope): Array<{ name: string; content: string }> {
+ const preset = getActivePromptPreset(scope);
+ if (!preset) return [{ name: '默认规则', content: FALLBACK[scope] }];
+ return [...(preset.entries || [])]
+   .filter(e => e.enabled !== false && String(e.content || '').trim())
+   .sort((a,b) => Number(a.order || 0) - Number(b.order || 0))
+   .map((e,i) => ({ name: String(e.name || '规则 ' + (i + 1)), content: String(e.content || '').trim() }));
+}
 export function buildPromptPresetInstructions(scope: PromptPresetScope): string {
- const preset = getActivePromptPreset(scope); if (!preset) return '【预设 App】\n' + FALLBACK[scope];
+ const preset = getActivePromptPreset(scope);
+ if (!preset) return '【预设 App】\n' + FALLBACK[scope];
  const pos: Record<string,string> = { before_main:'主要规则前', after_main:'主要规则后', before_history:'历史记录前', after_history:'历史记录后', in_history:'历史记录内', post_history:'历史记录后置' };
  const entries = [...(preset.entries || [])].filter(e => e.enabled !== false && String(e.content || '').trim()).sort((a,b) => Number(a.order || 0) - Number(b.order || 0));
  return ['【预设 App · 当前生效】','分类：' + scope,'预设：' + preset.name,preset.desc || '',...entries.map((e,i) => '['+(i+1)+'] '+(e.name || '规则')+'（'+(pos[e.position || 'after_main'] || '主要规则后')+'；角色：'+(e.role || 'system')+'）\n'+String(e.content || '').trim())].filter(Boolean).join('\n\n');
