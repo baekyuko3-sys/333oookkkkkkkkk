@@ -17,7 +17,7 @@ import { getGroupPreset, getGroupPresets } from '../../store/groupPresets';
 import { getLineGroups, updateLineGroupMember, addLineGroupMemory, setLineGroupRelationships } from '../../store/lineGroups';
 import { createTogetherMusicSession, type TogetherMusicSession } from '../../store/togetherMusic';
 import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
-import { appendStatusBarSnapshot, deleteStatusBarSnapshot, getStatusBarHistory, getStatusBarPresets, getStatusBarRandomMode, getStatusBarForCharacter, renderStatusBarHtml, resolveStatusBarTokens, extractStatusMatch, sanitizeHtmlFragment, saveStatusBarRandomMode, type StatusBarPreset, type StatusBarSnapshot } from '../../store/statusBarPresets';
+import { appendStatusBarSnapshot, deleteStatusBarSnapshot, getStatusBarHistory, getStatusBarPresets, getStatusBarRandomMode, getStatusBarForCharacter, renderStatusBarHtml, resolveStatusBarTokens, extractStatusMatch, sanitizeHtmlFragment, sanitizeStatusBarHtml, restoreStatusBarPresentationStyles, saveStatusBarRandomMode, type StatusBarPreset, type StatusBarSnapshot } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset, type CotPresetTarget } from '../../store/cotPresets';
 import { clearAiDebugLog, readAiDebugLog, readAiDebugTrace, writeAiDebugTrace, pushAiDebugLog, type AiDebugEntry, type AiDebugTrace } from '../../store/aiDebug';
 import { PresetResourceManager } from './PresetResourceManager';
@@ -1164,7 +1164,7 @@ export function LineConversationView({
         throw new Error('AI 返回内容没有匹配当前 Regex');
       }
 
-      const html = sanitizeHtmlFragment(renderStatusBarHtml(chosen, rawStatus, {
+      const html = sanitizeStatusBarHtml(renderStatusBarHtml(chosen, rawStatus, {
         char: '{{char}}',
         user: '{{user}}',
         char_avatar: '{{char_avatar}}',
@@ -2990,6 +2990,13 @@ export function LineConversationView({
     || statusBarPresets[0]
     || null;
   const currentStatusSnapshot = statusBarHistory[statusBarHistoryIndex] || statusBarHistory.at(-1) || null;
+  const currentStatusSnapshotPreset = statusBarPresets.find(item => item.id === currentStatusSnapshot?.presetId)
+    || activeStatusBarPreset;
+  // Old snapshots were saved after <style> blocks had been stripped. Restore the
+  // current exact preset's scoped visual CSS at render time without editing that preset.
+  const currentStatusSnapshotHtml = currentStatusSnapshot
+    ? restoreStatusBarPresentationStyles(currentStatusSnapshot.html, currentStatusSnapshotPreset?.html || '')
+    : '';
   const statusTokens = {
     char: characterIdentity,
     user: activePersona?.name || '我',
@@ -5002,9 +5009,9 @@ export function LineConversationView({
               {currentStatusSnapshot ? (
                 <div className="w-full max-w-[420px] rounded-[18px] border border-[#dedfe3] bg-white shadow-[0_8px_28px_rgba(0,0,0,0.10)] overflow-visible">
                   <div
-                    className="w-full min-h-0 px-4 py-4 text-[11px] leading-relaxed text-[#333] break-words [&_*]:max-w-full [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_table]:max-w-full [&_pre]:whitespace-pre-wrap [&_pre]:break-words"
-                    style={{ height: 'auto', minHeight: 0 }}
-                    dangerouslySetInnerHTML={{ __html: resolveStatusBarTokens(currentStatusSnapshot.html, statusTokens) }}
+                    className="uwu-status-render w-full min-w-0 overflow-x-auto break-words"
+                    style={{ height: 'auto', minHeight: 0, overflowWrap: 'anywhere' }}
+                    dangerouslySetInnerHTML={{ __html: resolveStatusBarTokens(currentStatusSnapshotHtml, statusTokens) }}
                   />
                 </div>
               ) : (
