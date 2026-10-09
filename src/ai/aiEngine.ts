@@ -1219,6 +1219,21 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
         summary: cotDecisionSummary,
         durationMs: Date.now() - cotStartedAt,
       };
+      pushAiDebugLog({
+        level: 'success',
+        event: '[SANE333 COT] prepass:complete',
+        message: 'COT 前置决策已完成，最终回复将依据该摘要生成',
+        provider: input.settings.provider,
+        model: input.settings.model,
+        durationMs: Date.now() - cotStartedAt,
+        meta: {
+          conversationId: input.debugConversationId,
+          presetId: input.cotPreset?.id,
+          presetTitle: input.cotPreset?.title,
+          tag: input.cotPreset?.tag,
+          summary: cotDecisionSummary,
+        },
+      });
       markTraceStage('cot-prepass-complete', 'summaryLength=' + cotDecisionSummary.length);
 
       finalProviderInput = {
