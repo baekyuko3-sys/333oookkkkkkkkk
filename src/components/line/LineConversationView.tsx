@@ -74,37 +74,33 @@ function formatReplyReasonStatus(message: any): { icon: string; label: string; t
   return { icon: status === 'REPLY_LATER' ? '⌛' : '🚫', label: reason || defaults[status], tone: 'wait' };
 }
 
-function formatLineMessageClock(message: any, timezone: string): string {
+type LineTimeDisplayLocale = 'zh-CN' | 'en-US';
+
+function formatLineMessageClock(message: any, timezone: string, displayLocale: LineTimeDisplayLocale = 'zh-CN'): string {
   const raw = message?.createdAt || message?.timestamp;
   const date = raw ? new Date(raw) : null;
   if (!date || Number.isNaN(date.getTime())) return String(message?.time || '');
+  const options: Intl.DateTimeFormatOptions = { timeZone: timezone, hour: 'numeric', minute: '2-digit', hour12: displayLocale === 'en-US' };
   try {
-    return new Intl.DateTimeFormat('zh-CN', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+    return new Intl.DateTimeFormat(displayLocale, options).format(date);
   } catch {
-    return new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+    return new Intl.DateTimeFormat(displayLocale, { ...options, timeZone: undefined }).format(date);
   }
 }
 
-function formatLineMessageExactDateTime(message: any, timezone: string): string {
+function formatLineMessageExactDateTime(message: any, timezone: string, displayLocale: LineTimeDisplayLocale = 'zh-CN'): string {
   const raw = message?.createdAt || message?.timestamp;
   const date = raw ? new Date(raw) : null;
   if (!date || Number.isNaN(date.getTime())) return String(message?.time || '');
   try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      timeZone: timezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      weekday: 'long',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
+    return new Intl.DateTimeFormat(displayLocale, {
+      timeZone: timezone, year: 'numeric', month: 'short', day: 'numeric', weekday: 'long',
+      hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: displayLocale === 'en-US',
     }).format(date);
   } catch {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long',
-      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    return new Intl.DateTimeFormat(displayLocale, {
+      year: 'numeric', month: 'short', day: 'numeric', weekday: 'long',
+      hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: displayLocale === 'en-US',
     }).format(date);
   }
 }
@@ -121,24 +117,27 @@ function getLineMessageDayKey(value: Date, timezone: string): string {
   }
 }
 
-function formatLineMessageDayLabel(value: Date, timezone: string): string {
+function formatLineMessageDayLabel(value: Date, timezone: string, displayLocale: LineTimeDisplayLocale = 'zh-CN'): string {
   const dayKey = getLineMessageDayKey(value, timezone);
   const now = new Date();
   const todayKey = getLineMessageDayKey(now, timezone);
   const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const yesterdayKey = getLineMessageDayKey(yesterday, timezone);
-  if (dayKey === todayKey) return '今天';
-  if (dayKey === yesterdayKey) return '昨天';
+  if (displayLocale === 'en-US') {
+    const datePart = new Intl.DateTimeFormat('en-US', { timeZone: timezone, month: 'short', day: 'numeric' }).format(value);
+    if (dayKey === todayKey) return 'Today · ' + datePart;
+    if (dayKey === yesterdayKey) return 'Yesterday · ' + datePart;
+    const sameYear = new Intl.DateTimeFormat('en-US', { timeZone: timezone, year: 'numeric' }).format(value)
+      === new Intl.DateTimeFormat('en-US', { timeZone: timezone, year: 'numeric' }).format(now);
+    return new Intl.DateTimeFormat('en-US', { timeZone: timezone, month: 'short', day: 'numeric', weekday: 'short', ...(sameYear ? {} : { year: 'numeric' }) }).format(value);
+  }
+  const datePart = new Intl.DateTimeFormat('zh-CN', { timeZone: timezone, month: 'numeric', day: 'numeric' }).format(value);
+  if (dayKey === todayKey) return '今天 · ' + datePart;
+  if (dayKey === yesterdayKey) return '昨天 · ' + datePart;
   try {
     const sameYear = new Intl.DateTimeFormat('en', { timeZone: timezone, year: 'numeric' }).format(value)
       === new Intl.DateTimeFormat('en', { timeZone: timezone, year: 'numeric' }).format(now);
-    return new Intl.DateTimeFormat('zh-CN', {
-      timeZone: timezone,
-      month: 'long',
-      day: 'numeric',
-      weekday: 'short',
-      ...(sameYear ? {} : { year: 'numeric' }),
-    }).format(value);
+    return new Intl.DateTimeFormat('zh-CN', { timeZone: timezone, month: 'long', day: 'numeric', weekday: 'short', ...(sameYear ? {} : { year: 'numeric' }) }).format(value);
   } catch {
     return value.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
   }
@@ -386,6 +385,7 @@ export function LineConversationView({
   const [chatTimeMode, setChatTimeMode] = usePersistentState<'current' | 'virtual'>(`line:chat-time-mode:${conversationStorageId}`, 'current');
   const [virtualChatTime, setVirtualChatTime] = usePersistentState<string>(`line:virtual-chat-time:${conversationStorageId}`, new Date().toISOString().slice(0, 16));
   const [chatTimezone, setChatTimezone] = usePersistentState<string>(`line:chat-timezone:${conversationStorageId}`, Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai');
+  const [lineTimeDisplayLocale, setLineTimeDisplayLocale] = usePersistentState<LineTimeDisplayLocale>(`line:time-display-locale:${conversationStorageId}`, 'zh-CN');
   const [characterLanguage, setCharacterLanguage] = usePersistentState<string>(`line:character-language:${conversationStorageId}`, 'auto');
   const [characterRegion, setCharacterRegion] = usePersistentState<string>(`line:character-region:${conversationStorageId}`, '');
   const [characterWeather, setCharacterWeather] = usePersistentState<LineWeatherSnapshot | null>(`line:character-weather:${conversationStorageId}`, null);
@@ -1692,7 +1692,7 @@ export function LineConversationView({
           const turnId = String(replyMsgId);
           withoutStreaming.splice(insertAt, 0, ...groupReplyParts.map((text, partIndex) => ({
             id: partIndex === 0 ? replyMsgId : `${replyMsgId}-${partIndex}`,
-            turnId, sender: 'other', senderName: character.name, text, time: formatLineMessageClock({ createdAt: new Date().toISOString() }, chatTimezone), createdAt: new Date().toISOString(),
+            turnId, sender: 'other', senderName: character.name, text, time: formatLineMessageClock({ createdAt: new Date().toISOString() }, chatTimezone, lineTimeDisplayLocale), createdAt: new Date().toISOString(),
             type: 'ai-reply', aiModel: result.model,
             matchedWorldbookEntries: result.matchedWorldbookEntries, status: 'delivered',
             thinkingSummary: partIndex === 0 ? result.thinkingSummary : undefined,
@@ -1824,7 +1824,7 @@ export function LineConversationView({
         const turnId = String(replyMsgId);
         withoutStreaming.splice(insertAt, 0, ...replyParts.map((text, index) => ({
           id: index === 0 ? replyMsgId : `${replyMsgId}-${index}`,
-          turnId, sender: 'other', text, time: formatLineMessageClock({ createdAt: new Date().toISOString() }, chatTimezone), createdAt: new Date().toISOString(), type: 'ai-reply',
+          turnId, sender: 'other', text, time: formatLineMessageClock({ createdAt: new Date().toISOString() }, chatTimezone, lineTimeDisplayLocale), createdAt: new Date().toISOString(), type: 'ai-reply',
           status: 'delivered', aiModel: result.model,
           matchedWorldbookEntries: result.matchedWorldbookEntries,
           thinkingSummary: index === 0 ? replyMetadata.thinkingSummary : undefined,
@@ -3393,7 +3393,7 @@ export function LineConversationView({
           const showDaySeparator = Boolean(currentDate && !Number.isNaN(currentDate.getTime())
             && (messageIndex === 0 || !previousDate || Number.isNaN(previousDate.getTime()) || currentDay !== previousDay));
           const dayLabel = currentDate && !Number.isNaN(currentDate.getTime())
-            ? formatLineMessageDayLabel(currentDate, chatTimezone)
+            ? formatLineMessageDayLabel(currentDate, chatTimezone, lineTimeDisplayLocale)
             : '';
 
           if (msg.type === 'html-interlude') {
@@ -3455,7 +3455,7 @@ export function LineConversationView({
               {showDaySeparator && (
                 <div className="flex justify-center py-1.5">
                   <span
-                    title={currentDate ? formatLineMessageExactDateTime(msg, chatTimezone) : undefined}
+                    title={currentDate ? formatLineMessageExactDateTime(msg, chatTimezone, lineTimeDisplayLocale) : undefined}
                     className="px-3 py-1 rounded-full bg-[#f5f5f6] text-[9px] text-[#a2a2a6]"
                   >
                     {dayLabel}
@@ -3992,8 +3992,8 @@ export function LineConversationView({
               {/* Message meta is kept under the bubble so every row stays aligned. */}
               {!msg.isRecalled && (
                 <div
-                  title={formatLineMessageExactDateTime(msg, chatTimezone)}
-                  aria-label={formatLineMessageExactDateTime(msg, chatTimezone)}
+                  title={formatLineMessageExactDateTime(msg, chatTimezone, lineTimeDisplayLocale)}
+                  aria-label={formatLineMessageExactDateTime(msg, chatTimezone, lineTimeDisplayLocale)}
                   className={`mt-0.5 flex items-center gap-1 px-1 text-[8px] leading-none text-[#b8b8bb] ${isMe ? 'justify-end' : 'justify-start'} ${sameAsNext ? 'opacity-0 h-0 overflow-hidden' : 'h-[10px]'}`}
                 >
                   {isMe ? (
@@ -5309,7 +5309,17 @@ export function LineConversationView({
                       ['UTC', 'UTC'],
                     ].map(([id, title]) => <option key={id} value={id}>{title}</option>)}
                   </select>
-                  <div className="text-[8px] text-[#aaa] mt-1">消息下方会显示这个时区的实际时钟，例如 14:11。</div>
+                  <div className="text-[8px] text-[#aaa] mt-1">消息时间与日期分隔会按所选时区显示。</div>
+                  <div className="text-[9.5px] font-medium text-[#666] mt-3 mb-1.5">时间与日期语言</div>
+                  <div className="flex gap-1.5">
+                    {([
+                      ['zh-CN', '中文 · 上午 10:32'],
+                      ['en-US', 'English · 10:32 AM'],
+                    ] as const).map(([locale, label]) => (
+                      <button key={locale} type="button" onClick={() => setLineTimeDisplayLocale(locale)} className={"px-3 py-1.5 rounded-full border text-[8.5px] " + (lineTimeDisplayLocale === locale ? 'bg-[#f7eef0] border-[#d4aab5] text-[#8c5f6b]' : 'bg-[#fafafa] border-[#eee] text-[#777]')}>{label}</button>
+                    ))}
+                  </div>
+                  <div className="text-[8px] text-[#aaa] mt-1">只切换时间和日期文字，不会改变聊天正文语言。</div>
                 </div>
                 <div className="border-t border-[#f2f2f3] pt-3">
                   <div className="text-[9.5px] font-medium text-[#666] mb-1">角色现实地区</div>
