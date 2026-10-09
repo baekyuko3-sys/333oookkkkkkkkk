@@ -546,10 +546,12 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
       '输出前必须自检：每一个字段都已经从“指令文字”变成了实际值；禁止出现模板指令原文、说明文字、……、...、TODO、待填写等占位内容。',
       '输出格式必须与当前状态栏 Prompt 的模板逐字对应：开头标记、字段名、等号、分隔符和结尾符号保持原样；字段值内部不要换行，也不要把状态栏包进代码块。',
       '状态栏原文只能出现在整次回复的最末尾；聊天正文中不要提前输出状态栏的字段名或标记。',
+      '无论 Regex 是否配置，都必须把状态栏内容放在 <statusbar>...</statusbar> 结构标签内，并放在整次回复最末尾。该结构标签由程序剥离，不属于状态栏原文，不会显示给用户。',
+      '如果状态栏 Prompt 写着“不要输出状态栏标签”，它指的是不要把说明性标签写进状态内容；这不取消本协议要求的 <statusbar> 结构标签。',
       input.statusBarPreset.regex?.trim()
-        ? '当前预设有 Regex：状态栏必须以不带额外包装的原始文本输出，并确保整段状态栏能被当前 Regex 捕获。不要输出 [状态栏] 或 <statusbar> 等包装。'
-        : '当前预设没有 Regex：请把状态栏原文放在 <statusbar>...</statusbar> 中，作为角色正文后的最后一段。标签只是供程序分离正文与状态栏，程序会移除标签，不会显示给用户。',
-      '状态栏必须与角色正文分开，且只出现一次。Regex 为空时依靠 <statusbar> 标签分离；Regex 非空时依靠当前 Regex 捕获。',
+        ? '当前预设有 Regex：<statusbar> 内部的状态栏原文必须符合当前 Regex 的格式，包括 Regex 要求的字段名、分隔符、字面标记与结尾；不要在结构标签内部再添加额外包装。'
+        : '当前预设没有 Regex：<statusbar> 内部放置 Prompt 要求的原始状态内容，程序将其整体作为状态内容。',
+      '状态栏必须与角色正文分开，且只出现一次；程序先剥离 <statusbar> 结构标签，再按当前预设 Regex 校验和渲染内部原文。',
       '当前状态栏名称：' + input.statusBarPreset.name,
       '当前状态栏 Prompt：' + (input.statusBarPreset.promptSuffix || ''),
       '当前预设 Regex：' + (input.statusBarPreset.regex || ''),
