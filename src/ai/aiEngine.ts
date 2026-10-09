@@ -1109,8 +1109,10 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
   const matchedWorldbookEntries = selectWorldBookEntries(worldbooks, scannedText, buildWorldBookScanResolver(input, scanDepth)).length;
 
   const providerInput: AiReplyInput = { ...input, onDelta: undefined };
-  const debugSystemPrompt = buildCharacterSystemPrompt(providerInput);
+  let finalProviderInput: AiReplyInput = providerInput;
+  let debugSystemPrompt = buildCharacterSystemPrompt(providerInput);
   const debugMessages = buildConversationMessages(providerInput);
+  const replyMacroNames = macroNamesOf(input);
   trace.request = {
     system: debugSystemPrompt,
     messages: debugMessages,
@@ -1150,12 +1152,141 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
         },
   };
   markTraceStage('request-prepared', 'messages=' + debugMessages.length + ', worldbookMatches=' + matchedWorldbookEntries);
+
+  // COT must be an actual prerequisite of the character response, not just an
+  // optional tag that the final model may omit. First generate a concise,
+  // display-safe decision summary using the selected COT preset and context.
+  // The final response is then generated with that summary injected into its
+  // system prompt. This is a summary, not hidden step-by-step reasoning.
+  let cotDecisionSummary = '';
+  if (cotEnabled) {
+    const cotStartedAt = Date.now();
+    markTraceStage('cot-prepass-start', String(input.cotPreset?.title || input.cotPreset?.id || 'COT'));
+    trace.cotPrepass = {
+      status: 'running',
+      presetId: input.cotPreset?.id || null,
+      presetTitle: input.cotPreset?.title || null,
+      tag: input.cotPreset?.tag || null,
+    };
+    saveTrace();
+
+    try {
+      const roleContextPrompt = debugSystemPrompt.split('【当前任务 · 绝对最高优先级】')[0] || debugSystemPrompt;
+      const decisionSystemPrompt = [
+        roleContextPrompt,
+        '',
+        '【COT 前置阶段｜必须先完成】',
+        '你现在只负责当前用户消息的角色回复决策，不要生成最终聊天回复、动作描写或状态栏。',
+        '必须实际应用上方当前选中的 COT 预设，以及角色卡、人物关系、长期记忆、世界状态、作者注释和最近聊天上下文。',
+        '在内部完成必要的角色判断，但不要输出逐步推理、私密思维链或冗长 STEP 列表。',
+        '只输出 1～3 句、面向用户可展示的高层角色决策摘要：说明角色如何理解当前消息、当前立场/情绪，以及这将如何影响回复的语气或长度。',
+        '只输出摘要正文，不要输出标签、JSON、Markdown 代码块、最终回复或状态栏。不能用省略号或模板占位符代替摘要。',
+        '下面是本轮唯一需要处理的用户消息：',
+        '<<<CURRENT_USER_MESSAGE>>>',
+        input.userMessage,
+        '<<<END_CURRENT_USER_MESSAGE>>>',
+      ].join('\n');
+
+      const cotRaw = await generateCreativeText({
+        settings: { ...input.settings, streaming: false },
+        systemPrompt: decisionSystemPrompt,
+        history: debugMessages.slice(0, -1).map(message => ({
+          role: message.role,
+          content: message.content,
+        })),
+        userPrompt: input.userMessage,
+        temperature: Math.min(0.65, Number(input.temperature ?? input.settings.temperature ?? 0.85)),
+        macroNames: replyMacroNames,
+      });
+
+      cotDecisionSummary = String(cotRaw || '')
+        .replace(/^\x60{3}[a-zA-Z0-9_-]*\s*/, '')
+        .replace(/\s*\x60{3}$/, '')
+        .replace(/<\/?(?:cot|think|thinking|thought|summary|decision|decision_summary)>/gi, '')
+        .replace(/^【(?:COT|思维链|思考摘要)】\s*/i, '')
+        .trim()
+        .slice(0, 800);
+
+      if (!cotDecisionSummary || /^(?:\.{2,}|…+|待填写|TODO)$/i.test(cotDecisionSummary)) {
+        throw new Error('COT 前置阶段没有生成有效的角色决策摘要');
+      }
+
+      trace.cotPrepass = {
+        status: 'success',
+        presetId: input.cotPreset?.id || null,
+        presetTitle: input.cotPreset?.title || null,
+        tag: input.cotPreset?.tag || null,
+        summary: cotDecisionSummary,
+        durationMs: Date.now() - cotStartedAt,
+      };
+      pushAiDebugLog({
+        level: 'success',
+        event: '[SANE333 COT] prepass:complete',
+        message: 'COT 前置决策已完成，最终回复将依据该摘要生成',
+        provider: input.settings.provider,
+        model: input.settings.model,
+        durationMs: Date.now() - cotStartedAt,
+        meta: {
+          conversationId: input.debugConversationId,
+          presetId: input.cotPreset?.id,
+          presetTitle: input.cotPreset?.title,
+          tag: input.cotPreset?.tag,
+          summary: cotDecisionSummary,
+        },
+      });
+      markTraceStage('cot-prepass-complete', 'summaryLength=' + cotDecisionSummary.length);
+
+      finalProviderInput = {
+        ...providerInput,
+        authorNote: [
+          input.authorNote,
+          '【COT 前置决策已完成｜必须用于本轮回复】',
+          '本轮在生成最终消息之前，已经应用当前选择的 COT 预设完成角色判断。',
+          '本轮决策摘要：' + cotDecisionSummary,
+          '必须依据这份摘要、角色设定及完整上下文生成真实聊天回复。摘要用于指导最终回复，不要把摘要改写成正文台词，也不要因此覆盖更高优先级的角色事实与当前用户消息。',
+          '最终输出仍须按已配置的 COT 标签输出这份简短摘要，再输出正常消息；摘要不是隐藏推理，不得补写逐步推理。',
+        ].filter(Boolean).join('\n'),
+      };
+      debugSystemPrompt = buildCharacterSystemPrompt(finalProviderInput);
+      trace.request.system = debugSystemPrompt;
+      if (input.settings.provider === 'gemini') {
+        const parts = trace.request.payload?.body?.systemInstruction?.parts;
+        if (Array.isArray(parts) && parts[0]) parts[0].text = debugSystemPrompt;
+      } else {
+        const requestMessages = trace.request.payload?.body?.messages;
+        if (Array.isArray(requestMessages) && requestMessages[0]) requestMessages[0].content = debugSystemPrompt;
+      }
+      saveTrace();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      trace.cotPrepass = {
+        status: 'failed',
+        presetId: input.cotPreset?.id || null,
+        presetTitle: input.cotPreset?.title || null,
+        durationMs: Date.now() - cotStartedAt,
+        error: message,
+      };
+      trace.error = { message: 'COT_PREPASS_FAILED: ' + message, stack: error instanceof Error ? error.stack : undefined };
+      markTraceStage('cot-prepass-error', message);
+      pushAiDebugLog({
+        level: 'error',
+        event: '[SANE333 COT] prepass:failed',
+        message: 'COT 前置决策失败，已阻止跳过 COT 直接生成回复',
+        provider: input.settings.provider,
+        model: input.settings.model,
+        durationMs: Date.now() - cotStartedAt,
+        meta: { conversationId: input.debugConversationId, presetId: input.cotPreset?.id, error: message },
+      });
+      throw new Error('COT 前置决策失败，本轮没有跳过思维链直接回复。' + message);
+    }
+  }
+
   let rawText = '';
   try {
-    markTraceStage('request-sending', input.settings.provider + ' / ' + input.settings.model);
+    markTraceStage('request-sending', input.settings.provider + ' / ' + input.settings.model + (cotEnabled ? ' / COT complete' : ''));
     rawText = input.settings.provider === 'gemini'
-      ? await callGemini(providerInput)
-      : await callOpenAiCompatible(providerInput);
+      ? await callGemini(finalProviderInput)
+      : await callOpenAiCompatible(finalProviderInput);
     markTraceStage('response-received', 'rawLength=' + String(rawText || '').length);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -1167,7 +1298,7 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
 
   trace.rawResponse = rawText;
   let parsedRaw = parseAiReplyPayload(rawText, input.cotPreset?.tag, input.statusBarPreset?.regex);
-  const replyMacroNames = macroNamesOf(input);
+
 
   // A valid status payload is NOT a chat reply. Some models may obey the status
   // format but accidentally omit the normal character message, which previously
@@ -1243,7 +1374,11 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
 
   const parsed = {
     text: resolveMacros(parsedRaw.text, replyMacroNames),
-    thinkingSummary: parsedRaw.thinkingSummary ? resolveMacros(parsedRaw.thinkingSummary, replyMacroNames) : undefined,
+    // Show the exact decision summary from the required prepass. The final
+    // model's optional echo tag remains available separately in the trace.
+    thinkingSummary: cotDecisionSummary
+      ? resolveMacros(cotDecisionSummary, replyMacroNames)
+      : (parsedRaw.thinkingSummary ? resolveMacros(parsedRaw.thinkingSummary, replyMacroNames) : undefined),
     actionDescription: parsedRaw.actionDescription ? resolveMacros(parsedRaw.actionDescription, replyMacroNames) : undefined,
     statusBarRaw: parsedRaw.statusBarRaw ? resolveMacros(parsedRaw.statusBarRaw, replyMacroNames) : undefined,
     rawResponse: rawText,
@@ -1256,6 +1391,10 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     rawResponseLength: rawText.length,
     text: parsed.text,
     hasCot: Boolean(parsed.thinkingSummary),
+    modelEmittedCotTag: Boolean(parsedRaw.thinkingSummary),
+    modelEmittedCotSummary: parsedRaw.thinkingSummary || null,
+    cotDecisionSummary: cotDecisionSummary || null,
+    cotPrepassCompleted: Boolean(cotDecisionSummary),
     hasAction: Boolean(parsed.actionDescription),
     expectedCot: cotEnabled,
     expectedAction: actionEnabled,
