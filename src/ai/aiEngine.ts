@@ -673,7 +673,7 @@ function buildConversationMessages(input: AiReplyInput) {
   // Do not mix old "historical chat memory" or depth-injected lorebook messages into
   // the provider's dialogue stream: they can look like fresh instructions and cause
   // the character to answer an older topic instead of what the user just said.
-  const turnBudget = Math.max(6, Math.min(16, Number(input.settings.contextLength) || 10));
+  const turnBudget = Math.max(6, Math.min(80, Number(input.settings.contextLength) || 10));
   const eligible = input.messages
     .filter(message =>
       message.type !== 'system-nudge' &&
