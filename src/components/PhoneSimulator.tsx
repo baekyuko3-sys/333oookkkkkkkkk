@@ -214,6 +214,7 @@ export function PhoneSimulator({
 
         {/* Screen Content Viewport */}
         <div
+          data-sane333-home-viewport
           className="flex-1 relative overflow-hidden"
           style={{
             fontSize: appBeauty.fontScale ? `${appBeauty.fontScale}em` : undefined,
