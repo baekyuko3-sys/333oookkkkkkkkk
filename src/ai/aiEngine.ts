@@ -488,7 +488,8 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '【消息分条硬规则】“自然分条”不是“全部合并成一条”。自然聊天中，独立意思应在语义边界处分开；只有本来就是一个完整说明/故事/长篇倾诉时才保留长消息。',
     input.stylePreset ? '【当前 LINE 预设】' + input.stylePreset + '。保持该预设的节奏与情感强度，但不要让预设覆盖角色卡、长期记忆、关系或世界书。' : '',
     input.typingHabit ? '【当前聊天打字习惯 · 必须执行】' + input.typingHabit + '。这是硬性格式约束，不是参考建议。输出前逐项检查标点、emoji、消息分条、换行、句长、语气词和断句；设置为“用空格连接”就实际用空格连接，设置为“分行断句”就实际换行。若和模型默认文风冲突，以本项为准，但不得改变角色性格、事实或剧情。' : '',
-    buildLineHumanBehaviorPrompt(),
+    // A character's own language fingerprint must override global LINE defaults.
+    buildLineHumanBehaviorPrompt(input.character?.languageProfile),
     input.character?.languageProfile ? [
       '【角色个人语言指纹】',
       '角色语言：' + input.character!.languageProfile.language,
