@@ -19,6 +19,7 @@ import { createTogetherMusicSession, type TogetherMusicSession } from '../../sto
 import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
 import { appendStatusBarSnapshot, deleteStatusBarSnapshot, getStatusBarHistory, getStatusBarPresets, getStatusBarRandomMode, getStatusBarForCharacter, renderStatusBarHtml, resolveStatusBarTokens, extractStatusMatch, sanitizeHtmlFragment, sanitizeStatusBarHtml, restoreStatusBarPresentationStyles, saveStatusBarRandomMode, type StatusBarPreset, type StatusBarSnapshot } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset, type CotPresetTarget } from '../../store/cotPresets';
+import { getActivePromptPreset } from '../../store/promptPresets';
 import { clearAiDebugLog, readAiDebugLog, readAiDebugTrace, writeAiDebugTrace, pushAiDebugLog, type AiDebugEntry, type AiDebugTrace } from '../../store/aiDebug';
 import { PresetResourceManager } from './PresetResourceManager';
 import { appendLineMessage, editLineMessage, toggleLineReaction, setLineMessageFavorite, recordLineCall, markLineMessageFailed, clearLineConversation, recallLineMessage, updateLineMessage } from '../../store/lineRuntime';
@@ -3418,7 +3419,7 @@ export function LineConversationView({
           const isMe = msg.sender === 'me';
           const thinkingContent = msg.thinkingSummary || msg.metadata?.thinkingSummary || msg.thinking || msg.metadata?.thinking || '';
           const hasThinking = Boolean(String(thinkingContent).trim()) && showChainOfThoughtInChat;
-          const cotLabel = resolvedCotPreset.displayTitle || resolvedCotPreset.title || 'COT';
+          const cotLabel = getActivePromptPreset(isGroup ? 'group' : 'single')?.name || '预设流程';
           const cotStyle = resolvedCotPreset.displayStyle || 'minimal';
           const cotStyleClass = cotStyle === 'soft'
             ? 'bg-[#faf8f9] border-[#eee5e8] text-[#8c6872]'
@@ -3541,7 +3542,7 @@ export function LineConversationView({
               <div
                 className={`max-w-[78%] relative touch-pan-y select-none ${isMe ? 'items-end' : 'items-start'}`}
               >
-                {/* COT · iMessage-style compact disclosure */}
+                {/* Preset flow · keep the existing compact disclosure UI */}
                 {!isMe && hasThinking && (
                   <div className={`mb-1.5 ${cotStyle === 'minimal' ? '' : 'rounded-[11px] border px-2.5 py-1.5'} ${cotStyleClass}`}>
                     <button
@@ -3557,7 +3558,7 @@ export function LineConversationView({
                       }
                       className="flex items-center gap-1.5 text-[10px] leading-none cursor-pointer hover:opacity-70 transition-opacity"
                     >
-                      <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full ${cotStyle === 'minimal' ? 'bg-[#f3f1f2]' : 'bg-white'} text-[8px] font-semibold`}>C</span>
+                      <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full ${cotStyle === 'minimal' ? 'bg-[#f3f1f2]' : 'bg-white'} text-[8px] font-semibold`}>P</span>
                       <span className="font-medium">{cotLabel}</span>
                       <span className="text-[9px] opacity-60">{msg.showThinking ? '⌃' : '›'}</span>
                     </button>
