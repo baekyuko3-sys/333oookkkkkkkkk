@@ -1186,7 +1186,6 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
   trace.final = {
     text: parsed.text,
     thinkingSummary: parsed.thinkingSummary || null,
-    thinkingSummary: parsed.thinkingSummary || null,
     actionDescription: parsed.actionDescription || null,
     statusBarRaw: parsed.statusBarRaw || null,
     matchedWorldbookEntries,
