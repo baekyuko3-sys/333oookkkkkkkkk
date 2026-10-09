@@ -1298,7 +1298,7 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
 
   trace.rawResponse = rawText;
   let parsedRaw = parseAiReplyPayload(rawText, input.cotPreset?.tag, input.statusBarPreset?.regex);
-  const replyMacroNames = macroNamesOf(input);
+
 
   // A valid status payload is NOT a chat reply. Some models may obey the status
   // format but accidentally omit the normal character message, which previously
