@@ -4,7 +4,7 @@ import { PhoneSimulator } from './components/PhoneSimulator';
 import { cleanupOldDemoData } from './store/blankPhoneMigration';
 
 export default function App() {
-  const release = '2026.10.07-chat-settings-v1';
+  const release = '2026.10.09-preset-studio-v1';
   const [themeMode, setThemeMode] = useState<ThemeMode>('nordic-light');
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
   const [showUpdate, setShowUpdate] = useState(false);
@@ -55,10 +55,9 @@ export default function App() {
             <button onClick={() => { window.localStorage.setItem('sane333:last-seen-release', release); setShowUpdate(false); }} className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center"><span className="text-lg">×</span></button>
           </div>
           <div className="mt-5 max-h-[min(52vh,390px)] overflow-y-auto pr-1 space-y-3 text-[11px] leading-5 text-black/65">
-            <div><b className="text-black/80">聊天设定 · 主动行为</b><br/>把角色主动发消息、主动发 VROOM、主动发起线下邀约统一放进当前聊天的设定里。</div>
-            <div><b className="text-black/80">聊天设定 · 独立权限</b><br/>这三个行为按“角色 × 当前聊天”分别保存，不再作为全局开关。</div>
-            <div><b className="text-black/80">聊天设定 · 主动行为日程</b><br/>主动消息、VROOM、线下邀约的日程统一从聊天设定进入，加号菜单不再重复放入口。</div>
-            <div><b className="text-black/80">聊天设定 · 折叠</b><br/>API、主动行为、日程、聊天偏好、显示工具、CoT、Author's Note 等设置都可以单独展开或收起。</div>
+            <div><b className="text-black/80">预设工坊 · 三种独立分类</b><br/>预设 App 现在分别管理线上单聊、线上群聊和线下剧情预设，各分类有独立预设列表。</div>
+            <div><b className="text-black/80">预设工坊 · 酒馆式条目管理</b><br/>可添加、编辑、保存、启用/禁用、删除和调整提示词条目顺序，并设置角色、注入位置、Depth 与 Order。</div>
+            <div><b className="text-black/80">预设工坊 · 导入导出与格式参数</b><br/>支持单个预设或整套预设库导入导出，并可编辑 Temperature、Top P、Penalty、最大输出 tokens、模型前后缀和停止序列。</div>
           </div>
           <div className="mt-5 flex items-center justify-between text-[10px] text-black/35">
             <span>release {release}</span>
