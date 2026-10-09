@@ -30,7 +30,7 @@ import {
   Image as ImageIcon, Film, FileText, Calendar, Sliders, RefreshCw, X,
   PhoneOff, MicOff, Volume2, Sparkles, PlusCircle, BookOpen, UserCheck,
   Palette, SlidersHorizontal, Eye, Code, Users, ChevronRight, ChevronLeft,
-  Edit3, Brain, Play, Check, Trash2, Copy, Sparkle, Compass, Terminal,
+  Edit3, Brain, Play, Check, Trash2, Copy, Sparkle, Terminal,
   Phone, Search, CornerUpLeft, Share2, Download, AlertCircle, VolumeX,
   CheckSquare, Square, Pin, PinOff, Bell, BellOff, Bookmark, BookmarkCheck,
   FileDown, MessageCircle, Heart, Music2
@@ -626,10 +626,6 @@ export function LineConversationView({
   const [characterAutonomy, setCharacterAutonomy] = usePersistentState<boolean>(`line:behavior-character-autonomy:${conversationStorageId}`, true);
   const [avoidRepetition, setAvoidRepetition] = usePersistentState<boolean>(`line:behavior-avoid-repetition:${conversationStorageId}`, true);
   const [emotionContinuity, setEmotionContinuity] = usePersistentState<boolean>(`line:behavior-emotion-continuity:${conversationStorageId}`, true);
-
-  // 酒馆作者注释 (Author's Note / A/N)
-  const [authorsNote, setAuthorsNote] = usePersistentState(`line:authors-note:${conversationStorageId}`, '');
-  const [authorsNoteDepth, setAuthorsNoteDepth] = useState('3');
 
   // 普通聊天软件核心能力 (Standard Mobile Messenger Features)
   const [isTyping, setIsTyping] = useState(false);
@@ -1645,7 +1641,6 @@ export function LineConversationView({
           isGroup: true,
           authorNote: [
             lineConversationRules,
-            authorsNote,
             '群聊预设：' + activeGroupPreset.name,
             activeGroupPreset.systemPrompt,
             groupNoticeText ? '群公告：' + groupNoticeText : '',
@@ -1776,7 +1771,6 @@ export function LineConversationView({
         statusBarPreset: turnStatusPreset,
         authorNote: [
           lineConversationRules,
-          authorsNote,
           relationshipContext.trim() ? '【你们过去的关系背景】\n' + relationshipContext.trim() : '',
           messages.length === 0 && selectedOpeningContext.trim() ? '【角色卡开场白 / 前情提要】\n' + selectedOpeningContext.trim() : '',
            `【预设流程输出】必须依照预设 App 中当前启用的条目顺序逐项执行，并在 <preset_flow>...</preset_flow> 中完整记录每一步的执行结论；不可缩减成 1～3 句总摘要。随后输出角色正文。流程语言遵循角色语言设定；未指定时跟随用户当前消息语言。`,
@@ -2488,7 +2482,6 @@ export function LineConversationView({
         isGroup,
         authorNote: [
           lineConversationRules,
-          authorsNote,
           '这是 Continue：请自然接着角色上一条未说完的内容继续。',
           lastOther?.text ? '【上一条角色消息】\\n' + lastOther.text : '',
           '不要重复上一条已经说过的内容，也不要突然改变话题；像真实聊天一样自然补完。',
@@ -2771,7 +2764,7 @@ export function LineConversationView({
               ],
               userMessage: '我给你发了一张图片，请看看这张图片并自然回应。',
               isGroup,
-              authorNote: [lineConversationRules, authorsNote].filter(Boolean).join('\n'),
+              authorNote: lineConversationRules,
               statusBarPreset: turnStatusPreset,
               stylePreset: activeCotPreset?.title || selectedPreset,
         cotTarget: isGroup ? 'group' : 'line',
@@ -2872,6 +2865,28 @@ export function LineConversationView({
     }]);
     setSubSheetType(null);
     showToast(`${typeLabels[type]}已发送：${file.name}`);
+  };
+
+  // 保存当前聊天的完整设定快照；各项设定仍沿用原有的独立持久化键。
+  const handleSaveChatSettings = () => {
+    try {
+      const settings: Record<string, string> = {};
+      for (let index = 0; index < window.localStorage.length; index += 1) {
+        const key = window.localStorage.key(index);
+        if (!key || !key.startsWith('line:') || !key.includes(conversationStorageId) || key.startsWith('line:chat-settings-snapshot:')) continue;
+        const value = window.localStorage.getItem(key);
+        if (value !== null) settings[key] = value;
+      }
+      window.localStorage.setItem(`line:chat-settings-snapshot:${conversationStorageId}`, JSON.stringify({
+        version: 1,
+        conversationStorageId,
+        savedAt: new Date().toISOString(),
+        settings,
+      }));
+      showToast(`已保存当前聊天的全部设定（${Object.keys(settings).length} 项）`);
+    } catch {
+      showToast('保存失败：本地存储空间不足或不可用');
+    }
   };
 
   // 保存消息原地编辑
@@ -5112,7 +5127,7 @@ export function LineConversationView({
               ‹
             </button>
             <span className="font-semibold text-sm text-[#333]">聊天设定</span>
-            <div className="w-8" />
+            <button type="button" onClick={handleSaveChatSettings} className="px-2.5 py-1.5 rounded-full bg-[#f7eef0] text-[#8c5f6b] border border-[#ead6dc] text-[9px] font-medium whitespace-nowrap">保存设定</button>
           </div>
 
           <div className="p-4 space-y-4 flex-1 overflow-y-auto text-xs pb-10">
@@ -5735,26 +5750,6 @@ export function LineConversationView({
                     </button>
                   </div>
                 </div>
-              </div>
-            </details>
-
-            {/* Section 0.5: 作者注释 (Author's Note / A/N) */}
-            <details open={false} className="bg-white rounded-[14px] border border-[#f0f0f1] overflow-hidden">
-              <summary className="list-none cursor-pointer p-3.5 flex items-center justify-between"><span className="font-medium text-[#333]">Author's Note / 作者注释</span><span className="text-[10px] text-[#aaa]">展开</span></summary>
-              <div className="p-3.5 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-[#333] flex items-center gap-1.5">
-                  <Compass className="w-4 h-4 text-[#ae7e89]" />
-                  <span>作者注释 (Author's Note)</span>
-                </span>
-                <span className="text-[10px] text-[#888]">注入深度: {authorsNoteDepth}</span>
-              </div>
-              <textarea
-                value={authorsNote}
-                onChange={(e) => setAuthorsNote(e.target.value)}
-                placeholder="[指导原则: ...]"
-                className="w-full h-16 p-2 bg-[#fafafa] border border-[#e8e8e9] rounded-md text-xs font-sans leading-relaxed resize-none"
-              />
               </div>
             </details>
 
