@@ -181,6 +181,8 @@ export function LineConversationView({
   const LINE_PAGE_SIZE = 100; // 100 messages stay freely scrollable; older messages are folded by page.
   const [loadedMessageCount, setLoadedMessageCount] = useState(LINE_PAGE_SIZE);
   const messagesViewportRef = useRef<HTMLDivElement>(null);
+  const loadingOlderMessagesRef = useRef(false);
+  const [showScrollToLatest, setShowScrollToLatest] = useState(false);
   const visibleMessages = messages.slice(-loadedMessageCount);
 
   useEffect(() => {
@@ -188,14 +190,30 @@ export function LineConversationView({
   }, [conversationStorageId]);
 
   const loadOlderMessages = () => {
-    if (loadedMessageCount >= messages.length) return;
+    if (loadingOlderMessagesRef.current || loadedMessageCount >= messages.length) return;
     const viewport = messagesViewportRef.current;
-    const previousHeight = viewport?.scrollHeight ?? 0;
+    if (!viewport) return;
+
+    // Lock pagination until the scroll offset is restored; otherwise a burst of
+    // scroll events near the top can request several pages and fight the wheel.
+    loadingOlderMessagesRef.current = true;
+    const previousHeight = viewport.scrollHeight;
+    const previousTop = viewport.scrollTop;
     setLoadedMessageCount((count) => Math.min(messages.length, count + LINE_PAGE_SIZE));
     requestAnimationFrame(() => {
-      if (!viewport) return;
-      viewport.scrollTop += viewport.scrollHeight - previousHeight;
+      const heightDelta = viewport.scrollHeight - previousHeight;
+      viewport.scrollTop = previousTop + heightDelta;
+      requestAnimationFrame(() => {
+        loadingOlderMessagesRef.current = false;
+      });
     });
+  };
+
+  const scrollToLatestMessage = () => {
+    const viewport = messagesViewportRef.current;
+    if (!viewport) return;
+    viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+    setShowScrollToLatest(false);
   };
 
   const jumpToLineMessage = (messageId: number | string) => {
@@ -3245,16 +3263,22 @@ export function LineConversationView({
       )}
 
       {/* 2. MESSAGES STREAM */}
+      <div className="min-h-0 flex-1 relative">
       <div
         ref={messagesViewportRef}
         onScroll={(event) => {
           const viewport = event.currentTarget;
+          const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+          setShowScrollToLatest((previous) => {
+            const next = distanceFromBottom > 220;
+            return previous === next ? previous : next;
+          });
           if (viewport.scrollTop <= 24 && loadedMessageCount < messages.length) {
             loadOlderMessages();
           }
         }}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y px-3.5 py-4 space-y-1.5 relative"
-        style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
+        className="h-full w-full overflow-y-auto overscroll-y-auto touch-pan-y px-3.5 py-4 space-y-1.5 relative"
+        style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'thin', scrollbarColor: '#d8cbd0 transparent' }}
       >
         {showUnreadJump && unreadAnchorId !== null && (
           <button
@@ -3489,13 +3513,13 @@ export function LineConversationView({
                 )}
 
                 {lineActionDescriptionsEnabled && msg.actionDescription && !msg.isRecalled && (
-                  <div className="w-full flex items-center justify-center my-2.5 px-4 animate-in fade-in">
-                    <div className="relative flex items-center justify-center gap-2 max-w-[88%] text-center">
-                      <span className="h-px w-6 shrink-0 bg-[#eee8eb]" />
-                      <span className="max-w-[78%] text-[10.5px] leading-[1.6] italic tracking-[0.01em] text-[#9b9599]">
+                  <div className="w-full flex items-center justify-center my-2.5 animate-in fade-in">
+                    <div className="relative flex w-full min-w-0 items-center justify-center gap-2 text-center">
+                      <span className="h-px w-4 shrink-0 bg-[#eee8eb]" />
+                      <span className="min-w-0 max-w-[calc(100%-3rem)] overflow-hidden text-ellipsis whitespace-nowrap text-[10.5px] leading-[1.6] italic tracking-[0.01em] text-[#9b9599]">
                         {msg.actionDescription}
                       </span>
-                      <span className="h-px w-6 shrink-0 bg-[#eee8eb]" />
+                      <span className="h-px w-4 shrink-0 bg-[#eee8eb]" />
                     </div>
                   </div>
                 )}
@@ -3952,6 +3976,19 @@ export function LineConversationView({
           </div>
         )}
         <div ref={messagesEndRef} />
+      </div>
+      {showScrollToLatest && (
+        <button
+          type="button"
+          onClick={scrollToLatestMessage}
+          className="absolute bottom-3 right-4 z-20 inline-flex items-center gap-1.5 rounded-full border border-[#e9dde1] bg-white/95 px-3 py-2 text-[10px] font-medium text-[#9b737c] shadow-sm backdrop-blur-sm hover:bg-[#fffafb] active:scale-95 transition"
+          aria-label="滚动到最新消息"
+          title="滚动到最新消息"
+        >
+          <span aria-hidden="true">↓</span>
+          <span>最新消息</span>
+        </button>
+      )}
       </div>
 
       {/* 3. RECORDING BAR */}
