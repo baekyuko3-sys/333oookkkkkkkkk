@@ -5587,48 +5587,33 @@ export function LineConversationView({
               <summary className="list-none cursor-pointer px-4 py-3.5 flex items-center justify-between select-none">
                 <div className="flex items-center gap-2">
                   <Brain className="w-[17px] h-[17px] text-[#ad7b88]" />
-                  <span className="text-[13px] font-semibold tracking-[-0.01em] text-[#303033]">回复表现 / COT</span>
+                  <span className="text-[13px] font-semibold tracking-[-0.01em] text-[#303033]">回复表现 / 预设流程</span>
                 </div>
                 <span className="text-[10px] text-[#aaa]">展开</span>
               </summary>
 
               <div className="px-4 pb-4">
-                {/* 生成摘要 */}
-                <div className="flex items-center justify-between py-3">
-                  <div className="min-w-0 pr-4">
-                    <div className="text-[12px] font-semibold text-[#353438]">COT · 角色回复决策</div>
-                    <div className="mt-1 text-[9.5px] leading-[1.45] text-[#a2a0a4]">
-                      让角色先按 COT 完成角色判断；是否把 COT 显示在聊天里由下面的独立开关控制
-                    </div>
+                {/* 预设规则始终参与生成；此处只展示当前生效项 */}
+                <div className="py-3">
+                  <div className="text-[12px] font-semibold text-[#353438]">当前生成预设</div>
+                  <div className="mt-1 text-[11px] font-medium text-[#9d6e7b]">{getActivePromptPreset(isGroup ? 'group' : 'single')?.name || '默认预设'}</div>
+                  <div className="mt-1 text-[9.5px] leading-[1.45] text-[#a2a0a4]">
+                    当前分类的已启用条目会直接注入角色回复。展开 / 折叠只控制下方摘要的显示，不会关闭预设。
                   </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={enableChainOfThought}
-                    aria-label={enableChainOfThought ? '关闭 COT' : '开启 COT'}
-                    onClick={() => { const next = !enableChainOfThought; setEnableChainOfThought(next); if (next) setShowChainOfThoughtInChat(true); }}
-                    className="relative w-11 h-6 shrink-0 rounded-full p-0.5 border border-black/[0.04] shadow-inner transition-colors duration-200 focus:outline-none"
-                    style={{ backgroundColor: enableChainOfThought ? '#d5aab6' : '#dedee1' }}
-                  >
-                    <span
-                      className="absolute top-[2px] left-[2px] block w-5 h-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.16)] transition-transform duration-200"
-                      style={{ transform: enableChainOfThought ? 'translateX(20px)' : 'translateX(0)' }}
-                    />
-                  </button>
                 </div>
 
                 <div className="flex items-center justify-between py-3 border-t border-[#eee8e6]">
                   <div className="min-w-0 pr-4">
-                    <div className="text-[12px] font-semibold text-[#353438]">在聊天里显示 COT</div>
+                    <div className="text-[12px] font-semibold text-[#353438]">在聊天里显示预设流程</div>
                     <div className="mt-1 text-[9.5px] leading-[1.45] text-[#a2a0a4]">
-                      开启后，角色回复上方会出现可折叠的 COT；关闭只是不显示，不影响 COT 生成。
+                      开启后，角色回复上方会出现可折叠的预设流程摘要；关闭只是不显示，不影响预设规则执行。
                     </div>
                   </div>
                   <button
                     type="button"
                     role="switch"
                     aria-checked={showChainOfThoughtInChat}
-                    aria-label={showChainOfThoughtInChat ? '关闭聊天内 COT 显示' : '开启聊天内 COT 显示'}
+                    aria-label={showChainOfThoughtInChat ? '关闭聊天内预设流程显示' : '开启聊天内预设流程显示'}
                     onClick={() => setShowChainOfThoughtInChat(!showChainOfThoughtInChat)}
                     className="relative w-11 h-6 shrink-0 rounded-full p-0.5 border border-black/[0.04] shadow-inner transition-colors duration-200 focus:outline-none"
                     style={{ backgroundColor: showChainOfThoughtInChat ? '#d5aab6' : '#dedee1' }}
@@ -5645,17 +5630,17 @@ export function LineConversationView({
                   type="button"
                   onClick={() => {
                     setShowSettings(false);
-                    setShowCotPresetModal(true);
+                    onNavigateScreen?.('group-presets');
                   }}
                   className="w-full text-left rounded-[13px] border border-[#eee3e6] bg-[#fcf8f9] px-3.5 py-3 flex items-center justify-between gap-3 transition-colors hover:bg-[#faf3f5]"
                 >
                   <div className="min-w-0">
-                    <div className="text-[11px] font-semibold text-[#9d6e7b]">COT 预设</div>
+                    <div className="text-[11px] font-semibold text-[#9d6e7b]">预设工坊</div>
                     <div className="mt-1 text-[12px] font-medium text-[#4a4144] truncate">
                       {activeCotPreset?.title || '默认预设'}
                     </div>
                     <div className="mt-1 text-[9px] text-[#aaa]">
-                      点击选择或管理 COT 决策预设
+                      点击进入预设工坊，编辑实际生成规则
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 shrink-0 text-[#b6a4aa]" />
@@ -6527,7 +6512,7 @@ export function LineConversationView({
               ‹
             </button>
             <div className="text-center">
-              <div className="font-semibold text-sm text-[#333]">思维链预设 (CoT Presets)</div>
+              <div className="font-semibold text-sm text-[#333]">旧版决策模板（兼容管理）</div>
               <div className="text-[9px] text-[#aaa]">SillyTavern 风格思考模板与心理引导</div>
             </div>
             <button onClick={() => { setShowCotPresetModal(false); setShowPresetResourceManager('cot'); }} className="px-2 py-1 rounded-lg bg-[#f8f4f5] text-[#ae7e89] text-[9px] border border-[#f0dee3]">管理 / 导入导出</button>
