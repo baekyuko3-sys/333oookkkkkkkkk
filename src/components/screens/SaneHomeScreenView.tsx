@@ -53,7 +53,8 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   const [desktopHidden, setDesktopHidden] = useState(() => readAppearance().desktopHidden || { page1: [], page2: [] });
   const [desktopEditing, setDesktopEditing] = useState(false);
   const [draggingDesktopItem, setDraggingDesktopItem] = useState<string | null>(null);
-  const dragStartRef = useRef<{ id: string; x: number; y: number } | null>(null);
+  const [dragGuides, setDragGuides] = useState<{ x?: number; y?: number }>({});
+  const dragStartRef = useRef<{ id: string; x: number; y: number; offsetX: number; offsetY: number } | null>(null);
 
   const getDefaultLayout = (page: DesktopPage) => page === 1 ? defaultPage1Layout : defaultPage2Layout;
   const pageKey = (page: DesktopPage) => page === 1 ? 'page1' : 'page2';
@@ -89,16 +90,50 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   };
 
   const resolvePosition = (page: DesktopPage, moving: DesktopItem): DesktopItem => {
-    // Free placement: do not snap away or block an item because it is near another widget.
     const phone = document.querySelector('[data-sane333-home-viewport]') as HTMLElement | null;
     const width = phone?.clientWidth || 360;
     const height = phone?.clientHeight || 800;
     const metrics = itemMetrics(moving.id);
-    const dockSafeBottom = 132;
+    const others = getLayout(page).filter(item => item.id !== moving.id && !isHidden(page, item.id));
+    // Apple-like 8px grid plus edge/center snapping to nearby widgets and apps.
+    const grid = 8;
+    let x = Math.round(moving.x / grid) * grid;
+    let y = Math.round(moving.y / grid) * grid;
+    let guideX: number | undefined;
+    let guideY: number | undefined;
+    const snapThreshold = 9;
+    for (const other of others) {
+      const om = itemMetrics(other.id);
+      const xPairs = [
+        [x, other.x],
+        [x + metrics.width / 2, other.x + om.width / 2],
+        [x + metrics.width, other.x + om.width],
+        [x, other.x + om.width],
+        [x + metrics.width, other.x],
+      ];
+      for (const [movingEdge, otherEdge] of xPairs) {
+        if (Math.abs(movingEdge - otherEdge) <= snapThreshold) {
+          x += otherEdge - movingEdge; guideX = otherEdge; break;
+        }
+      }
+      const yPairs = [
+        [y, other.y],
+        [y + metrics.height / 2, other.y + om.height / 2],
+        [y + metrics.height, other.y + om.height],
+        [y, other.y + om.height],
+        [y + metrics.height, other.y],
+      ];
+      for (const [movingEdge, otherEdge] of yPairs) {
+        if (Math.abs(movingEdge - otherEdge) <= snapThreshold) {
+          y += otherEdge - movingEdge; guideY = otherEdge; break;
+        }
+      }
+    }
+    setDragGuides({ x: guideX, y: guideY });
     return {
       ...moving,
-      x: Math.max(8, Math.min(width - metrics.width - 8, moving.x)),
-      y: Math.max(8, Math.min(height - dockSafeBottom - metrics.height, moving.y)),
+      x: Math.max(8, Math.min(width - metrics.width - 8, x)),
+      y: Math.max(8, Math.min(height - 132 - metrics.height, y)),
     };
   };
 
@@ -112,13 +147,14 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
 
   const moveDesktopItem = (page: DesktopPage, id: string, clientX: number, clientY: number) => {
     const phone = document.querySelector('[data-sane333-home-viewport]') as HTMLElement | null;
-    if (!phone || isHidden(page, id)) return;
+    const start = dragStartRef.current;
+    if (!phone || !start || start.id !== id || isHidden(page, id)) return;
     const rect = phone.getBoundingClientRect();
     const metrics = itemMetrics(id);
     const raw = {
       id,
-      x: Math.round(Math.max(8, Math.min(rect.width - metrics.width - 8, clientX - rect.left - metrics.width / 2)) / 2) * 2,
-      y: Math.round(Math.max(8, Math.min(rect.height - 132 - metrics.height, clientY - rect.top - metrics.height / 2)) / 2) * 2,
+      x: clientX - rect.left - start.offsetX,
+      y: clientY - rect.top - start.offsetY,
     };
     const next = getLayout(page).map(item => item.id === id ? resolvePosition(page, raw) : item);
     saveDesktopLayout(page, next);
@@ -143,6 +179,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
 
   const endDesktopDrag = () => {
     setDraggingDesktopItem(null);
+    setDragGuides({});
     dragStartRef.current = null;
   };
 
@@ -151,7 +188,8 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
-    dragStartRef.current = { id, x: event.clientX, y: event.clientY };
+    const rect = event.currentTarget.getBoundingClientRect();
+    dragStartRef.current = { id, x: event.clientX, y: event.clientY, offsetX: event.clientX - rect.left, offsetY: event.clientY - rect.top };
   };
 
   const continueDesktopDrag = (page: DesktopPage, id: string, event: ReactPointerEvent) => {
@@ -249,6 +287,8 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
       {desktopEditing && <>
         <button onClick={() => resetDesktopLayout(currentPage)} className="absolute z-30 top-[70px] left-[18px] px-3 h-8 rounded-full bg-white/80 border border-black/5 text-[9px] font-mono text-[#777]">重置</button>
         <button onClick={() => setDesktopEditing(false)} className="absolute z-30 top-[70px] right-[18px] px-3 h-8 rounded-full bg-[#292724] text-white border border-[#292724] text-[9px] font-mono">完成整理</button>
+        {dragGuides.x !== undefined && <div className="absolute z-20 top-0 bottom-[132px] border-l border-dashed border-[#b58c75]/80 pointer-events-none" style={{ left: dragGuides.x }} />}
+        {dragGuides.y !== undefined && <div className="absolute z-20 left-0 right-0 border-t border-dashed border-[#b58c75]/80 pointer-events-none" style={{ top: dragGuides.y }} />}
       </>}
       {/* SVG Icon Definitions */}
       <svg width="0" height="0" className="absolute pointer-events-none" aria-hidden="true">
