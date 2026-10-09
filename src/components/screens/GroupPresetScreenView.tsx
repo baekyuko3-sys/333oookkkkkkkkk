@@ -98,7 +98,7 @@ function normalizeImport(raw: any, scope: Scope): Preset {
 export function GroupPresetScreenView({ onNavigate }: { onNavigate: (screen: ScreenType) => void }) {
   const [libraries, setLibraries] = useState<Libraries>(() => readLibraries());
   const [scope, setScope] = useState<Scope>('single');
-  const [selectedIds, setSelectedIds] = useState<Record<Scope, string>>({ single: 'single-natural', group: 'group-natural', offline: 'offline-daily' });
+  const [selectedIds, setSelectedIds] = useState<Record<Scope, string>>(() => { try { return { single: 'single-natural', group: 'group-natural', offline: 'offline-daily', ...JSON.parse(localStorage.getItem('phone:preset-active-v1') || '{}') }; } catch { return { single: 'single-natural', group: 'group-natural', offline: 'offline-daily' }; } });
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'entries' | 'format'>('entries');
   const [search, setSearch] = useState('');
@@ -113,6 +113,7 @@ export function GroupPresetScreenView({ onNavigate }: { onNavigate: (screen: Scr
   const notify = (text: string) => { setNotice(text); window.setTimeout(() => setNotice(''), 2200); };
 
   useEffect(() => { localStorage.setItem(KEY, JSON.stringify(libraries)); }, [libraries]);
+  useEffect(() => { localStorage.setItem('phone:preset-active-v1', JSON.stringify(selectedIds)); }, [selectedIds]);
   useEffect(() => {
     if (selectedPreset && !selectedEntryId && selectedPreset.entries.length) setSelectedEntryId(selectedPreset.entries[0].id);
     if (selectedPreset && selectedEntryId && !selectedPreset.entries.some(e => e.id === selectedEntryId)) setSelectedEntryId(selectedPreset.entries[0]?.id || null);
