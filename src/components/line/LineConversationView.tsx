@@ -554,9 +554,9 @@ export function LineConversationView({
       setReplyingToMsg(msg);
       showToast('已引用这条消息');
     } else if (start.horizontalIntent && dx <= -64) {
-      if (msg.sender === 'me' && msg.text) {
+      if (msg.text || msg.content) {
         setEditingMessageId(String(msg.id));
-        setEditingMessageText(String(msg.text || ''));
+        setEditingMessageText(String(msg.text || msg.content || ''));
       } else {
         setContextMenuMsg(msg);
       }
@@ -6885,12 +6885,12 @@ export function LineConversationView({
                 </div>
               )}
 
-              {/* 编辑：只允许编辑自己发送的文字消息 */}
-              {contextMenuMsg.sender === 'me' && contextMenuMsg.text && (
+              {/* 编辑：允许直接修改自己或角色发送的文字消息 */}
+              {contextMenuMsg.text && (
                 <div
                   onClick={() => {
                     setEditingMessageId(String(contextMenuMsg.id));
-                    setEditingMessageText(contextMenuMsg.text || '');
+                    setEditingMessageText(String(contextMenuMsg.text || contextMenuMsg.content || ''));
                     setContextMenuMsg(null);
                   }}
                   className="py-3 flex items-center gap-3 cursor-pointer hover:bg-neutral-50 px-2"
