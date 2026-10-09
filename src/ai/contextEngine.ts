@@ -277,7 +277,7 @@ export function resolveCharacterContext(input: ContextEngineInput): ResolvedCont
     character,
     persona,
     relationship,
-    memory: input.memory ? buildMemoryContext(input.memory) : '当前没有已保存的长期记忆。',
+    memory: input.memory ? buildMemoryContext(input.memory, 20, input.userMessage) : '当前没有已保存的长期记忆。',
     world,
     project,
     worldBook: [lore.before, lore.after].filter(Boolean).join('\n\n') || '当前没有命中的世界书条目。',
