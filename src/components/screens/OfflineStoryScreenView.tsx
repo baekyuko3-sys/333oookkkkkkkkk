@@ -16,6 +16,7 @@ import { setCurrentScene, setCharacterRuntime } from '../../store/worldRuntime';
 import { emitWorldEvent } from '../../store/worldRuntime';
 import { recordOfflineEventInLine } from '../../store/lineRuntime';
 import { getCotForTarget } from '../../store/cotPresets';
+import { buildPromptPresetInstructions } from '../../store/promptPresets';
 import { getOfflinePersonas, getOfflineStyle, saveOfflineStyle, exportOfflineEvent, importOfflineEvent, cloneOfflineBranch, type OfflinePersona, type OfflineStyleSettings } from '../../store/offlineStory';
 
 const statusLabel: Record<OfflineEvent['status'], string> = {
@@ -123,6 +124,7 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
     const project = getProjectManifest();
     const settings = readStoredAiSettings();
     const cot = getCotForTarget('offline');
+    const presetInstructions = buildPromptPresetInstructions('offline');
     const selectedBooks = worldbooks.filter(book => event.worldBookIds?.length ? event.worldBookIds.includes(book.id) : book.enabled);
     const persona = personas.find(item => item.id === event.personaId);
 
@@ -160,7 +162,7 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
         '【世界书】',
         selectedBooks.flatMap(book => book.entries.filter(entry => entry.enabled).slice(0, 10).map(entry => '- ' + entry.name + ': ' + entry.content)).join('\n') || '无。',
         '',
-        cot ? '【思维链预设】\n' + cot.template : '',
+        presetInstructions,
         event.authorNote ? '【Author\'s Note】\n' + event.authorNote : '',
         event.systemPrompt ? '【本剧情 System Prompt】\n' + event.systemPrompt : '',
       ].join('\n');
@@ -243,7 +245,7 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
         memory ? '【长期记忆】' + memory.summary + '\n' + memory.items.slice(0, 12).map(item => '- ' + item.content).join('\n') : '【长期记忆】无。',
         persona ? '【当前 Persona】\n' + [persona.name, persona.title || '', persona.bio || ''].filter(Boolean).join('\n') : '',
         selectedBooks.flatMap(book => book.entries.filter(entry => entry.enabled).slice(0, 10).map(entry => '- ' + entry.name + ': ' + entry.content)).join('\n') || '【世界书】无。',
-        cot ? '【思维链预设】\n' + cot.template : '',
+        presetInstructions,
         selected.authorNote ? '【Author\'s Note】\n' + selected.authorNote : '',
         selected.systemPrompt ? '【本剧情 System Prompt】\n' + selected.systemPrompt : '',
       ].join('\n');
