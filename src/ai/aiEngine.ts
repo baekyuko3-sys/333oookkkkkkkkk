@@ -719,7 +719,10 @@ function buildConversationMessages(input: AiReplyInput) {
   history.push({
     role: 'user' as const,
     content: '【当前用户消息】\\n' + input.userMessage,
-    imageData: undefined,
+    // Preserve the current turn's attachment when its text was removed from history
+    // to avoid duplicating the user turn. Otherwise image messages silently lose
+    // their image before the provider request is assembled.
+    imageData: currentTurnIndex >= 0 ? eligible[currentTurnIndex]?.imageData : undefined,
   });
 
   return history;
