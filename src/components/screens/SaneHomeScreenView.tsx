@@ -29,24 +29,24 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   type DesktopPage = 1 | 2;
 
   const defaultPage1Layout: DesktopItem[] = [
-    { id: 'widget-date', x: 26, y: 148 },
-    { id: 'widget-photo', x: 260, y: 181 },
-    { id: 'widget-weather', x: 26, y: 312 },
-    { id: 'widget-note', x: 201, y: 312 },
-    { id: 'widget-music', x: 26, y: 441 },
-    { id: 'app-line', x: 32, y: 577 },
-    { id: 'app-moments', x: 120, y: 577 },
-    { id: 'app-music', x: 208, y: 577 },
-    { id: 'app-offline-story', x: 296, y: 577 },
+    { id: 'widget-date', x: 26, y: 105 },
+    { id: 'widget-photo', x: 260, y: 145 },
+    { id: 'widget-weather', x: 26, y: 270 },
+    { id: 'widget-note', x: 201, y: 270 },
+    { id: 'widget-music', x: 26, y: 395 },
+    { id: 'app-line', x: 32, y: 510 },
+    { id: 'app-moments', x: 120, y: 510 },
+    { id: 'app-music', x: 208, y: 510 },
+    { id: 'app-offline-story', x: 296, y: 510 },
   ];
   const defaultPage2Layout: DesktopItem[] = [
-    { id: 'widget-threads', x: 20, y: 250 },
-    { id: 'app-threads', x: 18, y: 390 },
-    { id: 'app-npc', x: 104, y: 390 },
-    { id: 'app-group-presets', x: 190, y: 390 },
-    { id: 'app-spy-phone', x: 276, y: 390 },
-    { id: 'app-memory', x: 104, y: 480 },
-    { id: 'app-studio', x: 190, y: 480 },
+    { id: 'widget-threads', x: 20, y: 220 },
+    { id: 'app-threads', x: 18, y: 350 },
+    { id: 'app-npc', x: 104, y: 350 },
+    { id: 'app-group-presets', x: 190, y: 350 },
+    { id: 'app-spy-phone', x: 276, y: 350 },
+    { id: 'app-memory', x: 104, y: 440 },
+    { id: 'app-studio', x: 190, y: 440 },
   ];
 
   const [desktopLayouts, setDesktopLayouts] = useState(() => readAppearance().desktopLayouts || { page1: {}, page2: {} });
@@ -60,19 +60,19 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   const getLayout = (page: DesktopPage): DesktopItem[] => {
     const phone = typeof document !== 'undefined' ? document.querySelector('[data-sane333-phone]') as HTMLElement | null : null;
     const width = phone?.clientWidth || 360;
-    const height = phone?.clientHeight || 800;
+    const height = phone?.querySelector(':scope > div.flex-1.relative.overflow-hidden')?.clientHeight || phone?.clientHeight || 800;
     return getDefaultLayout(page).map(item => {
       const saved = desktopLayouts[pageKey(page)][item.id] || {};
       const merged = { ...item, ...saved };
       const metrics = itemMetrics(item.id);
-      return { ...merged, x: Math.max(12, Math.min(width - metrics.width - 12, merged.x)), y: Math.max(120, Math.min(height - 135 - metrics.height, merged.y)) };
+      const dockSafeBottom = page === 1 ? 224 : 170; return { ...merged, x: Math.max(12, Math.min(width - metrics.width - 12, merged.x)), y: Math.max(70, Math.min(height - dockSafeBottom - metrics.height, merged.y)) };
     });
   };
 
   const isHidden = (page: DesktopPage, id: string) => desktopHidden[pageKey(page)].includes(id);
 
   const itemMetrics = (id: string) => {
-    if (id.startsWith('app-')) return { width: 64, height: 82 };
+    if (id.startsWith('app-')) return { width: 64, height: 88 };
     if (id === 'widget-photo') return { width: 84, height: 106 };
     if (id === 'widget-music') return { width: 334, height: 84 };
     if (id === 'widget-threads') return { width: 320, height: 96 };
