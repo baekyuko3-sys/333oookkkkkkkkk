@@ -1368,6 +1368,7 @@ export function LineConversationView({
       text: userText,
       content: userText,
       time: '刚刚',
+      createdAt: new Date().toISOString(),
       isRead: false,
     };
 
