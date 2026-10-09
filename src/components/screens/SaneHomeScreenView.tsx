@@ -63,13 +63,8 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
     const height = phone?.querySelector(':scope > div.flex-1.relative.overflow-hidden')?.clientHeight || phone?.clientHeight || 800;
     return getDefaultLayout(page).map(item => {
       const saved = desktopLayouts[pageKey(page)][item.id] || {};
-      // Rebase legacy saved home-screen coordinates to the current compact layout.
-      // Previously saved app rows sat too low and left an oversized dead band in the middle.
-      let savedY = typeof saved.y === 'number' ? saved.y : item.y;
-      if (page === 1 && ['app-line', 'app-moments', 'app-music', 'app-offline-story'].includes(item.id) && savedY >= 490 && savedY <= 530) savedY -= 38;
-      if (page === 2 && ['app-threads', 'app-npc', 'app-group-presets', 'app-spy-phone'].includes(item.id) && savedY >= 370 && savedY <= 410) savedY -= 28;
-      if (page === 2 && ['app-memory', 'app-studio'].includes(item.id) && savedY >= 460 && savedY <= 500) savedY -= 28;
-      const merged = { ...item, ...saved, y: savedY };
+      // Saved positions are user-owned: never auto-shift them during render.
+      const merged = { ...item, ...saved };
       const metrics = itemMetrics(item.id);
       const dockSafeBottom = 132;
       return { ...merged, x: Math.max(12, Math.min(width - metrics.width - 12, merged.x)), y: Math.max(70, Math.min(height - dockSafeBottom - metrics.height, merged.y)) };
@@ -304,9 +299,10 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
         </div>
 
         <button 
-          onClick={onOpenSheet}
+          onClick={() => window.dispatchEvent(new CustomEvent('sane333:open-desktop-editor', { detail: { page: currentPage } }))}
           className="w-[35px] h-[35px] rounded-full bg-[var(--icon,rgba(248,245,239,.72))] border border-[var(--edge,rgba(255,255,255,.6))] backdrop-blur-md grid place-items-center text-base hover:scale-105 active:scale-95 transition-all text-[var(--ink)] shadow-xs"
-          title="自定义主页"
+          title="自由摆放 App 与小组件"
+          aria-label="自由摆放 App 与小组件"
         >
           ⌘
         </button>
