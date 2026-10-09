@@ -17,7 +17,7 @@ import { getGroupPreset, getGroupPresets } from '../../store/groupPresets';
 import { getLineGroups, updateLineGroupMember, addLineGroupMemory, setLineGroupRelationships } from '../../store/lineGroups';
 import { createTogetherMusicSession, type TogetherMusicSession } from '../../store/togetherMusic';
 import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
-import { appendStatusBarSnapshot, deleteStatusBarSnapshot, getStatusBarHistory, getStatusBarPresets, getStatusBarRandomMode, getStatusBarForCharacter, renderStatusBarHtml, extractStatusMatch, sanitizeHtmlFragment, saveStatusBarRandomMode, type StatusBarPreset, type StatusBarSnapshot } from '../../store/statusBarPresets';
+import { appendStatusBarSnapshot, deleteStatusBarSnapshot, getStatusBarHistory, getStatusBarPresets, getStatusBarRandomMode, getStatusBarForCharacter, renderStatusBarHtml, resolveStatusBarTokens, extractStatusMatch, sanitizeHtmlFragment, saveStatusBarRandomMode, type StatusBarPreset, type StatusBarSnapshot } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset, type CotPresetTarget } from '../../store/cotPresets';
 import { clearAiDebugLog, readAiDebugLog, readAiDebugTrace, writeAiDebugTrace, pushAiDebugLog, type AiDebugEntry, type AiDebugTrace } from '../../store/aiDebug';
 import { PresetResourceManager } from './PresetResourceManager';
@@ -930,6 +930,7 @@ export function LineConversationView({
   // This catches normal replies, Continue, rerolls, and any future reply path.
   const statusBarKnownMessageIdsRef = useRef<Set<string> | null>(null);
   const statusBarProcessingRef = useRef<Set<string>>(new Set());
+  const statusBarPresetByTurnRef = useRef<Map<string, StatusBarPreset | undefined>>(new Map());
 
   useEffect(() => {
     const refresh = () => {
@@ -945,6 +946,19 @@ export function LineConversationView({
       window.removeEventListener('sane333:status-bar-random-changed', refresh);
     };
   }, [conversationStorageId]);
+
+  const resolveStatusBarPresetForTurn = (): StatusBarPreset | undefined => {
+    if (!statusBarEnabled || isGroup) return undefined;
+    const all = getStatusBarPresets();
+    if (!all.length) return undefined;
+    const linePool = all.filter(preset => preset.targets.includes('line'));
+    const pool = linePool.length ? linePool : all;
+    if (statusBarRandomMode) return pool[Math.floor(Math.random() * pool.length)];
+    return all.find(preset => preset.id === activeStatusBarPresetId)
+      || statusBarPresets.find(preset => preset.id === activeStatusBarPresetId)
+      || getStatusBarForCharacter(characterId, 'line')
+      || pool[0];
+  };
 
   useEffect(() => {
     const delivered = messages.filter(message =>
@@ -979,12 +993,19 @@ export function LineConversationView({
     const fullReply = turnMessages.map(message => message.text).filter(Boolean).join('\n') || String(latest.text || '').trim();
     const rawStatus = turnMessages.map(message => message.statusBarRaw).find(Boolean) || String(latest.statusBarRaw || latest.metadata?.statusBarRaw || '').trim();
 
-    void createStatusBarSnapshot(fullReply, latest.id, rawStatus || undefined).finally(() => {
+    void createStatusBarSnapshot(fullReply, latest.id, rawStatus || undefined, statusBarPresetByTurnRef.current.get(turnId)).finally(() => {
       statusBarProcessingRef.current.delete(turnId);
+      statusBarPresetByTurnRef.current.delete(turnId);
     });
   }, [messages, statusBarEnabled]);
 
-  const createStatusBarSnapshot = async (replyText: string, sourceMessageId: string | number, rawStatusOverride?: string) => {
+  const createStatusBarSnapshot = async (
+    replyText: string,
+    sourceMessageId: string | number,
+    rawStatusOverride?: string,
+    presetOverride?: StatusBarPreset,
+    replaceExisting = false,
+  ) => {
     const debugEvent = (level: 'info' | 'success' | 'error', event: string, message: string, meta?: Record<string, unknown>) => {
       pushAiDebugLog({
         level,
@@ -1007,16 +1028,8 @@ export function LineConversationView({
         throw new Error('没有可用的状态栏预设');
       }
 
-      const characterPreset = getStatusBarForCharacter(characterId, 'line');
-      const selectedPreset =
-        characterPreset ||
-        latestPresets.find(preset => preset.id === activeStatusBarPresetId) ||
-        statusBarPresets.find(preset => preset.id === activeStatusBarPresetId);
-      const linePresets = latestPresets.filter(preset => preset.targets.includes('line'));
-      const pool = linePresets.length ? linePresets : latestPresets;
-      const chosen = statusBarRandomMode
-        ? pool[Math.floor(Math.random() * pool.length)]
-        : selectedPreset || pool[0];
+      const chosen = presetOverride || resolveStatusBarPresetForTurn();
+      if (!chosen) throw new Error('没有可用的状态栏预设');
 
       debugEvent('info', 'snapshot:start', '开始创建状态快照', {
         presetId: chosen.id,
@@ -1063,7 +1076,12 @@ export function LineConversationView({
         throw new Error('AI 返回内容没有匹配当前 Regex');
       }
 
-      const html = renderStatusBarHtml(chosen, rawStatus);
+      const html = renderStatusBarHtml(chosen, rawStatus, {
+        char: '{{char}}',
+        user: '{{user}}',
+        char_avatar: '{{char_avatar}}',
+        user_avatar: '{{user_avatar}}',
+      });
       debugEvent(html.trim() ? 'success' : 'error', html.trim() ? 'html:rendered' : 'html:empty',
         html.trim() ? 'HTML Template 渲染成功' : 'HTML Template 渲染为空',
         { htmlPreview: String(html || '').slice(0, 4000) });
@@ -1080,6 +1098,11 @@ export function LineConversationView({
         createdAt: new Date().toISOString(),
       };
 
+      if (replaceExisting) {
+        getStatusBarHistory(conversationStorageId)
+          .filter(item => String(item.sourceMessageId) === String(sourceMessageId))
+          .forEach(item => deleteStatusBarSnapshot(conversationStorageId, item.id));
+      }
       appendStatusBarSnapshot(conversationStorageId, snapshot);
       const next = getStatusBarHistory(conversationStorageId);
       setStatusBarHistory(next);
@@ -1568,6 +1591,8 @@ export function LineConversationView({
     let streamedText = '';
 
     try {
+      const turnStatusPreset = resolveStatusBarPresetForTurn();
+      statusBarPresetByTurnRef.current.set(String(replyMsgId), turnStatusPreset);
       const settings = conversationAiSettings();
       const result = await generateCharacterReply({
         settings,
@@ -1588,20 +1613,7 @@ export function LineConversationView({
           template: customCotTemplate || resolvedCotPreset.template,
           tag: resolvedCotPreset.tag,
         } : undefined,
-        statusBarPreset: statusBarEnabled
-          ? (() => {
-              // The selected preset is authoritative. Do not silently discard it
-              // because an imported preset has missing/legacy target metadata.
-              const allPresets = getStatusBarPresets();
-              const candidates = allPresets.filter(preset => preset.targets.includes('line'));
-              const selected = allPresets.find(preset => preset.id === activeStatusBarPresetId)
-                || statusBarPresets.find(preset => preset.id === activeStatusBarPresetId);
-              const pool = candidates.length ? candidates : allPresets;
-              return statusBarRandomMode
-                ? pool[Math.floor(Math.random() * pool.length)]
-                : selected || pool[0];
-            })()
-          : undefined,
+        statusBarPreset: turnStatusPreset,
         authorNote: [
           lineConversationRules,
           authorsNote,
@@ -2299,6 +2311,8 @@ export function LineConversationView({
 
     let streamedText = '';
     try {
+      const turnStatusPreset = resolveStatusBarPresetForTurn();
+      statusBarPresetByTurnRef.current.set(String(continuationId), turnStatusPreset);
       const result = await generateCharacterReply({
         settings,
         character: importedCharacter,
@@ -2317,7 +2331,7 @@ export function LineConversationView({
           lastOther?.text ? '【上一条角色消息】\\n' + lastOther.text : '',
           '不要重复上一条已经说过的内容，也不要突然改变话题；像真实聊天一样自然补完。',
         ].filter(Boolean).join('\\n'),
-        statusBarPreset: statusBarEnabled ? getStatusBarForCharacter(characterId, 'line') || getStatusBarPresets().find(preset => preset.id === activeStatusBarPresetId) || getStatusBarPresets()[0] : undefined,
+        statusBarPreset: turnStatusPreset,
         stylePreset: activeCotPreset?.title || selectedPreset,
         cotTarget: enableChainOfThought ? 'line' : undefined,
         cotPreset: enableChainOfThought ? {
@@ -2548,6 +2562,8 @@ export function LineConversationView({
 
           let streamed = '';
           try {
+            const turnStatusPreset = resolveStatusBarPresetForTurn();
+            statusBarPresetByTurnRef.current.set(String(replyMsgId), turnStatusPreset);
             const result = await generateCharacterReply({
               settings,
               character: importedCharacter,
@@ -2568,9 +2584,7 @@ export function LineConversationView({
               userMessage: '我给你发了一张图片，请看看这张图片并自然回应。',
               isGroup,
               authorNote: [lineConversationRules, authorsNote].filter(Boolean).join('\n'),
-              statusBarPreset: statusBarEnabled
-                ? getStatusBarForCharacter(characterId, 'line') || getStatusBarPresets().find(preset => preset.id === activeStatusBarPresetId) || getStatusBarPresets()[0]
-                : undefined,
+              statusBarPreset: turnStatusPreset,
               stylePreset: activeCotPreset?.title || selectedPreset,
         cotTarget: enableChainOfThought ? 'line' : undefined,
         cotPreset: enableChainOfThought ? {
@@ -2701,6 +2715,7 @@ export function LineConversationView({
     setIsTyping(true);
     try {
       let streamed = '';
+      const turnStatusPreset = resolveStatusBarPresetForTurn();
       const result = await generateCharacterReply({
         settings: conversationAiSettings(),
         character: importedCharacter,
@@ -2713,7 +2728,7 @@ export function LineConversationView({
         userMessage: previousUser || '继续当前对话',
         isGroup,
         authorNote: [lineConversationRules, '重新生成要求：' + instruction + '；这次只重新生成被选中的这一条消息，不要额外生成其他消息。'].filter(Boolean).join('\\n'),
-        statusBarPreset: statusBarEnabled ? getStatusBarForCharacter(characterId, 'line') || getStatusBarPresets().find(preset => preset.id === activeStatusBarPresetId) || getStatusBarPresets()[0] : undefined,
+        statusBarPreset: turnStatusPreset,
         stylePreset: activeCotPreset?.title || selectedPreset,
         cotTarget: enableChainOfThought ? 'line' : undefined,
         cotPreset: enableChainOfThought ? {
@@ -2743,6 +2758,7 @@ export function LineConversationView({
         },
       });
       const rerolledText = splitGeneratedLineMessages(String(result.text || streamed)).filter(Boolean)[0] || String(result.text || streamed || '').trim();
+      statusBarKnownMessageIdsRef.current?.add(String(target.id));
       setMessages(prev => {
         const next = [...prev];
         const existingIndex = next.findIndex(m => m.id === target.id);
@@ -2752,7 +2768,7 @@ export function LineConversationView({
         return next;
       });
       updateLineMessage(conversationStorageId, target.id, { text: rerolledText, status: 'delivered', error: undefined, edited: true, editedAt: new Date().toISOString() });
-      if (statusBarEnabled && !isGroup) await createStatusBarSnapshot(rerolledText, target.id, result.statusBarRaw);
+      if (statusBarEnabled && !isGroup) await createStatusBarSnapshot(rerolledText, target.id, result.statusBarRaw, turnStatusPreset, true);
       showToast('这一条已经重新生成');
     } catch (error) {
       const message = error instanceof Error ? error.message : '重新生成失败';
@@ -2777,6 +2793,12 @@ export function LineConversationView({
     || statusBarPresets[0]
     || null;
   const currentStatusSnapshot = statusBarHistory[statusBarHistoryIndex] || statusBarHistory.at(-1) || null;
+  const statusTokens = {
+    char: characterIdentity,
+    user: activePersona?.name || '我',
+    char_avatar: importedCharacter?.avatar || characterProfileAvatar || '',
+    user_avatar: activePersona?.avatar || '',
+  };
   const latestCharacterMessageText = [...messages]
     .reverse()
     .find(message => message.sender === 'other' && !message.isRecalled)?.text || '';
@@ -4784,7 +4806,7 @@ export function LineConversationView({
                   <div
                     className="w-full min-h-0 px-4 py-4 text-[11px] leading-relaxed text-[#333] break-words [&_*]:max-w-full [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_table]:max-w-full [&_pre]:whitespace-pre-wrap [&_pre]:break-words"
                     style={{ height: 'auto', minHeight: 0 }}
-                    dangerouslySetInnerHTML={{ __html: currentStatusSnapshot.html }}
+                    dangerouslySetInnerHTML={{ __html: resolveStatusBarTokens(currentStatusSnapshot.html, statusTokens) }}
                   />
                 </div>
               ) : (
