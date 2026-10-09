@@ -199,11 +199,22 @@ export function parseAiReplyPayload(
   if (statusMatch) {
     statusBarRaw = statusMatch[1].trim();
     withoutMetadata = withoutMetadata.replace(statusMatch[0], '');
-  } else if (statusRegex?.trim()) {
-    const split = splitStatusBarFromText(withoutMetadata, statusRegex);
-    if (split.status) {
-      statusBarRaw = split.status;
-      withoutMetadata = split.text;
+  } else {
+    // Legacy imported Tavern status bars often return one terminal [QA: ...]
+    // block with Q/QT/A/AT fields. Treat the complete terminal block as status
+    // even if that preset's Regex captures only part of it or has stale separators.
+    // This must happen before the chat bubble text is finalized so the raw block
+    // cannot be shown once in the reply and again in the rendered status card.
+    const terminalQaBlock = /(\[\s*QA\s*:[\s\S]*?\bQT\s*=[\s\S]*?\bA\s*=[\s\S]*?\bAT\s*=[\s\S]*?\])\s*$/i.exec(withoutMetadata);
+    if (terminalQaBlock) {
+      statusBarRaw = terminalQaBlock[1].trim();
+      withoutMetadata = withoutMetadata.slice(0, terminalQaBlock.index).trim();
+    } else if (statusRegex?.trim()) {
+      const split = splitStatusBarFromText(withoutMetadata, statusRegex);
+      if (split.status) {
+        statusBarRaw = split.status;
+        withoutMetadata = split.text;
+      }
     }
   }
 
