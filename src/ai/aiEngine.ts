@@ -8,7 +8,7 @@ import type { AppSettings, ChannelAiSettings } from '../store/appSettings';
 import { readAppSettings } from '../store/appSettings';
 import { getCharacterAiProfile, mergeCharacterAiSettings } from '../store/characterAiProfiles';
 import { resolveCharacterContext, selectWorldBookEntries } from './contextEngine';
-import { getCotForTarget, type CotPreset } from '../store/cotPresets';
+import type { CotPreset } from '../store/cotPresets';
 import { buildLineHumanBehaviorPrompt } from '../store/lineReality';
 import { pushAiDebugLog, writeAiDebugTrace } from '../store/aiDebug';
 import { resolveMacros, type MacroNames } from './macros';
@@ -443,7 +443,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
   const cotTarget = input.cotTarget || (input.isGroup ? 'group' : 'line');
   // The chat screen owns the active COT selection. Only fall back to the global
   // assignment when the caller does not provide the conversation's selected preset.
-  const cotPreset = input.cotPreset || getCotForTarget(cotTarget);
+  const cotPreset = input.cotPreset;
   const appPresetInstructions = buildPromptPresetInstructions(input.isGroup ? 'group' : 'single');
   const applicableWorldBooks = getApplicableWorldBooks(input);
   const scopedInput = { ...input, worldbooks: applicableWorldBooks };
