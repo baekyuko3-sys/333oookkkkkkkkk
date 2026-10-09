@@ -8,7 +8,7 @@ import { generateCreativeText, readStoredAiSettings } from '../ai/aiEngine';
 import { emitWorldEvent, setCharacterRuntime, syncWorldCharacters } from './worldRuntime';
 import { appendLineMessage, getLineConversationMessages, saveLineConversationMessages } from './lineRuntime';
 import { upsertOfflineEvent } from './offlineEvents';
-import { getLineRealitySettings, getCurrentLineTimeContext } from './lineReality';
+import { buildLineHumanBehaviorPrompt, getLineRealitySettings, getCurrentLineTimeContext } from './lineReality';
 
 interface ScheduleItem {
   id: string;
@@ -182,6 +182,8 @@ async function generateProactiveMessage(
     character.personality || '',
     character.scenario || '',
     character.systemPrompt || '',
+    buildLineHumanBehaviorPrompt(character.languageProfile),
+    character.languageProfile ? '【角色个人语言指纹】' + JSON.stringify(character.languageProfile) + '。以此角色自己的语言、标点、句长、口语、Emoji 与消息分组习惯为准。' : '',
     '',
     '【关系】',
     profile.relationship + '；称呼：' + profile.callMe,
@@ -209,7 +211,7 @@ async function generateProactiveMessage(
   ].join('\n');
 
   return generateCreativeText({
-    settings,
+    settings: proactiveSettings,
     systemPrompt,
     userPrompt: [
       '现在触发角色主动消息。',
