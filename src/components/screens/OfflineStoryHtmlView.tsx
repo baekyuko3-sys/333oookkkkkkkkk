@@ -12,6 +12,47 @@ import {
 import { generateCreativeText, readStoredAiSettings } from '../../ai/aiEngine';
 import offlineHtml from '../../offline/offline-story.html?raw';
 
+function readStoredJson<T>(key: string, fallback: T): T {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw === null ? fallback : (JSON.parse(raw) as T);
+  } catch {
+    return fallback;
+  }
+}
+
+function readLinePersonas() {
+  const stored = readStoredJson<unknown>('line:user-personas', []);
+  if (!Array.isArray(stored)) return [];
+  return stored
+    .filter((persona: any) => persona && typeof persona === 'object' && persona.id)
+    .map((persona: any) => {
+      const profession = String(persona.profession || persona.identity || '').trim();
+      const metadata = [
+        persona.age ? '年龄：' + persona.age : '',
+        profession ? '职业：' + profession : '',
+        persona.region ? '地区：' + persona.region : '',
+        persona.timezone ? '时区：' + persona.timezone : '',
+        persona.birthday ? '生日：' + persona.birthday : '',
+      ].filter(Boolean);
+      const setting = String(persona.setting || persona.bio || persona.description || '').trim();
+      return {
+        ...persona,
+        id: String(persona.id),
+        name: String(persona.name || '未命名人设'),
+        tag: [profession, persona.age ? '年龄 ' + persona.age : '', persona.region]
+          .filter(Boolean).join(' · '),
+        desc: [setting, ...metadata].filter(Boolean).join('\n'),
+        av: String(persona.avatar || persona.av || ''),
+      };
+    });
+}
+
+function readActivePersonaId(): string {
+  const active = readStoredJson<unknown>('line:active-persona', '');
+  return typeof active === 'string' ? active : '';
+}
+
 function buildData(
   characters: ImportedCharacter[],
   books: WorldBook[],
@@ -74,10 +115,12 @@ function buildData(
           done: event.status === 'completed' ? 1 : 0,
         };
       }),
+    personas: readLinePersonas(),
+    activePersonaId: readActivePersonaId(),
     cots: getCotPresets().filter(preset =>
       !preset.targets || preset.targets.includes('offline'),
     ),
-    // Personas remain owned by LINE and are read by the HTML through localStorage.
+    // Personas are read from LINE's existing keys; no separate offline persona list is created.
   };
 }
 
