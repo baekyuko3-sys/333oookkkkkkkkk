@@ -3369,7 +3369,8 @@ export function LineConversationView({
           }
 
           const isMe = msg.sender === 'me';
-          const hasThinking = Boolean(msg.thinkingSummary || msg.metadata?.thinkingSummary) && showChainOfThoughtInChat;
+          const thinkingContent = msg.thinkingSummary || msg.metadata?.thinkingSummary || msg.thinking || msg.metadata?.thinking || '';
+          const hasThinking = Boolean(String(thinkingContent).trim()) && showChainOfThoughtInChat;
           const cotLabel = resolvedCotPreset.displayTitle || resolvedCotPreset.title || 'COT';
           const cotStyle = resolvedCotPreset.displayStyle || 'minimal';
           const cotStyleClass = cotStyle === 'soft'
@@ -3513,7 +3514,7 @@ export function LineConversationView({
 
                     {msg.showThinking && (
                       <div className="mt-2 pt-2 border-t border-current/10 text-[10px] leading-[1.65] whitespace-pre-wrap break-words animate-in fade-in">
-                        {msg.thinkingSummary || msg.metadata?.thinkingSummary}
+                        {String(thinkingContent)}
                       </div>
                     )}
                   </div>
@@ -4982,7 +4983,7 @@ export function LineConversationView({
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="w-full max-w-[420px] max-h-[88vh] overflow-y-auto rounded-[26px] border border-white/70 bg-white/[0.68] p-4 pb-5 shadow-[0_18px_60px_rgba(40,30,40,0.18)] backdrop-blur-2xl animate-in zoom-in-95"
+            className="w-full max-w-[420px] max-h-[88vh] overflow-y-auto bg-transparent p-0 shadow-none animate-in zoom-in-95"
           >
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -5019,7 +5020,7 @@ export function LineConversationView({
               )}
             </div>
 
-            <div className="mt-4 flex items-center justify-between border-t border-[#f1f1f2] pt-3">
+            <div className="mt-4 flex items-center justify-between pt-2">
               <button disabled={!statusBarHistory.length} onClick={() => setStatusBarHistoryIndex(i => Math.max(0, i - 1))} className="w-9 h-9 rounded-full border border-[#e8e8e8] text-[#555] disabled:opacity-30">‹</button>
               <div className="text-center">
                 <div className="text-[10px] font-medium text-[#444]">{statusBarHistory.length ? `${statusBarHistoryIndex + 1} / ${statusBarHistory.length}` : '0 / 0'}</div>
@@ -5028,18 +5029,7 @@ export function LineConversationView({
               <button disabled={!statusBarHistory.length} onClick={() => setStatusBarHistoryIndex(i => Math.min(statusBarHistory.length - 1, i + 1))} className="w-9 h-9 rounded-full border border-[#e8e8e8] text-[#555] disabled:opacity-30">›</button>
             </div>
 
-            {statusBarHistory.length > 0 && (
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-1 snap-x">
-                {statusBarHistory.map((item, index) => (
-                  <button key={item.id} onClick={() => setStatusBarHistoryIndex(index)} className={`shrink-0 snap-center w-[92px] rounded-xl border p-2 text-left ${index === statusBarHistoryIndex ? 'border-[#d4aab5] bg-[#faf1f3]' : 'border-[#ececee] bg-white'}`}>
-                    <div className="text-[8px] font-medium text-[#444] truncate">{item.presetName}</div>
-                    <div className="text-[8px] text-[#aaa] mt-1">{new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-3 flex items-center gap-2">
+            <div className="mt-4 flex items-center gap-2.5">
               <button
                 onClick={() => {
                   if (!currentStatusSnapshot) return;
@@ -5049,9 +5039,9 @@ export function LineConversationView({
                   setStatusBarHistoryIndex(Math.max(0, Math.min(statusBarHistoryIndex, next.length - 1)));
                 }}
                 disabled={!currentStatusSnapshot}
-                className="flex-1 py-2.5 rounded-xl border border-[#eee] text-[#a66d73] text-[9px] disabled:opacity-30"
+                className="flex-1 h-11 rounded-full border border-[#d8c7cb] bg-white/90 text-[#9b6874] text-[11px] font-semibold shadow-[0_3px_12px_rgba(80,50,60,0.08)] transition-all hover:bg-[#fbf2f4] active:scale-[0.98] disabled:opacity-30 disabled:shadow-none"
               >删除当前状态</button>
-              <button onClick={() => { setShowRenderedStatusBarModal(false); setShowPresetResourceManager('status'); }} className="flex-1 py-2.5 rounded-xl bg-[#292724] text-white text-[9px]">状态栏设置</button>
+              <button onClick={() => { setShowRenderedStatusBarModal(false); setShowPresetResourceManager('status'); }} className="flex-1 h-11 rounded-full bg-[#292724] text-white text-[11px] font-semibold shadow-[0_5px_16px_rgba(35,30,28,0.2)] transition-all hover:bg-[#403b37] active:scale-[0.98]">状态栏设置</button>
             </div>
           </div>
         </div>
