@@ -212,8 +212,8 @@ export function LineConversationView({
   const scrollToLatestMessage = () => {
     const viewport = messagesViewportRef.current;
     if (!viewport) return;
+    // Let onScroll hide the button once the viewport actually reaches the bottom.
     viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
-    setShowScrollToLatest(false);
   };
 
   const jumpToLineMessage = (messageId: number | string) => {
