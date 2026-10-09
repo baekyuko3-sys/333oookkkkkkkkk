@@ -85,6 +85,30 @@ function formatLineMessageClock(message: any, timezone: string): string {
   }
 }
 
+function formatLineMessageExactDateTime(message: any, timezone: string): string {
+  const raw = message?.createdAt || message?.timestamp;
+  const date = raw ? new Date(raw) : null;
+  if (!date || Number.isNaN(date.getTime())) return String(message?.time || '');
+  try {
+    return new Intl.DateTimeFormat('zh-CN', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      weekday: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat('zh-CN', {
+      year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    }).format(date);
+  }
+}
+
 function getLineMessageDayKey(value: Date, timezone: string): string {
   try {
     const parts = new Intl.DateTimeFormat('en-CA', {
@@ -3430,7 +3454,10 @@ export function LineConversationView({
             <div key={msg.id} className="contents">
               {showDaySeparator && (
                 <div className="flex justify-center py-1.5">
-                  <span className="px-3 py-1 rounded-full bg-[#f5f5f6] text-[9px] text-[#a2a2a6]">
+                  <span
+                    title={currentDate ? formatLineMessageExactDateTime(msg, chatTimezone) : undefined}
+                    className="px-3 py-1 rounded-full bg-[#f5f5f6] text-[9px] text-[#a2a2a6]"
+                  >
                     {dayLabel}
                   </span>
                 </div>
@@ -3964,7 +3991,11 @@ export function LineConversationView({
 
               {/* Message meta is kept under the bubble so every row stays aligned. */}
               {!msg.isRecalled && (
-                <div className={`mt-0.5 flex items-center gap-1 px-1 text-[8px] leading-none text-[#b8b8bb] ${isMe ? 'justify-end' : 'justify-start'} ${sameAsNext ? 'opacity-0 h-0 overflow-hidden' : 'h-[10px]'}`}>
+                <div
+                  title={formatLineMessageExactDateTime(msg, chatTimezone)}
+                  aria-label={formatLineMessageExactDateTime(msg, chatTimezone)}
+                  className={`mt-0.5 flex items-center gap-1 px-1 text-[8px] leading-none text-[#b8b8bb] ${isMe ? 'justify-end' : 'justify-start'} ${sameAsNext ? 'opacity-0 h-0 overflow-hidden' : 'h-[10px]'}`}
+                >
                   {isMe ? (
                     (() => {
                       const msgIndex = messages.findIndex((candidate) => String(candidate.id) === String(msg.id));
