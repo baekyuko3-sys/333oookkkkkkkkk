@@ -1785,7 +1785,7 @@ export function LineConversationView({
           authorsNote,
           relationshipContext.trim() ? '【你们过去的关系背景】\n' + relationshipContext.trim() : '',
           messages.length === 0 && selectedOpeningContext.trim() ? '【角色卡开场白 / 前情提要】\n' + selectedOpeningContext.trim() : '',
-          enableChainOfThought ? `【COT 输出：开启】本轮必须先输出一个简短的高层角色决策记录，严格使用当前 COT 预设要求的标签 ${resolvedCotPreset.tag || '<cot>...</cot>'}，然后立即输出 <message>...</message>。禁止输出原始隐藏思维链。` : '【COT 输出：关闭】不要输出 <cot>、<thinking>、<think>、<thought>、<summary> 标签。',
+           `【预设流程输出】本轮必须先输出简短、可展示的角色决策摘要，使用 <preset_flow>...</preset_flow>，然后输出 <message>...</message>。这只是高层决策摘要，不得输出隐藏逐步推理。无论聊天界面的预设流程卡片是展开还是折叠，当前预设规则都必须参与生成；显示开关只控制界面呈现，不控制预设执行。`,
           lineActionDescriptionsEnabled ? '【线上动作描写：开启】本轮如果有动作/反应必须输出 <action>...</action>，动作与正文分离。' : '【线上动作描写：关闭】不要输出 <action> 标签。',
         ].filter(Boolean).join('\\n'),
         typingHabit: [
