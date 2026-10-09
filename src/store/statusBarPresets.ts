@@ -154,26 +154,98 @@ function parseRegex(source: string): RegExp | null {
   }
 }
 
+function literalPrefixOfRegex(source: string): string {
+  let raw = String(source || '').trim();
+  if (raw.startsWith('/') && raw.lastIndexOf('/') > 0) raw = raw.slice(1, raw.lastIndexOf('/'));
+  raw = raw.replace(/^\^/, '');
+  let depth = 0;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (ch === '\\') { i++; continue; }
+    if (ch === '(') depth++;
+    else if (ch === ')') depth = Math.max(0, depth - 1);
+    else if (ch === '|' && depth === 0) return '';
+  }
+  let out = '';
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (ch === '\\') {
+      const next = raw[i + 1];
+      if (next === undefined || /[A-Za-z0-9]/.test(next)) break;
+      out += next;
+      i++;
+    } else if ('()[]{}.*+?|^$'.includes(ch)) {
+      break;
+    } else {
+      out += ch;
+    }
+    const after = raw[i + 1];
+    if (after && '*+?{'.includes(after)) {
+      out = out.slice(0, -1);
+      break;
+    }
+  }
+  return out;
+}
+
+function tidyAfterStatusRemoval(text: string): string {
+  return String(text || '').replace(/```[a-zA-Z0-9_-]*\s*```/g, '').trim();
+}
+
+export function splitStatusBarFromText(text: string, regexSource: string): { text: string; status: string } {
+  const source = String(text || '');
+  const regex = parseRegex(regexSource);
+  if (!regex) return { text: source, status: '' };
+  const prefix = literalPrefixOfRegex(regexSource);
+  const cutIndex = prefix.length >= 2 ? source.indexOf(prefix) : -1;
+  const extracted = extractStatusMatch(source, regexSource);
+
+  if (extracted?.match) {
+    const globalRegex = new RegExp(regex.source, regex.flags.includes('g') ? regex.flags : regex.flags + 'g');
+    let cleaned: string;
+    if (globalRegex.test(source)) {
+      globalRegex.lastIndex = 0;
+      cleaned = source.replace(globalRegex, '');
+    } else if (source.includes(extracted.match)) {
+      cleaned = source.split(extracted.match).join('');
+    } else if (cutIndex >= 0) {
+      cleaned = source.slice(0, cutIndex);
+    } else {
+      cleaned = source;
+    }
+    return { text: tidyAfterStatusRemoval(cleaned), status: extracted.match.trim() };
+  }
+
+  if (cutIndex >= 0) {
+    return { text: tidyAfterStatusRemoval(source.slice(0, cutIndex)), status: source.slice(cutIndex).trim() };
+  }
+  return { text: source, status: '' };
+}
+
+function escapeHtmlText(value: string): string {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+export function resolveStatusBarTokens(
+  html: string,
+  tokens: { char?: string; user?: string; char_avatar?: string; user_avatar?: string },
+): string {
+  return String(html || '').replace(/\{\{(char_avatar|user_avatar|char|user)\}\}/g,
+    (_, key: 'char_avatar' | 'user_avatar' | 'char' | 'user') => escapeHtmlText(tokens[key] || ''));
+}
+
 export function extractStatusMatch(text: string, regexSource: string): { match: string; captures: string[]; groups: Record<string,string> } | null {
+  // Match the current preset's Regex as authored; punctuation normalization can corrupt values.
   const regex = parseRegex(regexSource);
   if (!regex) return null;
   const input = String(text || '').trim();
-  // Models sometimes wrap a status response in a fenced code block or swap
-  // half-width and full-width vertical separators. Keep the strict match first,
-  // then retry these harmless formatting variants.
-  const stripped = input.replace(/^```[a-zA-Z0-9_-]*\s*/,'').replace(/\s*```$/,'').trim();
-  const normalized = stripped
-    .replace(/[［【]/g, '[')
-    .replace(/[］】]/g, ']')
-    .replace(/：/g, ':')
-    .replace(/，/g, ',')
-    .replace(/、/g, ',')
-    .replace(/\s*=\s*/g, '=')
-    .replace(/\s*,\s*/g, ', ')
-    .replace(/[\r\n]+/g, ' ')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-  const candidates = [input, stripped, normalized, stripped.replace(/\|/g, '｜'), stripped.replace(/｜/g, '|'), normalized.replace(/\|/g, '｜'), normalized.replace(/｜/g, '|')];
+  const stripped = input.replace(/^```[a-zA-Z0-9_-]*\s*/, '').replace(/\s*```$/, '').trim();
+  const candidates = stripped && stripped !== input ? [input, stripped] : [input];
   let match: RegExpExecArray | null = null;
   for (const candidate of candidates) {
     regex.lastIndex = 0;
@@ -217,6 +289,7 @@ export function renderStatusBarHtml(
     extracted.captures.forEach((value, index) => { values[String(index + 1)] = value; });
     Object.assign(values, extracted.groups || {});
     values.match = extracted.match || '';
+    values['0'] = extracted.match || '';
   } else {
     values.match = String(sourceText || '').trim();
     values.status = values.match;

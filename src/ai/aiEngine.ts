@@ -2,7 +2,7 @@ import type { ImportedCharacter } from '../data/characterImport';
 import type { ProjectManifest, WorldBook } from '../types';
 import type { CharacterMemory, MemorySection } from '../store/characterMemory';
 import type { StatusBarPreset } from '../store/statusBarPresets';
-import { extractStatusMatch } from '../store/statusBarPresets';
+import { extractStatusMatch, splitStatusBarFromText } from '../store/statusBarPresets';
 import { buildMemoryContext } from '../store/characterMemory';
 import type { AppSettings, ChannelAiSettings } from '../store/appSettings';
 import { readAppSettings } from '../store/appSettings';
@@ -126,14 +126,15 @@ export function parseAiReplyPayload(
   const statusMatch = withoutMetadata.match(/\[状态栏\]\s*([\s\S]*?)\s*\[\/状态栏\]/i) ||
     withoutMetadata.match(/<status(?:bar)?>\s*([\s\S]*?)\s*<\/status(?:bar)?>/i) ||
     withoutMetadata.match(/【状态栏】\s*([\s\S]*?)(?=【(?:动作|COT)】|$)/i);
-  let statusBarRaw = statusMatch?.[1]?.trim() || '';
-  if (!statusBarRaw && statusRegex) {
-    const extracted = extractStatusMatch(withoutMetadata, statusRegex);
-    if (extracted?.match) {
-      statusBarRaw = extracted.match.trim();
-      withoutMetadata = withoutMetadata.replace(extracted.match, '').trim();
+  let statusBarRaw = '';
+  if (statusRegex?.trim()) {
+    const split = splitStatusBarFromText(withoutMetadata, statusRegex);
+    if (split.status) {
+      statusBarRaw = split.status;
+      withoutMetadata = split.text;
     }
   }
+  if (!statusBarRaw) statusBarRaw = statusMatch?.[1]?.trim() || '';
   withoutMetadata = withoutMetadata.replace(/\[状态栏\][\s\S]*?\[\/状态栏\]/gi, '').replace(/<status(?:bar)?>[\s\S]*?<\/status(?:bar)?>/gi, '').replace(/【状态栏】[\s\S]*?(?=【(?:动作|COT)】|$)/gi, '');
   const messageMatch = /<message>\s*([\s\S]*?)\s*<\/message>/i.exec(withoutMetadata);
   const text = (messageMatch?.[1] || withoutMetadata.replace(/<action>[\s\S]*?<\/action>/gi, '').replace(/\[动作\][\s\S]*?\[\/动作\]/gi, '').replace(/【动作】[\s\S]*?(?=【(?:状态栏|COT)】|$)/gi, '').replace(/<message>[\s\S]*?<\/message>/gi, '')).trim();
@@ -520,6 +521,8 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
       '例如 Prompt 写成“Q=请提出一个问题”时，输出应是实际的问题；写成“A=请以角色口吻回答Q”时，输出应是角色真正的回答，而不是“请以角色口吻回答Q”这句话，更不能输出“……”或“...”占位。',
       '时间字段同理：如果字段要求“当前时间/早于当前5分钟/指定格式”，必须计算并输出真实时间值，而不是复制 Prompt 里的示例时间。',
       '输出前必须自检：每一个字段都已经从“指令文字”变成了实际值；禁止出现模板指令原文、说明文字、……、...、TODO、待填写等占位内容。',
+      '输出格式必须与当前状态栏 Prompt 的模板逐字对应：开头标记、字段名、等号、分隔符和结尾符号保持原样；字段值内部不要换行，也不要把状态栏包进代码块。',
+      '状态栏原文只能出现在整次回复的最末尾；聊天正文中不要提前输出状态栏的字段名或标记。',
       input.statusBarPreset.regex?.trim()
         ? '当前预设有 Regex：状态栏必须以不带额外包装的原始文本输出，并确保整段状态栏能被当前 Regex 捕获。不要输出 [状态栏] 或 <statusbar> 等包装。'
         : '当前预设没有 Regex：请把状态栏原文放在 <statusbar>...</statusbar> 中，作为角色正文后的最后一段。标签只是供程序分离正文与状态栏，程序会移除标签，不会显示给用户。',
