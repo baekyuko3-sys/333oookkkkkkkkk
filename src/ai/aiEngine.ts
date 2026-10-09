@@ -12,7 +12,7 @@ import type { CotPreset } from '../store/cotPresets';
 import { buildLineHumanBehaviorPrompt } from '../store/lineReality';
 import { pushAiDebugLog, writeAiDebugTrace } from '../store/aiDebug';
 import { resolveMacros, type MacroNames } from './macros';
-import { buildPromptPresetInstructions } from '../store/promptPresets';
+import { buildPromptPresetInstructions, getPromptPresetFlowSteps, type PromptPresetScope } from '../store/promptPresets';
 
 export type AiSettings = Pick<AppSettings, 'provider' | 'apiBaseUrl' | 'apiKey' | 'model' | 'streaming' | 'contextLength' | 'maxOutputTokens' | 'autoSave' | 'temperature' | 'topP' | 'topK' | 'frequencyPenalty' | 'presencePenalty' | 'seed'>;
 
@@ -154,18 +154,9 @@ export function parseAiReplyPayload(
     return source.replace(new RegExp('【\\s*' + tag + '\\s*】[\\s\\S]*?' + boundary, 'gi'), '');
   };
 
-  const configuredCot = angleTagName
-    ? readAngleSection(angleTagName)
-    : bracketTagName
-      ? readBracketSection(bracketTagName)
-      : titledTagName
-        ? readTitledSection(titledTagName)
-        : '';
-  const thinkingSummary = readAngleSection('preset_flow') || configuredCot ||
-    readAngleSection('cot') || readAngleSection('thinking') || readAngleSection('think') ||
-    readAngleSection('thought') || readAngleSection('summary') || readAngleSection('decision') ||
-    readAngleSection('decision_summary') ||
-    readBracketSection('COT') || readTitledSection('COT') || '';
+  // The collapsible panel belongs to the Preset App flow only. Legacy COT tags
+  // are still stripped below so they can never leak into the visible chat body.
+  const thinkingSummary = readAngleSection('preset_flow') || '';
 
   let withoutMetadata = raw;
   const metadataTags = new Set(['preset_flow', 'think', 'thought', 'thinking', 'cot', 'summary', 'decision', 'decision_summary']);
@@ -457,7 +448,9 @@ function buildMessageTimeContext(input: AiReplyInput): string {
 export function buildCharacterSystemPrompt(input: AiReplyInput): string {
   // Preset App rules are the active generation preset; legacy COT is opt-in only.
   const cotPreset = input.cotPreset;
-  const appPresetInstructions = buildPromptPresetInstructions(input.isGroup ? 'group' : 'single');
+  const presetScope: PromptPresetScope = input.cotTarget === 'offline' ? 'offline' : input.isGroup ? 'group' : 'single';
+  const appPresetInstructions = buildPromptPresetInstructions(presetScope);
+  const presetFlowSteps = getPromptPresetFlowSteps(presetScope);
   const applicableWorldBooks = getApplicableWorldBooks(input);
   const scopedInput = { ...input, worldbooks: applicableWorldBooks };
   const scanDepth = Math.max(1, Math.min(50, Math.max(
@@ -562,7 +555,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '',
     input.stylePreset ? '【聊天风格预设】\n' + input.stylePreset : '【聊天风格预设】自然、沉浸、像真实聊天。',
     appPresetInstructions,
-    '【预设流程展示协议】本轮先输出 1～3 句安全、简短、可展示的角色决策摘要，使用 <preset_flow>...</preset_flow>；随后输出正常角色内容，放在 <message>...</message> 中。摘要不是隐藏思维链，不得展示逐步推理。显示开关只影响 UI，不影响预设规则执行。',
+    ['【预设流程展示协议】必须按顺序执行当前预设中的每个启用条目，并在 <preset_flow>...</preset_flow> 中完整展示每一步的执行记录；每一步写明“步骤名称 + 本轮执行结论/如何落实”，不可只给 1～3 句总摘要，也不可遗漏启用条目。这里展示的是可供用户查看的预设执行记录，不输出私密逐字思维链。流程语言跟随角色语言设定；未指定时跟随本轮用户消息语言，不要因为预设模板是英文就自动输出英文。之后再输出正常角色内容。', '【本轮预设步骤清单】' + presetFlowSteps.map((step, index) => (index + 1) + '. ' + step.name).join('；')].join('\\n'),
     input.authorNote ? '【作者注释】\n' + input.authorNote : '【作者注释】无。',
     cotPreset ? [
       '【COT 角色回复决策器】先完成角色判断，再输出角色消息：结合当前消息与最近上下文 → 角色设定/关系 → 用户真实意图 → 角色情绪与立场 → 决定自然回应方式与长度 → 检查 OOC/未知信息/是否替用户行动。不要展示隐藏推理。',
@@ -582,15 +575,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '不要因为旧消息里出现过的问题、请求或关键词，就再次回答那个旧问题。',
     '',
     '【输出约束】',
-    '不要输出隐藏推理或逐步推演。当前只有一个可展示的预设流程摘要层，必须使用 <preset_flow>...</preset_flow>；它不是隐藏思维链，长度简短，不要复制预设指令原文。',
-    input.cotTarget && cotPreset ? [
-      '【预设流程强制输出】当前兼容旧数据时，仍统一输出 <preset_flow>...</preset_flow>；不要输出旧 COT 标签。',
-      '你必须先输出一段 1～3 句的高层角色决策记录，再输出角色消息；这段记录不是隐藏思维链，只能写简短、可展示的角色判断摘要。',
-      '可展示摘要必须严格使用 <preset_flow>具体摘要</preset_flow>，不再使用旧 COT 标签。',
-      '预设流程必须出现在 <message> 之前，不能省略。',
-      'COT 与聊天正文严格分离；最终可见聊天正文必须放在 <message>...</message> 中。',
-      '正确格式示例：<preset_flow>判断用户这句话的意思，并决定角色此刻最自然的回应方式。</preset_flow><message>角色真正会发送的消息。</message>',
-    ].join('\\n') : '',
+    '不要输出私密逐字思维链。必须使用 <preset_flow>...</preset_flow> 展示当前预设每个启用条目的完整执行记录，按清单顺序逐项覆盖；不得只输出简短总摘要。随后输出角色正文；预设流程与正文必须严格分离。',
     '不要描述用户尚未明确做出的动作。',
     '不要把聊天回复写成旁白长文；保持手机消息的阅读节奏。',
     '不要用“角色动作 + 长段心理描写 + 一大段台词”代替聊天消息；动作描写如果开启必须单独放进 <action>...</action>，正文仍然是正常聊天消息。',
@@ -610,12 +595,12 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     ].join('\n') : '当前没有额外的聊天打字习惯设置。',
     '',
     '【输出协议】',
-    '预设流程必须输出：先以 <preset_flow>...</preset_flow> 写 1～3 句简短、可展示的角色决策摘要，再输出 <message>...</message> 正文。摘要不得包含逐步推理；无论 UI 显示开关状态如何，均执行当前「预设」App 的规则。',
+    '先输出完整预设执行记录 <preset_flow>...</preset_flow>，逐项展示当前预设每个启用条目的执行结论；然后输出角色正文。即使折叠区域关闭，预设规则也必须照常执行。',
     input.authorNote?.includes('【线上动作描写：开启】')
       ? '动作描写开启：如果角色这一轮有自然动作/反应，输出一条简短具体的 <action>...</action>；不要把动作写成长篇旁白。'
       : '动作描写关闭：不要输出 <action>。',
     '正文直接输出正常角色聊天消息。<message>...</message> 不是必需格式；如果模型使用它，解析器会自动剥离外壳。',
-    'COT、动作和正文是三个独立层，不要把 COT 或动作混进正文。',
+    '预设执行记录、动作描写和角色正文是不同内容层，不要把预设步骤或动作描写混进角色正文。',
     '不要输出 Markdown 代码块，不要输出格式说明。',
     input.statusBarPreset ? [
       '【状态栏｜本轮回复末尾的原始输出】',
