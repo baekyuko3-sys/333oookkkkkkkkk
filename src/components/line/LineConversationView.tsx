@@ -5007,13 +5007,11 @@ export function LineConversationView({
               }}
             >
               {currentStatusSnapshot ? (
-                <div className="w-full max-w-[420px] rounded-[18px] border border-[#dedfe3] bg-white shadow-[0_8px_28px_rgba(0,0,0,0.10)] overflow-visible">
-                  <div
-                    className="uwu-status-render w-full min-w-0 overflow-x-auto break-words"
-                    style={{ height: 'auto', minHeight: 0, overflowWrap: 'anywhere' }}
-                    dangerouslySetInnerHTML={{ __html: resolveStatusBarTokens(currentStatusSnapshotHtml, statusTokens) }}
-                  />
-                </div>
+                <div
+                  className="uwu-status-render w-full min-w-0 overflow-x-auto break-words"
+                  style={{ height: 'auto', minHeight: 0, overflowWrap: 'anywhere' }}
+                  dangerouslySetInnerHTML={{ __html: resolveStatusBarTokens(currentStatusSnapshotHtml, statusTokens) }}
+                />
               ) : (
                 <div className="py-12 text-center text-[10px] text-[#aaa]">
                   还没有成功匹配的状态栏
