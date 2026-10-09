@@ -1384,7 +1384,7 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
   }
 
   const providerRawText = rawText;
-  const providerParsedRaw = parseAiReplyPayload(providerRawText, input.cotPreset?.tag, input.statusBarPreset?.regex);
+  let providerParsedRaw = parseAiReplyPayload(providerRawText, input.cotPreset?.tag, input.statusBarPreset?.regex);
   const normalizedReplyText = cotEnabled && cotDecisionSummary
     ? normalizeCotOutputToSelectedPreset(providerRawText, input.cotPreset?.tag || '<cot>...</cot>', cotDecisionSummary)
     : providerRawText;
@@ -1482,6 +1482,7 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
 
     if (repairedParsed.text.trim() && repairedParsed.statusBarRaw) {
       parsedRaw = repairedParsed;
+      providerParsedRaw = repairedProviderParsed;
       rawText = repairedRaw;
       trace.providerRawResponse = rawText;
       trace.rawResponse = repairedNormalizedRaw;
