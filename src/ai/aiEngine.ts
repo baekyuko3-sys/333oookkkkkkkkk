@@ -1175,8 +1175,8 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
       // notes contain final-output directives (emit the COT tag, then <message>,
       // and optionally <action>); those must not leak into this prepass.
       const prepassAuthorNote = String(providerInput.authorNote || '')
-        .replace(/【COT 输出：(?:开启|关闭)】[\\s\\S]*?(?=\\\\n|\\r?\\n|$)/g, '')
-        .replace(/【线上动作描写：(?:开启|关闭)】[\\s\\S]*?(?=\\\\n|\\r?\\n|$)/g, '');
+        .replace(/【COT 输出：(?:开启|关闭)】[\s\S]*?(?=\\n|\r?\n|$)/g, '')
+        .replace(/【线上动作描写：(?:开启|关闭)】[\s\S]*?(?=\\n|\r?\n|$)/g, '');
       const prepassProviderInput: AiReplyInput = {
         ...providerInput,
         authorNote: prepassAuthorNote,
