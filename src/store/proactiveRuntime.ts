@@ -152,7 +152,7 @@ async function generateProactiveMessage(
     : { ...settings, temperature: appSettings.proactiveTemperature };
   if (!proactiveSettings.apiKey.trim()) throw new Error('AI_NOT_CONFIGURED');
 
-  const profile = getCharacterProfile(character.name);
+  const profile = getCharacterProfile(character.name, character.id);
   const memory = getCharacterMemory(character.id, character.name);
   const project = getProjectManifest();
   const worldbooks = readLocal<WorldBook[]>('phone:worldbooks', []);
