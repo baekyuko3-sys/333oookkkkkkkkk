@@ -1374,9 +1374,11 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
 
   const parsed = {
     text: resolveMacros(parsedRaw.text, replyMacroNames),
-    thinkingSummary: parsedRaw.thinkingSummary
-      ? resolveMacros(parsedRaw.thinkingSummary, replyMacroNames)
-      : (cotDecisionSummary ? resolveMacros(cotDecisionSummary, replyMacroNames) : undefined),
+    // Show the exact decision summary from the required prepass. The final
+    // model's optional echo tag remains available separately in the trace.
+    thinkingSummary: cotDecisionSummary
+      ? resolveMacros(cotDecisionSummary, replyMacroNames)
+      : (parsedRaw.thinkingSummary ? resolveMacros(parsedRaw.thinkingSummary, replyMacroNames) : undefined),
     actionDescription: parsedRaw.actionDescription ? resolveMacros(parsedRaw.actionDescription, replyMacroNames) : undefined,
     statusBarRaw: parsedRaw.statusBarRaw ? resolveMacros(parsedRaw.statusBarRaw, replyMacroNames) : undefined,
     rawResponse: rawText,
@@ -1390,6 +1392,8 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     text: parsed.text,
     hasCot: Boolean(parsed.thinkingSummary),
     modelEmittedCotTag: Boolean(parsedRaw.thinkingSummary),
+    modelEmittedCotSummary: parsedRaw.thinkingSummary || null,
+    cotDecisionSummary: cotDecisionSummary || null,
     cotPrepassCompleted: Boolean(cotDecisionSummary),
     hasAction: Boolean(parsed.actionDescription),
     expectedCot: cotEnabled,
