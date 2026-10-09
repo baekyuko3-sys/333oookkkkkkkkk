@@ -567,7 +567,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '不要因为旧消息里出现过的问题、请求或关键词，就再次回答那个旧问题。',
     '',
     '【输出约束】',
-    '禁止输出模型的隐藏推理、逐步推演或私密思维链。当前启用的 COT 标签只承载可展示的高层角色决策摘要；即使所选预设使用 <think>...</think> 标签，也只允许把简短摘要放进该标签，绝不能输出隐藏推理过程。',
+    '不要输出隐藏推理或逐步推演。当前只有一个可展示的预设流程摘要层，必须使用 <preset_flow>...</preset_flow>；它不是隐藏思维链，长度简短，不要复制预设指令原文。',
     input.cotTarget && cotPreset ? [
       '【COT 强制输出】本轮 COT 已开启，这是硬性输出协议，不允许省略。',
       '你必须先输出一段 1～3 句的高层角色决策记录，再输出角色消息；这段记录不是隐藏思维链，只能写简短、可展示的角色判断摘要。',
@@ -580,7 +580,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     '不要把聊天回复写成旁白长文；保持手机消息的阅读节奏。',
     '不要用“角色动作 + 长段心理描写 + 一大段台词”代替聊天消息；动作描写如果开启必须单独放进 <action>...</action>，正文仍然是正常聊天消息。',
     input.authorNote?.includes('【线上动作描写：开启】') ? '【动作描写】开启。动作是角色线上聊天时可被感知的行为层；每轮必须判断是否有自然、有信息量的线上反应。若有，输出一条简短具体的 <action>...</action>，例如停顿、删改重写、看完后迟疑、输入后又删掉等；若当前语境确实没有值得表现的动作，可输出极短的“停了一下”类反应，但禁止长篇旁白、禁止替用户行动。动作必须与正文分离。' : '【动作描写】关闭。不要输出 <action> 标签，也不要额外写动作旁白。',
-    input.authorNote?.includes('【思考摘要：开启】') ? '【思考摘要】开启。必须输出一句或两句高层次角色决策摘要，不得省略；不要输出逐步推理或隐藏思维链。摘要必须使用 <summary>...</summary>。' : '【思考摘要】关闭。不要输出 <summary> 标签。',
+    '不要另行输出 <summary>、<cot> 或 <think> 摘要。本轮可展示的摘要统一使用 <preset_flow>...</preset_flow>。',
     '',
     '【LINE 聊天设定 · 最高优先级格式约束】',
     input.typingHabit ? [
@@ -595,9 +595,7 @@ export function buildCharacterSystemPrompt(input: AiReplyInput): string {
     ].join('\n') : '当前没有额外的聊天打字习惯设置。',
     '',
     '【输出协议】',
-    input.cotTarget && cotPreset
-      ? 'COT 开启：输出 1～3 句可展示的高层角色决策摘要，使用当前预设标签 ' + cotPreset.tag + '。这是角色判断摘要，不是原始隐藏思维链。'
-      : 'COT 关闭：不要输出 COT 标签。',
+    '预设流程必须输出：先以 <preset_flow>...</preset_flow> 写 1～3 句简短、可展示的角色决策摘要，再输出 <message>...</message> 正文。摘要不得包含逐步推理；无论 UI 显示开关状态如何，均执行当前「预设」App 的规则。',
     input.authorNote?.includes('【线上动作描写：开启】')
       ? '动作描写开启：如果角色这一轮有自然动作/反应，输出一条简短具体的 <action>...</action>；不要把动作写成长篇旁白。'
       : '动作描写关闭：不要输出 <action>。',
