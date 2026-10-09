@@ -1833,7 +1833,7 @@ export function LineConversationView({
           hasThinking: index === 0 && Boolean(replyMetadata.thinkingSummary),
           hasAction: index === 0 && Boolean(replyMetadata.actionDescription),
           metadata: {
-            ...(replyMetadata.thinkingSummary ? { thinkingSummary: replyMetadata.thinkingSummary } : {}),
+            ...(index === 0 && replyMetadata.thinkingSummary ? { thinkingSummary: replyMetadata.thinkingSummary } : {}),
             ...(index === 0 && replyMetadata.actionDescription ? { actionDescription: replyMetadata.actionDescription } : {}),
             ...(index === 0 && result.statusBarRaw ? { statusBarRaw: result.statusBarRaw } : {}),
           },
