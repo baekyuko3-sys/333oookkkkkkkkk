@@ -269,10 +269,18 @@ export async function runProactiveCatchup() {
       if (lastSent && now.getTime() - lastSent < cooldownMs) continue;
 
       const kind = candidate.item.kind || 'message';
-      const permissionId = candidate.item.conversationId || character.id || character.name;
+      // Settings are stored per conversation. Older schedules may lack a
+      // conversationId, and imported contacts can have both ID- and name-based
+      // legacy keys. Honor any explicit opt-out across these equivalent keys
+      // so a stale/missing schedule ID can never bypass a disabled permission.
+      const permissionIds = [...new Set([
+        candidate.item.conversationId,
+        character.id,
+        character.name,
+      ].filter((value): value is string => Boolean(value && value.trim())))];
       const behaviorAllowed = (type: 'message' | 'moment' | 'offline') => {
         const key = type === 'message' ? 'line:allow-role-message:' : type === 'moment' ? 'line:allow-role-moments:' : 'line:allow-offline-invite:';
-        return readLocal<boolean>(key + permissionId, true);
+        return permissionIds.every(id => readLocal<boolean>(key + id, true));
       };
       let notificationBody = '';
       if (kind === 'moment') {
