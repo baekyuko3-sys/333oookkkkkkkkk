@@ -58,16 +58,16 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   const getDefaultLayout = (page: DesktopPage) => page === 1 ? defaultPage1Layout : defaultPage2Layout;
   const pageKey = (page: DesktopPage) => page === 1 ? 'page1' : 'page2';
   const getLayout = (page: DesktopPage): DesktopItem[] => {
-    const phone = typeof document !== 'undefined' ? document.querySelector('[data-sane333-phone]') as HTMLElement | null : null;
+    const phone = typeof document !== 'undefined' ? document.querySelector('[data-sane333-home-viewport]') as HTMLElement | null : null;
     const width = phone?.clientWidth || 360;
-    const height = phone?.querySelector(':scope > div.flex-1.relative.overflow-hidden')?.clientHeight || phone?.clientHeight || 800;
+    const height = phone?.clientHeight || 800;
     return getDefaultLayout(page).map(item => {
       const saved = desktopLayouts[pageKey(page)][item.id] || {};
       // Saved positions are user-owned: never auto-shift them during render.
       const merged = { ...item, ...saved };
       const metrics = itemMetrics(item.id);
       const dockSafeBottom = 132;
-      return { ...merged, x: Math.max(12, Math.min(width - metrics.width - 12, merged.x)), y: Math.max(70, Math.min(height - dockSafeBottom - metrics.height, merged.y)) };
+      return { ...merged, x: Math.max(8, Math.min(width - metrics.width - 8, merged.x)), y: Math.max(8, Math.min(height - dockSafeBottom - metrics.height, merged.y)) };
     });
   };
 
@@ -89,16 +89,17 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   };
 
   const resolvePosition = (page: DesktopPage, moving: DesktopItem): DesktopItem => {
-    const current = getLayout(page).filter(item => item.id !== moving.id && !isHidden(page, item.id));
-    const candidates = [moving, ...Array.from({ length: 12 }, (_, i) => ({ ...moving, x: moving.x + (i + 1) * 8 })), ...Array.from({ length: 12 }, (_, i) => ({ ...moving, y: moving.y + (i + 1) * 8 }))];
-    const phone = document.querySelector('[data-sane333-phone]') as HTMLElement | null;
-    const maxX = Math.max(12, (phone?.clientWidth || 360) - itemMetrics(moving.id).width - 12);
-    const maxY = Math.max(120, (phone?.clientHeight || 800) - 135 - itemMetrics(moving.id).height);
-    for (const candidate of candidates) {
-      const safe = { ...candidate, x: Math.max(12, Math.min(maxX, candidate.x)), y: Math.max(120, Math.min(maxY, candidate.y)) };
-      if (!current.some(other => overlaps(safe, other))) return safe;
-    }
-    return { ...moving, x: Math.max(12, Math.min(maxX, moving.x)), y: Math.max(120, Math.min(maxY, moving.y)) };
+    // Free placement: do not snap away or block an item because it is near another widget.
+    const phone = document.querySelector('[data-sane333-home-viewport]') as HTMLElement | null;
+    const width = phone?.clientWidth || 360;
+    const height = phone?.clientHeight || 800;
+    const metrics = itemMetrics(moving.id);
+    const dockSafeBottom = 132;
+    return {
+      ...moving,
+      x: Math.max(8, Math.min(width - metrics.width - 8, moving.x)),
+      y: Math.max(8, Math.min(height - dockSafeBottom - metrics.height, moving.y)),
+    };
   };
 
   const saveDesktopLayout = (page: DesktopPage, next: DesktopItem[]) => {
@@ -110,14 +111,14 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
   };
 
   const moveDesktopItem = (page: DesktopPage, id: string, clientX: number, clientY: number) => {
-    const phone = document.querySelector('[data-sane333-phone]') as HTMLElement | null;
+    const phone = document.querySelector('[data-sane333-home-viewport]') as HTMLElement | null;
     if (!phone || isHidden(page, id)) return;
     const rect = phone.getBoundingClientRect();
     const metrics = itemMetrics(id);
     const raw = {
       id,
-      x: Math.round(Math.max(12, Math.min(rect.width - metrics.width - 12, clientX - rect.left - metrics.width / 2)) / 2) * 2,
-      y: Math.round(Math.max(120, Math.min(rect.height - 135 - metrics.height, clientY - rect.top - metrics.height / 2)) / 2) * 2,
+      x: Math.round(Math.max(8, Math.min(rect.width - metrics.width - 8, clientX - rect.left - metrics.width / 2)) / 2) * 2,
+      y: Math.round(Math.max(8, Math.min(rect.height - 132 - metrics.height, clientY - rect.top - metrics.height / 2)) / 2) * 2,
     };
     const next = getLayout(page).map(item => item.id === id ? resolvePosition(page, raw) : item);
     saveDesktopLayout(page, next);
@@ -138,6 +139,11 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
     const nextHidden = { ...desktopHidden, [key]: [] };
     setDesktopHidden(nextHidden);
     saveAppearance({ desktopHidden: nextHidden });
+  };
+
+  const endDesktopDrag = () => {
+    setDraggingDesktopItem(null);
+    dragStartRef.current = null;
   };
 
   const beginDesktopDrag = (page: DesktopPage, id: string, event: ReactPointerEvent) => {
@@ -315,7 +321,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
         <div className="animate-in fade-in duration-300">
           
           {/* Date & Literary Section */}
-          <div className={`absolute z-10 ${desktopEditing ? "ring-1 ring-[#b7a59a]/45 rounded-xl cursor-grab active:cursor-grabbing touch-none" : ""}`} style={{ left: itemPosition(1, "widget-date").x, top: itemPosition(1, "widget-date").y }} onPointerDown={e=>beginDesktopDrag(1,"widget-date",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-date",e)} onPointerUp={()=>{setDraggingDesktopItem(null);dragStartRef.current=null}} onPointerCancel={()=>{setDraggingDesktopItem(null);dragStartRef.current=null}}>
+          <div className={`absolute z-10 ${desktopEditing ? "ring-1 ring-[#b7a59a]/45 rounded-xl cursor-grab active:cursor-grabbing touch-none" : ""}`} style={{ left: itemPosition(1, "widget-date").x, top: itemPosition(1, "widget-date").y }} onPointerDown={e=>beginDesktopDrag(1,"widget-date",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-date",e)} onPointerUp={endDesktopDrag} onPointerCancel={endDesktopDrag}>
             <div className="font-serif text-[55px] leading-[0.9] font-normal tracking-[-3px] text-[var(--ink)]">
               {currentDateNumber}
             </div>
@@ -337,7 +343,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
           {/* Film Photo Polaroid pinned diagonally (Click to Flip!) */}
           <div 
             onClick={() => { if (!desktopEditing) setIsPhotoFlipped(!isPhotoFlipped); }}
-            className={`absolute z-10 w-[84px] h-[106px] rotate-[4deg] p-[5px_5px_15px] bg-[var(--paper,#eee9df)] shadow-[0_7px_18px_rgba(45,37,30,.09)] opacity-90 cursor-pointer hover:rotate-0 hover:scale-105 transition-all group ${desktopEditing ? "ring-1 ring-[#b7a59a]/45 cursor-grab active:cursor-grabbing touch-none" : ""}`} style={{ left: itemPosition(1, "widget-photo").x, top: itemPosition(1, "widget-photo").y }} onPointerDown={e=>beginDesktopDrag(1,"widget-photo",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-photo",e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)}
+            className={`absolute z-10 w-[84px] h-[106px] rotate-[4deg] p-[5px_5px_15px] bg-[var(--paper,#eee9df)] shadow-[0_7px_18px_rgba(45,37,30,.09)] opacity-90 cursor-pointer hover:rotate-0 hover:scale-105 transition-all group ${desktopEditing ? "ring-1 ring-[#b7a59a]/45 cursor-grab active:cursor-grabbing touch-none" : ""}`} style={{ left: itemPosition(1, "widget-photo").x, top: itemPosition(1, "widget-photo").y }} onPointerDown={e=>beginDesktopDrag(1,"widget-photo",e)} onPointerMove={e=>continueDesktopDrag(1,"widget-photo",e)} onPointerUp={endDesktopDrag} onPointerCancel={endDesktopDrag}
             title="点击翻转拍立得相纸"
           >
             {desktopEditing && <button onPointerDown={e=>e.stopPropagation()} onClick={()=>hideDesktopItem(1,'widget-photo')} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px]">×</button>}
@@ -385,8 +391,8 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
                 style={{ left: itemPosition(1, 'widget-weather').x, top: itemPosition(1, 'widget-weather').y }}
                 onPointerDown={e=>beginDesktopDrag(1,'widget-weather',e)}
                 onPointerMove={e=>continueDesktopDrag(1,'widget-weather',e)}
-                onPointerUp={()=>{setDraggingDesktopItem(null);dragStartRef.current=null}}
-                onPointerCancel={()=>{setDraggingDesktopItem(null);dragStartRef.current=null}}
+                onPointerUp={endDesktopDrag}
+                onPointerCancel={endDesktopDrag}
                 onClick={() => { if (!desktopEditing) setCityIndex((prev) => (prev + 1) % cities.length); }}
                 className={`pointer-events-auto absolute w-[160px] h-[112px] overflow-hidden border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] text-left cursor-pointer active:scale-98 transition-all ${desktopEditing ? 'ring-1 ring-[#b7a59a]/45 cursor-grab active:cursor-grabbing touch-none' : ''}`}
                 title="点击切换城市天气"
@@ -411,8 +417,8 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
                 style={{ left: itemPosition(1, 'widget-note').x, top: itemPosition(1, 'widget-note').y }}
                 onPointerDown={e=>beginDesktopDrag(1,'widget-note',e)}
                 onPointerMove={e=>continueDesktopDrag(1,'widget-note',e)}
-                onPointerUp={()=>{setDraggingDesktopItem(null);dragStartRef.current=null}}
-                onPointerCancel={()=>{setDraggingDesktopItem(null);dragStartRef.current=null}}
+                onPointerUp={endDesktopDrag}
+                onPointerCancel={endDesktopDrag}
                 onClick={() => { if (!desktopEditing) onNavigate('notes'); }}
                 className={`pointer-events-auto absolute w-[160px] h-[112px] overflow-hidden border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] text-left cursor-pointer active:scale-98 transition-all ${desktopEditing ? 'ring-1 ring-[#b7a59a]/45 cursor-grab active:cursor-grabbing touch-none' : ''}`}
               >
@@ -430,8 +436,8 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
                 style={{ left: itemPosition(1, 'widget-music').x, top: itemPosition(1, 'widget-music').y }}
                 onPointerDown={e=>beginDesktopDrag(1,'widget-music',e)}
                 onPointerMove={e=>continueDesktopDrag(1,'widget-music',e)}
-                onPointerUp={()=>{setDraggingDesktopItem(null);dragStartRef.current=null}}
-                onPointerCancel={()=>{setDraggingDesktopItem(null);dragStartRef.current=null}}
+                onPointerUp={endDesktopDrag}
+                onPointerCancel={endDesktopDrag}
                 className={`pointer-events-auto absolute w-[334px] h-[84px] border border-[var(--edge,rgba(255,255,255,.6))] bg-[var(--glass,rgba(248,246,242,.72))] backdrop-blur-2xl rounded-[21px] p-[15px] shadow-[0_6px_22px_rgba(40,35,30,.045)] flex items-center gap-3 transition-all relative ${desktopEditing ? 'ring-1 ring-[#b7a59a]/45 cursor-grab active:cursor-grabbing touch-none' : ''}`}
               >
                 {desktopEditing && <span onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();hideDesktopItem(1,'widget-music')}} className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-[#292724] text-white text-[10px] grid place-items-center cursor-pointer">×</span>}
@@ -453,7 +459,7 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
               ['moments','IG','ig','bg-[#9b8068] text-white','moments'],
               ['music','音乐','music','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','music'],
               ['offline-story','线下剧情','book','bg-[var(--icon,rgba(248,245,239,.72))] text-[var(--ink)] border border-[var(--edge,rgba(255,255,255,.6))]','offline-story'],
-            ].map(([id,label,symbol,iconClass,screen]) => { if (isHidden(1,'app-'+id)) return null; const pos=itemPosition(1,'app-'+id); return <button key={id} onClick={()=>{if(!desktopEditing) onNavigate(screen as ScreenType)}} onPointerDown={e=>beginDesktopDrag(1,'app-'+id,e)} onPointerMove={e=>continueDesktopDrag(1,'app-'+id,e)} onPointerUp={()=>setDraggingDesktopItem(null)} onPointerCancel={()=>setDraggingDesktopItem(null)} className={`absolute pointer-events-auto flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] select-none touch-none ${desktopEditing?'cursor-grab active:cursor-grabbing':''}`} style={{left:pos.x,top:pos.y}}>
+            ].map(([id,label,symbol,iconClass,screen]) => { if (isHidden(1,'app-'+id)) return null; const pos=itemPosition(1,'app-'+id); return <button key={id} onClick={()=>{if(!desktopEditing) onNavigate(screen as ScreenType)}} onPointerDown={e=>beginDesktopDrag(1,'app-'+id,e)} onPointerMove={e=>continueDesktopDrag(1,'app-'+id,e)} onPointerUp={endDesktopDrag} onPointerCancel={endDesktopDrag} className={`absolute pointer-events-auto flex flex-col items-center gap-2 text-[10px] tracking-[0.4px] text-[var(--sub,#68625b)] select-none touch-none ${desktopEditing?'cursor-grab active:cursor-grabbing':''}`} style={{left:pos.x,top:pos.y}}>
                 <div className={`w-[64px] h-[64px] rounded-[21px] shadow-[0_6px_18px_rgba(52,43,34,.055)] grid place-items-center ${iconClass}`}>{renderAppIcon(id,symbol,'w-6 h-6')}{id==='line'&&worldUnread>0&&<span className="absolute -top-1 right-[-2px] w-4 h-4 rounded-full bg-[#9b625b] text-white text-[9px] font-bold flex items-center justify-center">{worldUnread>99?'99+':worldUnread}</span>}</div><span className="font-medium">{label}</span>
               </button>; })}
           </section>
@@ -505,8 +511,8 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
                   onClick={() => { if (!desktopEditing) onNavigate(screen as ScreenType); }}
                   onPointerDown={e => beginDesktopDrag(2,itemId,e)}
                   onPointerMove={e => continueDesktopDrag(2,itemId,e)}
-                  onPointerUp={() => setDraggingDesktopItem(null)}
-                  onPointerCancel={() => setDraggingDesktopItem(null)}
+                  onPointerUp={endDesktopDrag}
+                  onPointerCancel={endDesktopDrag}
                   className={`absolute pointer-events-auto w-[64px] flex flex-col items-center gap-2 text-[10px] tracking-[0.25px] text-[var(--sub,#68625b)] select-none touch-none ${desktopEditing ? 'cursor-grab active:cursor-grabbing' : ''}`}
                   style={{ left:item.x, top:item.y }}
                 >
