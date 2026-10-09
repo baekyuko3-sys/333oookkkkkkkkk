@@ -2914,12 +2914,7 @@ export function LineConversationView({
                         : tx('离线 · 点击查看主页', 'オフライン · プロフィール')}
                     </span>
                   </div>
-                  {!isGroup && statusBarEnabled && activeStatusBarPreset && (
-                    <div className="mt-0.5 flex items-center gap-1.5 text-[8px] text-[#a1848b]" title={`当前状态栏：${activeStatusBarPreset.name}`}>
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#b9d2c1] shadow-[0_0_0_2px_#f4faf6]" />
-                      <span className="truncate max-w-[150px]">STATUS · {activeStatusBarPreset.name}</span>
-                    </div>
-                  )}
+
                   {friendDeleted && (
                     <div className="text-[9px] text-[#aaa] mt-0.5">对方不是你的好友</div>
                   )}
