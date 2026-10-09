@@ -2936,7 +2936,8 @@ export function LineConversationView({
       return;
     }
     const target = messages[targetIndex];
-    const previousUser = [...messages.slice(0, targetIndex)].reverse().find(m => m.sender === 'me' && m.text)?.text || inputText;
+    const previousUserIndex = [...messages.slice(0, targetIndex)].map((message, index) => ({ message, index })).reverse().find(item => item.message.sender === 'me' && item.message.text?.trim())?.index ?? -1;
+    const previousUser = previousUserIndex >= 0 ? messages[previousUserIndex].text || '' : inputText;
     setShowReroll(false);
     setRerollPrompt('');
     setRerollTargetId(null);
@@ -2952,7 +2953,8 @@ export function LineConversationView({
         worldbooks: activeWorldbooks,
         memory: characterMemory,
         project: projectManifest,
-        messages: messages.slice(0, targetIndex).map(message => ({ ...message, sender: message.sender || 'other' })),
+        // Rebuild this turn from its user message; do not leave earlier split assistant bubbles before re-appending the same user turn.
+        messages: messages.slice(0, previousUserIndex >= 0 ? previousUserIndex : targetIndex).map(message => ({ ...message, sender: message.sender || 'other' })),
         userMessage: previousUser || '继续当前对话',
         isGroup,
         authorNote: [lineConversationRules, '重新生成要求：' + instruction + '；这次只重新生成被选中的这一条消息，不要额外生成其他消息。'].filter(Boolean).join('\\n'),
