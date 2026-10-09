@@ -954,9 +954,9 @@ export function LineConversationView({
     const linePool = all.filter(preset => preset.targets.includes('line'));
     const pool = linePool.length ? linePool : all;
     if (statusBarRandomMode) return pool[Math.floor(Math.random() * pool.length)];
-    return all.find(preset => preset.id === activeStatusBarPresetId)
+    return getStatusBarForCharacter(characterId, 'line')
+      || all.find(preset => preset.id === activeStatusBarPresetId)
       || statusBarPresets.find(preset => preset.id === activeStatusBarPresetId)
-      || getStatusBarForCharacter(characterId, 'line')
       || pool[0];
   };
 
