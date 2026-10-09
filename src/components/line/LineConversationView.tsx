@@ -555,13 +555,8 @@ export function LineConversationView({
       showToast('已引用这条消息');
     } else if (start.horizontalIntent && dx <= -64) {
       if (msg.sender === 'me' && msg.text) {
-        const numericId = Number(msg.id);
-        if (Number.isFinite(numericId)) {
-          setEditingMessageId(numericId);
-          setEditingMessageText(String(msg.text || ''));
-        } else {
-          setContextMenuMsg(msg);
-        }
+        setEditingMessageId(String(msg.id));
+        setEditingMessageText(String(msg.text || ''));
       } else {
         setContextMenuMsg(msg);
       }
@@ -597,7 +592,7 @@ export function LineConversationView({
   const [mediaCache, setMediaCache] = useState<Record<string, string>>({});
 
   // 消息编辑状态 (In-place Message Edit)
-  const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingMessageText, setEditingMessageText] = useState('');
   const [swipedMessageId, setSwipedMessageId] = useState<number | null>(null);
   const [swipeAction, setSwipeAction] = useState<'edit' | 'quote' | null>(null);
@@ -2880,12 +2875,12 @@ export function LineConversationView({
   };
 
   // 保存消息原地编辑
-  const handleSaveMessageEdit = (id: number) => {
+  const handleSaveMessageEdit = (id: number | string) => {
     const nextText = editingMessageText.trim();
     if (!nextText) return;
     editLineMessage(conversationStorageId, id, nextText);
     setMessages((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, text: nextText, edited: true, editedAt: new Date().toISOString() } : m))
+      prev.map((m) => (String(m.id) === String(id) ? { ...m, text: nextText, edited: true, editedAt: new Date().toISOString() } : m))
     );
     setEditingMessageId(null);
     setEditingMessageText('');
@@ -3753,7 +3748,7 @@ export function LineConversationView({
                       </div>
                     </div>
                   </div>
-                ) : editingMessageId === msg.id ? (
+                ) : editingMessageId === String(msg.id) ? (
                   /* 原地消息编辑态 (In-place Edit) */
                   <div className="p-2.5 bg-white border border-[#d4aab5] rounded-[14px] shadow-sm space-y-2">
                     <textarea
@@ -6899,7 +6894,7 @@ export function LineConversationView({
               {contextMenuMsg.sender === 'me' && contextMenuMsg.text && (
                 <div
                   onClick={() => {
-                    setEditingMessageId(contextMenuMsg.id);
+                    setEditingMessageId(String(contextMenuMsg.id));
                     setEditingMessageText(contextMenuMsg.text || '');
                     setContextMenuMsg(null);
                   }}
