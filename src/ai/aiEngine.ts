@@ -440,9 +440,7 @@ function buildMessageTimeContext(input: AiReplyInput): string {
 }
 
 export function buildCharacterSystemPrompt(input: AiReplyInput): string {
-  const cotTarget = input.cotTarget || (input.isGroup ? 'group' : 'line');
-  // The chat screen owns the active COT selection. Only fall back to the global
-  // assignment when the caller does not provide the conversation's selected preset.
+  // Preset App rules are the active generation preset; legacy COT is opt-in only.
   const cotPreset = input.cotPreset;
   const appPresetInstructions = buildPromptPresetInstructions(input.isGroup ? 'group' : 'single');
   const applicableWorldBooks = getApplicableWorldBooks(input);
