@@ -340,8 +340,11 @@ export function LineConversationView({
   const [chatApiModels, setChatApiModels] = useState<string[]>([]);
   const [chatApiBusy, setChatApiBusy] = useState<'models' | 'test' | null>(null);
   const conversationAiSettings = (): AiSettings => {
-    if (!chatApiOverride.enabled) return readStoredAiSettings(importedCharacter?.id, contactName);
     const base = readStoredAiSettings(importedCharacter?.id, contactName);
+    // The per-chat selector controls recent dialogue rounds for this conversation.
+    const selectedRounds = Number.parseInt(String(presetContextLength), 10);
+    const contextLength = Number.isFinite(selectedRounds) ? selectedRounds : 20;
+    if (!chatApiOverride.enabled) return { ...base, contextLength };
     return {
       ...base,
       provider: chatApiOverride.provider,
@@ -349,7 +352,7 @@ export function LineConversationView({
       apiKey: chatApiOverride.apiKey,
       model: chatApiOverride.model,
       streaming: chatApiOverride.streaming,
-      contextLength: chatApiOverride.contextLength,
+      contextLength,
       maxOutputTokens: chatApiOverride.maxOutputTokens,
       temperature: chatApiOverride.temperature,
     };
@@ -5054,7 +5057,7 @@ export function LineConversationView({
             <button onClick={() => setShowSettings(false)} className="text-2xl text-[#555] px-2 cursor-pointer">
               ‹
             </button>
-            <span className="font-semibold text-sm text-[#333]">聊天设置与酒馆设定</span>
+            <span className="font-semibold text-sm text-[#333]">聊天设定</span>
             <div className="w-8" />
           </div>
 
