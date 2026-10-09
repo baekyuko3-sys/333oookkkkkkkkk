@@ -1650,7 +1650,7 @@ export function LineConversationView({
             '【成员状态】\\n' + (activeGroup?.members || []).map(member => member.name + '：' + [member.online === false ? '离线' : '在线', member.mood || '', member.relationship || ''].filter(Boolean).join(' / ')).join('\\n'),
           ].filter(Boolean).join('\n'),
           stylePreset: resolvedCotPreset.title || selectedPreset,
-        cotTarget: enableChainOfThought ? 'line' : undefined,
+        cotTarget: enableChainOfThought ? (isGroup ? 'group' : 'line') : undefined,
         cotPreset: enableChainOfThought ? {
           id: resolvedCotPreset.id,
           title: resolvedCotPreset.title,
@@ -1772,7 +1772,7 @@ export function LineConversationView({
         userMessage: userText,
         isGroup,
         stylePreset: resolvedCotPreset.title || selectedPreset,
-        cotTarget: enableChainOfThought ? 'line' : undefined,
+        cotTarget: enableChainOfThought ? (isGroup ? 'group' : 'line') : undefined,
         cotPreset: enableChainOfThought ? {
           id: resolvedCotPreset.id,
           title: resolvedCotPreset.title,
@@ -2501,7 +2501,7 @@ export function LineConversationView({
         ].filter(Boolean).join('\\n'),
         statusBarPreset: turnStatusPreset,
         stylePreset: activeCotPreset?.title || selectedPreset,
-        cotTarget: enableChainOfThought ? 'line' : undefined,
+        cotTarget: enableChainOfThought ? (isGroup ? 'group' : 'line') : undefined,
         cotPreset: enableChainOfThought ? {
           id: resolvedCotPreset.id,
           title: resolvedCotPreset.title,
@@ -2785,7 +2785,7 @@ export function LineConversationView({
               authorNote: [lineConversationRules, authorsNote].filter(Boolean).join('\n'),
               statusBarPreset: turnStatusPreset,
               stylePreset: activeCotPreset?.title || selectedPreset,
-        cotTarget: enableChainOfThought ? 'line' : undefined,
+        cotTarget: enableChainOfThought ? (isGroup ? 'group' : 'line') : undefined,
         cotPreset: enableChainOfThought ? {
           id: resolvedCotPreset.id,
           title: resolvedCotPreset.title,
@@ -2960,7 +2960,7 @@ export function LineConversationView({
         authorNote: [lineConversationRules, '重新生成要求：' + instruction + '；这次只重新生成被选中的这一条消息，不要额外生成其他消息。'].filter(Boolean).join('\\n'),
         statusBarPreset: turnStatusPreset,
         stylePreset: activeCotPreset?.title || selectedPreset,
-        cotTarget: enableChainOfThought ? 'line' : undefined,
+        cotTarget: enableChainOfThought ? (isGroup ? 'group' : 'line') : undefined,
         cotPreset: enableChainOfThought ? {
           id: resolvedCotPreset.id,
           title: resolvedCotPreset.title,
