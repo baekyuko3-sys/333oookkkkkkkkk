@@ -4,6 +4,7 @@ import type { ImportedCharacter } from '../../data/characterImport';
 import { usePersistentState } from '../../store/usePersistentState';
 import { getOfflineEvents, updateOfflineEvent } from '../../store/offlineEvents';
 import { getCotPresets } from '../../store/cotPresets';
+import { ensureDefaultOfflinePromptPresets } from '../../store/promptPresets';
 import {
   addRecentMemorySummary,
   buildMemoryContext,
@@ -58,6 +59,7 @@ function buildData(
   books: WorldBook[],
   events: OfflineEvent[],
 ) {
+  ensureDefaultOfflinePromptPresets();
   return {
     bridge: true,
     embedded: true,
