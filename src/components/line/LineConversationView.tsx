@@ -2488,7 +2488,9 @@ export function LineConversationView({
         memory: characterMemory,
         project: projectManifest,
         messages: messages.map(message => ({ ...message, sender: message.sender || 'other' })),
-        userMessage: lastUser?.text || '继续刚才的对话',
+        // Continue is a new continuation instruction, not a replay of the old user turn.
+        // Keeping the full history preserves the last assistant reply in its correct order.
+        userMessage: '请接着角色上一条消息自然继续，不要重复已经说过的内容。',
         isGroup,
         authorNote: [
           lineConversationRules,
