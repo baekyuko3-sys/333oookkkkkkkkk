@@ -2752,7 +2752,7 @@ export function LineConversationView({
         else next.splice(Math.min(targetIndex, next.length), 0, nextMessage);
         return next;
       });
-      updateLineMessage(conversationStorageId, target.id, { text: rerolledText, status: 'delivered', statusBarRaw: result.statusBarRaw, error: undefined, edited: true, editedAt: new Date().toISOString() });
+      updateLineMessage(conversationStorageId, target.id, { text: rerolledText, status: 'delivered', error: undefined, edited: true, editedAt: new Date().toISOString() });
       if (statusBarEnabled && !isGroup) await createStatusBarSnapshot(rerolledText, target.id, result.statusBarRaw);
       showToast('这一条已经重新生成');
     } catch (error) {
