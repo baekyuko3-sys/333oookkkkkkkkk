@@ -3029,7 +3029,7 @@ export function LineConversationView({
       : 'bg-white';
 
   return (
-    <div className={`relative w-full h-full flex flex-col ${wallpaperClass} text-[#343538] select-none font-sans overflow-hidden transition-colors duration-300 custom-chat-view`}>
+    <div className={`relative w-full h-full flex flex-col ${wallpaperClass} text-[#343538] select-none overflow-hidden transition-colors duration-300 custom-chat-view`}>
       
       {/* 实时注入自定义 CSS (Live Injected Custom CSS) */}
       <style dangerouslySetInnerHTML={{ __html: customCss }} />
