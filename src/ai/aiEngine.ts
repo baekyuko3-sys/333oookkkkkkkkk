@@ -146,19 +146,29 @@ export function parseAiReplyPayload(
     .replace(/\[COT\][\s\S]*?(?:\[\/COT\]|(?=<message\b|<action\b|<status(?:bar)?\b|\[动作\]|\[状态栏\]|【(?:动作|状态栏)】)|$)/gi, '')
     .replace(/【COT】[\s\S]*?(?=<message\b|<action\b|<status(?:bar)?\b|【(?:动作|状态栏)】|$)/gi, '');
   const actionDescription = readTag('action', withoutMetadata) || readBracket('动作', withoutMetadata) || readTitled('动作', withoutMetadata) || '';
+  // Explicit status delimiters are authoritative. Apply Regex to their inner
+  // payload later, not to the entire reply (where an anchored pattern could
+  // accidentally match body text or fail because the wrapper surrounds it).
   const statusMatch = withoutMetadata.match(/\[状态栏\]\s*([\s\S]*?)\s*\[\/状态栏\]/i) ||
     withoutMetadata.match(/<status(?:bar)?>\s*([\s\S]*?)\s*<\/status(?:bar)?>/i) ||
     withoutMetadata.match(/【状态栏】\s*([\s\S]*?)(?=【(?:动作|COT)】|$)/i);
   let statusBarRaw = '';
-  if (statusRegex?.trim()) {
+  if (statusMatch) {
+    statusBarRaw = statusMatch[1].trim();
+    withoutMetadata = withoutMetadata.replace(statusMatch[0], '');
+  } else if (statusRegex?.trim()) {
+    // Compatibility path for imported Tavern/UWU presets whose models output
+    // the Regex-matched status directly without a wrapper tag.
     const split = splitStatusBarFromText(withoutMetadata, statusRegex);
     if (split.status) {
       statusBarRaw = split.status;
       withoutMetadata = split.text;
     }
   }
-  if (!statusBarRaw) statusBarRaw = statusMatch?.[1]?.trim() || '';
-  withoutMetadata = withoutMetadata.replace(/\[状态栏\][\s\S]*?\[\/状态栏\]/gi, '').replace(/<status(?:bar)?>[\s\S]*?<\/status(?:bar)?>/gi, '').replace(/【状态栏】[\s\S]*?(?=【(?:动作|COT)】|$)/gi, '');
+  withoutMetadata = withoutMetadata
+    .replace(/\[状态栏\][\s\S]*?\[\/状态栏\]/gi, '')
+    .replace(/<status(?:bar)?>[\s\S]*?<\/status(?:bar)?>/gi, '')
+    .replace(/【状态栏】[\s\S]*?(?=【(?:动作|COT)】|$)/gi, '');
   const messageMatch = /<message>\s*([\s\S]*?)\s*<\/message>/i.exec(withoutMetadata);
   const text = (messageMatch?.[1] || withoutMetadata.replace(/<action>[\s\S]*?<\/action>/gi, '').replace(/\[动作\][\s\S]*?\[\/动作\]/gi, '').replace(/【动作】[\s\S]*?(?=【(?:状态栏|COT)】|$)/gi, '').replace(/<message>[\s\S]*?<\/message>/gi, '')).trim();
   return { text, thinkingSummary: thinkingSummary || undefined, actionDescription: actionDescription || undefined, statusBarRaw: statusBarRaw || undefined };
