@@ -17,7 +17,7 @@ import { getGroupPreset, getGroupPresets } from '../../store/groupPresets';
 import { getLineGroups, updateLineGroupMember, addLineGroupMemory, setLineGroupRelationships } from '../../store/lineGroups';
 import { createTogetherMusicSession, type TogetherMusicSession } from '../../store/togetherMusic';
 import { emitWorldEvent, setCharacterRuntime } from '../../store/worldRuntime';
-import { appendStatusBarSnapshot, deleteStatusBarSnapshot, getStatusBarHistory, getStatusBarPresets, getStatusBarRandomMode, getStatusBarForCharacter, renderStatusBarHtml, resolveStatusBarTokens, extractStatusMatch, sanitizeHtmlFragment, sanitizeStatusBarHtml, restoreStatusBarPresentationStyles, saveStatusBarRandomMode, type StatusBarPreset, type StatusBarSnapshot } from '../../store/statusBarPresets';
+import { appendStatusBarSnapshot, deleteStatusBarSnapshot, clearStatusBarHistory, getStatusBarHistory, getStatusBarPresets, getStatusBarRandomMode, getStatusBarForCharacter, renderStatusBarHtml, resolveStatusBarTokens, extractStatusMatch, sanitizeHtmlFragment, sanitizeStatusBarHtml, restoreStatusBarPresentationStyles, saveStatusBarRandomMode, type StatusBarPreset, type StatusBarSnapshot } from '../../store/statusBarPresets';
 import { getCotPresets, type CotPreset, type CotPresetTarget } from '../../store/cotPresets';
 import { getActivePromptPreset } from '../../store/promptPresets';
 import { clearAiDebugLog, readAiDebugLog, readAiDebugTrace, writeAiDebugTrace, pushAiDebugLog, type AiDebugEntry, type AiDebugTrace } from '../../store/aiDebug';
@@ -6207,6 +6207,21 @@ export function LineConversationView({
                     <span>历史快照</span>
                     <span>{statusBarHistory.length} 条</span>
                   </div>
+
+                  <button
+                    disabled={statusBarHistory.length === 0}
+                    onClick={() => {
+                      if (!window.confirm('确定删除当前聊天的全部状态栏历史吗？此操作无法撤销。')) return;
+                      clearStatusBarHistory(conversationStorageId);
+                      setStatusBarHistory([]);
+                      setStatusBarHistoryIndex(0);
+                      setShowRenderedStatusBarModal(false);
+                      showToast('已清空当前聊天的全部状态栏历史');
+                    }}
+                    className="w-full py-2.5 rounded-xl border border-[#ead7d7] bg-[#fff8f8] text-[#a75d5d] text-[9px] disabled:opacity-40"
+                  >
+                    一键删除全部状态栏历史
+                  </button>
                 </div>
               )}
             </div>
