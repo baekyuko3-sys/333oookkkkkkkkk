@@ -76,12 +76,47 @@ function formatReplyReasonStatus(message: any): { icon: string; label: string; t
 
 function formatLineMessageClock(message: any, timezone: string): string {
   const raw = message?.createdAt || message?.timestamp;
-  const date = raw ? new Date(raw) : new Date();
-  if (Number.isNaN(date.getTime())) return String(message?.time || '刚刚');
+  const date = raw ? new Date(raw) : null;
+  if (!date || Number.isNaN(date.getTime())) return String(message?.time || '');
   try {
-    return new Intl.DateTimeFormat('zh-CN', { timeZone: timezone, hour: 'numeric', minute: '2-digit', hour12: true }).format(date);
+    return new Intl.DateTimeFormat('zh-CN', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
   } catch {
-    return new Intl.DateTimeFormat('zh-CN', { hour: 'numeric', minute: '2-digit', hour12: false }).format(date);
+    return new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+  }
+}
+
+function getLineMessageDayKey(value: Date, timezone: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(value);
+    const part = (type: string) => parts.find(item => item.type === type)?.value || '';
+    return `${part('year')}-${part('month')}-${part('day')}`;
+  } catch {
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+  }
+}
+
+function formatLineMessageDayLabel(value: Date, timezone: string): string {
+  const dayKey = getLineMessageDayKey(value, timezone);
+  const now = new Date();
+  const todayKey = getLineMessageDayKey(now, timezone);
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const yesterdayKey = getLineMessageDayKey(yesterday, timezone);
+  if (dayKey === todayKey) return '今天';
+  if (dayKey === yesterdayKey) return '昨天';
+  try {
+    const sameYear = new Intl.DateTimeFormat('en', { timeZone: timezone, year: 'numeric' }).format(value)
+      === new Intl.DateTimeFormat('en', { timeZone: timezone, year: 'numeric' }).format(now);
+    return new Intl.DateTimeFormat('zh-CN', {
+      timeZone: timezone,
+      month: 'long',
+      day: 'numeric',
+      weekday: 'short',
+      ...(sameYear ? {} : { year: 'numeric' }),
+    }).format(value);
+  } catch {
+    return value.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
   }
 }
 
@@ -3321,15 +3356,21 @@ export function LineConversationView({
           const nextMessage = visibleMessages[messageIndex + 1];
           const sameAsPrevious = Boolean(previousMessage && previousMessage.sender === msg.sender && previousMessage.type !== 'system-nudge' && msg.type !== 'system-nudge');
           const sameAsNext = Boolean(nextMessage && nextMessage.sender === msg.sender && nextMessage.type !== 'system-nudge' && msg.type !== 'system-nudge');
-          const todayKey = new Date().toLocaleDateString();
-          const currentDate = msg.createdAt ? new Date(msg.createdAt) : new Date();
-          const previousDate = previousMessage?.createdAt ? new Date(previousMessage.createdAt) : (messageIndex === 0 ? null : currentDate);
-          const currentDay = currentDate.toLocaleDateString();
-          const previousDay = previousDate ? previousDate.toLocaleDateString() : '';
-          const showDaySeparator = messageIndex === 0 || currentDay !== previousDay;
-          const dayLabel = currentDay === todayKey
-            ? '今天'
-            : currentDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+          const currentDateRaw = msg.createdAt || msg.timestamp;
+          const currentDate = currentDateRaw ? new Date(currentDateRaw) : null;
+          const previousDateRaw = previousMessage?.createdAt || previousMessage?.timestamp;
+          const previousDate = previousDateRaw ? new Date(previousDateRaw) : null;
+          const currentDay = currentDate && !Number.isNaN(currentDate.getTime())
+            ? getLineMessageDayKey(currentDate, chatTimezone)
+            : '';
+          const previousDay = previousDate && !Number.isNaN(previousDate.getTime())
+            ? getLineMessageDayKey(previousDate, chatTimezone)
+            : '';
+          const showDaySeparator = Boolean(currentDate && !Number.isNaN(currentDate.getTime())
+            && (messageIndex === 0 || !previousDate || Number.isNaN(previousDate.getTime()) || currentDay !== previousDay));
+          const dayLabel = currentDate && !Number.isNaN(currentDate.getTime())
+            ? formatLineMessageDayLabel(currentDate, chatTimezone)
+            : '';
 
           if (msg.type === 'html-interlude') {
             const safeHtml = sanitizeHtmlFragment(String(msg.htmlContent || ''));
