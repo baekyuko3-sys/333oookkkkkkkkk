@@ -385,15 +385,50 @@ export function deleteCharacterMemoryItem(characterId: string, itemId: string): 
   return saveCharacterMemory(next);
 }
 
-export function buildMemoryContext(memory: CharacterMemory, maxItems = 20): string {
+function memoryQueryTerms(query: string): string[] {
+  const text = query.toLocaleLowerCase().trim();
+  if (!text) return [];
+  const terms = new Set<string>();
+  for (const match of text.matchAll(/[a-z0-9][a-z0-9'-]*/g)) {
+    if (match[0].length >= 2) terms.add(match[0]);
+  }
+  const cjkRuns = text.match(/[\u3400-\u9fff]+/g) || [];
+  for (const run of cjkRuns) {
+    if (run.length === 2) terms.add(run);
+    else for (let index = 0; index < run.length - 1; index += 1) terms.add(run.slice(index, index + 2));
+  }
+  return [...terms].slice(0, 48);
+}
+
+function memoryRelevance(content: string, terms: string[]): number {
+  const normalized = content.toLocaleLowerCase();
+  let score = 0;
+  for (const term of terms) if (normalized.includes(term)) score += term.length >= 4 ? 2 : 1;
+  return score;
+}
+
+export function buildMemoryContext(memory: CharacterMemory, maxItems = 20, query = ''): string {
   const sections: string[] = [];
-  if (memory.summary.trim()) sections.push('【长期记忆摘要】\n' + memory.summary.trim());
+  if (memory.summary?.trim()) sections.push('【长期记忆摘要】\n' + memory.summary.trim());
+  const terms = memoryQueryTerms(query);
 
-  const items = [...memory.items]
-    .sort((a, b) => b.importance - a.importance || b.updatedAt.localeCompare(a.updatedAt))
-    .slice(0, maxItems);
+  const items = [...(memory.items || [])]
+    .map(item => ({ item, relevance: memoryRelevance(item.content || '', terms) }))
+    .sort((a, b) => Number(b.relevance > 0) - Number(a.relevance > 0)
+      || b.relevance - a.relevance
+      || b.item.importance - a.item.importance
+      || b.item.updatedAt.localeCompare(a.item.updatedAt))
+    .slice(0, maxItems)
+    .map(entry => entry.item);
 
-  const recent = [...(memory.recentSummaries || [])].sort((a,b) => b.importance-a.importance || b.createdAt.localeCompare(a.createdAt)).slice(0, 10);
+  const recent = [...(memory.recentSummaries || [])]
+    .map(item => ({ item, relevance: memoryRelevance(item.content || '', terms) }))
+    .sort((a, b) => Number(b.relevance > 0) - Number(a.relevance > 0)
+      || b.relevance - a.relevance
+      || b.item.importance - a.item.importance
+      || b.item.createdAt.localeCompare(a.item.createdAt))
+    .slice(0, 10)
+    .map(entry => entry.item);
   if (recent.length) sections.push('【待整理的近期记忆摘要】\n' + recent.map(item => `- [${item.source}] ${item.content}`).join('\n'));
 
   if (items.length) {
