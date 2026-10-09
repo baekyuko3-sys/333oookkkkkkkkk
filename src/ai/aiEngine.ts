@@ -190,18 +190,31 @@ export function parseAiReplyPayload(
   withoutMetadata = stripBracketSection(withoutMetadata, '动作');
   withoutMetadata = stripTitledSection(withoutMetadata, '动作');
 
-  // The selected status-bar preset's Regex is authoritative whenever configured.
-  // Only use wrapper tags as a compatibility fallback when there is no Regex.
+  // UWU/Tavern-style presets apply their Regex to the status payload itself.
+  // If the model follows our <statusbar> wrapper instruction, unwrap first so
+  // anchored Regexes (^...$) still match. For legacy presets that emit the
+  // status inline in the full reply, retain whole-reply matching as a fallback.
   let statusBarRaw = '';
+  const wrappedStatusMatch = withoutMetadata.match(/<\s*status(?:bar)?\s*>([\s\S]*?)\s*<\s*\/\s*status(?:bar)?\s*>/i);
   if (statusRegex?.trim()) {
-    const split = splitStatusBarFromText(withoutMetadata, statusRegex);
-    if (split.status) {
-      statusBarRaw = split.status;
-      withoutMetadata = split.text;
+    if (wrappedStatusMatch) {
+      const wrappedPayload = wrappedStatusMatch[1].trim();
+      const wrappedSplit = splitStatusBarFromText(wrappedPayload, statusRegex);
+      if (wrappedSplit.status) {
+        statusBarRaw = wrappedSplit.status;
+        withoutMetadata = withoutMetadata.replace(wrappedStatusMatch[0], '');
+      }
+    }
+    if (!statusBarRaw) {
+      const split = splitStatusBarFromText(withoutMetadata, statusRegex);
+      if (split.status) {
+        statusBarRaw = split.status;
+        withoutMetadata = split.text;
+      }
     }
   } else {
     const statusMatch = withoutMetadata.match(/\[\s*状态栏\s*\]\s*([\s\S]*?)\s*\[\s*\/\s*状态栏\s*\]/i) ||
-      withoutMetadata.match(/<\s*status(?:bar)?\s*>([\s\S]*?)\s*<\s*\/\s*status(?:bar)?\s*>/i) ||
+      wrappedStatusMatch ||
       withoutMetadata.match(/【\s*状态栏\s*】([\s\S]*?)(?=<\s*message\b|<\s*action\b|【\s*(?:动作|COT)\s*】|$)/i);
     if (statusMatch) {
       statusBarRaw = statusMatch[1].trim();
