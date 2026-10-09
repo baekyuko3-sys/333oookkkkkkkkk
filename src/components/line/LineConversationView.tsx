@@ -976,28 +976,42 @@ export function LineConversationView({
     const known = statusBarKnownMessageIdsRef.current;
     const fresh = delivered.filter(message => !known.has(String(message.id)));
     fresh.forEach(message => known.add(String(message.id)));
-    if (!fresh.length || !statusBarEnabled || isGroup || statusBarProcessingRef.current.size > 0) return;
+    if (!fresh.length || !statusBarEnabled || isGroup) return;
 
-    const latest = fresh[fresh.length - 1];
-    const turnId = String(latest.turnId || latest.id);
-    if (statusBarProcessingRef.current.has(turnId)) return;
-    statusBarProcessingRef.current.add(turnId);
-
-    const turnMessages = messages
-      .filter(message => String(message.turnId || message.id) === turnId && message.sender === 'other' && message.type === 'ai-reply')
-      .map(message => ({
-        text: String(message.text || '').trim(),
-        statusBarRaw: String(message.statusBarRaw || message.metadata?.statusBarRaw || '').trim(),
-      }))
-      .filter(message => message.text || message.statusBarRaw);
-    const fullReply = turnMessages.map(message => message.text).filter(Boolean).join('\n') || String(latest.text || '').trim();
-    const rawStatus = turnMessages.map(message => message.statusBarRaw).find(Boolean) || String(latest.statusBarRaw || latest.metadata?.statusBarRaw || '').trim();
-
-    void createStatusBarSnapshot(fullReply, latest.id, rawStatus || undefined, statusBarPresetByTurnRef.current.get(turnId)).finally(() => {
-      statusBarProcessingRef.current.delete(turnId);
-      statusBarPresetByTurnRef.current.delete(turnId);
+    // A single React update can deliver several turns at once. Process every
+    // distinct turn; never drop newly-seen messages just because another turn
+    // is currently creating its snapshot.
+    const freshTurnIds = Array.from(new Set(fresh.map(message => String(message.turnId || message.id))));
+    freshTurnIds.forEach(turnId => {
+      if (statusBarProcessingRef.current.has(turnId)) return;
+      statusBarProcessingRef.current.add(turnId);
+      const turnMessages = messages
+        .filter(message => String(message.turnId || message.id) === turnId && message.sender === 'other' && message.type === 'ai-reply')
+        .map(message => ({
+          id: message.id,
+          text: String(message.text || '').trim(),
+          statusBarRaw: String(message.statusBarRaw || message.metadata?.statusBarRaw || '').trim(),
+        }))
+        .filter(message => message.text || message.statusBarRaw);
+      const latest = [...turnMessages].reverse().find(message => message.text || message.statusBarRaw);
+      if (!latest) {
+        statusBarProcessingRef.current.delete(turnId);
+        statusBarPresetByTurnRef.current.delete(turnId);
+        return;
+      }
+      const fullReply = turnMessages.map(message => message.text).filter(Boolean).join('\n');
+      const rawStatus = turnMessages.map(message => message.statusBarRaw).find(Boolean) || '';
+      void createStatusBarSnapshot(
+        fullReply || latest.text,
+        latest.id,
+        rawStatus || undefined,
+        statusBarPresetByTurnRef.current.get(turnId),
+      ).finally(() => {
+        statusBarProcessingRef.current.delete(turnId);
+        statusBarPresetByTurnRef.current.delete(turnId);
+      });
     });
-  }, [messages, statusBarEnabled]);
+  }, [messages, statusBarEnabled, isGroup]);
 
   const createStatusBarSnapshot = async (
     replyText: string,
