@@ -1046,6 +1046,77 @@ async function callOpenAiCompatible(input: AiReplyInput): Promise<string> {
   return result;
 }
 
+function escapeCotRegex(value: string): string {
+  return value.replace(/[.*+?^$()|[\]{}\\]/g, '\\export async function generateCharacterReply(input: AiReplyInput): Promise<AiReplyResult> {');
+}
+
+/**
+ * The selected COT preset controls both the emitted tag and the visible summary.
+ * The final model may try to produce a second, different COT paragraph, so make
+ * the pipeline use the already-completed prepass summary in the selected format.
+ */
+function normalizeCotOutputToSelectedPreset(rawText: string, cotTag: string, summary: string): string {
+  const rawTag = String(cotTag || '<cot>...</cot>').trim();
+  const safeSummary = String(summary || '').trim();
+  if (!safeSummary) return rawText;
+
+  const angle = rawTag.match(/<\s*([A-Za-z][\w:-]*)\s*>/);
+  const bracket = rawTag.match(/\[\s*([A-Za-z][\w:-]*)\s*\]/);
+  const titled = rawTag.match(/【\s*([^】]+?)\s*】/);
+  let wrapper = '';
+  let selectedName = '';
+
+  if (angle) {
+    selectedName = angle[1];
+    wrapper = '<' + selectedName + '>' + safeSummary + '</' + selectedName + '>';
+  } else if (bracket) {
+    selectedName = bracket[1];
+    wrapper = '[' + selectedName + ']' + safeSummary + '[/' + selectedName + ']';
+  } else if (titled) {
+    selectedName = titled[1].trim();
+    wrapper = '【' + selectedName + '】' + safeSummary;
+  } else {
+    selectedName = 'cot';
+    wrapper = '<cot>' + safeSummary + '</cot>';
+  }
+
+  let output = String(rawText || '');
+  const boundary = '(?=<\\s*(?:message|action|statusbar?)\\b|\\[\\s*QA\\s*:|$)';
+  const angleNames = new Set(['cot', 'thinking', 'think', 'thought', 'summary', 'decision', 'decision_summary']);
+  if (angle) angleNames.add(selectedName);
+  for (const name of angleNames) {
+    const escaped = escapeCotRegex(name);
+    output = output.replace(new RegExp(
+      '<\\s*' + escaped + '\\s*>[\\s\\S]*?(?:<\\s*\\/\\s*' + escaped + '\\s*>|' + boundary + ')',
+      'gi',
+    ), '');
+  }
+
+  const bracketNames = new Set(['COT', 'THINKING', 'THINK', '动作思考']);
+  if (bracket) bracketNames.add(selectedName);
+  for (const name of bracketNames) {
+    const escaped = escapeCotRegex(name);
+    output = output.replace(new RegExp(
+      '\\[\\s*' + escaped + '\\s*\\][\\s\\S]*?(?:\\[\\s*\\/\\s*' + escaped + '\\s*\\]|' + boundary + ')',
+      'gi',
+    ), '');
+  }
+
+  const titledNames = new Set(['COT', '思维链', '思考摘要']);
+  if (titled) titledNames.add(selectedName);
+  for (const name of titledNames) {
+    const escaped = escapeCotRegex(name);
+    output = output.replace(new RegExp('【\\s*' + escaped + '\\s*】[\\s\\S]*?' + boundary, 'gi'), '');
+  }
+
+  output = output.trim();
+  const messageTag = /<\s*message\b/i.exec(output);
+  if (messageTag && messageTag.index >= 0) {
+    return output.slice(0, messageTag.index) + wrapper + '\n' + output.slice(messageTag.index);
+  }
+  return wrapper + (output ? '\n' + output : '');
+}
+
 export async function generateCharacterReply(input: AiReplyInput): Promise<AiReplyResult> {
   const startedAt = Date.now();
   const cotEnabled = Boolean(input.cotTarget && input.cotPreset);
@@ -1189,7 +1260,10 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
         '',
         '【COT 前置阶段｜必须先完成】',
         '你现在只负责当前用户消息的角色回复决策，不要生成最终聊天回复、动作描写或状态栏。',
-        '必须实际应用上方当前选中的 COT 预设，以及角色卡、人物关系、长期记忆、世界状态、作者注释和最近聊天上下文。',
+        '必须实际应用上方当前选中的 COT 预设，以及角色卡、人物关系、长期记忆、世界状态、作者注释和最近聊天上下文。不得改用其他预设或默认决策规则。',
+        '【本轮唯一生效的 COT 预设】ID=' + String(input.cotPreset?.id || '') + '；标题=' + String(input.cotPreset?.title || '') + '；输出标签=' + String(input.cotPreset?.tag || ''),
+        '【当前预设完整决策模板】\n' + String(input.cotPreset?.template || ''),
+        '按这份模板中的判断顺序完成角色决策；只将可展示的高层决策总结成 1～3 句。不要展示逐步推理，也不要生成第二套或默认模板的 COT。',
         '将预设内的 STEP/判断标准用于决策；如果预设模板包含 FINAL、最终输出、标签或聊天正文格式要求，那些只属于第二阶段，不能在本阶段执行。',
         '在内部完成必要的角色判断，但不要输出逐步推理、私密思维链或冗长 STEP 列表。',
         '只输出 1～3 句、面向用户可展示的高层角色决策摘要：说明角色如何理解当前消息、当前立场/情绪，以及这将如何影响回复的语气或长度。',
@@ -1309,8 +1383,26 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     throw error;
   }
 
-  trace.rawResponse = rawText;
-  let parsedRaw = parseAiReplyPayload(rawText, input.cotPreset?.tag, input.statusBarPreset?.regex);
+  const providerRawText = rawText;
+  const providerParsedRaw = parseAiReplyPayload(providerRawText, input.cotPreset?.tag, input.statusBarPreset?.regex);
+  const normalizedReplyText = cotEnabled && cotDecisionSummary
+    ? normalizeCotOutputToSelectedPreset(providerRawText, input.cotPreset?.tag || '<cot>...</cot>', cotDecisionSummary)
+    : providerRawText;
+  trace.providerRawResponse = providerRawText;
+  trace.rawResponse = normalizedReplyText;
+  trace.cotOutputNormalization = cotEnabled ? {
+    selectedPresetId: input.cotPreset?.id || null,
+    selectedPresetTitle: input.cotPreset?.title || null,
+    selectedTag: input.cotPreset?.tag || null,
+    modelEmittedCot: Boolean(providerParsedRaw.thinkingSummary),
+    modelSummary: providerParsedRaw.thinkingSummary || null,
+    normalizedToPrepassSummary: Boolean(cotDecisionSummary),
+    visibleSummary: cotDecisionSummary || null,
+  } : null;
+  let parsedRaw = parseAiReplyPayload(normalizedReplyText, input.cotPreset?.tag, input.statusBarPreset?.regex);
+  if (providerParsedRaw.statusBarRaw && !parsedRaw.statusBarRaw) {
+    parsedRaw.statusBarRaw = providerParsedRaw.statusBarRaw;
+  }
 
 
   // A valid status payload is NOT a chat reply. Some models may obey the status
@@ -1355,11 +1447,22 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
       temperature: Math.min(0.8, input.settings.temperature ?? 0.8),
     })).trim();
 
-    const repairedParsed = parseAiReplyPayload(
+    const repairedProviderParsed = parseAiReplyPayload(
       repairedRaw,
       input.cotPreset?.tag,
       input.statusBarPreset.regex,
     );
+    const repairedNormalizedRaw = cotEnabled && cotDecisionSummary
+      ? normalizeCotOutputToSelectedPreset(repairedRaw, input.cotPreset?.tag || '<cot>...</cot>', cotDecisionSummary)
+      : repairedRaw;
+    const repairedParsed = parseAiReplyPayload(
+      repairedNormalizedRaw,
+      input.cotPreset?.tag,
+      input.statusBarPreset.regex,
+    );
+    if (repairedProviderParsed.statusBarRaw && !repairedParsed.statusBarRaw) {
+      repairedParsed.statusBarRaw = repairedProviderParsed.statusBarRaw;
+    }
 
     pushAiDebugLog({
       level: repairedParsed.text.trim() && repairedParsed.statusBarRaw ? 'success' : 'error',
@@ -1380,7 +1483,17 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     if (repairedParsed.text.trim() && repairedParsed.statusBarRaw) {
       parsedRaw = repairedParsed;
       rawText = repairedRaw;
-      trace.rawResponse = rawText;
+      trace.providerRawResponse = rawText;
+      trace.rawResponse = repairedNormalizedRaw;
+      trace.cotOutputNormalization = cotEnabled ? {
+        selectedPresetId: input.cotPreset?.id || null,
+        selectedPresetTitle: input.cotPreset?.title || null,
+        selectedTag: input.cotPreset?.tag || null,
+        modelEmittedCot: Boolean(repairedProviderParsed.thinkingSummary),
+        modelSummary: repairedProviderParsed.thinkingSummary || null,
+        normalizedToPrepassSummary: Boolean(cotDecisionSummary),
+        visibleSummary: cotDecisionSummary || null,
+      } : null;
       markTraceStage('response-repaired', 'status-only response repaired with normal chat text');
     }
   }
@@ -1404,9 +1517,10 @@ export async function generateCharacterReply(input: AiReplyInput): Promise<AiRep
     rawResponseLength: rawText.length,
     text: parsed.text,
     hasCot: Boolean(parsed.thinkingSummary),
-    modelEmittedCotTag: Boolean(parsedRaw.thinkingSummary),
-    modelEmittedCotSummary: parsedRaw.thinkingSummary || null,
+    modelEmittedCotTag: Boolean(providerParsedRaw.thinkingSummary),
+    modelEmittedCotSummary: providerParsedRaw.thinkingSummary || null,
     cotDecisionSummary: cotDecisionSummary || null,
+    cotOutputNormalizedToSelectedPreset: Boolean(cotEnabled && cotDecisionSummary),
     cotPrepassCompleted: Boolean(cotDecisionSummary),
     hasAction: Boolean(parsed.actionDescription),
     expectedCot: cotEnabled,
