@@ -200,6 +200,11 @@ export function PhoneSimulator({
             ['--icon' as any]: 'color-mix(in srgb, ' + globalBg + ' 86%, white 14%)',
             ['--app-accent' as any]: appBeauty.accent || '#292724',
             ['--app-radius' as any]: `${appBeauty.radius ?? 18}px`,
+            // Tailwind's font-sans utility reads --font-sans. Keep LINE's many
+            // font-sans elements aligned with the phone-wide custom font.
+            ['--font-sans' as any]: activeFont
+              ? 'Sane333Custom, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif'
+              : undefined,
           }}
         >
           {appBeauty.background && (
