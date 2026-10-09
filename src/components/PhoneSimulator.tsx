@@ -15,7 +15,7 @@ import { SettingsScreenView } from './screens/SettingsScreenView';
 import { ProjectStudioScreenView } from './screens/ProjectStudioScreenView';
 import { MemoryScreenView } from './screens/MemoryScreenView';
 import { AppearanceScreenView } from './screens/AppearanceScreenView';
-import { OfflineStoryScreenView } from './screens/OfflineStoryScreenView';
+import { OfflineStoryHtmlView } from './screens/OfflineStoryHtmlView';
 import { CalendarScreenView } from './screens/CalendarScreenView';
 import { NpcScreenView } from './screens/NpcScreenView';
 import { GroupPresetScreenView } from './screens/GroupPresetScreenView';
@@ -338,7 +338,7 @@ export function PhoneSimulator({
           )}
 
           {currentScreen === 'offline-story' && (
-            <OfflineStoryScreenView onNavigate={setCurrentScreen} />
+            <OfflineStoryHtmlView onNavigate={setCurrentScreen} />
           )}
 
           {currentScreen === 'calendar' && (
