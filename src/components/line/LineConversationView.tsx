@@ -1882,7 +1882,7 @@ export function LineConversationView({
       // Memory candidate generation happens after a chat segment, not on every reply.
       // Ten messages form a lightweight segment; valid candidates enter the shared
       // Recent Memory Pool. Every 100 valid summaries are sent to the AI Merge Engine.
-      if (importedCharacter && totalConversationMessages > 0 && totalConversationMessages % 10 === 0) {
+      if (importedCharacter && Math.floor(totalConversationMessages / 10) > Math.floor(messages.length / 10)) {
         void summarizeConversationMemory(
           conversationAiSettings(),
           contactName,
