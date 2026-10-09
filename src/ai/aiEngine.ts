@@ -126,7 +126,7 @@ export function parseAiReplyPayload(
     const match = source.match(new RegExp('【' + escapedName + '】\\s*([\\s\\S]*?)(?=<message\\b|【(?:COT|动作|状态栏)】|$)', 'i'));
     return match ? match[1].trim() : '';
   };
-  const customTagName = cotTag?.match(/^<\\s*([A-Za-z][\\w:-]*)\\s*>/)?.[1] || '';
+  const customTagName = cotTag?.match(/^<\s*([A-Za-z][\w:-]*)\s*>/)?.[1] || '';
   const thinkingSummary = (customTagName ? readMetadataTag(customTagName) : '') ||
     readMetadataTag('thinking') || readMetadataTag('cot') || readMetadataTag('think') || readMetadataTag('thought') ||
     readMetadataTag('summary') || readMetadataTag('decision') || readMetadataTag('decision_summary') ||
@@ -143,8 +143,8 @@ export function parseAiReplyPayload(
     );
   }
   withoutMetadata = withoutMetadata
-    .replace(/\\[COT\\][\\s\\S]*?(?:\\[\\/COT\\]|(?=<message\\b|<action\\b|<status(?:bar)?\\b|\\[动作\\]|\\[状态栏\\]|【(?:动作|状态栏)】)|$)/gi, '')
-    .replace(/【COT】[\\s\\S]*?(?=<message\\b|<action\\b|<status(?:bar)?\\b|【(?:动作|状态栏)】|$)/gi, '');
+    .replace(/\[COT\][\s\S]*?(?:\[\/COT\]|(?=<message\b|<action\b|<status(?:bar)?\b|\[动作\]|\[状态栏\]|【(?:动作|状态栏)】)|$)/gi, '')
+    .replace(/【COT】[\s\S]*?(?=<message\b|<action\b|<status(?:bar)?\b|【(?:动作|状态栏)】|$)/gi, '');
   const actionDescription = readTag('action', withoutMetadata) || readBracket('动作', withoutMetadata) || readTitled('动作', withoutMetadata) || '';
   const statusMatch = withoutMetadata.match(/\[状态栏\]\s*([\s\S]*?)\s*\[\/状态栏\]/i) ||
     withoutMetadata.match(/<status(?:bar)?>\s*([\s\S]*?)\s*<\/status(?:bar)?>/i) ||
