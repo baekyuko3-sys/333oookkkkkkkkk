@@ -63,9 +63,16 @@ export function SaneHomeScreenView({ onNavigate, onOpenSheet, onToggleTheme }: S
     const height = phone?.querySelector(':scope > div.flex-1.relative.overflow-hidden')?.clientHeight || phone?.clientHeight || 800;
     return getDefaultLayout(page).map(item => {
       const saved = desktopLayouts[pageKey(page)][item.id] || {};
-      const merged = { ...item, ...saved };
+      // Rebase legacy saved home-screen coordinates to the current compact layout.
+      // Previously saved app rows sat too low and left an oversized dead band in the middle.
+      let savedY = typeof saved.y === 'number' ? saved.y : item.y;
+      if (page === 1 && ['app-line', 'app-moments', 'app-music', 'app-offline-story'].includes(item.id) && savedY >= 490 && savedY <= 530) savedY -= 38;
+      if (page === 2 && ['app-threads', 'app-npc', 'app-group-presets', 'app-spy-phone'].includes(item.id) && savedY >= 370 && savedY <= 410) savedY -= 28;
+      if (page === 2 && ['app-memory', 'app-studio'].includes(item.id) && savedY >= 460 && savedY <= 500) savedY -= 28;
+      const merged = { ...item, ...saved, y: savedY };
       const metrics = itemMetrics(item.id);
-      const dockSafeBottom = page === 1 ? 224 : 170; return { ...merged, x: Math.max(12, Math.min(width - metrics.width - 12, merged.x)), y: Math.max(70, Math.min(height - dockSafeBottom - metrics.height, merged.y)) };
+      const dockSafeBottom = 132;
+      return { ...merged, x: Math.max(12, Math.min(width - metrics.width - 12, merged.x)), y: Math.max(70, Math.min(height - dockSafeBottom - metrics.height, merged.y)) };
     });
   };
 
