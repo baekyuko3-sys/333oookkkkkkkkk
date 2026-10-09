@@ -118,7 +118,7 @@ async function generateLifeText(
 ): Promise<string> {
   const settings = readStoredAiSettings();
   if (!settings.apiKey.trim()) throw new Error('AI_NOT_CONFIGURED');
-  const profile = getCharacterProfile(character.name);
+  const profile = getCharacterProfile(character.name, character.id);
   const memory = getCharacterMemory(character.id, character.name);
   const recentMessages = getLineConversationMessages(character.id || character.name).slice(-10);
   const prompt = mode === 'moment'
