@@ -4006,12 +4006,12 @@ export function LineConversationView({
                       return (
                         <>
                           <span className={msg.isRead ? "text-[#ae7e89] font-medium" : "text-[#b8b8bb] font-medium"}>{readLabel}</span>
-                          <span>{formatLineMessageClock(msg, chatTimezone)}</span>
+                          <span>{formatLineMessageClock(msg, chatTimezone, lineTimeDisplayLocale)}</span>
                         </>
                       );
                     })()
                   ) : (
-                    <span>{formatLineMessageClock(msg, chatTimezone)}</span>
+                    <span>{formatLineMessageClock(msg, chatTimezone, lineTimeDisplayLocale)}</span>
                   )}
                 </div>
               )}
