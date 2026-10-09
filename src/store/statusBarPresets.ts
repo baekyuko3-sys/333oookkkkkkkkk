@@ -294,10 +294,19 @@ export function renderStatusBarHtml(
     values.match = String(sourceText || '').trim();
     values.status = values.match;
   }
+  // HTML templates receive escaped data values, not raw model/user text.
+  // Keep trusted template markup intact while preventing status text from
+  // injecting arbitrary HTML or event handlers through {{match}} / captures.
+  const escapeHtml = (value: unknown) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
   let html = String(preset.html || '');
-  html = html.replace(/\{\{(?:match|status)\}\}/g, values.match || '');
-  html = html.replace(/\{\{([\w-]+)\}\}/g, (_, key: string) => { const aliases: Record<string, string> = { location: '1', time: '2', activity: '3', mood: '4', favor: '5' }; return values[key] ?? (aliases[key] ? values[aliases[key]] : '') ?? ''; });
-  html = html.replace(/\$(\d+)/g, (_, index: string) => values[index] ?? '');
+  html = html.replace(/\{\{(?:match|status)\}\}/g, escapeHtml(values.match || ''));
+  html = html.replace(/\{\{([\w-]+)\}\}/g, (_, key: string) => { const aliases: Record<string, string> = { location: '1', time: '2', activity: '3', mood: '4', favor: '5' }; return escapeHtml(values[key] ?? (aliases[key] ? values[aliases[key]] : '') ?? ''); });
+  html = html.replace(/\$(\d+)/g, (_, index: string) => escapeHtml(values[index] ?? ''));
   return html;
 }
 
