@@ -1076,12 +1076,12 @@ export function LineConversationView({
         throw new Error('AI 返回内容没有匹配当前 Regex');
       }
 
-      const html = renderStatusBarHtml(chosen, rawStatus, {
+      const html = sanitizeHtmlFragment(renderStatusBarHtml(chosen, rawStatus, {
         char: '{{char}}',
         user: '{{user}}',
         char_avatar: '{{char_avatar}}',
         user_avatar: '{{user_avatar}}',
-      });
+      }));
       debugEvent(html.trim() ? 'success' : 'error', html.trim() ? 'html:rendered' : 'html:empty',
         html.trim() ? 'HTML Template 渲染成功' : 'HTML Template 渲染为空',
         { htmlPreview: String(html || '').slice(0, 4000) });
@@ -1099,8 +1099,14 @@ export function LineConversationView({
       };
 
       if (replaceExisting) {
+        const sourceMessage = messages.find(message => String(message.id) === String(sourceMessageId));
+        const sourceTurnId = String(sourceMessage?.turnId || sourceMessageId);
+        const sourceMessageIds = new Set(messages
+          .filter(message => String(message.turnId || message.id) === sourceTurnId)
+          .map(message => String(message.id)));
+        sourceMessageIds.add(String(sourceMessageId));
         getStatusBarHistory(conversationStorageId)
-          .filter(item => String(item.sourceMessageId) === String(sourceMessageId))
+          .filter(item => sourceMessageIds.has(String(item.sourceMessageId)))
           .forEach(item => deleteStatusBarSnapshot(conversationStorageId, item.id));
       }
       appendStatusBarSnapshot(conversationStorageId, snapshot);
