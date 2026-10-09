@@ -98,8 +98,8 @@ export function getCurrentLineTimeContext() {
   };
 }
 
-export function buildLineHumanBehaviorPrompt() {
-  const settings = getLineRealitySettings();
+export function buildLineHumanBehaviorPrompt(characterStyle?: Partial<Pick<LineRealitySettings, 'punctuationStyle' | 'language' | 'bilingualMode' | 'bilingualLayout' | 'bilingualTranslationDirection'>>) {
+  const settings = { ...getLineRealitySettings(), ...characterStyle };
   const time = getCurrentLineTimeContext();
   const punctuation = {
     natural: '标点按角色自己的习惯自然变化，不要机械统一。',
