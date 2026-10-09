@@ -222,7 +222,7 @@ export function OfflineStoryScreenView({ onNavigate }: { onNavigate: (screen: Sc
     const memory = character ? getCharacterMemory(character.id, character.name) : null;
     const project = getProjectManifest();
     const settings = readStoredAiSettings();
-    const cot = getCotForTarget('offline');
+    const presetInstructions = buildPromptPresetInstructions('offline');
     const selectedBooks = worldbooks.filter(book => selected.worldBookIds?.length ? selected.worldBookIds.includes(book.id) : book.enabled);
     const persona = personas.find(item => item.id === selected.personaId);
 
