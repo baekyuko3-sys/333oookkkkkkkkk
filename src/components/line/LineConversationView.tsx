@@ -4982,7 +4982,7 @@ export function LineConversationView({
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="w-full max-w-[420px] max-h-[88vh] overflow-y-auto bg-white rounded-[22px] shadow-2xl p-4 pb-5 animate-in zoom-in-95"
+            className="w-full max-w-[420px] max-h-[88vh] overflow-y-auto rounded-[26px] border border-white/70 bg-white/[0.68] p-4 pb-5 shadow-[0_18px_60px_rgba(40,30,40,0.18)] backdrop-blur-2xl animate-in zoom-in-95"
           >
             <div className="flex items-center justify-between mb-3">
               <div>
