@@ -58,6 +58,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
   const [musicAccent, setMusicAccent] = usePersistentState<string>('phone:music-accent-v1', '#c4989a');
   const [musicBackground, setMusicBackground] = usePersistentState<string>('phone:music-background-v1', '#ffffff');
   const [tab, setTab] = useState<MusicTab>('identity');
+  const [nowPlayingOpen, setNowPlayingOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MusicTrack[]>([]);
   const [searching, setSearching] = useState(false);
@@ -626,101 +627,34 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
         )}
 
         {tab === 'player' && (
-          <div className="space-y-5 pt-4">
-            <section className="relative overflow-hidden rounded-[28px] border border-[#eee6e0] p-4" style={{ background: 'linear-gradient(135deg,#fbf5f3 0%,#f8f7f4 54%,#f1f5f0 100%)' }}>
-              <div className="flex items-start gap-3">
-                <div className="relative w-[100px] h-[100px] rounded-[22px] overflow-hidden bg-white/80 border border-white shrink-0 grid place-items-center shadow-sm">
-                  {currentTrack?.cover ? <img src={currentTrack.cover} alt={currentTrack.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <DiscIcon />}
-                  {currentTrack && <label title="上传这首歌的封面" className="absolute right-1 bottom-1 w-7 h-7 rounded-full bg-white/95 border border-[#eee3dd] shadow-sm grid place-items-center text-[#8f7775] cursor-pointer"><Pencil className="w-3 h-3" /><input type="file" accept="image/*" className="hidden" onChange={event => {
-                    const file = event.target.files?.[0];
-                    if (!file || !currentTrack) return;
-                    if (file.size > 5 * 1024 * 1024) { showToast('封面图片请控制在 5MB 以内'); event.target.value = ''; return; }
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                      const cover = String(reader.result || '');
-                      const nextTrack = { ...currentTrack, cover };
-                      setCurrentTrack(nextTrack);
-                      saveMusicCurrent(nextTrack);
-                      setIdentities(previous => previous.map(identity => ({
-                        ...identity,
-                        likedTracks: identity.likedTracks.map(track => track.id === nextTrack.id ? { ...track, cover } : track),
-                        history: identity.history.map(track => track.id === nextTrack.id ? { ...track, cover } : track),
-                      })));
-                      showToast('歌曲封面已保存');
-                    };
-                    reader.onerror = () => showToast('图片读取失败，请换一张试试');
-                    reader.readAsDataURL(file);
-                    event.target.value = '';
-                  }} /></label>}
-                </div>
-                <div className="min-w-0 flex-1 pt-1">
-                  <div className="text-[9px] tracking-[1.6px] text-[#a38d87]">NOW PLAYING</div>
-                  <div className="mt-2 font-serif font-semibold text-[17px] leading-snug break-words">{currentTrack?.name || '留一首歌给现在的心情'}</div>
-                  <div className="mt-1 text-[11px] text-[#8b7c73] truncate">{currentTrack?.artist || '搜索你想听的歌，音乐会留在这里'}</div>
-                  {currentTrack?.album && <div className="mt-1 text-[9px] text-[#aaa19b] truncate">{currentTrack.album}</div>}
-                  {currentTrack && <div className="mt-2 text-[9px] text-[#a69a91]">点击封面右下角，可以上传自己的专辑图</div>}
-                </div>
+          <div className="relative -mx-[18px] min-h-full bg-[#f4f0ea] px-4 pt-3 pb-24 text-[#2d2724]">
+            <div className="flex items-center justify-between">
+              <button onClick={() => setTab('identity')} className="grid h-9 w-9 place-items-center rounded-full text-[#857b73]"><ArrowLeft className="h-4 w-4" /></button>
+              <div className="text-center"><div className="font-serif text-[25px] italic">Favourite</div><div className="mt-1 text-[9px] tracking-[2px] text-[#a59a92]">YOUR MUSIC SPACE</div></div>
+              <button onClick={() => setTab('appearance')} className="grid h-9 w-9 place-items-center rounded-full text-[#857b73]"><Settings2 className="h-4 w-4" /></button>
+            </div>
+            <div className="mt-4 flex items-center gap-2 rounded-[18px] border border-[#e9e1d9] bg-[#fcfaf7] px-3">
+              <Search className="h-4 w-4 shrink-0 text-[#b5a49b]" />
+              <input value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if(event.key === 'Enter') void search(); }} placeholder="搜索歌曲 / 歌手 / 专辑" className="min-w-0 flex-1 bg-transparent py-3.5 text-[12px] outline-none" />
+              <button onClick={() => void search()} className="text-[11px] text-[#a4777b]">{searching ? '搜索中' : '搜索'}</button>
+            </div>
+            <section className="mt-4 rounded-[24px] border border-[#e9e1d9] bg-[#fcfaf7] p-4">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setNowPlayingOpen(true)} className="grid h-[88px] w-[88px] shrink-0 place-items-center overflow-hidden rounded-[20px] bg-[#e8d9d2]">{currentTrack?.cover ? <img src={currentTrack.cover} alt={currentTrack.name} className="h-full w-full object-cover" /> : <DiscIcon />}</button>
+                <div className="min-w-0 flex-1"><div className="text-[9px] tracking-[1.5px] text-[#a58d86]">NOW PLAYING</div><div className="mt-2 break-words font-serif text-[17px] font-semibold">{currentTrack?.name || '留一首歌给现在'}</div><div className="mt-1 truncate text-[11px] text-[#857b73]">{currentTrack?.artist || '搜索歌曲，开始你的音乐时间'}</div><button onClick={() => setNowPlayingOpen(true)} className="mt-2 text-[10px] text-[#a4777b]">打开播放页 ↗</button></div>
               </div>
-              {currentTrack && (
-                <div className="mt-4">
-                  <input aria-label="歌曲播放进度" type="range" min={0} max={Math.max(1, playbackDuration || 1)} value={Math.min(playbackTime, playbackDuration || playbackTime)} onChange={event => {
-                    const audio = audioRef.current;
-                    const nextTime = Number(event.target.value);
-                    setPlaybackTime(nextTime);
-                    if (audio && Number.isFinite(audio.duration)) audio.currentTime = nextTime;
-                  }} className="w-full h-1.5 accent-[#c4989a] cursor-pointer" />
-                  <div className="flex justify-between text-[9px] text-[#9b8d85] tabular-nums"><span>{formatMusicTime(playbackTime)}</span><span>{formatMusicTime(playbackDuration)}</span></div>
-                </div>
-              )}
-              <div className="mt-4 flex items-center gap-2">
-                <button onClick={() => setTab('search')} className="flex-1 flex items-center justify-center gap-2 rounded-full bg-[#2d2724] text-white py-3 text-[11px] font-semibold"><Search className="w-3.5 h-3.5" />找一首歌</button>
-                <button onClick={() => void startStrangerListening()} className="flex-1 flex items-center justify-center gap-2 rounded-full bg-white/80 border border-[#eadfda] py-3 text-[11px] text-[#695b54]"><Shuffle className="w-3.5 h-3.5" />随机一起听</button>
-              </div>
-              {currentTrack && (
-                <div className="mt-3 flex items-center justify-center gap-6">
-                  <button onClick={() => playAdjacentTrack(-1)} aria-label="上一首" className="text-[#8d827b]"><SkipBack className="w-4 h-4 fill-current" /></button>
-                  <button onClick={() => toggleLiked(currentTrack)} aria-label="喜欢这首歌" className={isCurrentLiked ? 'text-[#bb8589]' : 'text-[#8d827b]'}><Heart className={'w-4 h-4 ' + (isCurrentLiked ? 'fill-current' : '')} /></button>
-                  <button onClick={() => { const audio = audioRef.current; if (!audio) return; if (audio.paused) void audio.play().then(() => setIsPlaying(true)).catch(() => showToast('浏览器无法播放该音源')); else audio.pause(); }} className="w-11 h-11 rounded-full bg-[#2d2724] text-white grid place-items-center">{isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}</button>
-                  <button onClick={() => setTab('characters')} aria-label="邀请角色一起听" className="text-[#8d827b]"><UsersRound className="w-4 h-4" /></button>
-                  <button onClick={() => playAdjacentTrack(1)} aria-label="下一首" className="text-[#8d827b]"><SkipForward className="w-4 h-4 fill-current" /></button>
-                </div>
-              )}
+              {currentTrack && <div className="mt-3"><input aria-label="播放进度" type="range" min={0} max={Math.max(1,playbackDuration||1)} value={Math.min(playbackTime,playbackDuration||playbackTime)} onChange={event => {const n=Number(event.target.value);setPlaybackTime(n);if(audioRef.current&&Number.isFinite(audioRef.current.duration))audioRef.current.currentTime=n;}} className="w-full accent-[#c4989a]" /><div className="flex justify-between text-[9px] text-[#a1968d]"><span>{formatMusicTime(playbackTime)}</span><span>{formatMusicTime(playbackDuration)}</span></div></div>}
+              <div className="mt-3 flex items-center justify-center gap-7"><button onClick={() => playAdjacentTrack(-1)}><SkipBack className="h-4 w-4" /></button><button onClick={() => currentTrack && toggleLiked(currentTrack)} className={isCurrentLiked?'text-[#c4989a]':'text-[#8d827b]'}><Heart className={'h-4 w-4 '+(isCurrentLiked?'fill-current':'')} /></button><button onClick={() => {const audio=audioRef.current;if(!audio){setTab('search');return;}if(audio.paused)void audio.play().then(()=>setIsPlaying(true)).catch(()=>showToast('浏览器无法播放该音源'));else audio.pause();}} className="grid h-10 w-10 place-items-center rounded-full bg-[#2d2724] text-white">{isPlaying?<Pause className="h-4 w-4"/>:<Play className="h-4 w-4 fill-current"/>}</button><button onClick={() => setTab('characters')}><UsersRound className="h-4 w-4" /></button><button onClick={() => playAdjacentTrack(1)}><SkipForward className="h-4 w-4" /></button></div>
             </section>
-
-            <section>
-              <div className="flex items-center justify-between mb-2">
-                <div className="font-serif text-[17px]">喜欢的歌</div>
-                <button onClick={() => setTab('identity')} className="text-[10px] text-[#a07f80] flex items-center gap-1">查看全部 <ChevronRight className="w-3 h-3" /></button>
-              </div>
-              {likedTracks.length ? (
-                <div className="rounded-[20px] bg-[#f8f6f3] px-3">
-                  {likedTracks.slice(0, 8).map(track => (
-                    <div key={track.id} className="flex items-center gap-3 py-2.5 border-b last:border-0 border-[#eae4de]">
-                      <button onClick={() => void playTrack(track)} className="w-11 h-11 rounded-xl overflow-hidden bg-white shrink-0 grid place-items-center">{track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" /> : <Music2 className="w-4 h-4 text-[#b5a49b]" />}</button>
-                      <button onClick={() => void playTrack(track)} className="min-w-0 flex-1 text-left"><div className="text-[12px] font-semibold truncate">{track.name}</div><div className="text-[10px] text-[#9a8d84] truncate mt-0.5">{track.artist}</div></button>
-                      <button onClick={() => toggleLiked(track)} aria-label="取消喜欢" className="text-[#c4989a]"><Heart className="w-3.5 h-3.5 fill-current" /></button>
-                    </div>
-                  ))}
-                </div>
-              ) : <div className="rounded-[20px] bg-[#f8f6f3] py-8 px-4 text-center"><div className="mx-auto w-10 h-10 rounded-2xl bg-white grid place-items-center text-[#c4989a]"><Heart className="w-4 h-4" /></div><div className="mt-3 text-[12px] text-[#5d514b]">这里会收集你真正喜欢的歌</div><div className="mt-1 text-[10px] text-[#a1968d]">搜索歌曲后，点击爱心即可加入</div></div>}
+            {results.length>0 && <section className="mt-5"><h3 className="mb-2 font-serif text-[17px]">搜索结果</h3><div className="rounded-[20px] border border-[#e9e1d9] bg-[#fcfaf7] px-3">{results.map(track=><div key={track.id} className="flex items-center gap-3 border-b border-[#eee7e1] py-2.5 last:border-0"><button onClick={()=>void playTrack(track)} className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-[#f4f0ea]">{track.cover?<img src={track.cover} alt="" className="h-full w-full object-cover"/>:<Music2 className="h-4 w-4 text-[#b5a49b]"/>}</button><button onClick={()=>void playTrack(track)} className="min-w-0 flex-1 text-left"><div className="truncate text-[12px] font-semibold">{track.name}</div><div className="mt-0.5 truncate text-[10px] text-[#9a8d84]">{track.artist}</div></button><button onClick={()=>void playTrack(track)}><Play className="h-4 w-4 text-[#a4777b]"/></button></div>)}</div></section>}
+            <section className="mt-5"><div className="mb-2 flex items-center justify-between"><h3 className="font-serif text-[18px]">喜欢的歌</h3><span className="text-[10px] text-[#a1968d]">{likedTracks.length} 首</span></div>
+              {likedTracks.length ? <div className="rounded-[20px] border border-[#e9e1d9] bg-[#fcfaf7] px-3">{likedTracks.map(track=><div key={track.id} className="flex items-center gap-3 border-b border-[#eee7e1] py-2.5 last:border-0"><button onClick={()=>void playTrack(track)} className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-[#f4f0ea]">{track.cover?<img src={track.cover} alt="" className="h-full w-full object-cover"/>:<Music2 className="h-4 w-4 text-[#b5a49b]"/>}</button><button onClick={()=>void playTrack(track)} className="min-w-0 flex-1 text-left"><div className="truncate text-[12px] font-semibold">{track.name}</div><div className="mt-0.5 truncate text-[10px] text-[#9a8d84]">{track.artist}</div></button><button onClick={()=>toggleLiked(track)} className="text-[#c4989a]"><Heart className="h-3.5 w-3.5 fill-current"/></button></div>)}</div> : <div className="rounded-[20px] border border-[#e9e1d9] bg-[#fcfaf7] px-4 py-9 text-center"><Heart className="mx-auto h-4 w-4 text-[#c4989a]"/><div className="mt-3 text-[12px]">还没有喜欢的歌</div><div className="mt-1 text-[10px] text-[#a1968d]">搜索歌曲后点击爱心，就会收进这里</div></div>}
             </section>
-
-            {characters.length > 0 && (
-              <section>
-                <div className="flex items-center justify-between mb-3"><div className="font-serif text-[17px]">和角色一起听</div><button onClick={() => setTab('characters')} className="text-[10px] text-[#a07f80] flex items-center">查看 <ChevronRight className="w-3 h-3" /></button></div>
-                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
-                  {characters.slice(0, 8).map(character => (
-                    <button key={character.id} onClick={() => { setSelectedCharacterId(character.id); setTab('characters'); setShowInviteCharacter(true); }} className="shrink-0 w-[72px] flex flex-col items-center gap-2">
-                      <div className="w-14 h-14 rounded-[20px] overflow-hidden bg-[#f5efeb] border border-[#eee3dd] grid place-items-center">{character.avatar ? <img src={character.avatar} alt="" className="w-full h-full object-cover" /> : <UserRound className="w-5 h-5 text-[#b6a39a]" />}</div>
-                      <span className="max-w-full text-[10px] text-[#776b64] truncate">{character.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
+            {currentTrack && <button onClick={()=>setNowPlayingOpen(true)} className="fixed bottom-3 left-1/2 z-30 flex w-[calc(100%-42px)] max-w-[370px] -translate-x-1/2 items-center gap-3 rounded-[24px] border border-[#e9e1d9] bg-[#fcfaf7]/95 p-2.5 text-left shadow-lg backdrop-blur-xl"><div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-[14px] bg-[#eee3dc]">{currentTrack.cover?<img src={currentTrack.cover} alt="" className="h-full w-full object-cover"/>:<DiscIcon/>}</div><div className="min-w-0 flex-1"><div className="truncate text-[12px] font-semibold">{currentTrack.name}</div><div className="truncate text-[10px] text-[#92847c]">{currentTrack.artist}</div><div className="mt-1 h-[2px] overflow-hidden rounded-full bg-[#e9ded8]"><div className="h-full bg-[#c4989a]" style={{width:playbackDuration?Math.min(100,playbackTime/playbackDuration*100)+'%':'0%'}}/></div></div><button onClick={event=>{event.stopPropagation();const audio=audioRef.current;if(!audio)return;if(audio.paused)void audio.play().then(()=>setIsPlaying(true)).catch(()=>showToast('浏览器无法播放该音源'));else audio.pause();}} className="grid h-9 w-9 place-items-center rounded-full bg-[#2d2724] text-white">{isPlaying?<Pause className="h-4 w-4"/>:<Play className="h-4 w-4 fill-current"/>}</button></button>}
+            {nowPlayingOpen && <div className="absolute inset-0 z-[80] flex flex-col bg-[#f4f0ea] px-5 pb-6 pt-7"><div className="flex items-center justify-between"><button onClick={()=>setNowPlayingOpen(false)} className="grid h-9 w-9 place-items-center rounded-full bg-[#fcfaf7]"><ArrowLeft className="h-4 w-4"/></button><span className="text-[9px] tracking-[2px] text-[#a1968d]">NOW PLAYING</span><button onClick={()=>setTab('appearance')} className="grid h-9 w-9 place-items-center rounded-full bg-[#fcfaf7]"><Settings2 className="h-4 w-4"/></button></div><div className="flex min-h-0 flex-1 flex-col items-center justify-center"><div className="aspect-square w-[min(68vw,280px)] overflow-hidden rounded-[28px] bg-[#e8d9d2] shadow-xl">{currentTrack?.cover?<img src={currentTrack.cover} alt={currentTrack.name} className="h-full w-full object-cover"/>:<div className="grid h-full place-items-center"><DiscIcon/></div>}</div><div className="mt-7 flex w-full items-center gap-3"><div className="min-w-0 flex-1"><div className="truncate font-serif text-[22px] font-semibold">{currentTrack?.name||'还没有正在播放的歌曲'}</div><div className="mt-1 truncate text-[12px] text-[#857b73]">{currentTrack?.artist||'先去搜索一首歌吧'}</div></div><button onClick={()=>currentTrack&&toggleLiked(currentTrack)} className={isCurrentLiked?'text-[#c4989a]':'text-[#857b73]'}><Heart className={'h-5 w-5 '+(isCurrentLiked?'fill-current':'')}/></button></div><div className="mt-6 w-full"><input aria-label="播放进度" type="range" min={0} max={Math.max(1,playbackDuration||1)} value={Math.min(playbackTime,playbackDuration||playbackTime)} onChange={event=>{const n=Number(event.target.value);setPlaybackTime(n);if(audioRef.current&&Number.isFinite(audioRef.current.duration))audioRef.current.currentTime=n;}} className="w-full accent-[#c4989a]"/><div className="flex justify-between text-[10px] text-[#9a8d84]"><span>{formatMusicTime(playbackTime)}</span><span>{formatMusicTime(playbackDuration)}</span></div></div><div className="mt-7 flex items-center justify-center gap-9"><button onClick={()=>playAdjacentTrack(-1)}><SkipBack className="h-5 w-5"/></button><button onClick={()=>{const audio=audioRef.current;if(!audio||!currentTrack){setTab('search');setNowPlayingOpen(false);return;}if(audio.paused)void audio.play().then(()=>setIsPlaying(true)).catch(()=>showToast('浏览器无法播放该音源'));else audio.pause();}} className="grid h-14 w-14 place-items-center rounded-full bg-[#2d2724] text-white">{isPlaying?<Pause className="h-5 w-5 fill-current"/>:<Play className="h-5 w-5 fill-current"/>}</button><button onClick={()=>playAdjacentTrack(1)}><SkipForward className="h-5 w-5"/></button></div><button onClick={()=>setTab('characters')} className="mt-7 rounded-full border border-[#e3d7cf] bg-[#fcfaf7] px-5 py-3 text-[11px]">邀请角色一起听</button></div></div>}
           </div>
         )}
-
+        
         {tab === 'search' && (
           <div className="pt-4 space-y-4">
             <div className="flex items-center justify-between"><button onClick={() => setTab('player')} className="flex items-center gap-1 text-[11px] text-[#8f7e76]"><ArrowLeft className="w-3.5 h-3.5" />返回我的音乐</button><div className="font-serif text-[17px]">找歌</div><span className="w-16" /></div>
