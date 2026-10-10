@@ -721,6 +721,33 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                   </div>
                 </div>
 
+                <div className="p-3.5 rounded-2xl bg-white/75 border border-[rgba(40,36,31,.1)]">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[8px] tracking-[1.5px] font-mono text-[#8b8782]">CHARACTER GROUP · 角色分组</div>
+                      <div className="mt-1 text-[11px] text-[#655f59]">把这个角色整理到一个分组里</div>
+                    </div>
+                    <button type="button" onClick={createGroup} className="shrink-0 px-3 py-2 rounded-xl bg-[#292724] text-white text-[9px] flex items-center gap-1.5">
+                      <Plus className="w-3 h-3" />新建分组
+                    </button>
+                  </div>
+                  <select
+                    value={selected.groupId || ''}
+                    onChange={e => {
+                      const nextGroupId = e.target.value || null;
+                      setCharacters(prev => prev.map(item => item.id === selected.id ? { ...item, groupId: nextGroupId } : item));
+                      showNotice(nextGroupId
+                        ? `已将「${selected.name}」移入「${groups.find(group => group.id === nextGroupId)?.name || '分组'}」`
+                        : `已将「${selected.name}」移至未分组`);
+                    }}
+                    className="w-full mt-3 bg-[#faf8f4] border border-[rgba(40,36,31,.12)] rounded-xl px-3 py-2.5 text-[11px] text-[#38342f] outline-none"
+                  >
+                    <option value="">未分组</option>
+                    {groups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
+                  </select>
+                  {groups.length === 0 && <div className="mt-2 text-[9px] text-[#9b9388]">还没有分组，点击「新建分组」先创建一个。</div>}
+                </div>
+
                 <div className="p-4 rounded-2xl bg-white/60 border border-[rgba(40,36,31,.1)]">
                   <div className="text-[8px] tracking-[1.5px] font-mono text-[#8b8782] mb-2">LIVE WORLD STATUS</div>
                   <div className="grid grid-cols-2 gap-2 text-[10px]">
