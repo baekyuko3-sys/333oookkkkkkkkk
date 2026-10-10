@@ -3588,6 +3588,9 @@ export function LineConversationView({
           // collision override an explicit ID and show another NPC's avatar.
           const messageCharacterId = String(msg.characterId || msg.metadata?.characterId || '').trim();
           const messageSenderName = String(msg.senderName || '').trim();
+          const previousCharacterKey = String(previousMessage?.characterId || previousMessage?.metadata?.characterId || previousMessage?.senderName || '').trim();
+          const currentCharacterKey = String(msg.characterId || msg.metadata?.characterId || msg.senderName || '').trim();
+          const sameGroupSpeakerAsPrevious = Boolean(isGroup && !isMe && previousMessage && previousMessage.sender !== 'me' && previousMessage.type !== 'system-nudge' && msg.type !== 'system-nudge' && previousCharacterKey && previousCharacterKey === currentCharacterKey);
           const groupMessageMember = isGroup && !isMe
             ? (messageCharacterId
                 ? safeGroupMembers.find(member => String(member.characterId || '').trim() === messageCharacterId) || null
@@ -3706,23 +3709,31 @@ export function LineConversationView({
               )}
 
               {/* Other Avatar */}
-              {!isMe && (
+              {!isMe && !(isGroup && sameGroupSpeakerAsPrevious) && (
                 <div
                   onClick={() => {
                     if (isGroup) {
-                      handleComposerChange(`${inputText}@${msg.senderName || characterProfile.nickname} `);
+                      setMessages(prev => prev.map(m =>
+                        String(m.characterId || m.metadata?.characterId || m.senderName || '') === currentCharacterKey && m.sender !== 'me'
+                          ? { ...m, showThinking: m.id === msg.id ? !m.showThinking : false }
+                          : m
+                      ));
                     } else {
                       handleMessageAvatarClick();
                     }
                   }}
                   onDoubleClick={(e) => {
                     e.stopPropagation();
-                    handleMessageAvatarDoubleClick(msg.senderName || characterProfile.nickname);
+                    if (isGroup) {
+                      handleComposerChange(`${inputText}@${msg.senderName || characterProfile.nickname} `);
+                    } else {
+                      handleMessageAvatarDoubleClick(msg.senderName || characterProfile.nickname);
+                    }
                   }}
                   className={`w-[31px] h-[31px] rounded-full bg-[#f2f2f3] flex items-center justify-center overflow-hidden shrink-0 self-end mb-0.5 cursor-pointer hover:opacity-80 active:scale-95 transition-all ${
                     nudgeAvatar ? 'scale-110 ring-2 ring-[#d4aab5]' : ''
                   }`}
-                  title={isGroup ? `单击@${msg.senderName || characterProfile.nickname}，双击拍一拍` : '单击打开状态卡，双击拍一拍'}
+                  title={isGroup ? `单击查看${msg.senderName || characterProfile.nickname}心声，双击@该成员` : '单击打开状态卡，双击拍一拍'}
                 >
                   {(isGroup ? groupMessageAvatar : importedCharacter?.avatar) ? (
                     <img src={(isGroup ? groupMessageAvatar : importedCharacter?.avatar) || ''} alt={msg.senderName || characterProfile.nickname} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -4079,7 +4090,7 @@ export function LineConversationView({
                   <div className="relative">
                     <div className={`flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>
                       {/* 群聊角色名放在气泡上方，避免显示在气泡下方显得重复累赘 */}
-                      {isGroup && !isMe && msg.senderName && (
+                      {isGroup && !isMe && !sameGroupSpeakerAsPrevious && msg.senderName && (
                         <div className="text-[10px] leading-tight text-[#9a777f] px-1 mb-0.5 font-medium">
                           {groupMessageCharacter?.name || groupMessageMember?.nickname || groupMessageMember?.name || msg.senderName}
                         </div>
