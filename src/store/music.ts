@@ -48,11 +48,11 @@ export const DEFAULT_MUSIC_API_SETTINGS: MusicApiSettings = {
   enabled: true,
   provider: 'netease',
   baseUrl: '/api/music/v1',
-  searchPath: '/search',
-  songPath: '/song',
-  playlistPath: '/playlist',
-  urlPath: '/url',
-  searchParam: 'keyword',
+  searchPath: '/cloudsearch',
+  songPath: '/song/detail',
+  playlistPath: '/playlist/detail',
+  urlPath: '/song/url',
+  searchParam: 'keywords',
 };
 
 const MUSIC_SETTINGS_KEY = 'phone:music-api-settings';
@@ -61,7 +61,15 @@ const MUSIC_CHARACTER_PLAYLISTS_KEY = 'phone:music-character-playlists';
 const MUSIC_STRANGER_KEY = 'phone:music-stranger-session';
 
 function mergeSettings(raw: unknown): MusicApiSettings {
-  return { ...DEFAULT_MUSIC_API_SETTINGS, ...(raw && typeof raw === 'object' ? raw : {}) };
+  const saved = raw && typeof raw === 'object' ? raw as Partial<MusicApiSettings> : {};
+  const merged = { ...DEFAULT_MUSIC_API_SETTINGS, ...saved };
+  // Migrate the previous UI-only defaults to the NetEase API's actual endpoint names.
+  if (saved.searchPath === '/search') merged.searchPath = '/cloudsearch';
+  if (saved.songPath === '/song') merged.songPath = '/song/detail';
+  if (saved.playlistPath === '/playlist') merged.playlistPath = '/playlist/detail';
+  if (saved.urlPath === '/url') merged.urlPath = '/song/url';
+  if (saved.searchParam === 'keyword') merged.searchParam = 'keywords';
+  return merged;
 }
 
 export function readMusicApiSettings(): MusicApiSettings {
@@ -174,7 +182,8 @@ function extractItems(payload: any): any[] {
 
 function normalizeTrack(raw: any, settings: MusicApiSettings): MusicTrack {
   const id = String(raw?.id ?? raw?.songId ?? '');
-  const ar = Array.isArray(raw?.ar) ? raw.ar.map((a: any) => a?.name).filter(Boolean).join('/') : '';
+  const arList = Array.isArray(raw?.ar) ? raw.ar : Array.isArray(raw?.artists) ? raw.artists : [];
+  const ar = arList.map((a: any) => a?.name).filter(Boolean).join('/');
   const al = raw?.al?.name || raw?.album?.name || raw?.album || '';
   const cover = raw?.pic || raw?.picUrl || raw?.al?.picUrl || raw?.album?.picUrl || '';
   const durationMs = Number(raw?.dt ?? raw?.duration ?? 0);
@@ -206,7 +215,7 @@ export async function resolveTrackUrl(track: MusicTrack, settings = readMusicApi
   const url = new URL(joinUrl(settings.baseUrl, settings.urlPath), window.location.origin);
   url.searchParams.set('id', track.id);
   const payload = await fetchJson(url.toString());
-  const data = payload?.data?.url || payload?.data?.items?.[0]?.url || payload?.url || payload?.data?.items?.[0]?.playUrl;
+  const data = payload?.data?.[0]?.url || payload?.data?.url || payload?.data?.items?.[0]?.url || payload?.result?.data?.[0]?.url || payload?.url || payload?.data?.[0]?.playUrl || payload?.data?.items?.[0]?.playUrl;
   return { ...track, playUrl: String(data || '') };
 }
 
