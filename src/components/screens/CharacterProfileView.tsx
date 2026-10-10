@@ -57,9 +57,14 @@ async function compressCharacterAvatar(avatar: string): Promise<string> {
     const context = canvas.getContext('2d');
     if (!context) return avatar;
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/webp', 0.82);
+    const compressed = canvas.toDataURL('image/webp', 0.78);
+    // Never fall back to the original multi-megabyte base64 image: that can
+    // exceed localStorage quota and make the entire character list fail to persist.
+    return compressed.length <= 350_000 ? compressed : '';
   } catch {
-    return avatar;
+    // Keep the character card importable even if its embedded image is malformed
+    // or the browser cannot decode it; a missing avatar is safer than losing the card.
+    return '';
   }
 }
 
@@ -264,36 +269,57 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
         ...parsed,
         avatar: await compressCharacterAvatar(parsed.avatar || ''),
       };
-      setCharacters(prev => {
-        const existing = prev.findIndex(item => item.id === normalizedParsed.id);
-        const groupId = normalizedParsed.groupId || (selectedGroupId !== 'all' ? selectedGroupId : null);
-        const nextCharacter = { ...normalizedParsed, groupId };
-        if (existing >= 0) {
-          const old = prev[existing];
-          return prev.map(item => item.id === normalizedParsed.id ? { ...nextCharacter, groupId: groupId || old.groupId || null } : item);
-        }
-        return [nextCharacter, ...prev];
-      });
+      const existing = characters.find(item => item.id === normalizedParsed.id);
+      const groupId = normalizedParsed.groupId || (selectedGroupId !== 'all' ? selectedGroupId : null);
       const embeddedWorldBooks = normalizedParsed.embeddedWorldBooks?.length
         ? normalizedParsed.embeddedWorldBooks
         : (normalizedParsed.embeddedWorldBook ? [normalizedParsed.embeddedWorldBook] : []);
-      if (embeddedWorldBooks.length) {
-        const importedBooks = embeddedWorldBooks.map(book => ({
-          ...book,
-          sourceCharacterId: normalizedParsed.id,
-          sourceCharacterName: normalizedParsed.name,
-          sourceType: 'character-card' as const,
-        }));
-        setWorldBooks(prev => [
-          ...importedBooks,
-          ...prev.filter(book => !embeddedWorldBooks.some(imported => imported.id === book.id)),
-        ]);
-        setCharacters(prev => prev.map(item =>
-          item.id === normalizedParsed.id
-            ? { ...item, worldBookIds: Array.from(new Set([...(item.worldBookIds || []), ...importedBooks.map(book => book.id)])) }
-            : item
-        ));
+      const importedBooks = embeddedWorldBooks.map(book => ({
+        ...book,
+        sourceCharacterId: normalizedParsed.id,
+        sourceCharacterName: normalizedParsed.name,
+        sourceType: 'character-card' as const,
+      }));
+      const nextWorldBooks = importedBooks.length
+        ? [
+            ...importedBooks,
+            ...worldBooks.filter(book => !embeddedWorldBooks.some(imported => imported.id === book.id)),
+          ]
+        : worldBooks;
+      const nextCharacter = {
+        ...normalizedParsed,
+        groupId: groupId || existing?.groupId || null,
+        ...(importedBooks.length
+          ? { worldBookIds: Array.from(new Set([...(existing?.worldBookIds || []), ...(normalizedParsed.worldBookIds || []), ...importedBooks.map(book => book.id)])) }
+          : {}),
+      };
+      const nextCharacters = existing
+        ? characters.map(item => item.id === normalizedParsed.id ? { ...nextCharacter, groupId: groupId || item.groupId || null } : item)
+        : [nextCharacter, ...characters];
+
+      // Persist before showing success. usePersistentState intentionally swallows
+      // quota errors, so relying on its effect alone can falsely report success.
+      const previousCharactersRaw = window.localStorage.getItem('phone:characters');
+      const previousWorldBooksRaw = window.localStorage.getItem('phone:worldbooks');
+      try {
+        window.localStorage.setItem('phone:characters', JSON.stringify(nextCharacters));
+        if (importedBooks.length) {
+          window.localStorage.setItem('phone:worldbooks', JSON.stringify(nextWorldBooks));
+        }
+      } catch {
+        try {
+          if (previousCharactersRaw === null) window.localStorage.removeItem('phone:characters');
+          else window.localStorage.setItem('phone:characters', previousCharactersRaw);
+          if (previousWorldBooksRaw === null) window.localStorage.removeItem('phone:worldbooks');
+          else window.localStorage.setItem('phone:worldbooks', previousWorldBooksRaw);
+        } catch {
+          // The original data remains untouched in the usual quota-failure path.
+        }
+        throw new Error('浏览器存储空间不足，角色卡没有保存成功。请换用较小的头像或精简内嵌世界书后再导入。');
       }
+
+      setCharacters(nextCharacters);
+      if (importedBooks.length) setWorldBooks(nextWorldBooks);
       setSelectedId(normalizedParsed.id);
       setIsEditing(false);
       setImportConfirmation({
@@ -304,16 +330,16 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
         version: normalizedParsed.variantLabel || normalizedParsed.characterVersion || '未填写',
         firstMessage: normalizedParsed.firstMessage || '',
         alternateGreetings: normalizedParsed.alternateGreetings || [],
-        worldBookCount: embeddedWorldBooks.length,
+        worldBookCount: importedBooks.length,
         description: normalizedParsed.description || '',
       });
       showNotice(
-        embeddedWorldBooks.length
-          ? `已导入「${normalizedParsed.name}」 · 同步导入 ${embeddedWorldBooks.length} 本世界书`
-          : `已导入「${normalizedParsed.name}」 · ${normalizedParsed.sourceFormat.toUpperCase()}`,
+        importedBooks.length
+          ? `已保存「${normalizedParsed.name}」 · 同步导入 ${importedBooks.length} 本世界书`
+          : `已保存「${normalizedParsed.name}」 · ${normalizedParsed.sourceFormat.toUpperCase()}`,
       );
     } catch (error) {
-      showNotice(error instanceof Error ? error.message : '角色卡解析失败');
+      showNotice(error instanceof Error ? error.message : '角色卡解析或保存失败');
     } finally {
       if (fileRef.current) fileRef.current.value = '';
     }
