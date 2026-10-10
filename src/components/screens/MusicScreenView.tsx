@@ -30,11 +30,14 @@ interface MusicScreenViewProps {
 
 type MusicTab = 'identity' | 'player' | 'search' | 'characters' | 'history' | 'appearance';
 type MusicTogetherRecord = { characterId: string; characterName: string; variantLabel: string; trackId: string; trackName: string; playedAt: string; mode: 'direct' | 'stranger' };
-type MusicIdentity = { id: string; name: string; note: string; avatar?: string; likedTracks: MusicTrack[]; history: MusicTrack[]; togetherRecords: MusicTogetherRecord[] };
+type MusicIdentity = { id: string; name: string; note: string; avatar?: string; personaId?: string; likedTracks: MusicTrack[]; history: MusicTrack[]; togetherRecords: MusicTogetherRecord[] };
+type LineUserPersona = { id: string; name?: string; avatar?: string; [key: string]: unknown };
 
 export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [characters] = usePersistentState<ImportedCharacter[]>('phone:characters', []);
+  const [linePersonas] = usePersistentState<LineUserPersona[]>('line:user-personas', []);
+  const [lineActivePersonaId] = usePersistentState<string | null>('line:active-persona', null);
   const [legacyLikedTracks] = usePersistentState<MusicTrack[]>('phone:music-liked-tracks', []);
   const [legacyListeningHistory] = usePersistentState<MusicTrack[]>('phone:music-history', []);
   const [identities, setIdentities] = usePersistentState<MusicIdentity[]>('phone:music-identities-v1', []);
@@ -46,6 +49,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
   const [identityEditing, setIdentityEditing] = useState(false);
   const [identityNameDraft, setIdentityNameDraft] = useState('');
   const [identityNoteDraft, setIdentityNoteDraft] = useState('');
+  const [identityPersonaDraft, setIdentityPersonaDraft] = useState('');
   const [currentTrack, setCurrentTrack] = useState<MusicTrack | null>(() => readMusicCurrent());
   const [isPlaying, setIsPlaying] = useState(false);
   const [tab, setTab] = useState<MusicTab>('identity');
@@ -438,6 +442,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
       id: 'music-id-' + Date.now().toString(36),
       name,
       note: identityNoteDraft.trim() || '给此刻的心情留一首歌',
+      personaId: identityPersonaDraft || lineActivePersonaId || undefined,
       likedTracks: [],
       history: [],
       togetherRecords: [],
@@ -455,7 +460,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
     if (!activeIdentity) return;
     const name = identityNameDraft.trim();
     if (!name) { showToast('音乐 ID 名称不能为空'); return; }
-    updateActiveIdentity(identity => ({ ...identity, name, note: identityNoteDraft.trim() || '给此刻的心情留一首歌' }));
+    updateActiveIdentity(identity => ({ ...identity, name, note: identityNoteDraft.trim() || '给此刻的心情留一首歌', personaId: identityPersonaDraft || undefined }));
     setIdentityEditor(false);
     setIdentityEditing(false);
     showToast('音乐 ID 已保存');
@@ -464,6 +469,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
   const openIdentityEditor = () => {
     setIdentityNameDraft(activeIdentity?.name || '');
     setIdentityNoteDraft(activeIdentity?.note || '');
+    setIdentityPersonaDraft(activeIdentity?.personaId || lineActivePersonaId || '');
     setIdentityEditing(true);
     setIdentityEditor(true);
   };
@@ -484,8 +490,8 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
       </header>
 
       <div className="relative z-10 flex flex-1 min-h-0 px-2 pb-2 gap-2">
-        <aside className={'shrink-0 flex flex-col items-center border-r border-[#eee8e3] transition-all duration-200 ' + (railCollapsed ? 'w-8' : 'w-[68px]')}>
-          <button onClick={() => setRailCollapsed(value => !value)} aria-label={railCollapsed ? '展开音乐 ID 栏' : '收起音乐 ID 栏'} className="w-7 h-8 grid place-items-center text-[#a59a92]">{railCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}</button>
+        <aside className={'shrink-0 flex flex-col items-center border-r border-[#eee8e3] transition-all duration-200 ' + (railCollapsed ? 'w-7' : 'w-[60px]')}>
+          <button onClick={() => setRailCollapsed(value => !value)} aria-label={railCollapsed ? '展开音乐 ID 栏' : '收起音乐 ID 栏'} className="w-6 h-7 grid place-items-center text-[#a59a92]">{railCollapsed ? <PanelLeftOpen className="w-3 h-3" /> : <PanelLeftClose className="w-3 h-3" />}</button>
           <div className={'flex-1 min-h-0 w-full overflow-y-auto no-scrollbar flex flex-col items-center gap-4 pt-2 ' + (railCollapsed ? 'opacity-0 pointer-events-none' : '')}>
             {identities.map(identity => (
               <button key={identity.id} onClick={() => { setActiveIdentityId(identity.id); setTab('identity'); }} className={'relative w-[58px] shrink-0 flex flex-col items-center gap-1.5 text-[10px] ' + (identity.id === activeIdentity?.id ? 'text-[#332b27] font-semibold' : 'text-[#9a8d84]')}>
@@ -496,7 +502,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
                 {identity.id === activeIdentity?.id && <span className="absolute -left-[5px] top-2 w-[3px] h-6 rounded-full bg-[#c4989a]" />}
               </button>
             ))}
-            {!railCollapsed && <button onClick={() => { setIdentityNameDraft(''); setIdentityNoteDraft(''); setIdentityEditing(false); setIdentityEditor(true); }} className="w-[58px] shrink-0 flex flex-col items-center gap-1.5 text-[10px] text-[#9a8d84]"><span className="w-10 h-10 rounded-[15px] border border-dashed border-[#b9aaa1] grid place-items-center"><Plus className="w-4 h-4" /></span>新 ID</button>}
+            {!railCollapsed && <button onClick={() => { setIdentityNameDraft(''); setIdentityNoteDraft(''); setIdentityPersonaDraft(lineActivePersonaId || ''); setIdentityEditing(false); setIdentityEditor(true); }} className="w-[58px] shrink-0 flex flex-col items-center gap-1.5 text-[10px] text-[#9a8d84]"><span className="w-10 h-10 rounded-[15px] border border-dashed border-[#b9aaa1] grid place-items-center"><Plus className="w-4 h-4" /></span>新 ID</button>}
           </div>
         </aside>
         <main className="flex-1 min-w-0 min-h-0 flex flex-col">
@@ -762,6 +768,14 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
           <div onClick={event => event.stopPropagation()} className="w-full bg-white rounded-t-[28px] p-5 pb-8 space-y-3 shadow-xl">
             <div className="flex items-center justify-between"><div className="font-serif text-[17px]">{identityEditing ? '编辑音乐 ID' : '新建音乐 ID'}</div><button onClick={() => setIdentityEditor(false)}><X className="w-4 h-4 text-[#999]" /></button></div>
             <div className="text-[11px] leading-relaxed text-[#95877f]">每个音乐 ID 都有独立的喜欢列表和听歌记录，切换身份不会混在一起。</div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-[#8e8078]">关联 LINE 的我的人设</label>
+              <select value={identityPersonaDraft} onChange={event => setIdentityPersonaDraft(event.target.value)} className="w-full rounded-xl border border-[#e9dfd9] bg-white px-3 py-2.5 text-[11px] text-[#5e514a] outline-none">
+                <option value="">跟随 LINE 当前人设{lineActivePersonaId && linePersonas.find(persona => persona.id === lineActivePersonaId)?.name ? '（' + linePersonas.find(persona => persona.id === lineActivePersonaId)?.name + '）' : ''}</option>
+                {linePersonas.map(persona => <option key={persona.id} value={persona.id}>{persona.name || '未命名人设'}</option>)}
+              </select>
+              <p className="text-[9px] leading-relaxed text-[#a69a91]">音乐 ID 关联这里选择的 LINE 人设，不会复制或另建一份人设。</p>
+            </div>
             <label className="flex items-center gap-3 rounded-2xl bg-[#f8f6f3] p-3 cursor-pointer">
               <span className="w-11 h-11 rounded-xl overflow-hidden bg-white grid place-items-center">{activeIdentity?.avatar ? <img src={activeIdentity.avatar} alt="" className="w-full h-full object-cover" /> : <UserRound className="w-4 h-4 text-[#b5a49b]" />}</span>
               <span className="flex-1 text-[11px] text-[#64564e]">更换此 ID 的头像<small className="block mt-1 text-[9px] text-[#a1968d]">仅影响当前音乐身份</small></span>
