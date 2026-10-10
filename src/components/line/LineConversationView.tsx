@@ -118,6 +118,19 @@ function getLineMessageDayKey(value: Date, timezone: string): string {
   }
 }
 
+function getLineMessageDayPeriod(value: Date, timezone: string): 'morning' | 'afternoon' {
+  try {
+    const hourText = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone, hour: '2-digit', hourCycle: 'h23',
+    }).formatToParts(value).find(part => part.type === 'hour')?.value;
+    const hour = Number(hourText);
+    if (Number.isFinite(hour)) return hour < 12 ? 'morning' : 'afternoon';
+  } catch {
+    // Fall back to the local clock if the configured timezone is invalid.
+  }
+  return value.getHours() < 12 ? 'morning' : 'afternoon';
+}
+
 function formatLineMessageDayLabel(value: Date, timezone: string, displayLocale: LineTimeDisplayLocale = 'zh-CN'): string {
   const dayKey = getLineMessageDayKey(value, timezone);
   const now = new Date();
@@ -133,8 +146,8 @@ function formatLineMessageDayLabel(value: Date, timezone: string, displayLocale:
     return new Intl.DateTimeFormat('en-US', { timeZone: timezone, month: 'short', day: 'numeric', weekday: 'short', ...(sameYear ? {} : { year: 'numeric' }) }).format(value);
   }
   const datePart = new Intl.DateTimeFormat('zh-CN', { timeZone: timezone, month: 'numeric', day: 'numeric' }).format(value);
-  if (dayKey === todayKey) return '今天 · ' + datePart;
-  if (dayKey === yesterdayKey) return '昨天 · ' + datePart;
+  if (dayKey === todayKey) return '今天 ' + datePart;
+  if (dayKey === yesterdayKey) return '昨天 ' + datePart;
   try {
     const sameYear = new Intl.DateTimeFormat('en', { timeZone: timezone, year: 'numeric' }).format(value)
       === new Intl.DateTimeFormat('en', { timeZone: timezone, year: 'numeric' }).format(now);
@@ -3388,10 +3401,15 @@ export function LineConversationView({
           const previousDay = previousDate && !Number.isNaN(previousDate.getTime())
             ? getLineMessageDayKey(previousDate, chatTimezone)
             : '';
-          const showDaySeparator = Boolean(currentDate && !Number.isNaN(currentDate.getTime())
-            && (messageIndex === 0 || !previousDate || Number.isNaN(previousDate.getTime()) || currentDay !== previousDay));
-          const dayLabel = currentDate && !Number.isNaN(currentDate.getTime())
-            ? formatLineMessageDayLabel(currentDate, chatTimezone, lineTimeDisplayLocale)
+          const currentDateIsValid = Boolean(currentDate && !Number.isNaN(currentDate.getTime()));
+          const previousDateIsValid = Boolean(previousDate && !Number.isNaN(previousDate.getTime()));
+          const showDaySeparator = Boolean(currentDateIsValid
+            && (messageIndex === 0 || !previousDateIsValid || currentDay !== previousDay));
+          const showPeriodSeparator = Boolean(currentDateIsValid && previousDateIsValid
+            && currentDay === previousDay
+            && getLineMessageDayPeriod(currentDate as Date, chatTimezone) !== getLineMessageDayPeriod(previousDate as Date, chatTimezone));
+          const dayLabel = currentDateIsValid
+            ? formatLineMessageDayLabel(currentDate as Date, chatTimezone, lineTimeDisplayLocale)
             : '';
 
           if (msg.type === 'html-interlude') {
@@ -3457,6 +3475,16 @@ export function LineConversationView({
                     className="px-3 py-1 rounded-full bg-[#f5f5f6] text-[9px] text-[#a2a2a6]"
                   >
                     {dayLabel}
+                  </span>
+                </div>
+              )}
+              {showPeriodSeparator && (
+                <div className="flex justify-center py-1.5">
+                  <span
+                    title={formatLineMessageExactDateTime(msg, chatTimezone, lineTimeDisplayLocale)}
+                    className="text-[9px] leading-none text-[#999b9f]"
+                  >
+                    {formatLineMessageClock(msg, chatTimezone, lineTimeDisplayLocale)}
                   </span>
                 </div>
               )}
@@ -3987,30 +4015,21 @@ export function LineConversationView({
                   {/* 单条消息操作通过左右滑动触发：左滑编辑，右滑引用。这里不再常驻按钮，保持气泡紧凑。 */}
                 </div>
 
-              {/* Message meta is kept under the bubble so every row stays aligned. */}
-              {!msg.isRecalled && (
+              {/* Keep the existing read receipt, but don't repeat a timestamp beside every bubble. */}
+              {!msg.isRecalled && isMe && (
                 <div
                   title={formatLineMessageExactDateTime(msg, chatTimezone, lineTimeDisplayLocale)}
                   aria-label={formatLineMessageExactDateTime(msg, chatTimezone, lineTimeDisplayLocale)}
-                  className={`mt-0.5 flex min-h-[12px] h-auto items-center gap-1 px-1 text-[9px] leading-[1.2] text-[#a6a6aa] ${isMe ? 'justify-end' : 'justify-start'}`}
+                  className="mt-0.5 flex min-h-[12px] items-center gap-1 px-1 text-[9px] leading-[1.2] text-[#a6a6aa] justify-end"
                 >
-                  {isMe ? (
-                    (() => {
-                      const msgIndex = messages.findIndex((candidate) => String(candidate.id) === String(msg.id));
-                      const hasRoleReply = msgIndex >= 0 && messages.slice(msgIndex + 1).some((candidate) =>
-                        candidate.sender !== 'me' && candidate.type !== 'system-nudge'
-                      );
-                      const readLabel = hasRoleReply || msg.isRead ? '已读' : '未读';
-                      return (
-                        <>
-                          <span className={msg.isRead ? "text-[#ae7e89] font-medium" : "text-[#b8b8bb] font-medium"}>{readLabel}</span>
-                          <span>{formatLineMessageClock(msg, chatTimezone, lineTimeDisplayLocale)}</span>
-                        </>
-                      );
-                    })()
-                  ) : (
-                    <span>{formatLineMessageClock(msg, chatTimezone, lineTimeDisplayLocale)}</span>
-                  )}
+                  {(() => {
+                    const msgIndex = messages.findIndex((candidate) => String(candidate.id) === String(msg.id));
+                    const hasRoleReply = msgIndex >= 0 && messages.slice(msgIndex + 1).some((candidate) =>
+                      candidate.sender !== 'me' && candidate.type !== 'system-nudge'
+                    );
+                    const readLabel = hasRoleReply || msg.isRead ? '已读' : '未读';
+                    return <span className={msg.isRead ? "text-[#ae7e89] font-medium" : "text-[#b8b8bb] font-medium"}>{readLabel}</span>;
+                  })()}
                 </div>
               )}
 
