@@ -4699,28 +4699,22 @@ export function LineConversationView({
                   </button>
                   {/* 群聊：继续菜单；单聊保留原行为 */}
                   <button onClick={() => {
-                    if (isGroup) { setShowGroupContinueChoices(true); }
-                    else { setShowPlusSheet(false); handleContinueGenerating(); }
+                    if (isGroup) {
+                      setShowPlusSheet(false);
+                      setPlusSheetPage(0);
+                      setShowGroupSpeakerPicker(false);
+                      setShowGroupContinueChoices(true);
+                    } else {
+                      setShowPlusSheet(false);
+                      handleContinueGenerating();
+                    }
                   }} className="flex flex-col items-center gap-1.5 cursor-pointer">
                     <div className="w-12 h-12 rounded-[14px] bg-[#f7f7f8] flex items-center justify-center text-[#666] hover:bg-[#f0f0f2]"><Play className="w-5 h-5" /></div>
                     <span>{isGroup ? '继续' : '让角色继续说'}</span>
                   </button>
                 </div>
 
-                {isGroup && showGroupContinueChoices && !showGroupSpeakerPicker && (
-                  <div className="rounded-[14px] border border-[#ededee] bg-[#fcfcfc] p-3 space-y-2">
-                    <div className="text-xs font-semibold text-[#333]">继续群聊</div>
-                    <button onClick={() => { setGroupContinueSpeakerMode('specified'); setShowGroupSpeakerPicker(true); setSelectedGroupSpeakerId(''); }} className="w-full flex items-center justify-between rounded-[10px] bg-white border border-[#eee] px-3 py-3 text-left text-xs text-[#444]">
-                      <span><strong className="block text-[#333]">指定成员发言</strong><span className="text-[10px] text-[#999]">选择一个 NPC，由 AI 按其人设接话</span></span><ChevronRight className="w-4 h-4 text-[#aaa]" />
-                    </button>
-                    <button onClick={() => { setGroupContinueSpeakerMode('simulate'); setShowGroupSpeakerPicker(true); setSelectedGroupSpeakerId(''); }} className="w-full flex items-center justify-between rounded-[10px] bg-white border border-[#eee] px-3 py-3 text-left text-xs text-[#444]">
-                      <span><strong className="block text-[#333]">模拟谁的发言</strong><span className="text-[10px] text-[#999]">选择群内任意角色；本轮由你选定的角色身份发言</span></span><ChevronRight className="w-4 h-4 text-[#aaa]" />
-                    </button>
-                    <button onClick={() => { setShowPlusSheet(false); setPlusSheetPage(0); setShowGroupContinueChoices(false); handleContinueGenerating(); }} className="w-full flex items-center justify-between rounded-[10px] bg-white border border-[#eee] px-3 py-3 text-left text-xs text-[#444]">
-                      <span><strong className="block text-[#333]">继续发言</strong><span className="text-[10px] text-[#999]">让群成员自行判断谁适合接话，不要求轮流发言</span></span><ChevronRight className="w-4 h-4 text-[#aaa]" />
-                    </button>
-                  </div>
-                )}
+
 
                 {isGroup && showGroupSpeakerPicker && (
                   <div className="rounded-[14px] border border-[#ededee] bg-[#fcfcfc] p-3 space-y-2">
@@ -7235,6 +7229,26 @@ export function LineConversationView({
                 );
               })}
             </section>
+          </div>
+        </div>
+      )}
+
+      {/* 群聊 Continue 专属选择面板：仅点击“继续”后显示，不固定占据聊天界面 */}
+      {isGroup && showGroupContinueChoices && !showGroupSpeakerPicker && (
+        <div onClick={() => setShowGroupContinueChoices(false)} className="absolute inset-0 bg-black/25 z-[56] flex items-end animate-in fade-in">
+          <div onClick={(e) => e.stopPropagation()} className="w-full bg-white rounded-t-[20px] p-4 pb-6 space-y-2.5 animate-in slide-in-from-bottom">
+            <div className="w-8 h-1 bg-[#ddd] rounded-full mx-auto mb-3" />
+            <div className="text-sm font-semibold text-[#333] pb-1">继续群聊</div>
+            <button onClick={() => { setShowGroupContinueChoices(false); handleContinueGenerating(undefined, false, 'free'); }} className="w-full flex items-center justify-between rounded-[12px] bg-[#fcfcfc] border border-[#eee] px-3 py-3 text-left text-xs text-[#444]">
+              <span><strong className="block text-[#333]">自由回复</strong><span className="text-[10px] text-[#999]">群成员按性格和上下文自行判断是否接话</span></span><ChevronRight className="w-4 h-4 text-[#aaa]" />
+            </button>
+            <button onClick={() => { setShowGroupContinueChoices(false); handleContinueGenerating(undefined, false, 'all'); }} className="w-full flex items-center justify-between rounded-[12px] bg-[#fcfcfc] border border-[#eee] px-3 py-3 text-left text-xs text-[#444]">
+              <span><strong className="block text-[#333]">全员都得回复</strong><span className="text-[10px] text-[#999]">让所有在线且未禁言的群成员各回复一次</span></span><ChevronRight className="w-4 h-4 text-[#aaa]" />
+            </button>
+            <button onClick={() => { setGroupContinueSpeakerMode('simulate'); setSelectedGroupSpeakerId(''); setShowGroupContinueChoices(false); setShowGroupSpeakerPicker(true); }} className="w-full flex items-center justify-between rounded-[12px] bg-[#fcfcfc] border border-[#eee] px-3 py-3 text-left text-xs text-[#444]">
+              <span><strong className="block text-[#333]">模拟谁的发言</strong><span className="text-[10px] text-[#999]">选择角色后，由你以该角色身份输入和发送</span></span><ChevronRight className="w-4 h-4 text-[#aaa]" />
+            </button>
+            <button onClick={() => setShowGroupContinueChoices(false)} className="w-full py-2 text-xs text-[#999]">取消</button>
           </div>
         </div>
       )}
