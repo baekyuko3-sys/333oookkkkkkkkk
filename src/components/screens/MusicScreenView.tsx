@@ -524,14 +524,14 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
         <button onClick={() => setTab('appearance')} aria-label="外观与音乐 API" className="w-10 h-10 rounded-full grid place-items-center text-[#8e827b] hover:bg-[#f7f4f1]"><Settings2 className="w-4 h-4" /></button>
       </header>
 
-      <div className="relative z-10 flex flex-1 min-h-0 px-2 pb-2 gap-2">
-        <aside className={'shrink-0 flex flex-col items-center border-r border-[#eee8e3] transition-all duration-200 ' + (railCollapsed ? 'w-7' : 'w-[60px]')}>
+      <div className="relative z-10 flex flex-1 min-h-0 pb-2 gap-0">
+        <aside className={'shrink-0 flex flex-col items-center border-r border-[#eee8e3] transition-all duration-200 overflow-hidden ' + (railCollapsed ? 'w-7' : 'w-16')}>
           <button onClick={() => setRailCollapsed(value => !value)} aria-label={railCollapsed ? '展开音乐 ID 栏' : '收起音乐 ID 栏'} className="w-6 h-7 grid place-items-center text-[#a59a92]">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="10" cy="8" r="5"/><path d="M2 21a8 8 0 0 1 16 0"/><path d={railCollapsed ? "M22 12h-7m0 0 3-3m-3 3 3 3" : "M2 12h7m0 0-3-3m3 3-3 3"}/></svg>
             </button>
-          <div className={'flex-1 min-h-0 w-full overflow-y-auto no-scrollbar flex flex-col items-center gap-4 pt-2 ' + (railCollapsed ? 'opacity-0 pointer-events-none' : '')}>
+          <div className={'flex-1 min-h-0 w-full overflow-y-auto no-scrollbar flex flex-col items-center gap-[18px] pt-2 ' + (railCollapsed ? 'opacity-0 pointer-events-none' : '')}>
             {identities.map(identity => (
-              <button key={identity.id} onClick={() => { setActiveIdentityId(identity.id); setTab('identity'); }} className={'relative w-[58px] shrink-0 flex flex-col items-center gap-1.5 text-[10px] ' + (identity.id === activeIdentity?.id ? 'text-[#332b27] font-semibold' : 'text-[#9a8d84]')}>
+              <button key={identity.id} onClick={() => { setActiveIdentityId(identity.id); setTab('identity'); }} className={'relative w-14 shrink-0 flex flex-col items-center gap-1.5 text-[11px] ' + (identity.id === activeIdentity?.id ? 'text-[#332b27] font-semibold' : 'text-[#9a8d84]')}>
                 <span className={'w-10 h-10 rounded-[15px] overflow-hidden grid place-items-center border ' + (identity.id === activeIdentity?.id ? 'border-[#c4989a] ring-2 ring-[#f4e7e7]' : 'border-[#eee5df] bg-[#f7f2ee]')} style={{ background: identity.avatar ? 'transparent' : 'linear-gradient(145deg,#e8c6c3,#e9eee6)' }}>
                   {identity.avatar ? <img src={identity.avatar} alt="" className="w-full h-full object-cover" /> : <span className="text-[15px]">{identity.name.slice(0,1)}</span>}
                 </span>
@@ -539,7 +539,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
                 {identity.id === activeIdentity?.id && <span className="absolute -left-[5px] top-2 w-[3px] h-6 rounded-full bg-[#c4989a]" />}
               </button>
             ))}
-            {!railCollapsed && <button onClick={() => { setIdentityNameDraft(''); setIdentityNoteDraft(''); setIdentityPersonaDraft(lineActivePersonaId || ''); setIdentityEditing(false); setIdentityEditor(true); }} className="w-[58px] shrink-0 flex flex-col items-center gap-1.5 text-[10px] text-[#9a8d84]"><span className="w-10 h-10 rounded-[15px] border border-dashed border-[#b9aaa1] grid place-items-center"><Plus className="w-4 h-4" /></span>新 ID</button>}
+            {!railCollapsed && <button onClick={() => { setIdentityNameDraft(''); setIdentityNoteDraft(''); setIdentityPersonaDraft(lineActivePersonaId || ''); setIdentityEditing(false); setIdentityEditor(true); }} className="w-14 shrink-0 flex flex-col items-center gap-1.5 text-[11px] text-[#9a8d84]"><span className="w-10 h-10 rounded-[15px] border border-dashed border-[#b9aaa1] grid place-items-center"><Plus className="w-4 h-4" /></span>新 ID</button>}
           </div>
         </aside>
         <main className="flex-1 min-w-0 min-h-0 flex flex-col">
@@ -560,19 +560,19 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
         </div>
         )}
 
-      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto no-scrollbar px-2 pb-8">
+      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto no-scrollbar px-[18px] pb-8">
 
         {tab === 'identity' && activeIdentity && (
           <div className="pt-1 space-y-3">
-            <div className="inline-flex max-w-full rounded-full bg-[#f8f5f2] px-3 py-1.5 text-[10px] text-[#75675f] truncate">{activeIdentity.note}</div>
-            <section className="flex items-center gap-2.5">
-              <button onClick={openIdentityEditor} className="relative shrink-0 w-[76px] h-[76px] rounded-[25px] overflow-hidden bg-[#f5ebe7] border border-[#eee4de] grid place-items-center text-[27px] text-[#987e78]">
+            <section className="relative flex items-end gap-[18px] mt-[34px]">
+              <div className="absolute -top-[31px] left-3 max-w-[190px] rounded-[15px] bg-[#fcfaf7] px-3 py-1.5 text-[12px] leading-snug text-[#75675f] shadow-sm">{activeIdentity.note}</div>
+              <button onClick={openIdentityEditor} className="relative shrink-0 w-[88px] h-[88px] rounded-[30px] overflow-hidden bg-[#f5ebe7] border border-[#eee4de] grid place-items-center text-[30px] text-[#987e78]">
                 {identityAvatar ? <img src={identityAvatar} alt="" className="w-full h-full object-cover" /> : activeIdentity.name.slice(0,1)}
                 <span className="absolute right-0.5 bottom-0.5 w-5 h-5 rounded-md bg-[#2d2724] text-white grid place-items-center"><Pencil className="w-2.5 h-2.5" /></span>
               </button>
-              <div className="min-w-0 flex-1">
-                <div className="text-[10px] tracking-[1px] text-[#a59a92]">音乐 ID</div>
-                <button onClick={openIdentityEditor} className="max-w-full flex items-center gap-1 text-left mt-0.5"><span className="font-semibold text-[20px] leading-tight truncate">{activeIdentity.name}</span><Pencil className="w-3 h-3 text-[#a59a92] shrink-0" /></button>
+              <div className="min-w-0 flex-1 pb-0.5">
+                <div className="text-[11px] tracking-[.4px] text-[#857b73]">音乐 ID</div>
+                <button onClick={openIdentityEditor} className="max-w-full flex items-center gap-1 text-left mt-0.5"><span className="font-serif font-semibold text-[23px] leading-tight truncate">{activeIdentity.name}</span><Pencil className="w-3 h-3 text-[#a59a92] shrink-0" /></button>
                 <div className="flex flex-wrap gap-1 mt-2">
                   <span className="rounded-full bg-[#eaf0e9] px-2 py-1 text-[9px] text-[#5c7161]"><b>{likedTracks.length}</b> 喜欢</span>
                   <span className="rounded-full bg-[#f5e9e8] px-2 py-1 text-[9px] text-[#87676a]"><b>{activeIdentity.togetherRecords.length}</b> 一起听</span>
@@ -580,9 +580,9 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
                 </div>
               </div>
             </section>
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setTab('player')} className="rounded-[14px] bg-[#2d2724] text-white py-3 text-[11px] font-semibold">进入我的音乐</button>
-              <button onClick={() => setTab('history')} className="rounded-[14px] bg-[#f7f4f2] text-[#5f5149] py-3 text-[11px] font-semibold">听歌记录</button>
+            <div className="flex gap-2 mt-2">
+              <button onClick={() => setTab('player')} className="flex-1 rounded-[15px] bg-[#2d2724] text-white h-[42px] text-[14px] font-bold">进入我的音乐</button>
+              <button onClick={() => setTab('history')} className="flex-1 rounded-[15px] bg-[#fcfaf7] text-[#5f5149] h-[42px] text-[14px] font-bold">听歌记录</button>
             </div>
             {activeIdentity.togetherRecords.length > 0 && (
               <section>
