@@ -5443,7 +5443,14 @@ export function LineConversationView({
   ) : (
     <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
       {worldbooks.filter(book=>book.enabled && (book.name.toLowerCase().includes(groupWorldbookSearch.trim().toLowerCase()) || (book.entries||[]).some(entry=>String(entry.name||'').toLowerCase().includes(groupWorldbookSearch.trim().toLowerCase()) || String((entry as any).content??(entry as any).text??(entry as any).description??'').toLowerCase().includes(groupWorldbookSearch.trim().toLowerCase())))).map(book=>{
-        const availableEntries=(book.entries||[]).filter(entry=>entry.enabled!==false);
+        const searchTerm=groupWorldbookSearch.trim().toLowerCase();
+        const bookNameMatches=book.name.toLowerCase().includes(searchTerm);
+        const availableEntries=(book.entries||[]).filter(entry=>{
+          if(entry.enabled===false)return false;
+          if(!searchTerm||bookNameMatches)return true;
+          const entryText=String((entry as any).content??(entry as any).text??(entry as any).description??'').toLowerCase();
+          return String(entry.name||'').toLowerCase().includes(searchTerm)||entryText.includes(searchTerm);
+        });
         const selectedIds=selectedGroupWorldBookEntries[book.id]||[];
         const allSelected=availableEntries.length>0&&availableEntries.every(entry=>selectedIds.includes(entry.id));
         const bookExpanded=expandedGroupWorldBookId===book.id;
