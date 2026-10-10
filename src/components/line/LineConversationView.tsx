@@ -3629,16 +3629,6 @@ export function LineConversationView({
                   </div>
                 )}
 
-                {!msg.isRecalled && (currentDateIsValid || msg.time) && (
-                  <div
-                    title={formatLineMessageExactDateTime(msg, chatTimezone, lineTimeDisplayLocale)}
-                    aria-label={formatLineMessageExactDateTime(msg, chatTimezone, lineTimeDisplayLocale)}
-                    className={`mb-1 px-1 text-[9px] leading-none text-[#a6a6aa] ${isMe ? 'text-right' : 'text-left'}`}
-                  >
-                    {formatLineMessageClock(msg, chatTimezone, lineTimeDisplayLocale)}
-                  </div>
-                )}
-
                 {/* 1.5 引用回复：让聊天真正保留上下文 */}
                 {msg.quote && !msg.isRecalled && (
                   <div
@@ -4025,14 +4015,14 @@ export function LineConversationView({
                   {/* 单条消息操作通过左右滑动触发：左滑编辑，右滑引用。这里不再常驻按钮，保持气泡紧凑。 */}
                 </div>
 
-              {/* Keep the existing read receipt, but don't repeat a timestamp beside every bubble. */}
-              {!msg.isRecalled && isMe && (
+              {/* Timestamp belongs below the message bubble, matching LINE's compact layout. */}
+              {!msg.isRecalled && (currentDateIsValid || msg.time) && (
                 <div
                   title={formatLineMessageExactDateTime(msg, chatTimezone, lineTimeDisplayLocale)}
                   aria-label={formatLineMessageExactDateTime(msg, chatTimezone, lineTimeDisplayLocale)}
-                  className="mt-0.5 flex min-h-[12px] items-center gap-1 px-1 text-[9px] leading-[1.2] text-[#a6a6aa] justify-end"
+                  className={`mt-0.5 flex min-h-[12px] items-center gap-1 px-1 text-[9px] leading-[1.2] text-[#a6a6aa] ${isMe ? 'justify-end' : 'justify-start'}`}
                 >
-                  {(() => {
+                  {isMe && (() => {
                     const msgIndex = messages.findIndex((candidate) => String(candidate.id) === String(msg.id));
                     const hasRoleReply = msgIndex >= 0 && messages.slice(msgIndex + 1).some((candidate) =>
                       candidate.sender !== 'me' && candidate.type !== 'system-nudge'
@@ -4040,6 +4030,7 @@ export function LineConversationView({
                     const readLabel = hasRoleReply || msg.isRead ? '已读' : '未读';
                     return <span className={msg.isRead ? "text-[#ae7e89] font-medium" : "text-[#b8b8bb] font-medium"}>{readLabel}</span>;
                   })()}
+                  <span>{formatLineMessageClock(msg, chatTimezone, lineTimeDisplayLocale)}</span>
                 </div>
               )}
 
