@@ -1055,6 +1055,17 @@ export function LineConversationView({
   // 群聊专属设定 (Group Lorebook & Dynamics)
   const [groupRelationships, setGroupRelationships] = useState<Array<{ from: string; to: string; relation: string }>>([]);
   const [groupLorebookActive, setGroupLorebookActive] = usePersistentState<string>(`line:group-style-notes:${conversationStorageId}`, '');
+  // 群聊世界书独立选择：仅将用户勾选的条目注入群聊上下文。
+  const [selectedGroupWorldBookEntries, setSelectedGroupWorldBookEntries] = usePersistentState<Record<string, string[]>>(`line:group-selected-worldbook-entries:${conversationStorageId}`, {});
+  const groupWorldbooks = worldbooks
+    .filter(book => book.enabled)
+    .map(book => ({
+      ...book,
+      entries: (Array.isArray(book.entries) ? book.entries : []).filter(entry =>
+        entry.enabled !== false && (selectedGroupWorldBookEntries[book.id] || []).includes(entry.id)
+      ),
+    }))
+    .filter(book => book.entries.length > 0);
   const [groupPresetId, setGroupPresetId] = usePersistentState(`line:group-preset:${conversationStorageId}`, 'online-natural');
   const activeGroupPreset = getGroupPreset(groupPresetId, 'online');
   const [groupNoticeText, setGroupNoticeText] = usePersistentState<string>(`line:group-announcement:${conversationStorageId}`, '');
@@ -1661,7 +1672,7 @@ export function LineConversationView({
           characterProfile: memberProfile,
           persona: activePersona ? { ...activePersona, weather: personaLiveWeather ? formatLineWeather(personaLiveWeather) : activePersona.weather } : activePersona,
           characterWeather: characterWeather ? formatLineWeather(characterWeather) : '',
-          worldbooks: activeWorldbooks,
+          worldbooks: groupWorldbooks,
           memory: memberMemory,
           project: projectManifest,
           messages: workingMessages,
@@ -2506,7 +2517,7 @@ export function LineConversationView({
             characterProfile: profile,
             persona: activePersona ? { ...activePersona, weather: personaLiveWeather ? formatLineWeather(personaLiveWeather) : activePersona.weather } : activePersona,
             characterWeather: characterWeather ? formatLineWeather(characterWeather) : '',
-            worldbooks: activeWorldbooks,
+            worldbooks: groupWorldbooks,
             memory,
             project: projectManifest,
             messages: workingMessages,
@@ -5940,6 +5951,62 @@ export function LineConversationView({
                       className="w-full p-2 bg-[#fafafa] border border-[#e8e8e9] rounded-md text-xs font-sans leading-relaxed resize-none text-[#333]"
                       rows={2}
                     />
+                  </div>
+
+                  {/* 群聊世界书：按条目勾选，未勾选的条目不会进入群聊 AI 上下文。 */}
+                  <div className="border-t border-[#f2f2f3] pt-2.5 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-[#444] font-medium">群聊世界书条目</div>
+                        <div className="text-[9px] text-[#999] mt-0.5">只使用勾选的条目，不会自动读取整本世界书。</div>
+                      </div>
+                      <span className="text-[9px] text-[#ae7e89] shrink-0">已选 {groupWorldbooks.reduce((sum, book) => sum + book.entries.length, 0)} 条</span>
+                    </div>
+                    {worldbooks.filter(book => book.enabled).length === 0 ? (
+                      <div className="text-[10px] text-[#aaa] p-2 rounded-lg bg-[#fafafa]">暂无已启用的世界书，请先在世界书 App 中启用。</div>
+                    ) : (
+                      <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                        {worldbooks.filter(book => book.enabled).map(book => {
+                          const selectedIds = selectedGroupWorldBookEntries[book.id] || [];
+                          const availableEntries = (book.entries || []).filter(entry => entry.enabled !== false);
+                          const allSelected = availableEntries.length > 0 && availableEntries.every(entry => selectedIds.includes(entry.id));
+                          return (
+                            <div key={book.id} className="rounded-[10px] border border-[#eee] p-2">
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <div className="text-[10px] font-medium text-[#444] truncate">{book.name}</div>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedGroupWorldBookEntries(prev => ({
+                                    ...prev,
+                                    [book.id]: allSelected ? [] : availableEntries.map(entry => entry.id),
+                                  }))}
+                                  className="text-[9px] text-[#ae7e89] shrink-0"
+                                >{allSelected ? '取消全选' : '全选条目'}</button>
+                              </div>
+                              {availableEntries.length === 0 ? (
+                                <div className="text-[9px] text-[#aaa] py-1">这本世界书没有已启用条目</div>
+                              ) : availableEntries.map(entry => {
+                                const checked = selectedIds.includes(entry.id);
+                                return (
+                                  <label key={entry.id} className="flex items-start gap-2 p-1.5 rounded-lg hover:bg-[#faf7f8] cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() => setSelectedGroupWorldBookEntries(prev => ({
+                                        ...prev,
+                                        [book.id]: checked ? selectedIds.filter(id => id !== entry.id) : [...selectedIds, entry.id],
+                                      }))}
+                                      className="mt-0.5 accent-[#ae7e89]"
+                                    />
+                                    <span className="text-[9px] text-[#555] leading-relaxed">{entry.name}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   {/* 群聊人际关系网 */}
