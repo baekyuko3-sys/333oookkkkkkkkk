@@ -383,6 +383,10 @@ export function LineConversationView({
   // Sheets & Overlays
   const [showPlusSheet, setShowPlusSheet] = useState(false);
   const [plusSheetPage, setPlusSheetPage] = useState<0 | 1>(0);
+  const [showGroupHeaderActions, setShowGroupHeaderActions] = useState(false);
+  const [showGroupExpandSheet, setShowGroupExpandSheet] = useState(false);
+  const groupPlusLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const groupPlusLongPressTriggered = useRef(false);
   const [showGroupContinueChoices, setShowGroupContinueChoices] = useState(false);
   const [showGroupSpeakerPicker, setShowGroupSpeakerPicker] = useState(false);
   const [selectedGroupSpeakerId, setSelectedGroupSpeakerId] = useState('');
@@ -3393,10 +3397,10 @@ export function LineConversationView({
                     )}
 
                   </div>
-                  <div className="text-[10px] text-[#aaa] mt-0.5 flex items-center gap-1">
-                    <span className={contactOnline ? 'text-[#78927e]' : 'text-[#aaa]'}>
+                  <div className="text-[10px] text-[#aaa] mt-0.5 flex items-center gap-1 min-w-0">
+                    <span className={isGroup ? 'text-[#78927e] truncate' : contactOnline ? 'text-[#78927e]' : 'text-[#aaa]'}>
                       {isGroup
-                        ? '群聊 · 点击查看群成员'
+                        ? `${groupMembers.length} 位成员`
                         : contactOnline
                           ? tx('在线 · 点击查看主页', 'オンライン · プロフィール')
                           : tx('离线 · 点击查看主页', 'オフライン · プロフィール')}
@@ -3410,48 +3414,35 @@ export function LineConversationView({
               </div>
             </div>
 
-            {/* Actions: Search, Audio Call, Video Call, Settings */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => showToast(tx('语音通话 · 未开发', '音声通話 · 未開発'))}
-                className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#303033]"
-                title={tx('语音通话 · 未开发', '音声通話 · 未開発')}
-              >
-                <Phone className="w-4 h-4 stroke-[1.7]" />
-              </button>
-
-              <button
-                onClick={() => setShowTogetherMusic(true)}
-                className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#8b7560]"
-                title={tx('一起听歌', '一緒に音楽を聴く')}
-              >
-                <Music2 className="w-4 h-4 stroke-[1.7]" />
-              </button>
-
-              <button
-                onClick={() => showToast(tx('视频通话 · 未开发', 'ビデオ通話 · 未開発'))}
-                className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#303033]"
-                title={tx('视频通话 · 未开发', 'ビデオ通話 · 未開発')}
-              >
-                <Video className="w-4 h-4 stroke-[1.7]" />
-              </button>
-
-              <button
-                onClick={() => setShowPersonaManager(true)}
-                className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#666]"
-                title={`当前我的人设：${activePersona.name}`}
-              >
-                <UserCheck className="w-4 h-4 text-[#ae7e89]" />
-              </button>
-
-              <button
-                onClick={() => setShowSettings(true)}
-                className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#303033]"
-                title={tx('聊天设置与酒馆设定', 'チャット設定')}
-              >
-                <Settings className="w-4 h-4 stroke-[1.7]" />
-              </button>
-            </div>
+            {/* 群聊收纳顶部通话/音乐功能；单聊沿用原来的顶部按钮 */}
+            {isGroup ? (
+              <div className="relative flex items-center gap-1 shrink-0">
+                <button onClick={() => setShowGroupHeaderActions(v => !v)} className="w-8 h-8 rounded-full hover:bg-[#faf1f3] flex items-center justify-center text-[#555] active:scale-95" title="更多功能" aria-label="更多功能">
+                  <span className="text-xl leading-none tracking-[1px]">···</span>
+                </button>
+                <button onClick={() => setShowPersonaManager(true)} className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#666]" title={`当前我的人设：${activePersona.name}`}>
+                  <UserCheck className="w-4 h-4 text-[#ae7e89]" />
+                </button>
+                <button onClick={() => setShowSettings(true)} className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#303033]" title={tx('聊天设置与酒馆设定', 'チャット設定')}>
+                  <Settings className="w-4 h-4 stroke-[1.7]" />
+                </button>
+                {showGroupHeaderActions && (
+                  <div className="absolute right-0 top-10 z-40 w-40 rounded-[14px] border border-[#ededee] bg-white p-1.5 shadow-lg">
+                    <button onClick={() => { setShowGroupHeaderActions(false); showToast(tx('语音通话 · 未开发', '音声通話 · 未開発')); }} className="w-full flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-xs text-[#444] hover:bg-[#faf1f3]"><Phone className="w-4 h-4 text-[#777]" />语音通话</button>
+                    <button onClick={() => { setShowGroupHeaderActions(false); setShowTogetherMusic(true); }} className="w-full flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-xs text-[#444] hover:bg-[#faf1f3]"><Music2 className="w-4 h-4 text-[#8b7560]" />一起听歌</button>
+                    <button onClick={() => { setShowGroupHeaderActions(false); showToast(tx('视频通话 · 未开发', 'ビデオ通話 · 未開発')); }} className="w-full flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-xs text-[#444] hover:bg-[#faf1f3]"><Video className="w-4 h-4 text-[#777]" />视频通话</button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-1">
+                <button onClick={() => showToast(tx('语音通话 · 未开发', '音声通話 · 未開発'))} className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#303033]" title={tx('语音通话 · 未开发', '音声通話 · 未開発')}><Phone className="w-4 h-4 stroke-[1.7]" /></button>
+                <button onClick={() => setShowTogetherMusic(true)} className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#8b7560]" title={tx('一起听歌', '一緒に音楽を聴く')}><Music2 className="w-4 h-4 stroke-[1.7]" /></button>
+                <button onClick={() => showToast(tx('视频通话 · 未开发', 'ビデオ通話 · 未開発'))} className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#303033]" title={tx('视频通话 · 未开发', 'ビデオ通話 · 未開発')}><Video className="w-4 h-4 stroke-[1.7]" /></button>
+                <button onClick={() => setShowPersonaManager(true)} className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#666]" title={`当前我的人设：${activePersona.name}`}><UserCheck className="w-4 h-4 text-[#ae7e89]" /></button>
+                <button onClick={() => setShowSettings(true)} className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#303033]" title={tx('聊天设置与酒馆设定', 'チャット設定')}><Settings className="w-4 h-4 stroke-[1.7]" /></button>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -4451,9 +4442,29 @@ export function LineConversationView({
               )}
               {/* Plus Button */}
               <button
-                onClick={() => setShowPlusSheet(true)}
-                className="w-[34px] h-[38px] flex items-center justify-center text-[#555] hover:text-black cursor-pointer"
-                title="更多功能"
+                onPointerDown={() => {
+                  if (!isGroup) return;
+                  groupPlusLongPressTriggered.current = false;
+                  if (groupPlusLongPressTimer.current) clearTimeout(groupPlusLongPressTimer.current);
+                  groupPlusLongPressTimer.current = setTimeout(() => {
+                    groupPlusLongPressTriggered.current = true;
+                    setShowGroupContinueChoices(true);
+                  }, 500);
+                }}
+                onPointerUp={() => { if (groupPlusLongPressTimer.current) clearTimeout(groupPlusLongPressTimer.current); groupPlusLongPressTimer.current = null; }}
+                onPointerLeave={() => { if (groupPlusLongPressTimer.current) clearTimeout(groupPlusLongPressTimer.current); groupPlusLongPressTimer.current = null; }}
+                onContextMenu={(e) => {
+                  if (!isGroup) return;
+                  e.preventDefault();
+                  groupPlusLongPressTriggered.current = true;
+                  setShowGroupContinueChoices(true);
+                }}
+                onClick={() => {
+                  if (groupPlusLongPressTriggered.current) { groupPlusLongPressTriggered.current = false; return; }
+                  setShowPlusSheet(true);
+                }}
+                className="w-[34px] h-[38px] flex items-center justify-center text-[#555] hover:text-black cursor-pointer touch-manipulation"
+                title={isGroup ? "长按打开群聊扩展选项" : "更多功能"}
               >
                 <Plus className="w-5 h-5 stroke-[1.65]" />
               </button>
@@ -4697,20 +4708,15 @@ export function LineConversationView({
                     <div className="w-12 h-12 rounded-[14px] bg-[#f7f7f8] flex items-center justify-center text-[#666] hover:bg-[#f0f0f2]"><RefreshCw className="w-5 h-5" /></div>
                     <span>重新生成</span>
                   </button>
-                  {/* 群聊：继续菜单；单聊保留原行为 */}
+                  {/* 群聊入口改为扩展（待开发）；单聊继续沿用原行为 */}
                   <button onClick={() => {
-                    if (isGroup) {
-                      setShowPlusSheet(false);
-                      setPlusSheetPage(0);
-                      setShowGroupSpeakerPicker(false);
-                      setShowGroupContinueChoices(true);
-                    } else {
-                      setShowPlusSheet(false);
-                      handleContinueGenerating();
-                    }
+                    setShowPlusSheet(false);
+                    setPlusSheetPage(0);
+                    if (isGroup) setShowGroupExpandSheet(true);
+                    else handleContinueGenerating();
                   }} className="flex flex-col items-center gap-1.5 cursor-pointer">
-                    <div className="w-12 h-12 rounded-[14px] bg-[#f7f7f8] flex items-center justify-center text-[#666] hover:bg-[#f0f0f2]"><Play className="w-5 h-5" /></div>
-                    <span>{isGroup ? '继续' : '让角色继续说'}</span>
+                    <div className="w-12 h-12 rounded-[14px] bg-[#f7f7f8] flex items-center justify-center text-[#666] hover:bg-[#f0f0f2]"><Plus className="w-5 h-5" /></div>
+                    <span>{isGroup ? '扩展' : '让角色继续说'}</span>
                   </button>
                 </div>
 
@@ -7229,6 +7235,24 @@ export function LineConversationView({
                 );
               })}
             </section>
+          </div>
+        </div>
+      )}
+
+      {isGroup && showGroupExpandSheet && (
+        <div onClick={() => setShowGroupExpandSheet(false)} className="absolute inset-0 bg-black/25 z-[56] flex items-end animate-in fade-in">
+          <div onClick={(e) => e.stopPropagation()} className="w-full bg-white rounded-t-[20px] p-5 pb-7 animate-in slide-in-from-bottom">
+            <div className="w-8 h-1 bg-[#ddd] rounded-full mx-auto mb-4" />
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-[13px] bg-[#faf1f3] flex items-center justify-center text-[#ae7e89]"><Plus className="w-5 h-5" /></div>
+              <div><div className="text-sm font-semibold text-[#333]">扩展</div><div className="text-[10px] text-[#aaa] mt-0.5">群聊扩展功能</div></div>
+              <span className="ml-auto rounded-full bg-[#f7f7f8] px-2 py-1 text-[10px] text-[#999]">待开发</span>
+            </div>
+            <div className="rounded-[14px] border border-[#ededee] bg-[#fcfcfc] px-4 py-5 text-center">
+              <div className="text-sm text-[#555]">这个功能还在准备中</div>
+              <div className="text-[11px] text-[#aaa] mt-1.5">后续会在这里加入群聊扩展功能。</div>
+            </div>
+            <button onClick={() => setShowGroupExpandSheet(false)} className="w-full mt-4 py-2.5 rounded-[12px] bg-[#f7f7f7] text-[#777] text-xs font-medium">关闭</button>
           </div>
         </div>
       )}
