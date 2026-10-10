@@ -479,7 +479,9 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
           </div>
         </aside>
         <main className="flex-1 min-w-0 min-h-0 flex flex-col">
+        {tab !== 'identity' && (
         <div className="relative z-10 px-2 pb-2">
+          <div className="flex gap-1 overflow-x-auto no-scrollbar border-b border-[#eee8e3]">
           {([
             ['player', '我的音乐'],
             ['characters', '一起听'],
@@ -490,8 +492,9 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
               {label}
             </button>
           ))}
+          </div>
         </div>
-      </div>
+        )}
 
       <div className="relative z-10 flex-1 min-h-0 overflow-y-auto no-scrollbar px-2 pb-8">
 
@@ -700,6 +703,18 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
           <div onClick={event => event.stopPropagation()} className="w-full bg-white rounded-t-[28px] p-5 pb-8 space-y-3 shadow-xl">
             <div className="flex items-center justify-between"><div className="font-serif text-[17px]">{identityEditing ? '编辑音乐 ID' : '新建音乐 ID'}</div><button onClick={() => setIdentityEditor(false)}><X className="w-4 h-4 text-[#999]" /></button></div>
             <div className="text-[11px] leading-relaxed text-[#95877f]">每个音乐 ID 都有独立的喜欢列表和听歌记录，切换身份不会混在一起。</div>
+            <label className="flex items-center gap-3 rounded-2xl bg-[#f8f6f3] p-3 cursor-pointer">
+              <span className="w-11 h-11 rounded-xl overflow-hidden bg-white grid place-items-center">{activeIdentity?.avatar ? <img src={activeIdentity.avatar} alt="" className="w-full h-full object-cover" /> : <UserRound className="w-4 h-4 text-[#b5a49b]" />}</span>
+              <span className="flex-1 text-[11px] text-[#64564e]">更换此 ID 的头像<small className="block mt-1 text-[9px] text-[#a1968d]">仅影响当前音乐身份</small></span>
+              <input type="file" accept="image/*" className="hidden" onChange={event => {
+                const file = event.target.files?.[0];
+                if (!file || !activeIdentity) return;
+                const reader = new FileReader();
+                reader.onload = () => updateActiveIdentity(identity => ({ ...identity, avatar: String(reader.result || '') }));
+                reader.readAsDataURL(file);
+                event.target.value = '';
+              }} />
+            </label>
             <label className="block text-[11px] text-[#75675f]">ID 名称<input value={identityNameDraft} onChange={event => setIdentityNameDraft(event.target.value)} maxLength={20} placeholder="给这个音乐身份起个名字" className="mt-1 w-full p-3 rounded-xl bg-[#f8f6f3] text-[12px] outline-none" /></label>
             <label className="block text-[11px] text-[#75675f]">个人简介<input value={identityNoteDraft} onChange={event => setIdentityNoteDraft(event.target.value)} maxLength={80} placeholder="例如：通勤路上才有空听歌" className="mt-1 w-full p-3 rounded-xl bg-[#f8f6f3] text-[12px] outline-none" /></label>
             <button onClick={() => identityEditing ? saveIdentity() : createIdentity()} className="w-full py-3 rounded-full bg-[#2d2724] text-white text-[11px] font-semibold">{identityEditing ? '保存身份' : '创建并切换'}</button>
