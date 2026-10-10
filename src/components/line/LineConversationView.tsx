@@ -1065,6 +1065,7 @@ export function LineConversationView({
   // 群聊世界书独立选择：仅将用户勾选的条目注入群聊上下文。
   const [selectedGroupWorldBookEntries, setSelectedGroupWorldBookEntries] = usePersistentState<Record<string, string[]>>(`line:group-selected-worldbook-entries:${conversationStorageId}`, {});
   const [expandedGroupWorldBookId, setExpandedGroupWorldBookId] = useState<string | null>(null);
+  const [expandedGroupWorldBookEntryId, setExpandedGroupWorldBookEntryId] = useState<string | null>(null);
   // 独立的空白群聊记忆设定入口，不预填任何内容。
   const [groupMemorySettings, setGroupMemorySettings] = usePersistentState<string>(`line:group-memory-settings:${conversationStorageId}`, '');
   const groupWorldbooks = worldbooks
@@ -6059,19 +6060,39 @@ export function LineConversationView({
                                     <div className="text-[9px] text-[#aaa] py-1">这本世界书没有已启用条目</div>
                                   ) : availableEntries.map(entry => {
                                     const checked = selectedIds.includes(entry.id);
+                                    const entryKey = book.id + ':' + entry.id;
+                                    const entryExpanded = expandedGroupWorldBookEntryId === entryKey;
+                                    const entryContent = String((entry as any).content ?? (entry as any).text ?? (entry as any).description ?? '').trim();
                                     return (
-                                      <label key={entry.id} className="flex items-start gap-2 p-1.5 rounded-lg hover:bg-[#faf7f8] cursor-pointer">
-                                        <input
-                                          type="checkbox"
-                                          checked={checked}
-                                          onChange={() => setSelectedGroupWorldBookEntries(prev => ({
-                                            ...prev,
-                                            [book.id]: checked ? selectedIds.filter(id => id !== entry.id) : [...selectedIds, entry.id],
-                                          }))}
-                                          className="mt-0.5 accent-[#ae7e89]"
-                                        />
-                                        <span className="text-[9px] text-[#555] leading-relaxed">{entry.name}</span>
-                                      </label>
+                                      <div key={entry.id} className="rounded-lg border border-[#f1edef] mb-1 last:mb-0 overflow-hidden">
+                                        <div className="flex items-center gap-2 px-2 py-1.5 hover:bg-[#faf7f8]">
+                                          <input
+                                            aria-label={'选择条目：' + entry.name}
+                                            type="checkbox"
+                                            checked={checked}
+                                            onChange={() => setSelectedGroupWorldBookEntries(prev => ({
+                                              ...prev,
+                                              [book.id]: checked ? selectedIds.filter(id => id !== entry.id) : [...selectedIds, entry.id],
+                                            }))}
+                                            className="accent-[#ae7e89] shrink-0"
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={() => setExpandedGroupWorldBookEntryId(current => current === entryKey ? null : entryKey)}
+                                            aria-expanded={entryExpanded}
+                                            className="flex-1 min-w-0 flex items-center gap-1.5 text-left"
+                                          >
+                                            {entryExpanded ? <ChevronDown className="w-3 h-3 text-[#ae7e89] shrink-0" /> : <ChevronRight className="w-3 h-3 text-[#999] shrink-0" />}
+                                            <span className="text-[10px] text-[#555] leading-relaxed flex-1">{entry.name}</span>
+                                            <span className="text-[9px] text-[#aaa] shrink-0">{entryExpanded ? '收起内容' : '查看内容'}</span>
+                                          </button>
+                                        </div>
+                                        {entryExpanded && (
+                                          <div className="border-t border-[#f1edef] bg-[#fdfbfc] px-3 py-2 text-[10px] leading-relaxed text-[#666] whitespace-pre-wrap break-words max-h-40 overflow-y-auto">
+                                            {entryContent || '该条目没有可显示的内容。'}
+                                          </div>
+                                        )}
+                                      </div>
                                     );
                                   })}
                                 </div>
