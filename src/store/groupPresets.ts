@@ -1,6 +1,7 @@
 import { readPersistentState } from './usePersistentState';
 
 export type GroupPresetKind = 'online' | 'offline';
+export type GroupReplyMode = 'free' | 'all';
 
 export interface GroupChatPreset {
   id: string;
@@ -8,6 +9,8 @@ export interface GroupChatPreset {
   kind: GroupPresetKind;
   description: string;
   systemPrompt: string;
+  /** Controls group turn participation, not a fixed speaker count. */
+  replyMode?: GroupReplyMode;
   maxResponders: number;
   mentionPriority: boolean;
   createdAt: string;
@@ -24,6 +27,8 @@ export const DEFAULT_GROUP_PRESETS: GroupChatPreset[] = [
     kind: 'online',
     description: '像微信/QQ群一样自然，有人说话、有人潜水，不强制全员回复。',
     systemPrompt: '保持真实群聊节奏。不要让所有成员轮流发言；根据关系、话题与性格决定谁接话。短句优先，可插话、吐槽、已读不回。',
+    replyMode: 'free',
+    replyMode: 'all',
     maxResponders: 2,
     mentionPriority: true,
     createdAt: now,
@@ -35,6 +40,9 @@ export const DEFAULT_GROUP_PRESETS: GroupChatPreset[] = [
     kind: 'online',
     description: '多人抢话、快速插话，适合朋友群和热闹日常。',
     systemPrompt: '这是一个活跃群聊。允许多人连续插话，但每个人仍必须保持独立性。偶尔出现短消息、表情、吐槽和话题跑偏。',
+    replyMode: 'free',
+    replyMode: 'all',
+    replyMode: 'all',
     maxResponders: 3,
     mentionPriority: true,
     createdAt: now,
