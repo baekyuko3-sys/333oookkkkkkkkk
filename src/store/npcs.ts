@@ -9,7 +9,8 @@ export interface SaneNpc {
   appearance?: string;
   personality: string;
   background: string;
-  relationship: string;\n  relationshipCategory?: 'family' | 'friend' | 'coworker' | 'other';
+  relationship: string;
+  relationshipCategory?: 'family' | 'friend' | 'coworker' | 'other';
   settingSource: 'project' | 'worldbook' | 'character' | 'manual';
   boundCharacterId: string;
   boundCharacterName: string;
