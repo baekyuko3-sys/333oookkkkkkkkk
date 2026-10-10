@@ -124,12 +124,13 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
     if (apiTesting) return;
     setApiTesting(true);
     setApiTestStatus('正在测试网易云搜索接口……');
-    const settings = saveMusicApiSettings({ baseUrl });
+    const settings = { ...readMusicApiSettings(), baseUrl };
     try {
       const tracks = await searchMusic('周杰伦', settings);
       if (!tracks.length) {
         setApiTestStatus('接口有响应，但没有解析到歌曲列表。请确认地址是 API 根地址，并检查接口格式。');
       } else {
+        saveMusicApiSettings({ baseUrl });
         setApiTestStatus('连接成功！已找到 ' + tracks.length + ' 首测试歌曲，API 地址已保存。');
       }
     } catch (error) {
