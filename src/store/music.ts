@@ -119,7 +119,8 @@ export function saveMusicLoginSession(session: MusicLoginSession | null): void {
 }
 
 export async function createMusicQrLogin(baseUrl = readMusicApiSettings().baseUrl): Promise<{ key: string; image: string }> {
-  const root = baseUrl.trim().replace(/\\/+$/, '');
+  let root = baseUrl.trim();
+  while (root.endsWith('/')) root = root.slice(0, -1);
   const keyResponse = await fetch(joinUrl(root, '/login/qr/key') + '?timestamp=' + Date.now());
   if (!keyResponse.ok) throw new Error('二维码 key 请求失败：HTTP ' + keyResponse.status);
   const keyPayload = await keyResponse.json();
@@ -139,7 +140,8 @@ export async function createMusicQrLogin(baseUrl = readMusicApiSettings().baseUr
 }
 
 export async function checkMusicQrLogin(key: string, baseUrl = readMusicApiSettings().baseUrl): Promise<{ code: number; message: string; session?: MusicLoginSession }> {
-  const root = baseUrl.trim().replace(/\\/+$/, '');
+  let root = baseUrl.trim();
+  while (root.endsWith('/')) root = root.slice(0, -1);
   const url = new URL(joinUrl(root, '/login/qr/check'));
   url.searchParams.set('key', key);
   url.searchParams.set('timestamp', String(Date.now()));
