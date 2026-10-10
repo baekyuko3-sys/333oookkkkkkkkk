@@ -47,7 +47,7 @@ export interface MusicStrangerSession {
 export const DEFAULT_MUSIC_API_SETTINGS: MusicApiSettings = {
   enabled: true,
   provider: 'netease',
-  baseUrl: 'https://netease-cloud-music-api-backup-wheat-nu.vercel.app',
+  baseUrl: 'https://api-enhanced-nine-mu.vercel.app',
   searchPath: '/cloudsearch',
   songPath: '/song/detail',
   playlistPath: '/playlist/detail',
@@ -63,8 +63,12 @@ const MUSIC_STRANGER_KEY = 'phone:music-stranger-session';
 function mergeSettings(raw: unknown): MusicApiSettings {
   const saved = raw && typeof raw === 'object' ? raw as Partial<MusicApiSettings> : {};
   const merged = { ...DEFAULT_MUSIC_API_SETTINGS, ...saved };
-  // Migrate the old placeholder proxy URL to the user's actual NetEase API host.
-  if (!saved.baseUrl || saved.baseUrl === '/api/music/v1') {
+  // Migrate blank/placeholder settings and the previous NetEase API host to api-enhanced.
+  if (
+    !saved.baseUrl ||
+    saved.baseUrl === '/api/music/v1' ||
+    saved.baseUrl === 'https://netease-cloud-music-api-backup-wheat-nu.vercel.app'
+  ) {
     merged.baseUrl = DEFAULT_MUSIC_API_SETTINGS.baseUrl;
   }
   // Migrate the previous UI-only defaults to the NetEase API's actual endpoint names.
