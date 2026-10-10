@@ -296,16 +296,34 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
             ...worldBooks.filter(book => !embeddedWorldBooks.some(imported => imported.id === book.id)),
           ]
         : worldBooks;
+      // Worldbooks are stored once in phone:worldbooks, not duplicated inside
+      // every character card. This is important because localStorage is quota-limited.
+      const {
+        embeddedWorldBooks: _embeddedWorldBooks,
+        embeddedWorldBook: _embeddedWorldBook,
+        ...characterWithoutDuplicatedBooks
+      } = normalizedParsed;
       const nextCharacter = {
-        ...normalizedParsed,
+        ...characterWithoutDuplicatedBooks,
         groupId: groupId || existing?.groupId || null,
         ...(importedBooks.length
           ? { worldBookIds: Array.from(new Set([...(existing?.worldBookIds || []), ...(normalizedParsed.worldBookIds || []), ...importedBooks.map(book => book.id)])) }
           : {}),
       };
+      const compactExistingCharacters = await Promise.all(characters.map(async item => {
+        const {
+          embeddedWorldBooks: _oldEmbeddedWorldBooks,
+          embeddedWorldBook: _oldEmbeddedWorldBook,
+          ...compactItem
+        } = item;
+        return {
+          ...compactItem,
+          avatar: await compressCharacterAvatar(compactItem.avatar || ''),
+        };
+      }));
       const nextCharacters = existing
-        ? characters.map(item => item.id === normalizedParsed.id ? { ...nextCharacter, groupId: groupId || item.groupId || null } : item)
-        : [nextCharacter, ...characters];
+        ? compactExistingCharacters.map(item => item.id === normalizedParsed.id ? { ...nextCharacter, groupId: groupId || item.groupId || null } : item)
+        : [nextCharacter, ...compactExistingCharacters];
 
       // Persist before showing success. usePersistentState intentionally swallows
       // quota errors, so relying on its effect alone can falsely report success.
@@ -367,10 +385,9 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
 
     const characterId = selected.id;
     const characterName = selected.name;
-    const embeddedWorldBooks = selected.embeddedWorldBooks?.length
-      ? selected.embeddedWorldBooks
-      : (selected.embeddedWorldBook ? [selected.embeddedWorldBook] : []);
-    const embeddedWorldBookIds = new Set(embeddedWorldBooks.map(book => book.id));
+    const embeddedWorldBookIds = new Set(
+      (selected.worldBookIds || []).filter(id => worldBooks.some(book => book.id === id)),
+    );
 
     // Character-owned runtime data.
     clearCharacterMemory(characterId);
@@ -889,14 +906,20 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
 
                 <div className="grid grid-cols-2 gap-2.5">
                   <button
-                    onClick={() => downloadText(`${selected.name}.json`, exportCharacterJson(selected))}
+                    onClick={() => downloadText(`${selected.name}.json`, exportCharacterJson({
+                    ...selected,
+                    embeddedWorldBook: worldBooks.find(book => (selected.worldBookIds || []).includes(book.id)),
+                  }))}
                     className="py-2.5 rounded-xl bg-[#292724] text-white text-xs font-serif flex items-center justify-center gap-1.5"
                   >
                     <Download className="w-3.5 h-3.5" />
                     导出 JSON
                   </button>
                   <button
-                    onClick={() => downloadText(`${selected.name}.card.json`, exportCharacterCardV2(selected))}
+                    onClick={() => downloadText(`${selected.name}.card.json`, exportCharacterCardV2({
+                    ...selected,
+                    embeddedWorldBook: worldBooks.find(book => (selected.worldBookIds || []).includes(book.id)),
+                  }))}
                     className="py-2.5 rounded-xl bg-white border border-[rgba(40,36,31,.15)] text-[#5f5952] text-xs font-serif flex items-center justify-center gap-1.5"
                   >
                     <FileDown className="w-3.5 h-3.5" />
@@ -1056,7 +1079,7 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                     <div className="text-[11px] font-serif font-bold text-[#302d29]">关联世界书</div>
                     <div className="mt-0.5 text-[9px] text-[#8b847d]">
                       {(() => {
-                        const count = selected.embeddedWorldBooks?.length || (selected.embeddedWorldBook ? 1 : 0);
+                        const count = (selected.worldBookIds || []).filter(id => worldBooks.some(book => book.id === id)).length;
                         return count ? `这张角色卡带入了 ${count} 本世界书` : '这张角色卡没有检测到内置世界书';
                       })()}
                     </div>
