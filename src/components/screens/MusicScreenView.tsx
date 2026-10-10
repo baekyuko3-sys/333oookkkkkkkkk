@@ -30,7 +30,7 @@ interface MusicScreenViewProps {
 
 type MusicTab = 'identity' | 'player' | 'search' | 'characters' | 'history' | 'appearance';
 type MusicTogetherRecord = { characterId: string; characterName: string; variantLabel: string; trackId: string; trackName: string; playedAt: string; mode: 'direct' | 'stranger' };
-type MusicIdentity = { id: string; name: string; note: string; avatar?: string; personaId?: string; likedTracks: MusicTrack[]; history: MusicTrack[]; togetherRecords: MusicTogetherRecord[] };
+type MusicIdentity = { id: string; name: string; note: string; avatar?: string; personaId?: string; currentTrack?: MusicTrack | null; likedTracks: MusicTrack[]; history: MusicTrack[]; togetherRecords: MusicTogetherRecord[] };
 type LineUserPersona = { id: string; name?: string; avatar?: string; [key: string]: unknown };
 
 export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
@@ -104,11 +104,11 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
 
   useEffect(() => {
     if (!identities.length && (legacyLikedTracks.length || legacyListeningHistory.length)) {
-      const first: MusicIdentity = { id: 'music-id-default', name: '我的音乐 ID', note: '给此刻的心情留一首歌', likedTracks: legacyLikedTracks, history: legacyListeningHistory, togetherRecords: [] };
+      const first: MusicIdentity = { id: 'music-id-default', name: '我的音乐 ID', note: '给此刻的心情留一首歌', currentTrack: readMusicCurrent(), likedTracks: legacyLikedTracks, history: legacyListeningHistory, togetherRecords: [] };
       setIdentities([first]);
       setActiveIdentityId(first.id);
     } else if (!identities.length) {
-      const first: MusicIdentity = { id: 'music-id-default', name: '我的音乐 ID', note: '给此刻的心情留一首歌', likedTracks: [], history: [], togetherRecords: [] };
+      const first: MusicIdentity = { id: 'music-id-default', name: '我的音乐 ID', note: '给此刻的心情留一首歌', currentTrack: readMusicCurrent(), likedTracks: [], history: [], togetherRecords: [] };
       setIdentities([first]);
       setActiveIdentityId(first.id);
     } else if (!identities.some(item => item.id === activeIdentityId)) setActiveIdentityId(identities[0].id);
@@ -123,6 +123,17 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
     () => characterPlaylists.filter(playlist => playlist.characterId === selectedCharacterId),
     [characterPlaylists, selectedCharacterId],
   );
+
+  useEffect(() => {
+    const identity = identities.find(item => item.id === activeIdentityId);
+    if (!identity) return;
+    const nextTrack = identity.currentTrack || (identity.id === 'music-id-default' ? readMusicCurrent() : null);
+    setCurrentTrack(nextTrack);
+    setIsPlaying(false);
+    setPlaybackTime(0);
+    setPlaybackDuration(0);
+    if (audioRef.current) audioRef.current.pause();
+  }, [activeIdentityId]);
 
   useEffect(() => {
     const onMusicChanged = () => setCurrentTrack(readMusicCurrent());
@@ -165,7 +176,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
 
       setCurrentTrack(resolved);
       saveMusicCurrent(resolved);
-      updateActiveIdentity(identity => ({ ...identity, history: [resolved, ...identity.history.filter(item => item.id !== resolved.id)].slice(0, 100) }));
+      updateActiveIdentity(identity => ({ ...identity, currentTrack: resolved, history: [resolved, ...identity.history.filter(item => item.id !== resolved.id)].slice(0, 100) }));
 
       // Start playback directly after resolving the URL. Relying only on the
       // currentTrack effect can miss autoplay because isPlaying may still be false
