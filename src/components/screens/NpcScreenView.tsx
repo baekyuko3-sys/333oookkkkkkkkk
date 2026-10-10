@@ -38,7 +38,15 @@ export function NpcScreenView({ onNavigate }: { onNavigate: (screen: ScreenType)
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = npcs.find(item => item.id === selectedId) || null;
   const relatedNpcs = npcs.filter(item => (item.boundCharacterId || item.sourceCharacterId) === boundCharacterId);
-  const visibleNpcs = relatedNpcs.filter(item => categoryFilter === 'all' || (item.relationshipCategory || 'other') === categoryFilter);
+  const inferCategory = (item: SaneNpc): 'family' | 'friend' | 'coworker' | 'other' => {
+    if (item.relationshipCategory) return item.relationshipCategory;
+    const relation = (item.relationship + ' ' + item.identity + ' ' + item.tags.join(' ')).toLowerCase();
+    if (/家人|父亲|母亲|爸爸|妈妈|兄弟|姐妹|哥哥|姐姐|弟弟|妹妹|表哥|表姐|表弟|表妹|堂哥|堂姐|堂弟|堂妹|叔叔|阿姨|舅舅|姑姑|祖父|祖母|爷爷|奶奶|儿子|女儿|亲戚|family|sister|brother|mother|father|cousin|uncle|aunt/i.test(relation)) return 'family';
+    if (/同事|上司|老板|经纪人|助理|同部门|搭档|合作伙伴|同学|同门|coworker|colleague|manager|assistant/i.test(relation)) return 'coworker';
+    if (/朋友|好友|挚友|发小|竹马|闺蜜|死党|旧识|青梅竹马|friend|best friend/i.test(relation)) return 'friend';
+    return 'other';
+  };
+  const visibleNpcs = relatedNpcs.filter(item => categoryFilter === 'all' || inferCategory(item) === categoryFilter);
   const project = getProjectManifest();
   const boundCharacter = characters.find(character => character.id === boundCharacterId) || null;
   const activeCount = useMemo(() => npcs.filter(item => item.active).length, [npcs]);
