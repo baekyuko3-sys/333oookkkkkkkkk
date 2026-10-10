@@ -74,7 +74,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
     ? linePersonas.find(persona => persona.id === activeIdentity.personaId)
     : linePersonas.find(persona => persona.id === lineActivePersonaId) || linePersonas.find(persona => Boolean(persona.isDefault)) || null;
   const linkedPersonaAvatar = linkedPersona ? String(linkedPersona.avatar || linkedPersona.av || '') : '';
-  const identityAvatar = activeIdentity?.personaId ? (linkedPersonaAvatar || activeIdentity.avatar || '') : (activeIdentity?.avatar || '');
+  const identityAvatar = linkedPersonaAvatar || activeIdentity?.avatar || '';
   const likedTracks = activeIdentity?.likedTracks || [];
   const listeningHistory = activeIdentity?.history || [];
   const updateActiveIdentity = (update: (identity: MusicIdentity) => MusicIdentity, identityId = activeIdentity?.id) => {
