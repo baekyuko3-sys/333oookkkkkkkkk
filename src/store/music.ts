@@ -218,13 +218,47 @@ export async function searchMusic(keyword: string, settings = readMusicApiSettin
   return extractItems(payload).map(item => normalizeTrack(item, settings)).filter(track => track.id);
 }
 
+function extractPlayableUrl(payload: any): string {
+  const candidates = [
+    payload?.data?.[0]?.url,
+    payload?.data?.url,
+    payload?.data?.items?.[0]?.url,
+    payload?.result?.data?.[0]?.url,
+    payload?.result?.url,
+    payload?.url,
+    payload?.data?.[0]?.playUrl,
+    payload?.data?.items?.[0]?.playUrl,
+    payload?.data?.[0]?.downloadUrl,
+  ];
+  return String(candidates.find(value => typeof value === 'string' && /^https?:\\/\\//i.test(value)) || '');
+}
+
 export async function resolveTrackUrl(track: MusicTrack, settings = readMusicApiSettings()): Promise<MusicTrack> {
   if (track.playUrl) return track;
-  const url = new URL(joinUrl(settings.baseUrl, settings.urlPath), window.location.origin);
-  url.searchParams.set('id', track.id);
-  const payload = await fetchJson(url.toString());
-  const data = payload?.data?.[0]?.url || payload?.data?.url || payload?.data?.items?.[0]?.url || payload?.result?.data?.[0]?.url || payload?.url || payload?.data?.[0]?.playUrl || payload?.data?.items?.[0]?.playUrl;
-  return { ...track, playUrl: String(data || '') };
+  const baseUrl = settings.baseUrl.replace(/\\/+$/, '');
+  const requestUrl = new URL(joinUrl(baseUrl, settings.urlPath), window.location.origin);
+  requestUrl.searchParams.set('id', track.id);
+  const firstPayload = await fetchJson(requestUrl.toString());
+  let playUrl = extractPlayableUrl(firstPayload);
+
+  // api-enhanced's legacy /song/url can return an empty URL for some tracks.
+  // Fall back to the documented quality-aware endpoint before declaring playback unavailable.
+  if (!playUrl && settings.provider === 'netease') {
+    for (const level of ['exhigh', 'standard']) {
+      const fallbackUrl = new URL(joinUrl(baseUrl, '/song/url/v1'), window.location.origin);
+      fallbackUrl.searchParams.set('id', track.id);
+      fallbackUrl.searchParams.set('level', level);
+      try {
+        const payload = await fetchJson(fallbackUrl.toString());
+        playUrl = extractPlayableUrl(payload);
+        if (playUrl) break;
+      } catch {
+        // Keep trying the next supported quality / endpoint.
+      }
+    }
+  }
+
+  return { ...track, playUrl };
 }
 
 export async function getMusicPlaylist(playlistId: string, settings = readMusicApiSettings()): Promise<MusicTrack[]> {
