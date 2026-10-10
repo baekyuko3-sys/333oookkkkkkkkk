@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowLeft, Play, Pause, SkipBack, SkipForward, Heart, Search, Settings2,
+  ArrowLeft, Play, Pause, SkipBack, SkipForward, Heart, Search, Settings2, UserRoundArrowLeft,
   UsersRound, Shuffle, Music2, UserRound, ChevronRight, Volume2, X, Plus, Pencil, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { ScreenType } from '../../types';
