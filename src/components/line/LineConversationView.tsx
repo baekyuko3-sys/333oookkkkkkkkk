@@ -1685,7 +1685,8 @@ export function LineConversationView({
         cotTarget: isGroup ? 'group' : 'line',
         cotPreset: undefined,
           typingHabit: [
-            typingHabitPreset === 'custom' ? '总体风格：' + typingHabitCustom : '总体风格：' + typingHabitPreset,
+            '群聊节奏：' + (typingHabitPreset === 'quiet' ? '安静群聊，有人潜水，不要求每条消息都有人接话' : typingHabitPreset === 'active' ? '活跃群聊，允许成员短句插话和接话，但不强制全员发言' : typingHabitPreset === 'chaotic' ? '热闹群聊，允许多人抢话，但每条消息身份必须明确' : typingHabitPreset === 'custom' ? typingHabitCustom : '自然群聊，成员根据性格、关系和话题自行判断是否发言'),
+            groupLorebookActive.trim() ? '群聊补充风格：' + groupLorebookActive.trim() : '',
             '标点：' + typingPunctuation,
             'emoji/表情：' + typingEmoji,
             '消息分条：' + typingSplit,
@@ -1693,10 +1694,8 @@ export function LineConversationView({
             '句子长度：' + typingLength,
             '语气词：' + typingFillers,
             '断句：' + typingSentenceBreak,
-            replyCountEnabled
-              ? `【一次性回复条数】开启：本轮角色必须自然分成 ${Math.max(1, Math.min(5, replyCountMin))}～${Math.max(Math.max(1, Math.min(5, replyCountMin)), Math.min(8, replyCountMax))} 条独立 LINE 消息。不得少于最少条数或超过最多条数；不要为了凑数制造无意义内容。`
-              : '【一次性回复条数】关闭：按自然聊天节奏决定本轮消息条数。',
-          ].join('；'),
+            replyCountEnabled ? '每位发言角色按自然节奏分条，不为凑数生成无意义消息。' : '不强制每位群成员输出固定条数。',
+          ].filter(Boolean).join('；'),
           temperature: Number(presetTemp) || 0.85,
           debugConversationId: conversationStorageId,
           onDelta: delta => {
@@ -2439,7 +2438,7 @@ export function LineConversationView({
             const member = item.member;
             return member.name + '：' + [member.relationship, member.mood, member.online === false ? '离线' : '在线'].filter(Boolean).join(' / ');
           }),
-          '【群公告】' + (groupNoticeText || '暂无'),
+          '【群公告】' + (groupNoticeText || activeGroup?.announcement || '暂无'),
           '【已有关系】' + (activeGroup?.relationships || groupRelationships || []).map(item => item.from + ' → ' + item.to + '：' + item.relation).join('\\n'),
           '【群事件】' + (activeGroup?.events || []).slice(-12).map(item => item.text).join('\\n'),
           '【最近聊天】' + messages.slice(-30).map(message => (message.sender === 'me' ? '我' : (message.senderName || '角色')) + ': ' + (message.text || '')).join('\\n'),
@@ -3300,12 +3299,12 @@ export function LineConversationView({
       </div>
 
       {/* Group Notice Banner (群公告折叠栏) */}
-      {isGroup && showGroupNotice && groupNoticeText.trim() && (
+      {isGroup && showGroupNotice && (groupNoticeText || activeGroup?.announcement || '').trim() && (
         <div className="bg-[#faf4f6] border-b border-[#f0dee3] px-3.5 py-1.5 flex items-center justify-between text-[11px] text-[#8c5f6b] animate-in slide-in-from-top">
           <div className="flex items-center gap-1.5 truncate">
             <span>📢</span>
             <span className="font-semibold">{tx('群公告：', 'グループのお知らせ：')}</span>
-            <span className="truncate">{groupNoticeText}</span>
+            <span className="truncate">{groupNoticeText || activeGroup?.announcement}</span>
           </div>
           <button
             onClick={() => setShowGroupNotice(false)}
