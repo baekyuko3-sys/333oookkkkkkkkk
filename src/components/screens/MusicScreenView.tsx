@@ -56,6 +56,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
   const [playbackTime, setPlaybackTime] = useState(0);
   const [playbackDuration, setPlaybackDuration] = useState(0);
   const [musicAccent, setMusicAccent] = usePersistentState<string>('phone:music-accent-v1', '#c4989a');
+  const [musicBackground, setMusicBackground] = usePersistentState<string>('phone:music-background-v1', '#ffffff');
   const [tab, setTab] = useState<MusicTab>('identity');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MusicTrack[]>([]);
@@ -500,7 +501,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
   };
 
   return (
-    <div className="relative w-full h-full flex flex-col overflow-hidden select-none" style={{ background: '#fff', color: '#2d2724' }}>
+    <div className="relative w-full h-full flex flex-col overflow-hidden select-none" style={{ background: musicBackground, color: '#2d2724' }}>
       <div className="pointer-events-none absolute inset-0 opacity-40" style={{ background: 'radial-gradient(ellipse at 10% 0%, #f8eeee 0, transparent 42%), radial-gradient(ellipse at 100% 100%, #f2f6f2 0, transparent 38%)' }} />
 
       <header className="relative z-10 grid grid-cols-[40px_1fr_40px] items-center px-4 pt-7 pb-3">
@@ -815,6 +816,9 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
               <div className="mt-1 text-[10px] leading-relaxed text-[#95877f]">设置只作用于音乐 App，不会改变手机其他页面。</div>
               <div className="mt-4 text-[11px] font-semibold">强调色</div>
               <div className="flex gap-2 mt-2">{['#c4989a','#9dbcae','#d4b58b','#9caec8'].map(color => <button key={color} onClick={() => { setMusicAccent(color); document.documentElement.style.setProperty('--music-accent', color); showToast('强调色已保存'); }} className="w-8 h-8 rounded-full border border-white shadow-sm" style={{ background: color }} aria-label={'选择颜色 ' + color} />)}</div>
+              <div className="mt-4 text-[11px] font-semibold">页面底色</div>
+              <div className="flex flex-wrap gap-2 mt-2">{[{name:'纯白',value:'#ffffff'},{name:'雾粉',value:'#fff8f7'},{name:'清浅绿',value:'#f5faf6'},{name:'冷雾蓝',value:'#f5f8fc'}].map(option => <button key={option.value} onClick={() => { setMusicBackground(option.value); showToast('音乐页面底色已保存'); }} className={'px-3 py-2 rounded-full border text-[10px] ' + (musicBackground === option.value ? 'border-[#c4989a] bg-white text-[#5d514b]' : 'border-[#eee5df] bg-white/70 text-[#8f8178]')}><span className="inline-block w-3 h-3 rounded-full border border-black/5 align-middle mr-1.5" style={{background:option.value}} />{option.name}</button>)}</div>
+              <div className="mt-2 text-[9px] text-[#a0958d]">只影响音乐 App，不改变手机其他应用。</div>
             </section>
             <section className="rounded-[24px] border border-[#eee5df] bg-white p-4 space-y-3">
               <div className="flex items-center justify-between"><div className="font-serif text-[17px]">网易云 Music API</div><Music2 className="w-4 h-4 text-[#c4989a]" /></div>
