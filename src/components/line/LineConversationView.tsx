@@ -3612,7 +3612,7 @@ export function LineConversationView({
           // show the neutral placeholder instead of borrowing an unrelated member avatar.
           const groupMessageAvatar = groupMessageCharacter?.avatar || '';
           const thinkingContent = msg.thinkingSummary || msg.metadata?.thinkingSummary || msg.thinking || msg.metadata?.thinking || '';
-          const hasThinking = Boolean(String(thinkingContent).trim()) && showChainOfThoughtInChat;
+          const hasThinking = Boolean(String(thinkingContent).trim()) && (isGroup || showChainOfThoughtInChat);
           const cotLabel = getActivePromptPreset(isGroup ? 'group' : 'single')?.name || '预设流程';
           const cotStyle = resolvedCotPreset.displayStyle || 'minimal';
           const cotStyleClass = cotStyle === 'soft'
