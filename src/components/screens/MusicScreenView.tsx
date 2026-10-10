@@ -41,6 +41,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [identitySubtab, setIdentitySubtab] = useState<'liked' | 'together'>('liked');
   const [identityEditor, setIdentityEditor] = useState(false);
+  const [identityEditing, setIdentityEditing] = useState(false);
   const [identityNameDraft, setIdentityNameDraft] = useState('');
   const [identityNoteDraft, setIdentityNoteDraft] = useState('');
   const [currentTrack, setCurrentTrack] = useState<MusicTrack | null>(() => readMusicCurrent());
@@ -423,6 +424,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
     setIdentities(previous => [...previous, identity]);
     setActiveIdentityId(identity.id);
     setIdentityEditor(false);
+    setIdentityEditing(false);
     setTab('identity');
     setIdentitySubtab('liked');
     showToast('已创建并切换到 ' + name);
@@ -434,12 +436,14 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
     if (!name) { showToast('音乐 ID 名称不能为空'); return; }
     updateActiveIdentity(identity => ({ ...identity, name, note: identityNoteDraft.trim() || '给此刻的心情留一首歌' }));
     setIdentityEditor(false);
+    setIdentityEditing(false);
     showToast('音乐 ID 已保存');
   };
 
   const openIdentityEditor = () => {
     setIdentityNameDraft(activeIdentity?.name || '');
     setIdentityNoteDraft(activeIdentity?.note || '');
+    setIdentityEditing(true);
     setIdentityEditor(true);
   };
 
@@ -471,7 +475,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
                 {identity.id === activeIdentity?.id && <span className="absolute -left-[5px] top-2 w-[3px] h-6 rounded-full bg-[#c4989a]" />}
               </button>
             ))}
-            {!railCollapsed && <button onClick={() => { setIdentityNameDraft(''); setIdentityNoteDraft(''); setIdentityEditor(true); }} className="w-[58px] shrink-0 flex flex-col items-center gap-1.5 text-[10px] text-[#9a8d84]"><span className="w-10 h-10 rounded-[15px] border border-dashed border-[#b9aaa1] grid place-items-center"><Plus className="w-4 h-4" /></span>新 ID</button>}
+            {!railCollapsed && <button onClick={() => { setIdentityNameDraft(''); setIdentityNoteDraft(''); setIdentityEditing(false); setIdentityEditor(true); }} className="w-[58px] shrink-0 flex flex-col items-center gap-1.5 text-[10px] text-[#9a8d84]"><span className="w-10 h-10 rounded-[15px] border border-dashed border-[#b9aaa1] grid place-items-center"><Plus className="w-4 h-4" /></span>新 ID</button>}
           </div>
         </aside>
         <main className="flex-1 min-w-0 min-h-0 flex flex-col">
@@ -694,11 +698,11 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
       {identityEditor && (
         <div onClick={() => setIdentityEditor(false)} className="absolute inset-0 z-[70] bg-[#2d2724]/30 flex items-end">
           <div onClick={event => event.stopPropagation()} className="w-full bg-white rounded-t-[28px] p-5 pb-8 space-y-3 shadow-xl">
-            <div className="flex items-center justify-between"><div className="font-serif text-[17px]">{identities.some(identity => identity.id === activeIdentityId) && identityNameDraft === activeIdentity?.name ? '编辑音乐 ID' : '新建音乐 ID'}</div><button onClick={() => setIdentityEditor(false)}><X className="w-4 h-4 text-[#999]" /></button></div>
+            <div className="flex items-center justify-between"><div className="font-serif text-[17px]">{identityEditing ? '编辑音乐 ID' : '新建音乐 ID'}</div><button onClick={() => setIdentityEditor(false)}><X className="w-4 h-4 text-[#999]" /></button></div>
             <div className="text-[11px] leading-relaxed text-[#95877f]">每个音乐 ID 都有独立的喜欢列表和听歌记录，切换身份不会混在一起。</div>
             <label className="block text-[11px] text-[#75675f]">ID 名称<input value={identityNameDraft} onChange={event => setIdentityNameDraft(event.target.value)} maxLength={20} placeholder="给这个音乐身份起个名字" className="mt-1 w-full p-3 rounded-xl bg-[#f8f6f3] text-[12px] outline-none" /></label>
             <label className="block text-[11px] text-[#75675f]">个人简介<input value={identityNoteDraft} onChange={event => setIdentityNoteDraft(event.target.value)} maxLength={80} placeholder="例如：通勤路上才有空听歌" className="mt-1 w-full p-3 rounded-xl bg-[#f8f6f3] text-[12px] outline-none" /></label>
-            <button onClick={() => identities.some(identity => identity.id === activeIdentityId) && identityNameDraft === activeIdentity?.name ? saveIdentity() : createIdentity()} className="w-full py-3 rounded-full bg-[#2d2724] text-white text-[11px] font-semibold">{identities.some(identity => identity.id === activeIdentityId) && identityNameDraft === activeIdentity?.name ? '保存身份' : '创建并切换'}</button>
+            <button onClick={() => identityEditing ? saveIdentity() : createIdentity()} className="w-full py-3 rounded-full bg-[#2d2724] text-white text-[11px] font-semibold">{identityEditing ? '保存身份' : '创建并切换'}</button>
           </div>
         </div>
       )}
