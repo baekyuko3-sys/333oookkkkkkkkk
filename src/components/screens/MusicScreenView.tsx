@@ -74,11 +74,16 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
   }, []);
 
   useEffect(() => {
-    if (!audioRef.current || !currentTrack?.playUrl) return;
-    audioRef.current.src = currentTrack.playUrl;
-    audioRef.current.load();
-    if (isPlaying) void audioRef.current.play().catch(() => setIsPlaying(false));
-  }, [currentTrack]);
+    const audio = audioRef.current;
+    if (!audio || !currentTrack?.playUrl) return;
+    if (audio.src !== currentTrack.playUrl) {
+      audio.src = currentTrack.playUrl;
+      audio.load();
+    }
+    if (isPlaying && audio.paused) {
+      void audio.play().catch(() => setIsPlaying(false));
+    }
+  }, [currentTrack, isPlaying]);
 
   const showToast = (message: string) => {
     setToast(message);
@@ -157,7 +162,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
         setApiTestStatus('接口有响应，但没有解析到歌曲列表。请确认地址是 API 根地址，并检查接口格式。');
       } else {
         saveMusicApiSettings({ baseUrl });
-        setApiTestStatus('连接成功！已找到 ' + tracks.length + ' 首测试歌曲，API 地址已保存。');
+        setApiTestStatus('搜索接口正常：找到 ' + tracks.length + ' 首歌曲，API 地址已保存。播放能力需点击歌曲另行测试。');
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -428,8 +433,27 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
                     setIsPlaying(false);
                     return;
                   }
-                  const fallbackUrl = 'https://music.163.com/song/media/outer/url?id=' + encodeURIComponent(currentTrack.id) + '.mp3';
-                  if (!audio.src.includes('/song/media/outer/url')) {
+
+                  const currentUrl = currentTrack.playUrl || '';
+                  let fallbackUrl = '';
+                  try {
+                    if (currentUrl.includes('/song/url/v1/302')) {
+                      const parsed = new URL(currentUrl);
+                      if (parsed.searchParams.get('level') === 'standard') {
+                        parsed.searchParams.set('level', 'exhigh');
+                        fallbackUrl = parsed.toString();
+                      }
+                    } else {
+                      const parsed = new URL('/song/url/v1/302', readMusicApiSettings().baseUrl);
+                      parsed.searchParams.set('id', currentTrack.id);
+                      parsed.searchParams.set('level', 'standard');
+                      fallbackUrl = parsed.toString();
+                    }
+                  } catch {
+                    fallbackUrl = '';
+                  }
+
+                  if (fallbackUrl && fallbackUrl !== currentUrl) {
                     const fallbackTrack = { ...currentTrack, playUrl: fallbackUrl };
                     setCurrentTrack(fallbackTrack);
                     saveMusicCurrent(fallbackTrack);
@@ -437,12 +461,13 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
                     audio.load();
                     void audio.play().then(() => setIsPlaying(true)).catch(() => {
                       setIsPlaying(false);
-                      showToast('这首歌的音源不可用，请换一首歌试试。');
+                      showToast('已经尝试备用音质，但 API 没有提供可播放音源。请换一首歌曲测试。');
                     });
-                  } else {
-                    setIsPlaying(false);
-                    showToast('这首歌的音源不可用，请换一首歌试试。');
+                    return;
                   }
+
+                  setIsPlaying(false);
+                  showToast('API 没有提供可播放音源，请换一首歌曲测试。');
                 }}
                 className="w-full mt-3 h-8"
                 controls
