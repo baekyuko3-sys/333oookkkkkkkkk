@@ -244,6 +244,9 @@ export async function resolveTrackUrl(track: MusicTrack, settings = readMusicApi
     { path: '/song/url/v1', level: 'exhigh' },
     { path: '/song/url/v1', level: 'standard' },
     { path: '/song/url/v1', level: 'exhigh', unblock: true },
+    // api-enhanced documents this endpoint for matching alternative sources
+    // when a track's normal NetEase playback URL is unavailable.
+    { path: '/song/url/match' },
   ];
 
   for (const request of requests) {
