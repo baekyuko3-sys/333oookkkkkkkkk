@@ -490,6 +490,14 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
   };
 
   const isCurrentLiked = Boolean(currentTrack && likedTracks.some(item => item.id === currentTrack.id));
+  const playAdjacentTrack = (direction: -1 | 1) => {
+    const queue = likedTracks.length ? likedTracks : listeningHistory;
+    if (!queue.length) { showToast('先搜索并播放歌曲'); return; }
+    const currentIndex = queue.findIndex(track => track.id === currentTrack?.id);
+    if (currentIndex < 0) { void playTrack(queue[0]); return; }
+    const nextIndex = (currentIndex + direction + queue.length) % queue.length;
+    void playTrack(queue[nextIndex]);
+  };
 
   return (
     <div className="relative w-full h-full flex flex-col overflow-hidden select-none" style={{ background: '#fff', color: '#2d2724' }}>
@@ -657,10 +665,12 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
                 <button onClick={() => void startStrangerListening()} className="flex-1 flex items-center justify-center gap-2 rounded-full bg-white/80 border border-[#eadfda] py-3 text-[11px] text-[#695b54]"><Shuffle className="w-3.5 h-3.5" />随机一起听</button>
               </div>
               {currentTrack && (
-                <div className="mt-3 flex items-center justify-center gap-7">
+                <div className="mt-3 flex items-center justify-center gap-6">
+                  <button onClick={() => playAdjacentTrack(-1)} aria-label="上一首" className="text-[#8d827b]"><SkipBack className="w-4 h-4 fill-current" /></button>
                   <button onClick={() => toggleLiked(currentTrack)} aria-label="喜欢这首歌" className={isCurrentLiked ? 'text-[#bb8589]' : 'text-[#8d827b]'}><Heart className={'w-4 h-4 ' + (isCurrentLiked ? 'fill-current' : '')} /></button>
                   <button onClick={() => { const audio = audioRef.current; if (!audio) return; if (audio.paused) void audio.play().then(() => setIsPlaying(true)).catch(() => showToast('浏览器无法播放该音源')); else audio.pause(); }} className="w-11 h-11 rounded-full bg-[#2d2724] text-white grid place-items-center">{isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}</button>
                   <button onClick={() => setTab('characters')} aria-label="邀请角色一起听" className="text-[#8d827b]"><UsersRound className="w-4 h-4" /></button>
+                  <button onClick={() => playAdjacentTrack(1)} aria-label="下一首" className="text-[#8d827b]"><SkipForward className="w-4 h-4 fill-current" /></button>
                 </div>
               )}
             </section>
@@ -804,7 +814,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
               <div className="font-serif text-[19px]">外观与音乐 API</div>
               <div className="mt-1 text-[10px] leading-relaxed text-[#95877f]">设置只作用于音乐 App，不会改变手机其他页面。</div>
               <div className="mt-4 text-[11px] font-semibold">强调色</div>
-              <div className="flex gap-2 mt-2">{['#c4989a','#9dbcae','#d4b58b','#9caec8'].map(color => <button key={color} onClick={() => { document.documentElement.style.setProperty('--music-accent', color); showToast('强调色已应用'); }} className="w-8 h-8 rounded-full border border-white shadow-sm" style={{ background: color }} aria-label={'选择颜色 ' + color} />)}</div>
+              <div className="flex gap-2 mt-2">{['#c4989a','#9dbcae','#d4b58b','#9caec8'].map(color => <button key={color} onClick={() => { setMusicAccent(color); document.documentElement.style.setProperty('--music-accent', color); showToast('强调色已保存'); }} className="w-8 h-8 rounded-full border border-white shadow-sm" style={{ background: color }} aria-label={'选择颜色 ' + color} />)}</div>
             </section>
             <section className="rounded-[24px] border border-[#eee5df] bg-white p-4 space-y-3">
               <div className="flex items-center justify-between"><div className="font-serif text-[17px]">网易云 Music API</div><Music2 className="w-4 h-4 text-[#c4989a]" /></div>
