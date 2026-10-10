@@ -12,7 +12,7 @@ import { getProjectManifest } from '../../store/projectManifest';
 import { getCharacterProfile } from '../../data/characterProfiles';
 import { getInitialChatMessages } from '../../data/characterChatSeeds';
 import { upsertOfflineEvent, updateOfflineEvent } from '../../store/offlineEvents';
-import { getLineGroupByName } from '../../store/lineGroups';
+import { getLineGroupByName, getLineGroupById, upsertLineGroup } from '../../store/lineGroups';
 import { getGroupPreset, getGroupPresets } from '../../store/groupPresets';
 import { getLineGroups, updateLineGroupMember, addLineGroupMemory, setLineGroupRelationships } from '../../store/lineGroups';
 import { createTogetherMusicSession, type TogetherMusicSession } from '../../store/togetherMusic';
@@ -155,6 +155,15 @@ function formatLineMessageDayLabel(value: Date, timezone: string, displayLocale:
   } catch {
     return value.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
   }
+}
+
+function stripGroupSpeakerPrefix(text: string, characterName: string): string {
+  const value = String(text || '').trim();
+  if (!value) return '';
+  const escapedName = characterName.replace(/[.*+?^${}()|[\]\\]/g, '\\function currentUserNameFallback(): string {');
+  const namedPrefix = new RegExp('^\\s*(?:\\[' + escapedName + '\\]|' + escapedName + ')\\s*[:：]\\s*', 'i');
+  if (namedPrefix.test(value)) return value.replace(namedPrefix, '').trim();
+  return value.replace(/^\\s*[a-z]\\s*:\\s*[a-z0-9_-]{1,24}\\s*:\\s*/i, '').trim();
 }
 
 function currentUserNameFallback(): string {
@@ -726,7 +735,9 @@ export function LineConversationView({
 
   const [personaLiveWeather, setPersonaLiveWeather] = useState<LineWeatherSnapshot | null>(null);
 
-  const activeGroup = isGroup ? getLineGroupByName(contactName) : null;
+  const activeGroup = isGroup ? (getLineGroupById(conversationId || conversationStorageId) || getLineGroupByName(contactName)) : null;
+  const [, setGroupRevision] = useState(0);
+  const saveGroupUpdate = (group: any) => { upsertLineGroup(group); setGroupRevision(value => value + 1); };
   const safeGroupMembers = Array.isArray(activeGroup?.members)
     ? activeGroup.members.filter((member: any) => !!member && typeof member === 'object')
     : [];
@@ -1041,10 +1052,11 @@ export function LineConversationView({
 
   // 群聊专属设定 (Group Lorebook & Dynamics)
   const [groupRelationships, setGroupRelationships] = useState<Array<{ from: string; to: string; relation: string }>>([]);
-  const [groupLorebookActive, setGroupLorebookActive] = useState('');
+  const [groupLorebookActive, setGroupLorebookActive] = usePersistentState<string>(`line:group-style-notes:${conversationStorageId}`, '');
   const [groupPresetId, setGroupPresetId] = usePersistentState(`line:group-preset:${conversationStorageId}`, 'online-natural');
   const activeGroupPreset = getGroupPreset(groupPresetId, 'online');
-  const [groupNoticeText, setGroupNoticeText] = useState('');
+  const [groupNoticeText, setGroupNoticeText] = usePersistentState<string>(`line:group-announcement:${conversationStorageId}`, '');
+  const [groupInviteCharacterId, setGroupInviteCharacterId] = useState('');
 
   // 角色日程
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -1629,8 +1641,9 @@ export function LineConversationView({
         return;
       }
       const mentioned = groupAiMembers.filter(({ member }) => userText.includes('@' + member.name) || userText.includes('@' + (member.nickname || '')));
-      const pool = mentioned.length ? mentioned : groupAiMembers;
-      const responders = pool.slice(0, mentioned.length && activeGroupPreset.mentionPriority ? 1 : Math.min(pool.length, activeGroupPreset.maxResponders));
+      const availableMembers = groupAiMembers.filter(({ member }) => !member.muted && member.online !== false);
+      const pool = (mentioned.length ? mentioned : availableMembers).filter(({ member }) => !member.muted);
+      const responders = pool.slice(0, mentioned.length && activeGroupPreset.mentionPriority ? Math.min(pool.length, 1) : Math.min(pool.length, activeGroupPreset.maxResponders));
       let workingMessages = [...messages, newMsg].map(message => ({ ...message, sender: message.sender || 'other' }));
       for (let index = 0; index < responders.length; index += 1) {
         const { character } = responders[index];
@@ -1656,7 +1669,8 @@ export function LineConversationView({
             lineConversationRules,
             '群聊预设：' + activeGroupPreset.name,
             activeGroupPreset.systemPrompt,
-            groupNoticeText ? '群公告：' + groupNoticeText : '',
+            (groupNoticeText || activeGroup?.announcement) ? '群公告：' + (groupNoticeText || activeGroup?.announcement) : '',
+            groupLorebookActive.trim() ? '【群聊风格补充】\n' + groupLorebookActive.trim() : '',
             activeGroup?.relationships?.length ? '【成员关系】\\n' + activeGroup.relationships.map(item => item.from + ' → ' + item.to + '：' + item.relation).join('\\n') : '',
             activeGroup?.events?.length ? '【群事件记忆】\\n' + activeGroup.events.slice(-12).map(item => item.text).join('\\n') : '',
             '【成员状态】\\n' + (activeGroup?.members || []).map(member => member.name + '：' + [member.online === false ? '离线' : '在线', member.mood || '', member.relationship || ''].filter(Boolean).join(' / ')).join('\\n'),
@@ -1684,8 +1698,8 @@ export function LineConversationView({
             const clean = streamedText.trim();
             if (!clean) return;
             setMessages(prev => {
-              if (prev.some(m => m.id === replyMsgId)) return prev.map(m => m.id === replyMsgId ? { ...m, text: clean, senderName: character.name } : m);
-              return [...prev, { id: replyMsgId, sender: 'other', senderName: character.name, text: clean, time: '刚刚', type: 'ai-reply', showThinking: false }];
+              if (prev.some(m => m.id === replyMsgId)) return prev.map(m => m.id === replyMsgId ? { ...m, text: clean, senderName: character.name, characterId: character.id } : m);
+              return [...prev, { id: replyMsgId, sender: 'other', senderName: character.name, characterId: character.id, text: clean, time: '刚刚', type: 'ai-reply', showThinking: false }];
             });
           },
         });
@@ -1699,7 +1713,7 @@ export function LineConversationView({
           const turnId = String(replyMsgId);
           withoutStreaming.splice(insertAt, 0, ...groupReplyParts.map((text, partIndex) => ({
             id: partIndex === 0 ? replyMsgId : `${replyMsgId}-${partIndex}`,
-            turnId, sender: 'other', senderName: character.name, text, time: formatLineMessageClock({ createdAt: new Date().toISOString() }, chatTimezone, lineTimeDisplayLocale), createdAt: new Date().toISOString(),
+            turnId, sender: 'other', senderName: character.name, characterId: character.id, text: stripGroupSpeakerPrefix(text, character.name), time: formatLineMessageClock({ createdAt: new Date().toISOString() }, chatTimezone, lineTimeDisplayLocale), createdAt: new Date().toISOString(),
             type: 'ai-reply', aiModel: result.model,
             matchedWorldbookEntries: result.matchedWorldbookEntries, status: 'delivered',
             thinkingSummary: partIndex === 0 ? result.thinkingSummary : undefined,
@@ -1716,7 +1730,7 @@ export function LineConversationView({
         });
         // 角色真正回复后，用户刚才的消息才变成已读。
         setMessages(prev => prev.map(m => m.id === msgId ? { ...m, isRead: true } : m));
-        workingMessages = [...workingMessages, { id: replyMsgId, sender: 'other', senderName: character.name, text: String(result?.text || '').trim() }];
+        workingMessages = [...workingMessages, { id: replyMsgId, sender: 'other', senderName: character.name, characterId: character.id, text: String(result?.text || '').trim() }];
         const member = responders[index].member;
         updateLineGroupMember(activeGroup?.id || '', member.id, {
           online: true,
@@ -1734,7 +1748,7 @@ export function LineConversationView({
         setMessages(prev => {
           const hasEmpty = prev.some(m => m.type === 'ai-reply' && m.sender === 'other' && !String(m.text || '').trim());
           if (hasEmpty) return prev.map(m => m.type === 'ai-reply' && m.sender === 'other' && !String(m.text || '').trim() ? { ...m, status: 'failed', error: message, text: `回复失败：${message}` } : m);
-          return [...prev, { id: Date.now() + 2, sender: 'other', senderName: 'AI', text: `回复失败：${message}`, time: '刚刚', type: 'ai-reply', status: 'failed', error: message }];
+          return [...prev, { id: Date.now() + 2, sender: 'other', senderName: '系统提示', text: `群聊回复失败：${message}`, time: '刚刚', type: 'system-nudge', status: 'failed', error: message }];
         });
         showToast(message.length > 72 ? message.slice(0, 72) + '…' : message);
       } finally {
@@ -2882,6 +2896,7 @@ export function LineConversationView({
 
   // 保存当前聊天的完整设定快照；各项设定仍沿用原有的独立持久化键。
   const handleSaveChatSettings = () => {
+    if (isGroup && activeGroup) saveGroupUpdate({ ...activeGroup, announcement: groupNoticeText || activeGroup.announcement || '', updatedAt: new Date().toISOString() });
     try {
       const settings: Record<string, string> = {};
       for (let index = 0; index < window.localStorage.length; index += 1) {
@@ -3453,6 +3468,7 @@ export function LineConversationView({
           }
 
           const isMe = msg.sender === 'me';
+          const groupMessageCharacter = isGroup && !isMe ? importedCharacters.find(character => character.id === msg.characterId || character.id === msg.metadata?.characterId || character.name === msg.senderName) : null;
           const thinkingContent = msg.thinkingSummary || msg.metadata?.thinkingSummary || msg.thinking || msg.metadata?.thinking || '';
           const hasThinking = Boolean(String(thinkingContent).trim()) && showChainOfThoughtInChat;
           const cotLabel = getActivePromptPreset(isGroup ? 'group' : 'single')?.name || '预设流程';
@@ -3572,8 +3588,8 @@ export function LineConversationView({
                   }`}
                   title={isGroup ? `单击@${msg.senderName || characterProfile.nickname}，双击拍一拍` : '单击打开状态卡，双击拍一拍'}
                 >
-                  {(isGroup ? importedCharacters.find(character => character.name === msg.senderName)?.avatar : importedCharacter?.avatar) ? (
-                    <img src={(isGroup ? importedCharacters.find(character => character.name === msg.senderName)?.avatar : importedCharacter?.avatar) || ''} alt={msg.senderName || characterProfile.nickname} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  {(isGroup ? (groupMessageCharacter?.avatar || activeGroup?.members.find(member => member.characterId === groupMessageCharacter?.id || member.name === msg.senderName)?.avatar) : importedCharacter?.avatar) ? (
+                    <img src={(isGroup ? (groupMessageCharacter?.avatar || activeGroup?.members.find(member => member.characterId === groupMessageCharacter?.id || member.name === msg.senderName)?.avatar) : importedCharacter?.avatar) || ''} alt={msg.senderName || characterProfile.nickname} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
                     <svg className="w-5 h-5 text-[#999]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <circle cx="12" cy="8" r="4" />
@@ -5141,8 +5157,24 @@ export function LineConversationView({
         </div>
       )}
 
+      {/* Group-only settings; private chat settings below remain unchanged. */}
+      {showSettings && isGroup && (
+        <div className="absolute inset-0 bg-[#f7f7f8] z-50 flex flex-col animate-in slide-in-from-right">
+          <div className="h-[60px] bg-white border-b border-[#ededee] flex items-center justify-between px-3 shrink-0"><button onClick={() => setShowSettings(false)} className="text-2xl text-[#555] px-2">‹</button><span className="font-semibold text-sm text-[#333]">群聊设定</span><button type="button" onClick={handleSaveChatSettings} className="px-2.5 py-1.5 rounded-full bg-[#f7eef0] text-[#8c5f6b] border border-[#ead6dc] text-[9px]">保存设定</button></div>
+          <div className="p-3.5 space-y-3 flex-1 overflow-y-auto text-xs pb-10">
+            <section className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3"><div className="font-semibold text-[12px] text-[#333]">群资料与公告</div><div className="flex items-center gap-3"><div className="w-[68px] h-[68px] rounded-[18px] bg-[#f4f1f2] border border-[#eee5e7] overflow-hidden shrink-0 flex items-center justify-center">{activeGroup?.avatar?<img src={activeGroup.avatar} alt="群头像" className="w-full h-full object-cover"/>:<Users className="w-7 h-7 text-[#b9a7ac]"/>}</div><div className="flex-1 min-w-0"><div className="font-medium text-[#333]">{activeGroup?.name||contactName}</div><div className="text-[9px] text-[#999] mt-1">群头像由你自行上传。</div><label className="inline-flex mt-2 px-3 py-1.5 rounded-full bg-[#f7eef0] text-[#8c5f6b] text-[10px] cursor-pointer">上传群头像<input type="file" accept="image/*" className="hidden" onChange={async e=>{const file=e.currentTarget.files?.[0];if(!file||!activeGroup)return;try{const avatar=await readImageFileAsDataUrl(file);saveGroupUpdate({...activeGroup,avatar,updatedAt:new Date().toISOString()});showToast('群头像已保存');}catch{showToast('群头像读取失败，请换一张图片');}e.currentTarget.value='';}}/></label>{activeGroup?.avatar&&<button type="button" onClick={()=>activeGroup&&saveGroupUpdate({...activeGroup,avatar:'',updatedAt:new Date().toISOString()})} className="ml-2 text-[9px] text-[#999]">移除图片</button>}</div></div><label className="block space-y-1"><span className="text-[10px] text-[#888]">群公告</span><textarea value={groupNoticeText||activeGroup?.announcement||''} onChange={e=>setGroupNoticeText(e.target.value)} placeholder="写下群公告；保存后会加入群聊上下文。" className="w-full min-h-[76px] p-2.5 rounded-[10px] bg-[#fafafa] border border-[#e8e8e8] text-[10px] outline-none resize-y"/></label></section>
+            <section className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3"><div><div className="font-semibold text-[12px] text-[#333]">群成员管理</div><div className="text-[9px] text-[#999] mt-1">邀请角色进群，设置群昵称、QQ 风格头衔和发言权限。</div></div><div className="flex gap-2"><select value={groupInviteCharacterId} onChange={e=>setGroupInviteCharacterId(e.target.value)} className="flex-1 min-w-0 p-2.5 rounded-[9px] bg-[#fafafa] border border-[#e8e8e8] text-[10px]"><option value="">选择要邀请的角色</option>{importedCharacters.filter(c=>!(activeGroup?.members||[]).some(m=>m.characterId===c.id||m.name===c.name)).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select><button type="button" disabled={!groupInviteCharacterId||!activeGroup} onClick={()=>{const c=importedCharacters.find(item=>item.id===groupInviteCharacterId);if(!c||!activeGroup)return;saveGroupUpdate({...activeGroup,members:[...activeGroup.members,{id:c.id,characterId:c.id,name:c.name,nickname:c.name,role:'member',muted:false}],updatedAt:new Date().toISOString()});setGroupInviteCharacterId('');showToast('已邀请角色进群');}} className="px-3 rounded-[9px] bg-[#292724] text-white text-[10px] disabled:opacity-40">邀请进群</button></div><div className="space-y-2">{(activeGroup?.members||[]).map(m=>{const c=importedCharacters.find(item=>item.id===m.characterId||item.name===m.name);return <div key={m.id} className="rounded-[11px] border border-[#f0edef] p-2.5 space-y-2"><div className="flex items-center gap-2"><div className="w-8 h-8 rounded-full bg-[#f5f2f3] overflow-hidden shrink-0 flex items-center justify-center">{c?.avatar?<img src={c.avatar} alt="" className="w-full h-full object-cover"/>:<span className="text-[10px] text-[#999]">{(m.nickname||m.name||'?').slice(0,1)}</span>}</div><div className="min-w-0 flex-1"><div className="text-[10px] font-medium text-[#333] truncate">{m.nickname||m.name}</div><div className="text-[8px] text-[#aaa]">{m.role==='owner'?'群主':m.role==='admin'?'管理员':'群成员'}</div></div>{m.role!=='owner'&&<button type="button" onClick={()=>activeGroup&&saveGroupUpdate({...activeGroup,members:activeGroup.members.filter(x=>x.id!==m.id),updatedAt:new Date().toISOString()})} className="text-[9px] text-[#b17c89]">移出群聊</button>}</div>{m.role!=='owner'&&<div className="grid grid-cols-2 gap-2"><label className="text-[8px] text-[#999]">群昵称<input value={m.nickname||m.name} onChange={e=>activeGroup&&saveGroupUpdate({...activeGroup,members:activeGroup.members.map(x=>x.id===m.id?{...x,nickname:e.target.value}:x),updatedAt:new Date().toISOString()})} className="mt-1 w-full p-2 rounded-lg bg-[#fafafa] border border-[#eee] text-[9px] text-[#444]"/></label><label className="text-[8px] text-[#999]">群头衔<input value={m.title||''} onChange={e=>activeGroup&&saveGroupUpdate({...activeGroup,members:activeGroup.members.map(x=>x.id===m.id?{...x,title:e.target.value}:x),updatedAt:new Date().toISOString()})} placeholder="例如：气氛担当" className="mt-1 w-full p-2 rounded-lg bg-[#fafafa] border border-[#eee] text-[9px] text-[#444]"/></label></div>}{m.role!=='owner'&&<div className="flex items-center justify-between"><span className="text-[9px] text-[#777]">允许角色参与群聊</span><button type="button" onClick={()=>activeGroup&&saveGroupUpdate({...activeGroup,members:activeGroup.members.map(x=>x.id===m.id?{...x,muted:!x.muted}:x),updatedAt:new Date().toISOString()})} className={'px-2.5 py-1 rounded-full text-[9px] '+(m.muted?'bg-[#eee] text-[#888]':'bg-[#f7eef0] text-[#8c5f6b]')}>{m.muted?'已禁言':'允许发言'}</button></div>}</div>})}</div></section>
+            <section className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3"><div className="font-semibold text-[12px] text-[#333]">群聊天风格</div>{getGroupPresets().filter(p=>p.kind==='online').map(p=><button key={p.id} type="button" onClick={()=>setGroupPresetId(p.id)} className={'w-full text-left p-3 rounded-[11px] border '+(groupPresetId===p.id?'border-[#d9b8c1] bg-[#fcf5f7]':'border-[#eee] bg-[#fafafa]')}><div className="flex items-center justify-between"><span className="text-[10px] font-medium text-[#444]">{p.name}</span><span className="text-[8px] text-[#999]">{groupPresetId===p.id?'已选择':'选择'}</span></div><div className="mt-1 text-[9px] text-[#999]">{p.description}</div></button>)}<label className="block text-[9px] text-[#888]">群聊风格补充<textarea value={groupLorebookActive} onChange={e=>setGroupLorebookActive(e.target.value)} placeholder="允许成员插话、接话或潜水；不强制全员回复。" className="w-full mt-1.5 min-h-[70px] p-2.5 rounded-lg bg-[#fafafa] border border-[#e8e8e8] text-[10px] outline-none resize-y"/></label></section>
+            <section className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3"><div className="font-semibold text-[12px] text-[#333]">回复表现 / 预设流程</div><div className="flex items-center justify-between"><span className="text-[10px] text-[#444]">生成思考摘要</span><button type="button" onClick={()=>setEnableChainOfThought(v=>!v)} className={'px-2.5 py-1 rounded-full text-[9px] '+(enableChainOfThought?'bg-[#292724] text-white':'bg-[#eee] text-[#888]')}>{enableChainOfThought?'开启':'关闭'}</button></div><div className="flex items-center justify-between"><span className="text-[10px] text-[#444]">显示思考摘要</span><button type="button" onClick={()=>setShowChainOfThoughtInChat(v=>!v)} className={'px-2.5 py-1 rounded-full text-[9px] '+(showChainOfThoughtInChat?'bg-[#292724] text-white':'bg-[#eee] text-[#888]')}>{showChainOfThoughtInChat?'开启':'关闭'}</button></div><div className="flex items-center justify-between"><span className="text-[10px] text-[#444]">动作描写</span><button type="button" onClick={()=>setLineActionDescriptionsEnabled(v=>!v)} className={'px-2.5 py-1 rounded-full text-[9px] '+(lineActionDescriptionsEnabled?'bg-[#292724] text-white':'bg-[#eee] text-[#888]')}>{lineActionDescriptionsEnabled?'开启':'关闭'}</button></div><div className="rounded-lg bg-[#fafafa] p-2.5"><div className="text-[9px] text-[#888]">当前群聊预设流程</div><div className="mt-1 text-[10px] text-[#9d6e7b]">{getActivePromptPreset('group')?.name||'默认预设'}</div></div></section>
+            <section className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3"><div className="font-semibold text-[12px] text-[#333]">语言与世界</div><label className="block text-[9px] text-[#888]">群聊语言<select value={characterLanguage} onChange={e=>setCharacterLanguage(e.target.value)} className="w-full mt-1.5 p-2.5 rounded-lg bg-[#fafafa] border border-[#e8e8e8] text-[10px]"><option value="auto">跟随角色卡 / 自动</option><option value="zh-CN">简体中文</option><option value="zh-TW">繁体中文</option><option value="ja-JP">日语</option><option value="ko-KR">韩语</option><option value="en-US">英语</option><option value="yue">粤语</option></select></label><label className="block text-[9px] text-[#888]">世界书<select value={selectedWorldBookId} onChange={e=>setSelectedWorldBookId(e.target.value)} className="w-full mt-1.5 p-2.5 rounded-lg bg-[#fafafa] border border-[#e8e8e8] text-[10px]"><option value="all">全部可用世界书</option><option value="none">不使用额外世界书</option>{worldbooks.map(book=><option key={book.id} value={book.id}>{book.name}</option>)}</select></label></section>
+            <section className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-3"><div className="font-semibold text-[12px] text-[#333]">群聊打字习惯</div><label className="block text-[9px] text-[#888]">群聊节奏<select value={typingHabitPreset} onChange={e=>setTypingHabitPreset(e.target.value)} className="w-full mt-1.5 p-2.5 rounded-lg bg-[#fafafa] border border-[#e8e8e8] text-[10px]"><option value="natural">自然群聊（默认）</option><option value="quiet">安静群 / 有人潜水</option><option value="active">活跃群 / 快速插话</option><option value="chaotic">热闹群 / 多人抢话</option><option value="custom">自定义</option></select></label><label className="block text-[9px] text-[#888]">群聊节奏补充<textarea value={typingHabitCustom} onChange={e=>setTypingHabitCustom(e.target.value)} placeholder="被 @ 优先回应；其他成员自行判断是否接话，不固定轮流发言。" className="w-full mt-1.5 min-h-[64px] p-2.5 rounded-lg bg-[#fafafa] border border-[#e8e8e8] text-[10px] outline-none resize-y"/></label></section>
+            <section className="bg-white rounded-[14px] border border-[#f0f0f1] p-3.5 space-y-2"><div className="font-semibold text-[12px] text-[#333]">酒馆状态栏</div><div className="text-[9px] leading-relaxed text-[#999]">群聊不使用酒馆状态栏，不生成私聊式状态快照。</div></section>
+          </div>
+        </div>
+      )}
+
       {/* 12. CHAT SETTINGS PAGE */}
-      {showSettings && (
+      {showSettings && !isGroup && (
         <div className="absolute inset-0 bg-[#f7f7f8] z-50 flex flex-col animate-in slide-in-from-right">
           <div className="h-[60px] bg-white border-b border-[#ededee] flex items-center justify-between px-3">
             <button onClick={() => setShowSettings(false)} className="text-2xl text-[#555] px-2 cursor-pointer">
