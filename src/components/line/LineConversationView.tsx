@@ -365,6 +365,8 @@ export function LineConversationView({
   const [showGroupSpeakerPicker, setShowGroupSpeakerPicker] = useState(false);
   const [selectedGroupSpeakerId, setSelectedGroupSpeakerId] = useState('');
   const [groupContinueSpeakerMode, setGroupContinueSpeakerMode] = useState<'specified' | 'simulate'>('specified');
+  const [simulatedGroupSpeakerId, setSimulatedGroupSpeakerId] = useState<string | null>(null);
+  const simulatedGroupSpeaker = isGroup && simulatedGroupSpeakerId ? groupAiMembers.find(({ character }) => character?.id === simulatedGroupSpeakerId)?.character : null;
   const [showAiDebugSheet, setShowAiDebugSheet] = useState(false);
   const [showPersonaPicker, setShowPersonaPicker] = useState(false);
   const [aiDebugLog, setAiDebugLog] = useState<AiDebugEntry[]>(() => readAiDebugLog());
@@ -1586,10 +1588,12 @@ export function LineConversationView({
     if (characterProfile.isBlockedByCharacter) { showToast('你已被对方拉黑，暂时无法发送消息'); return; }
 
     const msgId = Date.now();
+    const activeSimulatedSpeaker = isGroup && simulatedGroupSpeaker ? simulatedGroupSpeaker : null;
     const newMsg: any = {
       id: msgId,
-      sender: 'me',
-      senderName: currentUserNameFallback() || activePersona?.name || '我',
+      sender: activeSimulatedSpeaker ? 'other' : 'me',
+      senderName: activeSimulatedSpeaker ? activeSimulatedSpeaker.name : (currentUserNameFallback() || activePersona?.name || '我'),
+      ...(activeSimulatedSpeaker ? { characterId: activeSimulatedSpeaker.id, simulatedByUser: true } : {}),
       text: userText,
       content: userText,
       time: '刚刚',
@@ -1607,6 +1611,8 @@ export function LineConversationView({
 
     setMessages((prev) => [...prev, newMsg]);
     setInputText('');
+    // In group role-simulation mode, the user writes and sends as the selected member; never call AI.
+    if (activeSimulatedSpeaker) return;
 
     // Debug checkpoint at the actual LINE send entry. This is intentionally written
     // here, before any group/AI branching, so the current chat can never show an
@@ -4434,6 +4440,15 @@ export function LineConversationView({
                 <Mic className="w-5 h-5 stroke-[1.65]" />
               </button>
 
+              {isGroup && simulatedGroupSpeaker && (
+                <div className="absolute left-3 right-3 -top-10 flex items-center gap-2 rounded-xl border border-[#ead6dc] bg-[#fff8fa] px-3 py-2 shadow-sm">
+                  <span className="w-6 h-6 rounded-full bg-[#f1e1e6] flex items-center justify-center overflow-hidden text-[10px] text-[#ae7e89] shrink-0">
+                    {simulatedGroupSpeaker.avatar ? <img src={simulatedGroupSpeaker.avatar} alt="" className="w-full h-full object-cover" /> : simulatedGroupSpeaker.name.slice(0, 1)}
+                  </span>
+                  <span className="flex-1 text-[11px] text-[#805966]">你当前是你选中的「{simulatedGroupSpeaker.name}」成员，正在以 TA 的身份发言</span>
+                  <button type="button" onClick={() => setSimulatedGroupSpeakerId(null)} className="text-[10px] text-[#ae7e89] shrink-0">退出</button>
+                </div>
+              )}
               {/* Text Area Box */}
               <div className="flex-1 min-h-[38px] max-h-[100px] border border-[#e6e6e7] rounded-full bg-[#fafafa] flex items-center px-3.5">
                 <textarea
@@ -4692,7 +4707,7 @@ export function LineConversationView({
                         </button>
                       ))}
                     </div>
-                    <button disabled={!selectedGroupSpeakerId || isTyping} onClick={() => { const id = selectedGroupSpeakerId; setShowPlusSheet(false); setPlusSheetPage(0); setShowGroupContinueChoices(false); setShowGroupSpeakerPicker(false); handleContinueGenerating(id, groupContinueSpeakerMode === 'simulate'); }} className="w-full py-2.5 rounded-[10px] bg-[#ae7e89] disabled:opacity-40 text-white text-xs font-semibold">{groupContinueSpeakerMode === 'simulate' ? '以该角色身份发言' : '让所选成员发言'}</button>
+                    <button disabled={!selectedGroupSpeakerId || isTyping} onClick={() => { const id = selectedGroupSpeakerId; if (groupContinueSpeakerMode === 'simulate') { setSimulatedGroupSpeakerId(id); showToast('已切换为该角色身份发言'); setShowPlusSheet(false); setPlusSheetPage(0); setShowGroupContinueChoices(false); setShowGroupSpeakerPicker(false); return; } setShowPlusSheet(false); setPlusSheetPage(0); setShowGroupContinueChoices(false); setShowGroupSpeakerPicker(false); handleContinueGenerating(id); }} className="w-full py-2.5 rounded-[10px] bg-[#ae7e89] disabled:opacity-40 text-white text-xs font-semibold">{groupContinueSpeakerMode === 'simulate' ? '以该角色身份发言' : '让所选成员发言'}</button>
                   </div>
                 )}
                 {isGroup && <button onClick={() => setPlusSheetPage(1)} className="w-full py-2.5 rounded-[12px] bg-[#faf1f3] text-[#ae7e89] text-xs font-medium cursor-pointer">更多功能 · 群聊游戏　›</button>}
