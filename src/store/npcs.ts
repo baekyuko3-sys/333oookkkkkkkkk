@@ -11,6 +11,8 @@ export interface SaneNpc {
   background: string;
   relationship: string;
   relationshipCategory?: 'family' | 'friend' | 'coworker' | 'other';
+  worldBookIds?: string[];
+  worldBookNames?: string[];
   settingSource: 'project' | 'worldbook' | 'character' | 'manual';
   boundCharacterId: string;
   boundCharacterName: string;
