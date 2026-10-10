@@ -3581,22 +3581,31 @@ export function LineConversationView({
           }
 
           const isMe = msg.sender === 'me';
+          // Resolve group sender by stable character ID first. Name matching is only a
+          // legacy fallback when the message has no identity ID; never let a name
+          // collision override an explicit ID and show another NPC's avatar.
+          const messageCharacterId = String(msg.characterId || msg.metadata?.characterId || '').trim();
+          const messageSenderName = String(msg.senderName || '').trim();
           const groupMessageMember = isGroup && !isMe
-            ? safeGroupMembers.find(member =>
-                (msg.characterId && member.characterId === msg.characterId) ||
-                (msg.metadata?.characterId && member.characterId === msg.metadata.characterId) ||
-                [member.name, member.nickname].filter(Boolean).some(name => String(name).trim() === String(msg.senderName || '').trim())
-              )
+            ? (messageCharacterId
+                ? safeGroupMembers.find(member => String(member.characterId || '').trim() === messageCharacterId) || null
+                : safeGroupMembers.find(member =>
+                    [member.nickname, member.name].filter(Boolean).some(name => String(name).trim() === messageSenderName)
+                  ) || null)
             : null;
           const groupMessageCharacter = isGroup && !isMe
-            ? importedCharacters.find(character =>
-                character.id === msg.characterId ||
-                character.id === msg.metadata?.characterId ||
-                character.id === groupMessageMember?.characterId ||
-                [character.name, groupMessageMember?.name, groupMessageMember?.nickname].filter(Boolean).some(name => String(name).trim() === String(msg.senderName || '').trim())
-              )
+            ? (messageCharacterId
+                ? importedCharacters.find(character => String(character.id || '').trim() === messageCharacterId) ||
+                  importedCharacters.find(character => String(character.id || '').trim() === String(groupMessageMember?.characterId || '').trim()) || null
+                : importedCharacters.find(character =>
+                    String(character.id || '').trim() === String(groupMessageMember?.characterId || '').trim()
+                  ) || importedCharacters.find(character =>
+                    [character.name, groupMessageMember?.name, groupMessageMember?.nickname].filter(Boolean).some(name => String(name).trim() === messageSenderName)
+                  ) || null)
             : null;
-          const groupMessageAvatar = groupMessageCharacter?.avatar || groupMessageMember?.avatar || '';
+          // Prefer the character card's original avatar. If identity cannot be resolved,
+          // show the neutral placeholder instead of borrowing an unrelated member avatar.
+          const groupMessageAvatar = groupMessageCharacter?.avatar || '';
           const thinkingContent = msg.thinkingSummary || msg.metadata?.thinkingSummary || msg.thinking || msg.metadata?.thinking || '';
           const hasThinking = Boolean(String(thinkingContent).trim()) && showChainOfThoughtInChat;
           const cotLabel = getActivePromptPreset(isGroup ? 'group' : 'single')?.name || '预设流程';
@@ -4067,6 +4076,12 @@ export function LineConversationView({
                   /* 常规文本气泡 (支持引用、长按菜单、表情反应) */
                   <div className="relative">
                     <div className={`flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>
+                      {/* 群聊角色名放在气泡上方，避免显示在气泡下方显得重复累赘 */}
+                      {isGroup && !isMe && msg.senderName && (
+                        <div className="text-[10px] leading-tight text-[#9a777f] px-1 mb-0.5 font-medium">
+                          {groupMessageCharacter?.name || groupMessageMember?.nickname || groupMessageMember?.name || msg.senderName}
+                        </div>
+                      )}
                       {/* 引用回复预览 (Quoted message) */}
                       {msg.quote && (
                         <div className={`max-w-[240px] rounded-[12px] border px-2.5 py-1.5 text-[9.5px] mb-0.5 ${
@@ -4124,10 +4139,6 @@ export function LineConversationView({
                       可以检查 API 地址、API Key、模型、网络连接或服务商返回的错误。
                     </div>
                   </div>
-                )}
-
-                {isGroup && !isMe && msg.senderName && (
-                  <div className="text-[9px] text-[#9a777f] px-1 mb-0.5 font-medium">{msg.senderName}</div>
                 )}
 
                 {/* 3. 酒馆分支重抽滑动选择器 & 更多操作 (长按/点击展开) */}
