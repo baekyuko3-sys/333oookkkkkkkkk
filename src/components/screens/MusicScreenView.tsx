@@ -685,14 +685,34 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
 
         {tab === 'history' && (
           <div className="pt-4 space-y-4">
-            <div className="flex items-end justify-between"><div><div className="font-serif text-[20px]">听歌记录</div><div className="mt-1 text-[10px] text-[#a0958d]">仅记录你实际在音乐 App 里选择的歌曲</div></div><span className="text-[10px] text-[#a0958d]">{listeningHistory.length} 首</span></div>
-            {listeningHistory.length ? <div className="rounded-[20px] bg-[#f8f6f3] px-3">{listeningHistory.map(track => (
-              <div key={track.id} className="flex items-center gap-3 py-2.5 border-b last:border-0 border-[#eae4de]">
-                <button onClick={() => void playTrack(track)} className="w-11 h-11 rounded-xl overflow-hidden bg-white shrink-0 grid place-items-center">{track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" /> : <Music2 className="w-4 h-4 text-[#b5a49b]" />}</button>
-                <button onClick={() => void playTrack(track)} className="min-w-0 flex-1 text-left"><div className="text-[12px] font-semibold truncate">{track.name}</div><div className="text-[10px] text-[#9a8d84] mt-0.5 truncate">{track.artist}</div></button>
-                <button onClick={() => toggleLiked(track)} className={likedTracks.some(item => item.id === track.id) ? 'text-[#c4989a]' : 'text-[#b8aaa1]'} aria-label="喜欢"><Heart className={'w-3.5 h-3.5 ' + (likedTracks.some(item => item.id === track.id) ? 'fill-current' : '')} /></button>
+            <div className="flex items-end justify-between">
+              <div><div className="font-serif text-[20px]">听歌记录</div><div className="mt-1 text-[10px] text-[#a0958d]">当前音乐 ID 与角色一起听过的记录</div></div>
+              <span className="text-[10px] text-[#a0958d]">{activeIdentity?.togetherRecords.length || 0} 条</span>
+            </div>
+            {activeIdentity?.togetherRecords.length ? (
+              <div className="rounded-[20px] bg-[#f8f6f3] px-3">
+                {activeIdentity.togetherRecords.map((record, index) => {
+                  const character = characters.find(item => item.id === record.characterId);
+                  return (
+                    <div key={record.characterId + '-' + record.playedAt + '-' + index} className="flex items-center gap-3 py-3 border-b last:border-0 border-[#eae4de]">
+                      <div className="w-11 h-11 rounded-xl overflow-hidden bg-white shrink-0 grid place-items-center">{character?.avatar ? <img src={character.avatar} alt="" className="w-full h-full object-cover" /> : <UserRound className="w-4 h-4 text-[#b5a49b]" />}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[12px] font-semibold truncate">{record.characterName}</div>
+                        <div className="text-[10px] text-[#9a8d84] mt-0.5 truncate">{record.trackName} · {record.variantLabel}</div>
+                        <div className="text-[9px] text-[#aaa098] mt-1">{new Date(record.playedAt).toLocaleString()} · {record.mode === 'direct' ? '邀请一起听' : '随机遇见'}</div>
+                      </div>
+                      <button onClick={() => {
+                        const target = characters.find(item => item.id === record.characterId);
+                        if (!target) { showToast('这个角色已不在导入列表中'); return; }
+                        setSelectedCharacterId(target.id);
+                        setTab('characters');
+                      }} className="text-[#a57e80]"><ChevronRight className="w-4 h-4" /></button>
+                    </div>
+                  );
+                })}
               </div>
-            ))}</div> : <div className="rounded-[22px] bg-[#f8f6f3] py-12 text-center"><Music2 className="w-5 h-5 text-[#c5b0aa] mx-auto" /><div className="mt-3 text-[12px] text-[#756760]">还没有听歌记录</div><div className="mt-1 text-[10px] text-[#a69a91]">开始播放歌曲后，记录会自动出现在这里</div></div>}
+            ) : <div className="rounded-[22px] bg-[#f8f6f3] py-12 text-center"><UsersRound className="w-5 h-5 text-[#c5b0aa] mx-auto" /><div className="mt-3 text-[12px] text-[#756760]">还没有一起听记录</div><div className="mt-1 text-[10px] text-[#a69a91]">邀请角色一起听或随机遇见后，记录会归入当前音乐 ID</div></div>}
+            <button onClick={() => setTab('player')} className="w-full py-3 rounded-full border border-[#e8ded8] bg-white text-[#64564e] text-[11px]">返回我的音乐</button>
           </div>
         )}
 
