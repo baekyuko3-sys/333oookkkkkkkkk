@@ -499,7 +499,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
       <div className="relative z-10 flex flex-1 min-h-0 px-2 pb-2 gap-2">
         <aside className={'shrink-0 flex flex-col items-center border-r border-[#eee8e3] transition-all duration-200 ' + (railCollapsed ? 'w-7' : 'w-[60px]')}>
           <button onClick={() => setRailCollapsed(value => !value)} aria-label={railCollapsed ? '展开音乐 ID 栏' : '收起音乐 ID 栏'} className="w-6 h-7 grid place-items-center text-[#a59a92]">
-              <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="2.5" y="3" width="15" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.35"/><path d="M7 3.5V16.5" stroke="currentColor" strokeWidth="1.35"/><path d={railCollapsed ? "M4.5 8.1L6.3 10L4.5 11.9" : "M5.8 8.1L4 10L5.8 11.9"} stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <UserRoundArrowLeft className="w-3.5 h-3.5" strokeWidth={1.6} />
             </button>
           <div className={'flex-1 min-h-0 w-full overflow-y-auto no-scrollbar flex flex-col items-center gap-4 pt-2 ' + (railCollapsed ? 'opacity-0 pointer-events-none' : '')}>
             {identities.map(identity => (
