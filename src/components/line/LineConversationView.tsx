@@ -7006,56 +7006,114 @@ export function LineConversationView({
         </div>
       )}
 
-      {/* Group members sheet */}
+      {/* 群成员管理完整页面：不是底部弹窗 */}
       {showGroupMembers && isGroup && (
-        <div
-          onClick={() => setShowGroupMembers(false)}
-          className="absolute inset-0 bg-black/20 z-55 flex items-end animate-in fade-in"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-h-[72%] overflow-y-auto bg-white rounded-t-[22px] p-4 pb-7 animate-in slide-in-from-bottom"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <div className="font-bold text-[15px] text-[#222]">{contactName}</div>
-                <div className="text-[10px] text-[#aaa] mt-0.5">{groupMembers.length} {tx('位成员', '人のメンバー')}</div>
+        <div className="absolute inset-0 z-[70] bg-[#fbfafb] flex flex-col animate-in fade-in">
+          <div className="shrink-0 bg-white border-b border-[#f0ecee] px-4 pt-4 pb-3">
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={() => setShowGroupMembers(false)} className="w-9 h-9 rounded-full bg-[#f6f4f5] flex items-center justify-center text-[#6f6468]" aria-label="返回群聊">
+                <ChevronRight className="w-4 h-4 rotate-180" />
+              </button>
+              <div className="min-w-0 flex-1">
+                <div className="text-[16px] font-bold text-[#292326]">群成员管理</div>
+                <div className="text-[11px] text-[#999] mt-0.5">{activeGroup?.name || contactName} · {activeGroup?.members.length || groupMembers.length} 位成员</div>
               </div>
-              <button onClick={() => setShowGroupMembers(false)} className="w-8 h-8 rounded-full bg-[#f6f6f7] text-[#888] text-lg">×</button>
+              <span className="text-[10px] rounded-full bg-[#f7eef1] text-[#a57683] px-2.5 py-1">群聊设置</span>
             </div>
-            <div className="space-y-1">
-              {groupMembers.map((member: any) => {
-                const character = importedCharacters.find((item) => item.id === member.characterId || item.name === member.name);
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4">
+            <section className="rounded-[16px] border border-[#f0e9ec] bg-white p-4 space-y-3">
+              <div>
+                <div className="text-[13px] font-semibold text-[#332c2f]">邀请角色档案中的 NPC</div>
+                <div className="text-[10px] text-[#999] mt-1">只能邀请已导入的角色；头像和人设均使用对应角色档案。</div>
+              </div>
+              <div className="flex gap-2">
+                <select value={groupInviteCharacterId} onChange={e => setGroupInviteCharacterId(e.target.value)} className="min-w-0 flex-1 p-2.5 rounded-[10px] border border-[#eae4e6] bg-[#fcfbfb] text-[11px] text-[#444]">
+                  <option value="">选择要邀请的角色</option>
+                  {importedCharacters.filter(character => !(activeGroup?.members || []).some(member => member.characterId === character.id || member.name === character.name)).map(character => (
+                    <option key={character.id} value={character.id}>{character.name}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={!groupInviteCharacterId || !activeGroup}
+                  onClick={() => {
+                    const character = importedCharacters.find(item => item.id === groupInviteCharacterId);
+                    if (!character || !activeGroup) return;
+                    saveGroupUpdate({
+                      ...activeGroup,
+                      members: [...activeGroup.members, { id: character.id, characterId: character.id, name: character.name, nickname: character.name, role: 'member', muted: false, avatar: character.avatar }],
+                      updatedAt: new Date().toISOString(),
+                    });
+                    setGroupInviteCharacterId('');
+                    showToast('已邀请角色进群');
+                  }}
+                  className="shrink-0 px-4 rounded-[10px] bg-[#292326] text-white text-[11px] disabled:opacity-40"
+                >邀请成员</button>
+              </div>
+            </section>
+            <section className="space-y-2">
+              <div className="flex items-center justify-between px-1">
+                <div className="text-[13px] font-semibold text-[#332c2f]">全部成员</div>
+                <div className="text-[10px] text-[#999]">可设置群主、管理员或移出群聊</div>
+              </div>
+              {(activeGroup?.members || groupMembers).map((member: any) => {
+                const character = importedCharacters.find(item => item.id === member.characterId || item.name === member.name);
                 const isMeMember = member.name === currentUserNameFallback();
+                const avatar = character?.avatar || member.avatar;
                 return (
-                  <button
-                    key={member.id || member.characterId || member.name}
-                    onClick={() => {
-                      if (!isMeMember && character) {
-                        setShowGroupMembers(false);
-                        setShowCharacterProfile(true);
-                      }
-                    }}
-                    className="w-full flex items-center gap-3 p-2.5 rounded-[13px] hover:bg-[#fafafa] text-left"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#f2f2f3] border border-[#ededee] overflow-hidden shrink-0 flex items-center justify-center text-xs text-[#888]">
-                      {character?.avatar ? <img src={character.avatar} alt="" className="w-full h-full object-cover" /> : (member.nickname || member.name || '?').slice(0, 1)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-xs text-[#333] truncate">{member.nickname || member.name}</span>
-                        {isMeMember && <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-[#f5f5f6] text-[#999]">我</span>}
-                        {!isMeMember && member.online !== false && <span className="w-1.5 h-1.5 rounded-full bg-[#9db8a5]" />}
+                  <div key={member.id || member.characterId || member.name} className="rounded-[15px] border border-[#f0e9ec] bg-white p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-[#f5f2f3] border border-[#eee7e9] overflow-hidden shrink-0 flex items-center justify-center text-sm text-[#888]">
+                        {avatar ? <img src={avatar} alt="" className="w-full h-full object-cover" /> : (member.nickname || member.name || '?').slice(0, 1)}
                       </div>
-                      <div className="text-[10px] text-[#aaa] truncate mt-0.5">
-                        {[member.relationship, member.mood, member.online === false ? '离线' : '在线'].filter(Boolean).join(' · ')}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-semibold text-[12px] text-[#332c2f]">{member.nickname || member.name}</span>
+                          {isMeMember && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#f5f5f6] text-[#999]">我</span>}
+                          {member.role === 'owner' && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#f7e9ed] text-[#a66d7b]">群主</span>}
+                          {member.role === 'admin' && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#eef3f9] text-[#6b829f]">管理员</span>}
+                        </div>
+                        <div className="text-[10px] text-[#aaa] mt-1">{character ? '角色档案已关联' : isMeMember ? '当前用户' : '未关联角色档案'} · {member.online === false ? '离线' : '在线'}</div>
                       </div>
                     </div>
-                    {!isMeMember && <ChevronRight className="w-4 h-4 text-[#c3c3c5]" />}
-                  </button>
+                    {!isMeMember && member.role !== 'owner' && activeGroup && (
+                      <div className="grid grid-cols-2 gap-2 mt-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextMembers = activeGroup.members.map(item => item.id === member.id ? { ...item, role: item.role === 'admin' ? 'member' : 'admin' } : item);
+                            saveGroupUpdate({ ...activeGroup, members: nextMembers, updatedAt: new Date().toISOString() });
+                            showToast(member.role === 'admin' ? '已取消管理员' : '已设为管理员');
+                          }}
+                          className="py-2 rounded-[9px] border border-[#e9e2e5] bg-[#fcfbfb] text-[10px] text-[#66565c]"
+                        >{member.role === 'admin' ? '取消管理员' : '设为管理员'}</button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextMembers = activeGroup.members.map(item => item.id === member.id
+                              ? { ...item, role: 'owner' }
+                              : item.role === 'owner' ? { ...item, role: 'admin' } : item);
+                            saveGroupUpdate({ ...activeGroup, ownerId: member.characterId || member.id, members: nextMembers, updatedAt: new Date().toISOString() });
+                            showToast('已转让群主');
+                          }}
+                          className="py-2 rounded-[9px] border border-[#ead9de] bg-[#fbf4f6] text-[10px] text-[#a66d7b]"
+                        >转让群主</button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!window.confirm('确定将「' + (member.nickname || member.name) + '」移出群聊吗？')) return;
+                            saveGroupUpdate({ ...activeGroup, members: activeGroup.members.filter(item => item.id !== member.id), updatedAt: new Date().toISOString() });
+                            showToast('已移出群聊');
+                          }}
+                          className="col-span-2 py-2 rounded-[9px] border border-[#f0e5e8] text-[10px] text-[#b17c89]"
+                        >移出群聊</button>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
-            </div>
+            </section>
           </div>
         </div>
       )}
