@@ -62,6 +62,46 @@ interface PhoneSimulatorProps {
   onSelectTheme: (theme: ThemeMode) => void;
 }
 
+type MusicScreenErrorState = { error: Error | null; errorInfo: string };
+
+class MusicScreenErrorBoundary extends React.Component<{ children: React.ReactNode }, MusicScreenErrorState> {
+  state: MusicScreenErrorState = { error: null, errorInfo: '' };
+
+  static getDerivedStateFromError(error: Error): Partial<MusicScreenErrorState> {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    this.setState({ error, errorInfo: info.componentStack || '' });
+    console.error('[SANE333 MUSIC SCREEN ERROR]', error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.error) {
+      const details = [
+        '[SANE333 MUSIC SCREEN ERROR]',
+        this.state.error.name + ': ' + this.state.error.message,
+        this.state.error.stack || '',
+        this.state.errorInfo,
+      ].filter(Boolean).join('\\n\\n');
+      return <div className="absolute inset-0 z-40 overflow-y-auto bg-[#faf8f6] px-5 py-16 text-[#302925]">
+        <div className="mx-auto max-w-[300px] text-center">
+          <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-[#f0e7e3] text-[#997e76]">!</div>
+          <h2 className="text-[17px] font-semibold">暂时进不去，等待修复</h2>
+          <p className="mt-2 text-[11px] leading-5 text-[#8e8078]">音乐 App 遇到了错误。其他手机页面仍可继续使用。请复制下面的错误代码，方便定位问题。</p>
+          <button onClick={() => { void (async () => { try { await navigator.clipboard.writeText(details); } catch { const area = document.createElement('textarea'); area.value = details; area.style.position = 'fixed'; area.style.opacity = '0'; document.body.appendChild(area); area.select(); document.execCommand('copy'); area.remove(); } })(); }} className="mt-5 w-full rounded-full bg-[#2d2724] py-3 text-[11px] font-semibold text-white">复制错误代码</button>
+          <details className="mt-4 rounded-2xl border border-[#e8ded8] bg-white p-3 text-left" open>
+            <summary className="cursor-pointer text-[10px] font-semibold text-[#75675f]">查看错误详情</summary>
+            <pre className="mt-2 max-h-[240px] overflow-auto whitespace-pre-wrap break-words text-[9px] leading-4 text-[#8e4b43]">{details}</pre>
+          </details>
+          <button onClick={() => window.location.reload()} className="mt-3 w-full rounded-full border border-[#e8ded8] bg-white py-3 text-[11px] text-[#64564e]">重新加载</button>
+        </div>
+      </div>;
+    }
+    return this.props.children;
+  }
+}
+
 export function PhoneSimulator({
   themeMode,
   currentScreen,
@@ -289,10 +329,12 @@ export function PhoneSimulator({
           )}
 
           {currentScreen === 'music' && (
-            <MusicScreenView
-              themeMode={themeMode}
-              onNavigate={navigateFromApp}
-            />
+            <MusicScreenErrorBoundary key="music-screen-boundary">
+              <MusicScreenView
+                themeMode={themeMode}
+                onNavigate={navigateFromApp}
+              />
+            </MusicScreenErrorBoundary>
           )}
 
           {currentScreen === 'threads' && (
