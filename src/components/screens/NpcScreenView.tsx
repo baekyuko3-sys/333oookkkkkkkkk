@@ -32,6 +32,7 @@ export function NpcScreenView({ onNavigate }: { onNavigate: (screen: ScreenType)
   const [genderChoice, setGenderChoice] = useState('随机');
   const [identityCategory, setIdentityCategory] = useState<'family' | 'friend' | 'coworker' | 'other'>('friend');
   const [relationshipDetail, setRelationshipDetail] = useState('');
+  const [selectedWorldBookIds, setSelectedWorldBookIds] = useState<string[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'family' | 'friend' | 'coworker' | 'other'>('all');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
@@ -49,6 +50,12 @@ export function NpcScreenView({ onNavigate }: { onNavigate: (screen: ScreenType)
   const visibleNpcs = relatedNpcs.filter(item => categoryFilter === 'all' || inferCategory(item) === categoryFilter);
   const project = getProjectManifest();
   const boundCharacter = characters.find(character => character.id === boundCharacterId) || null;
+  const embeddedWorldbooks = boundCharacter?.embeddedWorldBooks?.length ? boundCharacter.embeddedWorldBooks : boundCharacter?.embeddedWorldBook ? [boundCharacter.embeddedWorldBook] : [];
+  const worldbookOptions = [
+    ...worldbooks.map(book => ({ key: 'global:' + book.id, book, origin: '手机世界书' })),
+    ...embeddedWorldbooks.map((book, index) => ({ key: 'embedded:' + index + ':' + book.id, book, origin: '角色卡内嵌' })),
+  ];
+  const selectedWorldbooks = worldbookOptions.filter(option => selectedWorldBookIds.includes(option.key)).map(option => option.book);
   const activeCount = useMemo(() => npcs.filter(item => item.active).length, [npcs]);
   const notify = (message: string) => { setNotice(message); window.setTimeout(() => setNotice(''), 2200); };
 
@@ -58,7 +65,7 @@ export function NpcScreenView({ onNavigate }: { onNavigate: (screen: ScreenType)
     setBusy(true);
     try {
       const memory = getCharacterMemory(boundCharacter.id, boundCharacter.name);
-      const allContext = buildNpcAllContentContext(boundCharacter, memory, project, worldbooks);
+      const allContext = buildNpcAllContentContext(boundCharacter, memory, project, selectedWorldbooks);
       const contextText = serializeNpcAllContentContext(allContext);
       const raw = await generateCreativeText({
         settings: readStoredAiSettings(boundCharacter.id, boundCharacter.name),
@@ -75,7 +82,8 @@ export function NpcScreenView({ onNavigate }: { onNavigate: (screen: ScreenType)
         userPrompt: [
           '【必须绑定角色】' + boundCharacter.name + '（' + boundCharacter.id + '）',
           '【生成要求】指定性别：' + genderChoice + '；关系分类：' + identityCategory + '；具体关系：' + (relationshipDetail.trim() || '根据角色档案合理决定') + '。必须严格按指定性别与分类生成。',
-          '【本次生成重点】\n' + buildFocus(source, project, worldbooks, boundCharacter, prompt.trim()),
+          '【本次生成重点】\n' + buildFocus(source, project, selectedWorldbooks, boundCharacter, prompt.trim()),
+          '【用户明确勾选的世界书】\n' + (selectedWorldbooks.length ? selectedWorldbooks.map(book => '世界书：' + book.name + '\n' + book.description + '\n' + book.entries.filter(entry => entry.enabled).map(entry => '[' + entry.name + '] ' + entry.content).join('\n')).join('\n\n') : '用户没有勾选世界书，不要假设任何全局世界书内容已经启用。'),
           '【跨 App 手机世界上下文】\n' + contextText,
           '【JSON 字段】' + JSON.stringify({ name:'NPC姓名', gender:'性别', age:'年龄段', identity:'身份/职业', appearance:'外貌', personality:'性格', background:'完整背景', relationship:'与绑定角色的关系', relationshipCategory:'family|friend|coworker|other', tags:['标签'], memory:'NPC自己的重要记忆', canCommentMoments:true }),
           '只生成一个 NPC。',
@@ -96,6 +104,8 @@ export function NpcScreenView({ onNavigate }: { onNavigate: (screen: ScreenType)
         relationship: typeof parsed?.relationship === 'string' ? parsed.relationship : '',
         settingSource: source,
         relationshipCategory: identityCategory,
+        worldBookIds: selectedWorldbooks.map(book => book.id),
+        worldBookNames: selectedWorldbooks.map(book => book.name),
         boundCharacterId: boundCharacter.id,
         boundCharacterName: boundCharacter.name,
         sourceCharacterId: boundCharacter.id,
@@ -157,6 +167,16 @@ export function NpcScreenView({ onNavigate }: { onNavigate: (screen: ScreenType)
             <label className="text-[9px] text-[#777] space-y-1"><span className="block">关系分类</span><select value={identityCategory} onChange={e => setIdentityCategory(e.target.value as typeof identityCategory)} className="w-full p-2 rounded-[9px] border border-[#e7e2dc] bg-white text-[10px]"><option value="friend">朋友</option><option value="family">家人</option><option value="coworker">同事</option><option value="other">其他关系</option></select></label>
           </div>
           <input value={relationshipDetail} onChange={e => setRelationshipDetail(e.target.value)} placeholder="具体关系（选填，如：童年好友、表姐、经纪人）" className="w-full p-2.5 rounded-[10px] border border-[#e7e2dc] bg-white text-[10px] outline-none" />
+          <div className="rounded-[12px] border border-[#e7e2dc] bg-white p-2.5 space-y-2">
+            <div className="flex items-center justify-between gap-2"><span className="text-[10px] font-semibold">生成时参考的世界书</span><span className="text-[8px] text-[#999]">可多选 · 不勾选则不启用</span></div>
+            {worldbookOptions.length === 0 ? <div className="text-[9px] text-[#9a948e] leading-relaxed">目前没有可选世界书。你可以先去世界书 App 导入，或选择含有内嵌世界书的角色卡。</div> : <div className="max-h-32 overflow-y-auto space-y-1.5 no-scrollbar">
+              {worldbookOptions.map(option => <label key={option.key} className="flex items-start gap-2 rounded-[8px] p-1.5 hover:bg-[#faf8f5] cursor-pointer">
+                <input type="checkbox" checked={selectedWorldBookIds.includes(option.key)} onChange={e => setSelectedWorldBookIds(prev => e.target.checked ? [...prev, option.key] : prev.filter(id => id !== option.key))} className="mt-0.5 accent-[#a27783]" />
+                <span className="min-w-0 flex-1"><span className="block text-[10px] text-[#484440]">{option.book.name}</span><span className="block text-[8px] text-[#a19a93]">{option.origin} · {option.book.entries.filter(entry => entry.enabled).length} 个启用条目</span></span>
+              </label>)}
+            </div>}
+            {selectedWorldbooks.length > 0 && <div className="text-[8px] text-[#8e606b]">已选 {selectedWorldbooks.length} 本：{selectedWorldbooks.map(book => book.name).join('、')}</div>}
+          </div>
           <div className="grid grid-cols-3 gap-1.5 text-[9px]">
             {([['character','角色 / 记忆'],['worldbook','世界书'],['project','项目设定']] as const).map(([id, label]) => <button key={id} onClick={() => setSource(id)} className={source === id ? 'py-2 rounded-[10px] border bg-[#eadfe0] border-[#d5b8bd] text-[#8e606b]' : 'py-2 rounded-[10px] border bg-white border-[#e9e5df] text-[#777]'}>{label}</button>)}
           </div>
