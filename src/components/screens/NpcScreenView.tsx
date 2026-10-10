@@ -66,6 +66,7 @@ export function NpcScreenView({ onNavigate }: { onNavigate: (screen: ScreenType)
         ].join('\n'),
         userPrompt: [
           '【必须绑定角色】' + boundCharacter.name + '（' + boundCharacter.id + '）',
+          '【生成要求】指定性别：' + genderChoice + '；关系分类：' + identityCategory + '；具体关系：' + (relationshipDetail.trim() || '根据角色档案合理决定') + '。必须严格按指定性别与分类生成。',
           '【本次生成重点】\n' + buildFocus(source, project, worldbooks, boundCharacter, prompt.trim()),
           '【跨 App 手机世界上下文】\n' + contextText,
           '【JSON 字段】' + JSON.stringify({ name:'NPC姓名', gender:'性别', age:'年龄段', identity:'身份/职业', appearance:'外貌', personality:'性格', background:'完整背景', relationship:'与绑定角色的关系', relationshipCategory:'family|friend|coworker|other', tags:['标签'], memory:'NPC自己的重要记忆', canCommentMoments:true }),
@@ -78,7 +79,7 @@ export function NpcScreenView({ onNavigate }: { onNavigate: (screen: ScreenType)
       const npc: SaneNpc = {
         id: 'npc-' + Date.now().toString(36),
         name: typeof parsed?.name === 'string' && parsed.name.trim() ? parsed.name.trim() : '未命名 NPC',
-        gender: typeof parsed?.gender === 'string' ? parsed.gender : '',
+        gender: genderChoice === '随机' ? (typeof parsed?.gender === 'string' ? parsed.gender : '') : genderChoice,
         age: typeof parsed?.age === 'string' ? parsed.age : '',
         identity: typeof parsed?.identity === 'string' ? parsed.identity : '世界居民',
         appearance: typeof parsed?.appearance === 'string' ? parsed.appearance : '',
@@ -86,7 +87,7 @@ export function NpcScreenView({ onNavigate }: { onNavigate: (screen: ScreenType)
         background: typeof parsed?.background === 'string' ? parsed.background : '',
         relationship: typeof parsed?.relationship === 'string' ? parsed.relationship : '',
         settingSource: source,
-        relationshipCategory: ['family','friend','coworker','other'].includes(parsed?.relationshipCategory) ? parsed.relationshipCategory : identityCategory,
+        relationshipCategory: identityCategory,
         boundCharacterId: boundCharacter.id,
         boundCharacterName: boundCharacter.name,
         sourceCharacterId: boundCharacter.id,
