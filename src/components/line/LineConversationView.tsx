@@ -360,6 +360,10 @@ export function LineConversationView({
 
   // Sheets & Overlays
   const [showPlusSheet, setShowPlusSheet] = useState(false);
+  const [plusSheetPage, setPlusSheetPage] = useState<0 | 1>(0);
+  const [showGroupContinueChoices, setShowGroupContinueChoices] = useState(false);
+  const [showGroupSpeakerPicker, setShowGroupSpeakerPicker] = useState(false);
+  const [selectedGroupSpeakerId, setSelectedGroupSpeakerId] = useState('');
   const [showAiDebugSheet, setShowAiDebugSheet] = useState(false);
   const [showPersonaPicker, setShowPersonaPicker] = useState(false);
   const [aiDebugLog, setAiDebugLog] = useState<AiDebugEntry[]>(() => readAiDebugLog());
@@ -2487,7 +2491,7 @@ export function LineConversationView({
   };
 
   // 酒馆“继续 (Continue)”生成：真正调用当前角色 AI，不再插入固定假回复。
-  const handleContinueGenerating = async () => {
+  const handleContinueGenerating = async (selectedGroupCharacterId?: string) => {
     if (!isGroup && !importedCharacter) {
       showToast('还没有可继续生成的角色');
       return;
@@ -2496,7 +2500,7 @@ export function LineConversationView({
 
     // 群聊 Continue：让群里所有在线且未禁言的 NPC 按各自角色卡与群聊发言习惯依次判断、发言。
     if (isGroup) {
-      const responders = groupAiMembers.filter(({ member }) => !member.muted && member.online !== false);
+      const responders = groupAiMembers.filter(({ member, character }) => !member.muted && member.online !== false && (!selectedGroupCharacterId || character?.id === selectedGroupCharacterId));
       if (!responders.length) {
         showToast('群里没有可继续发言的在线 NPC，请检查群成员管理');
         return;
@@ -4529,7 +4533,7 @@ export function LineConversationView({
       {/* 6. MAIN PLUS SHEET */}
       {showPlusSheet && (
         <div
-          onClick={() => setShowPlusSheet(false)}
+          onClick={() => { setShowPlusSheet(false); setPlusSheetPage(0); setShowGroupContinueChoices(false); setShowGroupSpeakerPicker(false); }}
           className="absolute inset-0 bg-black/25 z-50 flex items-end animate-in fade-in"
         >
           <div
@@ -4537,135 +4541,119 @@ export function LineConversationView({
             className="w-full bg-white rounded-t-[20px] p-4 pb-6 space-y-4 animate-in slide-in-from-bottom"
           >
             <div className="w-8 h-1 bg-[#ddd] rounded-full mx-auto" />
-            <div className="font-semibold text-sm text-[#333]">发送内容</div>
-
-            <div className="grid grid-cols-4 gap-4 text-center text-[10px] text-[#444]">
-              {/* 图片 */}
-              <button
-                onClick={() => {
-                  setShowPlusSheet(false);
-                  setSubSheetType('image');
-                }}
-                className="flex flex-col items-center gap-1.5 cursor-pointer"
-              >
-                <div className="w-12 h-12 rounded-[14px] bg-[#f7f7f8] flex items-center justify-center text-[#666] hover:bg-[#f0f0f2]">
-                  <ImageIcon className="w-5 h-5" />
-                </div>
-                <span>图片</span>
-              </button>
-
-              {/* 视频 */}
-              <button
-                onClick={() => {
-                  setShowPlusSheet(false);
-                  setSubSheetType('video');
-                }}
-                className="flex flex-col items-center gap-1.5 cursor-pointer"
-              >
-                <div className="w-12 h-12 rounded-[14px] bg-[#f7f7f8] flex items-center justify-center text-[#666] hover:bg-[#f0f0f2]">
-                  <Film className="w-5 h-5" />
-                </div>
-                <span>视频</span>
-              </button>
-
-              {/* 文件 */}
-              <button
-                onClick={() => {
-                  setShowPlusSheet(false);
-                  setSubSheetType('file');
-                }}
-                className="flex flex-col items-center gap-1.5 cursor-pointer"
-              >
-                <div className="w-12 h-12 rounded-[14px] bg-[#f7f7f8] flex items-center justify-center text-[#666] hover:bg-[#f0f0f2]">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <span>文件</span>
-              </button>
-
-              {/* 线下邀约 */}
-              <button
-                onClick={() => {
-                  setShowPlusSheet(false);
-                  setShowOfflineInviteModal(true);
-                }}
-                className="flex flex-col items-center gap-1.5 cursor-pointer"
-              >
-                <div className="w-12 h-12 rounded-[14px] bg-[#faf1f3] text-[#ae7e89] flex items-center justify-center hover:bg-[#f7e6e9]">
-                  <Heart className="w-5 h-5" />
-                </div>
-                <span>线下邀约</span>
-              </button>
-
-              {/* AI 后台 / 当前聊天诊断 */}
-              <button
-                onClick={() => {
-                  setAiDebugLog(readAiDebugLog());
-                  setAiDebugTrace(readAiDebugTrace(conversationStorageId));
-                  setShowPlusSheet(false);
-                  setShowAiDebugSheet(true);
-                }}
-                className="flex flex-col items-center gap-1.5 cursor-pointer"
-              >
-                <div className="w-12 h-12 rounded-[14px] bg-[#f4f1ed] flex items-center justify-center text-[#6f6963] hover:bg-[#ebe7df]">
-                  <Terminal className="w-5 h-5" />
-                </div>
-                <span>AI后台</span>
-              </button>
-
-              {/* 群聊专属：红包入口；单聊仍保留原来的 D20 骰子 */}
-              <button
-                onClick={() => {
-                  if (isGroup) {
-                    setShowPlusSheet(false);
-                    showToast('群聊红包功能待接入');
-                  } else {
-                    handleRollDice();
-                  }
-                }}
-                className="flex flex-col items-center gap-1.5 cursor-pointer"
-              >
-                <div className={`w-12 h-12 rounded-[14px] flex items-center justify-center hover:opacity-80 ${isGroup ? 'bg-[#fff1f1]' : 'bg-[#f7f7f8] text-[#666] hover:bg-[#f0f0f2]'}`}>
-                  {isGroup ? <span className="text-[25px] leading-none" aria-label="红包">🧧</span> : <Sparkles className="w-5 h-5" />}
-                </div>
-                <span>{isGroup ? '红包' : 'D20骰子'}</span>
-              </button>
-
-              {/* 重新生成 (Reroll) */}
-              <button
-                onClick={() => {
-                  setShowPlusSheet(false);
-                  setRerollTargetId(null);
-                  setShowReroll(true);
-                }}
-                className="flex flex-col items-center gap-1.5 cursor-pointer"
-              >
-                <div className="w-12 h-12 rounded-[14px] bg-[#f7f7f8] flex items-center justify-center text-[#666] hover:bg-[#f0f0f2]">
-                  <RefreshCw className="w-5 h-5" />
-                </div>
-                <span>重新生成</span>
-              </button>
-
-              {/* 继续生成 (Continue) */}
-              <button
-                onClick={() => {
-                  setShowPlusSheet(false);
-                  handleContinueGenerating();
-                }}
-                className="flex flex-col items-center gap-1.5 cursor-pointer"
-              >
-                <div className="w-12 h-12 rounded-[14px] bg-[#f7f7f8] flex items-center justify-center text-[#666] hover:bg-[#f0f0f2]">
-                  <Play className="w-5 h-5" />
-                </div>
-                <span>让角色继续说</span>
-              </button>
+            <div className="flex items-center justify-between">
+              <div className="font-semibold text-sm text-[#333]">{isGroup && plusSheetPage === 1 ? '群聊游戏' : '发送内容'}</div>
+              {isGroup && (
+                <div className="text-[10px] text-[#999]">{plusSheetPage === 0 ? '1 / 2' : '2 / 2'}</div>
+              )}
             </div>
 
-            <button
-              onClick={() => setShowPlusSheet(false)}
-              className="w-full py-2.5 rounded-[12px] bg-[#f7f7f7] text-[#777] text-xs font-medium cursor-pointer"
-            >
-              取消
-            </button>
+            {isGroup && plusSheetPage === 1 ? (
+              <>
+                <div className="grid grid-cols-4 gap-4 text-center text-[10px] text-[#444]">
+                  {[
+                    { label: '真心话大冒险', icon: 'heart' },
+                    { label: '猜词', icon: 'message' },
+                    { label: '群投票', icon: 'vote' },
+                    { label: '掷骰子', icon: 'dice' },
+                  ].map((game) => (
+                    <button key={game.label} onClick={() => showToast(game.label + '入口已预留，玩法接入中')} className="flex flex-col items-center gap-1.5 cursor-pointer">
+                      <div className="w-12 h-12 rounded-[14px] bg-[#f7f7f8] flex items-center justify-center text-[#666] hover:bg-[#f0f0f2]">
+                        {game.icon === 'heart' ? <Heart className="w-5 h-5" /> : game.icon === 'message' ? <MessageCircle className="w-5 h-5" /> : game.icon === 'vote' ? <CheckSquare className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+                      </div>
+                      <span>{game.label}</span>
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => setPlusSheetPage(0)} className="w-full py-2.5 rounded-[12px] bg-[#f7f7f7] text-[#777] text-xs font-medium cursor-pointer">‹ 返回常用功能</button>
+              </>
+            ) : (
+              <>
+                <div className="grid grid-cols-4 gap-4 text-center text-[10px] text-[#444]">
+                  {/* 图片 */}
+                  <button onClick={() => { setShowPlusSheet(false); setSubSheetType('image'); }} className="flex flex-col items-center gap-1.5 cursor-pointer">
+                    <div className="w-12 h-12 rounded-[14px] bg-[#f7f7f8] flex items-center justify-center text-[#666] hover:bg-[#f0f0f2]"><ImageIcon className="w-5 h-5" /></div>
+                    <span>图片</span>
+                  </button>
+                  {/* 视频 */}
+                  <button onClick={() => { setShowPlusSheet(false); setSubSheetType('video'); }} className="flex flex-col items-center gap-1.5 cursor-pointer">
+                    <div className="w-12 h-12 rounded-[14px] bg-[#f7f7f8] flex items-center justify-center text-[#666] hover:bg-[#f0f0f2]"><Film className="w-5 h-5" /></div>
+                    <span>视频</span>
+                  </button>
+                  {/* 文件 */}
+                  <button onClick={() => { setShowPlusSheet(false); setSubSheetType('file'); }} className="flex flex-col items-center gap-1.5 cursor-pointer">
+                    <div className="w-12 h-12 rounded-[14px] bg-[#f7f7f8] flex items-center justify-center text-[#666] hover:bg-[#f0f0f2]"><FileText className="w-5 h-5" /></div>
+                    <span>文件</span>
+                  </button>
+                  {/* 线下邀约 */}
+                  <button onClick={() => { setShowPlusSheet(false); setShowOfflineInviteModal(true); }} className="flex flex-col items-center gap-1.5 cursor-pointer">
+                    <div className="w-12 h-12 rounded-[14px] bg-[#faf1f3] text-[#ae7e89] flex items-center justify-center hover:bg-[#f7e6e9]"><Heart className="w-5 h-5" /></div>
+                    <span>线下邀约</span>
+                  </button>
+                  {/* AI 后台 */}
+                  <button onClick={() => { setAiDebugLog(readAiDebugLog()); setAiDebugTrace(readAiDebugTrace(conversationStorageId)); setShowPlusSheet(false); setShowAiDebugSheet(true); }} className="flex flex-col items-center gap-1.5 cursor-pointer">
+                    <div className="w-12 h-12 rounded-[14px] bg-[#f4f1ed] flex items-center justify-center text-[#6f6963] hover:bg-[#ebe7df]"><Terminal className="w-5 h-5" /></div>
+                    <span>AI后台</span>
+                  </button>
+                  {/* 群聊专属红包描边图标；单聊仍保留 D20 */}
+                  <button onClick={() => { if (isGroup) { setShowPlusSheet(false); showToast('群聊红包功能待接入'); } else { handleRollDice(); } }} className="flex flex-col items-center gap-1.5 cursor-pointer">
+                    <div className={`w-12 h-12 rounded-[14px] flex items-center justify-center hover:opacity-80 ${isGroup ? 'bg-[#fff1f1] text-[#c96e7d]' : 'bg-[#f7f7f8] text-[#666] hover:bg-[#f0f0f2]'}`}>
+                      {isGroup ? (
+                        <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-label="红包">
+                          <rect x="4" y="7" width="16" height="14" rx="2.5" />
+                          <path d="M4 11h16M12 7V4.5M9 4.5h6M12 11v6M9.5 14h5" />
+                        </svg>
+                      ) : <Sparkles className="w-5 h-5" />}
+                    </div>
+                    <span>{isGroup ? '红包' : 'D20骰子'}</span>
+                  </button>
+                  {/* 重新生成 */}
+                  <button onClick={() => { setShowPlusSheet(false); setRerollTargetId(null); setShowReroll(true); }} className="flex flex-col items-center gap-1.5 cursor-pointer">
+                    <div className="w-12 h-12 rounded-[14px] bg-[#f7f7f8] flex items-center justify-center text-[#666] hover:bg-[#f0f0f2]"><RefreshCw className="w-5 h-5" /></div>
+                    <span>重新生成</span>
+                  </button>
+                  {/* 群聊：继续菜单；单聊保留原行为 */}
+                  <button onClick={() => {
+                    if (isGroup) { setShowGroupContinueChoices(true); }
+                    else { setShowPlusSheet(false); handleContinueGenerating(); }
+                  }} className="flex flex-col items-center gap-1.5 cursor-pointer">
+                    <div className="w-12 h-12 rounded-[14px] bg-[#f7f7f8] flex items-center justify-center text-[#666] hover:bg-[#f0f0f2]"><Play className="w-5 h-5" /></div>
+                    <span>{isGroup ? '继续' : '让角色继续说'}</span>
+                  </button>
+                </div>
+
+                {isGroup && showGroupContinueChoices && !showGroupSpeakerPicker && (
+                  <div className="rounded-[14px] border border-[#ededee] bg-[#fcfcfc] p-3 space-y-2">
+                    <div className="text-xs font-semibold text-[#333]">继续群聊</div>
+                    <button onClick={() => { setShowGroupSpeakerPicker(true); setSelectedGroupSpeakerId(''); }} className="w-full flex items-center justify-between rounded-[10px] bg-white border border-[#eee] px-3 py-3 text-left text-xs text-[#444]">
+                      <span><strong className="block text-[#333]">指定成员发言</strong><span className="text-[10px] text-[#999]">选择一个 NPC，由 AI 按其人设接话</span></span><ChevronRight className="w-4 h-4 text-[#aaa]" />
+                    </button>
+                    <button onClick={() => { setShowPlusSheet(false); setPlusSheetPage(0); setShowGroupContinueChoices(false); handleContinueGenerating(); }} className="w-full flex items-center justify-between rounded-[10px] bg-white border border-[#eee] px-3 py-3 text-left text-xs text-[#444]">
+                      <span><strong className="block text-[#333]">继续发言</strong><span className="text-[10px] text-[#999]">让群成员自行判断谁适合接话，不要求轮流发言</span></span><ChevronRight className="w-4 h-4 text-[#aaa]" />
+                    </button>
+                  </div>
+                )}
+
+                {isGroup && showGroupSpeakerPicker && (
+                  <div className="rounded-[14px] border border-[#ededee] bg-[#fcfcfc] p-3 space-y-2">
+                    <div className="flex items-center justify-between"><div className="text-xs font-semibold text-[#333]">指定成员发言</div><button onClick={() => setShowGroupSpeakerPicker(false)} className="text-[10px] text-[#ae7e89]">返回</button></div>
+                    <div className="max-h-36 overflow-y-auto space-y-1.5">
+                      {groupAiMembers.filter(({ member }) => !member.muted && member.online !== false).map(({ member, character }) => (
+                        <button key={character!.id} onClick={() => setSelectedGroupSpeakerId(character!.id)} className={`w-full flex items-center gap-2 rounded-[10px] border px-3 py-2 text-left text-xs ${selectedGroupSpeakerId === character!.id ? 'border-[#d4aab5] bg-[#faf1f3] text-[#ae7e89]' : 'border-[#eee] bg-white text-[#444]'}`}>
+                          <span className="w-7 h-7 rounded-full bg-[#f1f1f2] flex items-center justify-center overflow-hidden text-[10px] shrink-0">{character?.avatar ? <img src={character.avatar} alt="" className="w-full h-full object-cover" /> : (character?.name || member.name || '?').slice(0, 1)}</span>
+                          <span className="flex-1">{member.nickname || member.name || character?.name}</span>
+                          {selectedGroupSpeakerId === character!.id && <Check className="w-4 h-4" />}
+                        </button>
+                      ))}
+                    </div>
+                    <button disabled={!selectedGroupSpeakerId || isTyping} onClick={() => { const id = selectedGroupSpeakerId; setShowPlusSheet(false); setPlusSheetPage(0); setShowGroupContinueChoices(false); setShowGroupSpeakerPicker(false); handleContinueGenerating(id); }} className="w-full py-2.5 rounded-[10px] bg-[#ae7e89] disabled:opacity-40 text-white text-xs font-semibold">让所选成员发言</button>
+                  </div>
+                )}
+                {isGroup && <button onClick={() => setPlusSheetPage(1)} className="w-full py-2.5 rounded-[12px] bg-[#faf1f3] text-[#ae7e89] text-xs font-medium cursor-pointer">更多功能 · 群聊游戏　›</button>}
+              </>
+            )}
+
+            <button onClick={() => { setShowPlusSheet(false); setPlusSheetPage(0); setShowGroupContinueChoices(false); setShowGroupSpeakerPicker(false); }} className="w-full py-2.5 rounded-[12px] bg-[#f7f7f7] text-[#777] text-xs font-medium cursor-pointer">取消</button>
           </div>
         </div>
       )}
