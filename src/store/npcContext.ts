@@ -31,6 +31,8 @@ function readAllLocalContent(): Record<string, unknown> {
   for (let index = 0; index < localStorage.length; index += 1) {
     const key = localStorage.key(index);
     if (!key || EXCLUDED_EXACT_KEYS.has(key)) continue;
+    // NPC generation receives only the worldbooks explicitly selected in its dedicated context.
+    if (key === 'phone:worldbooks' || key === 'phone:characters') continue;
     if (!key.startsWith('phone:') && !key.startsWith('line:')) continue;
     try {
       const raw = JSON.parse(localStorage.getItem(key) || 'null');
