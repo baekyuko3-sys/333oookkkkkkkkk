@@ -3992,7 +3992,7 @@ export function LineConversationView({
                 <div
                   title={formatLineMessageExactDateTime(msg, chatTimezone, lineTimeDisplayLocale)}
                   aria-label={formatLineMessageExactDateTime(msg, chatTimezone, lineTimeDisplayLocale)}
-                  className={`mt-0.5 flex items-center gap-1 px-1 text-[8px] leading-none text-[#b8b8bb] ${isMe ? 'justify-end' : 'justify-start'} ${sameAsNext ? 'opacity-0 h-0 overflow-hidden' : 'h-[10px]'}`}
+                  className={`mt-0.5 flex min-h-[12px] h-auto items-center gap-1 px-1 text-[9px] leading-[1.2] text-[#a6a6aa] ${isMe ? 'justify-end' : 'justify-start'}`}
                 >
                   {isMe ? (
                     (() => {
