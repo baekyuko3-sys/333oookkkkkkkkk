@@ -520,75 +520,64 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
       <div className="relative z-10 flex-1 min-h-0 overflow-y-auto no-scrollbar px-2 pb-8">
 
         {tab === 'identity' && activeIdentity && (
-          <div className="pt-5 space-y-5">
-            <section className="flex items-end gap-3">
-              <button onClick={openIdentityEditor} className="relative shrink-0 w-[82px] h-[82px] rounded-[28px] overflow-hidden bg-[#f5ebe7] border border-[#eee4de] grid place-items-center text-[29px] text-[#987e78]">
+          <div className="pt-1 space-y-3">
+            <div className="inline-flex max-w-full rounded-full bg-[#f8f5f2] px-3 py-1.5 text-[10px] text-[#75675f] truncate">{activeIdentity.note}</div>
+            <section className="flex items-center gap-2.5">
+              <button onClick={openIdentityEditor} className="relative shrink-0 w-[76px] h-[76px] rounded-[25px] overflow-hidden bg-[#f5ebe7] border border-[#eee4de] grid place-items-center text-[27px] text-[#987e78]">
                 {activeIdentity.avatar ? <img src={activeIdentity.avatar} alt="" className="w-full h-full object-cover" /> : activeIdentity.name.slice(0,1)}
-                <span className="absolute right-1 bottom-1 w-6 h-6 rounded-lg bg-[#2d2724] text-white grid place-items-center"><Pencil className="w-3 h-3" /></span>
+                <span className="absolute right-0.5 bottom-0.5 w-5 h-5 rounded-md bg-[#2d2724] text-white grid place-items-center"><Pencil className="w-2.5 h-2.5" /></span>
               </button>
-              <div className="min-w-0 flex-1 pb-1">
-                <div className="text-[10px] tracking-[1.5px] text-[#a59a92]">音乐 ID</div>
-                <button onClick={openIdentityEditor} className="max-w-full flex items-center gap-1 text-left mt-1"><span className="font-semibold text-[23px] leading-tight truncate">{activeIdentity.name}</span><Pencil className="w-3.5 h-3.5 text-[#a59a92] shrink-0" /></button>
-                <div className="mt-2 text-[11px] leading-relaxed text-[#95877f]">{activeIdentity.note}</div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] tracking-[1px] text-[#a59a92]">音乐 ID</div>
+                <button onClick={openIdentityEditor} className="max-w-full flex items-center gap-1 text-left mt-0.5"><span className="font-semibold text-[20px] leading-tight truncate">{activeIdentity.name}</span><Pencil className="w-3 h-3 text-[#a59a92] shrink-0" /></button>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  <span className="rounded-full bg-[#eaf0e9] px-2 py-1 text-[9px] text-[#5c7161]"><b>{likedTracks.length}</b> 喜欢</span>
+                  <span className="rounded-full bg-[#f5e9e8] px-2 py-1 text-[9px] text-[#87676a]"><b>{activeIdentity.togetherRecords.length}</b> 一起听</span>
+                  <span className="rounded-full bg-[#f3eee5] px-2 py-1 text-[9px] text-[#81735f]"><b>{new Set(activeIdentity.togetherRecords.map(record => record.characterId)).size}</b> 朋友</span>
+                </div>
               </div>
             </section>
-            <div className="grid grid-cols-3 gap-2">
-              <button onClick={() => setIdentitySubtab('liked')} className="rounded-2xl bg-[#f7f3f0] p-3 text-left"><div className="text-[18px] font-semibold">{likedTracks.length}</div><div className="mt-1 text-[10px] text-[#94867d]">喜欢</div></button>
-              <button onClick={() => { setIdentitySubtab('together'); setTab('history'); }} className="rounded-2xl bg-[#f7f0f1] p-3 text-left"><div className="text-[18px] font-semibold">{activeIdentity.togetherRecords.length}</div><div className="mt-1 text-[10px] text-[#94867d]">一起听</div></button>
-              <button onClick={() => setTab('characters')} className="rounded-2xl bg-[#f4f4ef] p-3 text-left"><div className="text-[18px] font-semibold">{new Set(activeIdentity.togetherRecords.map(record => record.characterId)).size}</div><div className="mt-1 text-[10px] text-[#94867d]">朋友 / 角色</div></button>
-            </div>
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setTab('player')} className="rounded-2xl bg-[#2d2724] text-white py-3 text-[11px] font-semibold">进入我的音乐</button>
-              <button onClick={() => setTab('history')} className="rounded-2xl bg-[#f7f3f0] text-[#5f5149] py-3 text-[11px]">听歌记录</button>
+              <button onClick={() => setTab('player')} className="rounded-[14px] bg-[#2d2724] text-white py-3 text-[11px] font-semibold">进入我的音乐</button>
+              <button onClick={() => setTab('history')} className="rounded-[14px] bg-[#f7f4f2] text-[#5f5149] py-3 text-[11px] font-semibold">听歌记录</button>
             </div>
             {activeIdentity.togetherRecords.length > 0 && (
               <section>
-                <button onClick={() => setShowIdentityPeople(value => !value)} className="w-full flex items-center gap-2 text-left text-[12px] text-[#75675f]">
-                  <Heart className="w-3.5 h-3.5 text-[#c4989a]" />
+                <button onClick={() => setShowIdentityPeople(value => !value)} className="w-full flex items-center gap-2 text-left text-[11px] text-[#75675f] py-1">
+                  <Heart className="w-3 h-3 text-[#c4989a]" />
                   <span className="flex-1 truncate">和 {Array.from(new Set(activeIdentity.togetherRecords.map(record => record.characterName))).slice(0,2).join('、')}{new Set(activeIdentity.togetherRecords.map(record => record.characterId)).size > 2 ? ' 等 ' + new Set(activeIdentity.togetherRecords.map(record => record.characterId)).size + ' 位' : ''} 一起听过</span>
-                  <ChevronRight className={'w-3.5 h-3.5 transition-transform ' + (showIdentityPeople ? 'rotate-90' : '-rotate-90')} />
+                  <ChevronRight className={'w-3 h-3 transition-transform ' + (showIdentityPeople ? 'rotate-90' : '-rotate-90')} />
                 </button>
-                {showIdentityPeople && (
-                  <div className="mt-2 rounded-2xl bg-[#f8f6f3] px-3">
-                    {Array.from(new Set(activeIdentity.togetherRecords.map(record => record.characterId))).map(characterId => {
-                      const records = activeIdentity.togetherRecords.filter(record => record.characterId === characterId);
-                      const character = characters.find(item => item.id === characterId);
-                      return (
-                        <button key={characterId} onClick={() => {
-                          if (!character) { showToast('这个角色已不在导入列表中'); return; }
-                          setSelectedCharacterId(characterId);
-                          setTab('characters');
-                        }} className="w-full flex items-center gap-3 py-2.5 border-b last:border-0 border-[#eae4de] text-left">
-                          <span className="w-9 h-9 rounded-xl overflow-hidden bg-white grid place-items-center">{character?.avatar ? <img src={character.avatar} alt="" className="w-full h-full object-cover" /> : <UserRound className="w-4 h-4 text-[#b6a39a]" />}</span>
-                          <span className="flex-1 min-w-0"><span className="block text-[11px] font-semibold truncate">{records[0].characterName}</span><span className="block text-[9px] text-[#9a8d84] truncate">{Array.from(new Set(records.map(record => record.variantLabel))).join(' · ')}</span></span>
-                          <span className="text-[10px] text-[#9a8d84]">{records.length} 次</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                {showIdentityPeople && <div className="rounded-xl bg-[#f8f6f3] px-2">{Array.from(new Set(activeIdentity.togetherRecords.map(record => record.characterId))).map(characterId => {
+                  const records = activeIdentity.togetherRecords.filter(record => record.characterId === characterId);
+                  const character = characters.find(item => item.id === characterId);
+                  return <button key={characterId} onClick={() => { if (!character) { showToast('这个角色已不在导入列表中'); return; } setSelectedCharacterId(characterId); setTab('characters'); }} className="w-full flex items-center gap-2 py-2 border-b last:border-0 border-[#eae4de] text-left">
+                    <span className="w-8 h-8 rounded-lg overflow-hidden bg-white grid place-items-center">{character?.avatar ? <img src={character.avatar} alt="" className="w-full h-full object-cover" /> : <UserRound className="w-3.5 h-3.5 text-[#b6a39a]" />}</span>
+                    <span className="flex-1 min-w-0"><span className="block text-[10px] font-semibold truncate">{records[0].characterName}</span><span className="block text-[9px] text-[#9a8d84] truncate">{Array.from(new Set(records.map(record => record.variantLabel))).join(' · ')}</span></span>
+                    <span className="text-[9px] text-[#9a8d84]">{records.length} 次</span>
+                  </button>;
+                })}</div>}
               </section>
             )}
-
             <div className="flex gap-5 border-b border-[#eee8e3]">
-              <button onClick={() => setIdentitySubtab('liked')} className={'py-2.5 text-[12px] border-b-2 ' + (identitySubtab === 'liked' ? 'border-[#c4989a] text-[#2d2724] font-semibold' : 'border-transparent text-[#9a8d84]')}>喜欢 {likedTracks.length}</button>
-              <button onClick={() => setIdentitySubtab('together')} className={'py-2.5 text-[12px] border-b-2 ' + (identitySubtab === 'together' ? 'border-[#c4989a] text-[#2d2724] font-semibold' : 'border-transparent text-[#9a8d84]')}>一起听 {activeIdentity.togetherRecords.length}</button>
+              <button onClick={() => setIdentitySubtab('liked')} className={'py-2 text-[11px] border-b-2 ' + (identitySubtab === 'liked' ? 'border-[#c4989a] text-[#2d2724] font-semibold' : 'border-transparent text-[#9a8d84]')}>喜欢 {likedTracks.length}</button>
+              <button onClick={() => setIdentitySubtab('together')} className={'py-2 text-[11px] border-b-2 ' + (identitySubtab === 'together' ? 'border-[#c4989a] text-[#2d2724] font-semibold' : 'border-transparent text-[#9a8d84]')}>一起听 {activeIdentity.togetherRecords.length}</button>
             </div>
             {identitySubtab === 'liked' ? (
-              likedTracks.length ? <div>{likedTracks.slice(0,8).map(track => (
-                <div key={track.id} className="flex items-center gap-3 py-2.5 border-b border-[#eee8e3]">
-                  <button onClick={() => void playTrack(track)} className="w-11 h-11 rounded-xl overflow-hidden bg-[#f7f3f0] shrink-0 grid place-items-center">{track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" /> : <Music2 className="w-4 h-4 text-[#b5a49b]" />}</button>
-                  <button onClick={() => void playTrack(track)} className="min-w-0 flex-1 text-left"><div className="text-[12px] font-semibold truncate">{track.name}</div><div className="text-[10px] text-[#9a8d84] truncate mt-0.5">{track.artist}</div></button>
-                  <button onClick={() => toggleLiked(track)} className="text-[#c4989a]"><Heart className="w-3.5 h-3.5 fill-current" /></button>
+              likedTracks.length ? <div className="grid grid-cols-3 gap-x-2.5 gap-y-3 pt-1">{likedTracks.map(track => (
+                <div key={track.id} className="min-w-0 flex flex-col items-center">
+                  <button onClick={() => void playTrack(track)} className="w-full aspect-square max-w-[96px] rounded-[18px] overflow-hidden bg-[#f7f3f0] shrink-0 grid place-items-center shadow-sm">{track.cover ? <img src={track.cover} alt={track.name} className="w-full h-full object-cover" /> : <Music2 className="w-5 h-5 text-[#b5a49b]" />}</button>
+                  <button onClick={() => void playTrack(track)} className="w-full text-center mt-1.5 px-0.5"><div className="text-[10px] font-semibold truncate">{track.name}</div><div className="text-[9px] text-[#9a8d84] truncate mt-0.5">{track.artist}</div></button>
                 </div>
-              ))}</div> : <div className="py-9 text-center"><Music2 className="w-5 h-5 text-[#c5b0aa] mx-auto" /><div className="mt-3 text-[12px] text-[#756760]">还没有喜欢的歌</div><div className="mt-1 text-[10px] text-[#a69a91]">搜索歌曲后，点亮爱心即可加入</div></div>
+              ))}</div> : <div className="py-7 text-center"><Music2 className="w-5 h-5 text-[#c5b0aa] mx-auto" /><div className="mt-2 text-[11px] text-[#756760]">还没有喜欢的歌</div><div className="mt-1 text-[9px] text-[#a69a91]">搜索歌曲后，点亮爱心即可加入</div></div>
             ) : (
-              listeningHistory.length ? <div>{listeningHistory.slice(0,8).map(track => (
-                <div key={track.id} className="flex items-center gap-3 py-2.5 border-b border-[#eee8e3]">
-                  <button onClick={() => void playTrack(track)} className="w-11 h-11 rounded-xl overflow-hidden bg-[#f7f3f0] shrink-0 grid place-items-center">{track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" /> : <Music2 className="w-4 h-4 text-[#b5a49b]" />}</button>
-                  <button onClick={() => void playTrack(track)} className="min-w-0 flex-1 text-left"><div className="text-[12px] font-semibold truncate">{track.name}</div><div className="text-[10px] text-[#9a8d84] truncate mt-0.5">{track.artist}</div></button>
-                </div>
-              ))}</div> : <div className="py-9 text-center"><UsersRound className="w-5 h-5 text-[#c5b0aa] mx-auto" /><div className="mt-3 text-[12px] text-[#756760]">还没有一起听记录</div><div className="mt-1 text-[10px] text-[#a69a91]">开始听歌后，记录会显示在这里</div></div>
+              activeIdentity.togetherRecords.length ? <div className="space-y-2 pt-1">{activeIdentity.togetherRecords.map((record, index) => {
+                const character = characters.find(item => item.id === record.characterId);
+                return <div key={record.characterId + '-' + record.playedAt + '-' + index} className="flex items-center gap-2.5 py-1.5">
+                  <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#f7f3f0] shrink-0 grid place-items-center">{character?.avatar ? <img src={character.avatar} alt="" className="w-full h-full object-cover" /> : <UserRound className="w-4 h-4 text-[#b5a49b]" />}</div>
+                  <div className="min-w-0 flex-1"><div className="text-[11px] font-semibold truncate">{record.characterName}</div><div className="text-[9px] text-[#9a8d84] truncate">{record.trackName} · {record.variantLabel}</div></div>
+                </div>;
+              })}</div> : <div className="py-7 text-center"><UsersRound className="w-5 h-5 text-[#c5b0aa] mx-auto" /><div className="mt-2 text-[11px] text-[#756760]">还没有一起听记录</div></div>
             )}
           </div>
         )}
