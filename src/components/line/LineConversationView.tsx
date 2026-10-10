@@ -145,7 +145,7 @@ function formatLineMessageDayLabel(value: Date, timezone: string, displayLocale:
       === new Intl.DateTimeFormat('en-US', { timeZone: timezone, year: 'numeric' }).format(now);
     return new Intl.DateTimeFormat('en-US', { timeZone: timezone, month: 'short', day: 'numeric', weekday: 'short', ...(sameYear ? {} : { year: 'numeric' }) }).format(value);
   }
-  const datePart = new Intl.DateTimeFormat('zh-CN', { timeZone: timezone, month: 'numeric', day: 'numeric' }).format(value);
+  const datePart = new Intl.DateTimeFormat('zh-CN', { timeZone: timezone, month: 'long', day: 'numeric' }).format(value);
   if (dayKey === todayKey) return '今天 ' + datePart;
   if (dayKey === yesterdayKey) return '昨天 ' + datePart;
   try {
