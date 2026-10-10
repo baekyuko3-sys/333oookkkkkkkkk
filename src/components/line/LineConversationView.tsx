@@ -158,18 +158,14 @@ function formatLineMessageDayLabel(value: Date, timezone: string, displayLocale:
 }
 
 function stripGroupSpeakerPrefix(text: string, characterName: string): string {
-  const value = String(text || '').trim();
+  let value = String(text || '').trim();
   if (!value) return '';
-  const escapedName = characterName.replace(/[.*+?^\${}()|[\]\\]/g, '\\$&');
-  const namedPrefix = new RegExp('^\\s*(?:\\[' + escapedName + '\\]|' + escapedName + ')\\s*[:：]\\s*', 'i');
-  if (namedPrefix.test(value)) return value.replace(namedPrefix, '').trim();
-  return value.replace(/^\s*[a-z]\s*:\s*[a-z0-9_-]{1,24}\s*:\s*/i, '').trim();
-}
-
-function currentUserNameFallback(): string {');
-  const namedPrefix = new RegExp('^\\s*(?:\\[' + escapedName + '\\]|' + escapedName + ')\\s*[:：]\\s*', 'i');
-  if (namedPrefix.test(value)) return value.replace(namedPrefix, '').trim();
-  return value.replace(/^\\s*[a-z]\\s*:\\s*[a-z0-9_-]{1,24}\\s*:\\s*/i, '').trim();
+  const prefixes = [characterName, '[' + characterName + ']', '【' + characterName + '】'];
+  const matchedPrefix = prefixes.find(prefix => value.startsWith(prefix + ':') || value.startsWith(prefix + '：'));
+  if (matchedPrefix) value = value.slice(matchedPrefix.length).replace(/^[:：]\s*/, '').trim();
+  // Remove malformed speaker tags such as "a:xx:message" without treating them as character names.
+  value = value.replace(/^[a-z]\s*:\s*[a-z0-9_-]{1,24}\s*:\s*/i, '').trim();
+  return value;
 }
 
 function currentUserNameFallback(): string {
