@@ -28,12 +28,13 @@ interface MusicScreenViewProps {
   onNavigate: (screen: ScreenType) => void;
 }
 
-type MusicTab = 'player' | 'search' | 'characters';
+type MusicTab = 'player' | 'search' | 'characters' | 'history' | 'appearance';
 
 export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [characters] = usePersistentState<ImportedCharacter[]>('phone:characters', []);
-  const [liked, setLiked] = usePersistentState('phone:music-liked', false);
+  const [likedTracks, setLikedTracks] = usePersistentState<MusicTrack[]>('phone:music-liked-tracks', []);
+  const [listeningHistory, setListeningHistory] = usePersistentState<MusicTrack[]>('phone:music-history', []);
   const [currentTrack, setCurrentTrack] = useState<MusicTrack | null>(() => readMusicCurrent());
   const [isPlaying, setIsPlaying] = useState(false);
   const [tab, setTab] = useState<MusicTab>('player');
@@ -99,7 +100,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
 
       setCurrentTrack(resolved);
       saveMusicCurrent(resolved);
-      setLiked(false);
+      setListeningHistory(previous => [resolved, ...previous.filter(item => item.id !== resolved.id)].slice(0, 100));
 
       // Start playback directly after resolving the URL. Relying only on the
       // currentTrack effect can miss autoplay because isPlaying may still be false
@@ -374,165 +375,100 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
     }
   };
 
-  return (
-    <div className="relative w-full h-full flex flex-col p-5 select-none overflow-hidden" style={{ background: 'var(--paper)', color: 'var(--ink)' }}>
-      <div className="absolute inset-0 opacity-15 bg-paper-noise pointer-events-none" />
+  const toggleLiked = (track: MusicTrack) => {
+    const exists = likedTracks.some(item => item.id === track.id);
+    setLikedTracks(previous => exists ? previous.filter(item => item.id !== track.id) : [track, ...previous].slice(0, 200));
+    showToast(exists ? '已从喜欢的歌移除' : '已加入喜欢的歌');
+  };
 
-      <header className="relative z-10 pt-7 pb-3 flex items-center justify-between border-b border-black/5">
-        <button onClick={() => onNavigate('home')} className="w-8 h-8 rounded-full bg-white/50 border border-white/70 grid place-items-center text-[#242323]">
-          <ArrowLeft className="w-4 h-4" />
-        </button>
+  const isCurrentLiked = Boolean(currentTrack && likedTracks.some(item => item.id === currentTrack.id));
+
+  return (
+    <div className="relative w-full h-full flex flex-col overflow-hidden select-none" style={{ background: '#fff', color: '#2d2724' }}>
+      <div className="pointer-events-none absolute inset-0 opacity-40" style={{ background: 'radial-gradient(ellipse at 10% 0%, #f8eeee 0, transparent 42%), radial-gradient(ellipse at 100% 100%, #f2f6f2 0, transparent 38%)' }} />
+
+      <header className="relative z-10 grid grid-cols-[40px_1fr_40px] items-center px-4 pt-7 pb-3">
+        <button onClick={() => onNavigate('home')} aria-label="返回" className="w-10 h-10 rounded-full grid place-items-center text-[#776e68] hover:bg-[#f7f4f1]"><ArrowLeft className="w-4 h-4" /></button>
         <div className="text-center">
-          <div className="text-[8px] font-mono tracking-[2px] text-[#8b8782]">MUSIC / SANE333</div>
-          <div className="text-[15px] font-serif font-bold text-[#242323]">音乐</div>
+          <div className="font-serif italic text-[25px] leading-7 text-[#2d2724]">Me</div>
+          <div className="mt-0.5 text-[8px] tracking-[2px] text-[#a59a92]">MUSIC IDENTITY</div>
         </div>
-        <button onClick={() => setShowApiSettings(true)} className="w-8 h-8 rounded-full bg-white/50 border border-white/70 grid place-items-center text-[#777]">
-          <Settings2 className="w-4 h-4" />
-        </button>
+        <button onClick={() => setTab('appearance')} aria-label="外观与音乐 API" className="w-10 h-10 rounded-full grid place-items-center text-[#8e827b] hover:bg-[#f7f4f1]"><Settings2 className="w-4 h-4" /></button>
       </header>
 
-      <div className="relative z-10 flex gap-1.5 py-2.5 overflow-x-auto no-scrollbar">
-        {([
-          ['player', '正在播放'],
-          ['search', '找歌'],
-          ['characters', '角色歌单'],
-        ] as Array<[MusicTab, string]>).map(([key, label]) => (
-          <button key={key} onClick={() => setTab(key)} className={'shrink-0 px-3 py-1.5 rounded-full text-[9px] border ' + (tab === key ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/55 border-black/5 text-[#6f6963]')}>
-            {label}
-          </button>
-        ))}
+      <div className="relative z-10 px-4 pb-2">
+        <div className="flex gap-1 overflow-x-auto no-scrollbar border-b border-[#eee8e3]">
+          {([
+            ['player', '我的音乐'],
+            ['characters', '一起听'],
+            ['history', '听歌记录'],
+            ['appearance', '外观与音乐 API'],
+          ] as Array<[MusicTab, string]>).map(([key, label]) => (
+            <button key={key} onClick={() => setTab(key)} className={'shrink-0 px-2.5 py-3 text-[11px] border-b-2 transition-colors ' + (tab === key || (key === 'player' && tab === 'search') ? 'border-[#c4989a] text-[#2d2724] font-semibold' : 'border-transparent text-[#968a82]')}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="relative z-10 flex-1 overflow-y-auto no-scrollbar">
+      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto no-scrollbar px-4 pb-8">
         {tab === 'player' && (
-          <div className="space-y-3">
-            <div className="p-3 rounded-2xl bg-white/55 border border-black/5">
-              <div className="flex items-center gap-3">
-                <div className="w-[86px] h-[86px] rounded-xl overflow-hidden bg-[#ded7cc] border border-black/5 shrink-0 grid place-items-center">
+          <div className="space-y-5 pt-4">
+            <section className="relative overflow-hidden rounded-[28px] border border-[#eee6e0] p-4" style={{ background: 'linear-gradient(135deg,#fbf5f3 0%,#f8f7f4 54%,#f1f5f0 100%)' }}>
+              <div className="flex items-start gap-3">
+                <div className="w-[86px] h-[86px] rounded-[22px] overflow-hidden bg-white/80 border border-white shrink-0 grid place-items-center shadow-sm">
                   {currentTrack?.cover ? <img src={currentTrack.cover} alt={currentTrack.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <DiscIcon />}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[8px] font-mono text-[#9b9086] tracking-[1.4px]">NOW PLAYING</div>
-                  <div className="mt-1 font-serif font-bold text-[15px] text-[#292724] truncate">{currentTrack?.name || '还没有选择歌曲'}</div>
-                  <div className="text-[10px] text-[#8b7560] mt-0.5 truncate">{currentTrack?.artist || '去找一首你想听的歌'}</div>
-                  {currentTrack?.album && <div className="text-[8px] text-[#aaa] mt-1 truncate">{currentTrack.album}</div>}
+                <div className="min-w-0 flex-1 pt-1">
+                  <div className="text-[9px] tracking-[1.6px] text-[#a38d87]">NOW PLAYING</div>
+                  <div className="mt-2 font-serif font-semibold text-[17px] leading-snug break-words">{currentTrack?.name || '留一首歌给现在的心情'}</div>
+                  <div className="mt-1 text-[11px] text-[#8b7c73] truncate">{currentTrack?.artist || '搜索你想听的歌，音乐会留在这里'}</div>
+                  {currentTrack?.album && <div className="mt-1 text-[9px] text-[#aaa19b] truncate">{currentTrack.album}</div>}
                 </div>
               </div>
-
-              <audio
-                ref={audioRef}
-                preload="metadata"
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-                onEnded={() => setIsPlaying(false)}
-                onLoadedMetadata={onLoadedMetadata}
-                referrerPolicy="no-referrer"
-                onError={() => {
-                  const audio = audioRef.current;
-                  if (!audio || !currentTrack || currentTrack.source !== 'netease') {
-                    setIsPlaying(false);
-                    return;
-                  }
-
-                  const currentUrl = currentTrack.playUrl || '';
-                  let fallbackUrl = '';
-                  try {
-                    if (currentUrl.includes('/song/url/v1/302')) {
-                      const parsed = new URL(currentUrl);
-                      if (parsed.searchParams.get('level') === 'standard') {
-                        parsed.searchParams.set('level', 'exhigh');
-                        fallbackUrl = parsed.toString();
-                      }
-                    } else {
-                      const parsed = new URL('/song/url/v1/302', readMusicApiSettings().baseUrl);
-                      parsed.searchParams.set('id', currentTrack.id);
-                      parsed.searchParams.set('level', 'standard');
-                      fallbackUrl = parsed.toString();
-                    }
-                  } catch {
-                    fallbackUrl = '';
-                  }
-
-                  if (fallbackUrl && fallbackUrl !== currentUrl) {
-                    const fallbackTrack = { ...currentTrack, playUrl: fallbackUrl };
-                    setCurrentTrack(fallbackTrack);
-                    saveMusicCurrent(fallbackTrack);
-                    audio.src = fallbackUrl;
-                    audio.load();
-                    void audio.play().then(() => setIsPlaying(true)).catch(() => {
-                      setIsPlaying(false);
-                      showToast('已经尝试备用音质，但 API 没有提供可播放音源。请换一首歌曲测试。');
-                    });
-                    return;
-                  }
-
-                  setIsPlaying(false);
-                  showToast('API 没有提供可播放音源，请换一首歌曲测试。');
-                }}
-                className="w-full mt-3 h-8"
-                controls
-              />
-
-              <div className="mt-2 flex items-center justify-center gap-7">
-                <button disabled={!currentTrack} className="text-[#8b8782] disabled:opacity-30"><SkipBack className="w-4 h-4" /></button>
-                <button
-                  disabled={!currentTrack}
-                  onClick={() => {
-                    const audio = audioRef.current;
-                    if (!audio) return;
-                    if (audio.paused) void audio.play(); else audio.pause();
-                  }}
-                  className="w-11 h-11 rounded-full bg-[#292724] text-white grid place-items-center disabled:opacity-30"
-                >
-                  {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
-                </button>
-                <button onClick={() => setLiked(!liked)} disabled={!currentTrack} className={liked ? 'text-[#9b625b]' : 'text-[#8b8782]'}>
-                  <Heart className={'w-4 h-4 ' + (liked ? 'fill-current' : '')} />
-                </button>
+              <div className="mt-4 flex items-center gap-2">
+                <button onClick={() => setTab('search')} className="flex-1 flex items-center justify-center gap-2 rounded-full bg-[#2d2724] text-white py-3 text-[11px] font-semibold"><Search className="w-3.5 h-3.5" />找一首歌</button>
+                <button onClick={() => void startStrangerListening()} className="flex-1 flex items-center justify-center gap-2 rounded-full bg-white/80 border border-[#eadfda] py-3 text-[11px] text-[#695b54]"><Shuffle className="w-3.5 h-3.5" />随机一起听</button>
               </div>
-            </div>
+              {currentTrack && (
+                <div className="mt-3 flex items-center justify-center gap-7">
+                  <button onClick={() => toggleLiked(currentTrack)} aria-label="喜欢这首歌" className={isCurrentLiked ? 'text-[#bb8589]' : 'text-[#8d827b]'}><Heart className={'w-4 h-4 ' + (isCurrentLiked ? 'fill-current' : '')} /></button>
+                  <button onClick={() => { const audio = audioRef.current; if (!audio) return; if (audio.paused) void audio.play().then(() => setIsPlaying(true)).catch(() => showToast('浏览器无法播放该音源')); else audio.pause(); }} className="w-11 h-11 rounded-full bg-[#2d2724] text-white grid place-items-center">{isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}</button>
+                  <button onClick={() => setTab('characters')} aria-label="邀请角色一起听" className="text-[#8d827b]"><UsersRound className="w-4 h-4" /></button>
+                </div>
+              )}
+            </section>
 
-            <button onClick={() => void startStrangerListening()} className="w-full p-3 rounded-2xl bg-[#efe9df] border border-[#dfd3c4] flex items-center gap-3 text-left">
-              <div className="w-10 h-10 rounded-full bg-[#292724] text-white grid place-items-center"><Shuffle className="w-4 h-4" /></div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[11px] font-semibold text-[#403a34]">随机遇见音乐陌生人</div>
-                <div className="text-[8px] text-[#8d837a] mt-0.5">不读取既有关系 · 随机一个角色 · 从一首歌认识彼此</div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-[#9c9186]" />
-            </button>
-
-
-            <button onClick={() => setShowInviteCharacter(true)} className="w-full p-3 rounded-2xl bg-white/60 border border-black/5 flex items-center gap-3 text-left">
-              <div className="w-10 h-10 rounded-full bg-[#faf1f3] text-[#ae7e89] grid place-items-center"><Music2 className="w-4 h-4" /></div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[11px] font-semibold text-[#403a34]">邀请角色一起听</div>
-                <div className="text-[8px] text-[#8d837a] mt-0.5">指定一个版本，不走陌生人模式</div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-[#aaa]" />
-            </button>
-
-            {strangerSession && (
-              <section className="p-3 rounded-2xl bg-white/60 border border-[#eadfe2]">
-                <div className="text-[8px] font-mono tracking-[1.5px] text-[#9a8c7f]">MUSIC STRANGER</div>
-                <div className="mt-2 flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-full bg-[#f0eeea] grid place-items-center overflow-hidden">
-                    {characters.find(c => c.id === strangerSession.characterId)?.avatar
-                      ? <img src={characters.find(c => c.id === strangerSession.characterId)?.avatar} alt="" className="w-full h-full object-cover" />
-                      : <UserRound className="w-4 h-4 text-[#999]" />}
+            {tab === 'player' && (
+              <section>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-serif text-[17px]">喜欢的歌</div>
+                  <button onClick={() => setTab('search')} className="text-[10px] text-[#a07f80] flex items-center gap-1">找更多 <ChevronRight className="w-3 h-3" /></button>
+                </div>
+                {likedTracks.length ? (
+                  <div className="rounded-[20px] bg-[#f8f6f3] px-3">
+                    {likedTracks.slice(0, 8).map(track => (
+                      <div key={track.id} className="flex items-center gap-3 py-2.5 border-b last:border-0 border-[#eae4de]">
+                        <button onClick={() => void playTrack(track)} className="w-11 h-11 rounded-xl overflow-hidden bg-white shrink-0 grid place-items-center">{track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" /> : <Music2 className="w-4 h-4 text-[#b5a49b]" />}</button>
+                        <button onClick={() => void playTrack(track)} className="min-w-0 flex-1 text-left"><div className="text-[12px] font-semibold truncate">{track.name}</div><div className="text-[10px] text-[#9a8d84] truncate mt-0.5">{track.artist}</div></button>
+                        <button onClick={() => toggleLiked(track)} aria-label="取消喜欢" className="text-[#c4989a]"><Heart className="w-3.5 h-3.5 fill-current" /></button>
+                      </div>
+                    ))}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[11px] font-semibold text-[#3d3935]">{strangerSession.characterName} <span className="text-[8px] font-normal text-[#a49b95]">· {strangerSession.variantLabel}</span></div>
-                    <div className="text-[8px] text-[#9b9189]">{strangerSession.mode === 'stranger' ? '第一次遇见 · 只因为同一首歌' : '一起听歌 · 当前角色'}</div>
-                  </div>
-                  <UsersRound className="w-4 h-4 text-[#9b7e88]" />
-                </div>
-                <div className="mt-2.5 p-2.5 rounded-xl bg-[#faf4f6] border border-[#f0e2e6] text-[10px] text-[#5b5150] leading-relaxed min-h-[42px]">
-                  {strangerLoading ? 'TA 正在听……' : strangerReaction || strangerSession.reactionLog[strangerSession.reactionLog.length - 1]?.text || '你们刚刚坐进同一间音乐房。'}
-                </div>
-                <div className="grid grid-cols-3 gap-1.5 mt-2">
-                  <button onClick={() => void reactToCurrentSong()} className="py-2 rounded-lg bg-white border border-black/5 text-[8px]">听听 TA 怎么说</button>
-                  <button onClick={() => void letStrangerChoose()} className="py-2 rounded-lg bg-white border border-black/5 text-[8px]">让 TA 切歌</button>
-                  <button onClick={saveCurrentToCharacter} className="py-2 rounded-lg bg-white border border-black/5 text-[8px]">加进歌单</button>
+                ) : <div className="rounded-[20px] bg-[#f8f6f3] py-8 px-4 text-center"><div className="mx-auto w-10 h-10 rounded-2xl bg-white grid place-items-center text-[#c4989a]"><Heart className="w-4 h-4" /></div><div className="mt-3 text-[12px] text-[#5d514b]">这里会收集你真正喜欢的歌</div><div className="mt-1 text-[10px] text-[#a1968d]">搜索歌曲后，点击爱心即可加入</div></div>}
+              </section>
+            )}
+
+            {characters.length > 0 && (
+              <section>
+                <div className="flex items-center justify-between mb-3"><div className="font-serif text-[17px]">和角色一起听</div><button onClick={() => setTab('characters')} className="text-[10px] text-[#a07f80] flex items-center">查看 <ChevronRight className="w-3 h-3" /></button></div>
+                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+                  {characters.slice(0, 8).map(character => (
+                    <button key={character.id} onClick={() => { setSelectedCharacterId(character.id); setTab('characters'); setShowInviteCharacter(true); }} className="shrink-0 w-[72px] flex flex-col items-center gap-2">
+                      <div className="w-14 h-14 rounded-[20px] overflow-hidden bg-[#f5efeb] border border-[#eee3dd] grid place-items-center">{character.avatar ? <img src={character.avatar} alt="" className="w-full h-full object-cover" /> : <UserRound className="w-5 h-5 text-[#b6a39a]" />}</div>
+                      <span className="max-w-full text-[10px] text-[#776b64] truncate">{character.name}</span>
+                    </button>
+                  ))}
                 </div>
               </section>
             )}
@@ -540,77 +476,105 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
         )}
 
         {tab === 'search' && (
-          <div className="space-y-2.5">
-            <div className="flex gap-1.5">
-              <div className="flex-1 flex items-center bg-white/65 border border-black/5 rounded-xl px-3">
-                <Search className="w-4 h-4 text-[#aaa] mr-2" />
-                <input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void search(); }} placeholder="搜索网易云音乐…" className="w-full py-2.5 bg-transparent outline-none text-[10px]" />
-              </div>
-              <button onClick={() => void search()} className="px-3 rounded-xl bg-[#292724] text-white text-[9px]">{searching ? '…' : '搜索'}</button>
+          <div className="pt-4 space-y-4">
+            <div className="flex items-center justify-between"><button onClick={() => setTab('player')} className="flex items-center gap-1 text-[11px] text-[#8f7e76]"><ArrowLeft className="w-3.5 h-3.5" />返回我的音乐</button><div className="font-serif text-[17px]">找歌</div><span className="w-16" /></div>
+            <div className="flex gap-2">
+              <div className="flex-1 flex items-center bg-[#f8f6f3] border border-[#eee6e0] rounded-2xl px-3"><Search className="w-4 h-4 text-[#b5a49b] mr-2 shrink-0" /><input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void search(); }} placeholder="搜索歌名、歌手…" className="w-full py-3 bg-transparent outline-none text-[12px]" /></div>
+              <button onClick={() => void search()} className="px-4 rounded-2xl bg-[#2d2724] text-white text-[11px]">{searching ? '搜索中…' : '搜索'}</button>
             </div>
-            <div className="space-y-1">
-              {results.map(track => (
-                <button key={track.id} onClick={() => void playTrack(track)} className="w-full p-2.5 bg-white/55 border border-black/5 rounded-xl text-left flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-lg overflow-hidden bg-[#eee9df] shrink-0 grid place-items-center">
-                    {track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" /> : <Music2 className="w-4 h-4 text-[#999]" />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-semibold text-[#403a34] truncate">{track.name}</div>
-                    <div className="text-[8px] text-[#8b7560] truncate">{track.artist}</div>
-                  </div>
-                  <Play className="w-3.5 h-3.5 text-[#8d7b6a]" />
-                </button>
-              ))}
-            </div>
+            {results.length > 0 ? <div className="rounded-[20px] bg-[#f8f6f3] px-3">{results.map(track => (
+              <button key={track.id} onClick={() => void playTrack(track)} className="w-full py-2.5 flex items-center gap-3 border-b last:border-0 border-[#eae4de] text-left">
+                <div className="w-11 h-11 rounded-xl overflow-hidden bg-white shrink-0 grid place-items-center">{track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <Music2 className="w-4 h-4 text-[#b5a49b]" />}</div>
+                <div className="min-w-0 flex-1"><div className="text-[12px] font-semibold truncate">{track.name}</div><div className="text-[10px] text-[#968980] truncate mt-0.5">{track.artist}{track.album ? ' · ' + track.album : ''}</div></div>
+                <Play className="w-4 h-4 text-[#a57e80]" />
+              </button>
+            ))}</div> : <div className="rounded-[22px] bg-[#f8f6f3] py-12 px-5 text-center"><Search className="w-5 h-5 text-[#c3aaa4] mx-auto" /><div className="mt-3 text-[12px] text-[#74665e]">{searching ? '正在寻找歌曲…' : '搜索结果会显示在这里'}</div><div className="mt-1 text-[10px] text-[#a69a91]">只显示 API 实际返回的歌曲，不放示例数据</div></div>}
           </div>
         )}
 
         {tab === 'characters' && (
-          <div className="space-y-2.5">
-            <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-              {characters.map(character => (
-                <button key={character.id} onClick={() => setSelectedCharacterId(character.id)} className={'shrink-0 px-3 py-1.5 rounded-full border text-[9px] ' + (selectedCharacterId === character.id ? 'bg-[#292724] text-white border-[#292724]' : 'bg-white/55 border-black/5 text-[#6f6963]')}>
-                  {character.name} · {character.variantLabel || character.characterVersion || '默认'}
-                </button>
-              ))}
-            </div>
-            {!characters.length && <div className="p-8 text-center text-[9px] text-[#aaa]">还没有角色歌单。先导入角色卡，再和 TA 一起听歌。</div>}
-            {selectedCharacterPlaylists.map(playlist => (
-              <section key={playlist.characterId + '-' + playlist.name} className="p-3 rounded-2xl bg-white/55 border border-black/5">
-                <div className="flex items-center justify-between">
-                  <div><div className="text-[11px] font-semibold text-[#3e3934]">{playlist.name}</div><div className="text-[8px] text-[#aaa] mt-0.5">{playlist.description}</div></div>
-                  <span className="text-[8px] font-mono text-[#a0958d]">{playlist.tracks.length} 首</span>
+          <div className="pt-4 space-y-4">
+            <section className="rounded-[24px] p-4 border border-[#eee5df]" style={{ background: 'linear-gradient(140deg,#fbf4f2,#f8f7f3 62%,#eef5ef)' }}>
+              <div className="font-serif text-[20px]">一起听</div><div className="mt-1 text-[11px] text-[#8d7c73]">邀请已导入的角色，听同一首歌，也可以随机遇见。</div>
+              <button onClick={() => setShowInviteCharacter(true)} disabled={!characters.length} className="mt-4 w-full py-3 rounded-full bg-[#2d2724] text-white text-[11px] disabled:opacity-40">选择角色一起听</button>
+            </section>
+            {strangerSession && (
+              <section className="rounded-[22px] p-4 bg-[#fbf5f5] border border-[#f0e1e3]">
+                <div className="text-[9px] tracking-[1.5px] text-[#a18b88]">CURRENT LISTENING ROOM</div>
+                <div className="mt-2 flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl overflow-hidden bg-white grid place-items-center">{characters.find(c => c.id === strangerSession.characterId)?.avatar ? <img src={characters.find(c => c.id === strangerSession.characterId)?.avatar} alt="" className="w-full h-full object-cover" /> : <UserRound className="w-4 h-4 text-[#aaa]" />}</div>
+                  <div className="min-w-0 flex-1"><div className="text-[12px] font-semibold">{strangerSession.characterName}</div><div className="text-[10px] text-[#9a8d84]">{strangerSession.variantLabel}</div></div>
+                  <UsersRound className="w-4 h-4 text-[#bd9094]" />
                 </div>
-                <div className="mt-2 space-y-1">
-                  {playlist.tracks.map(track => (
-                    <button key={track.id} onClick={() => void playTrack(track)} className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-white/60 text-left">
-                      <div className="w-8 h-8 rounded-md bg-[#eee9df] overflow-hidden shrink-0">{track.cover && <img src={track.cover} alt="" className="w-full h-full object-cover" />}</div>
-                      <div className="min-w-0 flex-1"><div className="text-[9px] font-medium truncate">{track.name}</div><div className="text-[8px] text-[#999] truncate">{track.artist}</div></div>
-                    </button>
-                  ))}
-                </div>
+                <div className="mt-3 rounded-xl bg-white/80 p-3 text-[11px] leading-relaxed text-[#655953]">{strangerLoading ? 'TA 正在听……' : strangerReaction || strangerSession.reactionLog[strangerSession.reactionLog.length - 1]?.text || '你们可以从当前歌曲开始聊起。'}</div>
+                <div className="grid grid-cols-3 gap-2 mt-3"><button onClick={() => void reactToCurrentSong()} className="rounded-xl bg-white py-2 text-[10px]">听听 TA 怎么说</button><button onClick={() => void letStrangerChoose()} className="rounded-xl bg-white py-2 text-[10px]">让 TA 选歌</button><button onClick={saveCurrentToCharacter} className="rounded-xl bg-white py-2 text-[10px]">加入歌单</button></div>
               </section>
-            ))}
+            )}
+            {characters.length ? characters.map(character => (
+              <section key={character.id} className="rounded-[22px] bg-[#f8f6f3] p-3 border border-[#eee7e1]">
+                <button onClick={() => setSelectedCharacterId(character.id)} className="w-full flex items-center gap-3 text-left">
+                  <div className="w-12 h-12 rounded-2xl overflow-hidden bg-white grid place-items-center">{character.avatar ? <img src={character.avatar} alt="" className="w-full h-full object-cover" /> : <UserRound className="w-4 h-4 text-[#b6a39a]" />}</div>
+                  <div className="min-w-0 flex-1"><div className="text-[12px] font-semibold truncate">{character.name}</div><div className="text-[10px] text-[#9c8f86] truncate">{character.variantLabel || character.characterVersion || '角色卡'}</div></div>
+                  <ChevronRight className="w-4 h-4 text-[#b5a49b]" />
+                </button>
+                {selectedCharacterId === character.id && (
+                  <div className="mt-3 pt-3 border-t border-[#e9e1db]">
+                    <div className="flex items-center justify-between"><span className="text-[11px] font-semibold">TA 的歌单</span><button onClick={() => void startDirectListening(character)} className="text-[10px] text-[#a47f82]">邀请一起听</button></div>
+                    {selectedCharacterPlaylists.filter(playlist => playlist.characterId === character.id).length ? selectedCharacterPlaylists.filter(playlist => playlist.characterId === character.id).map(playlist => (
+                      <div key={playlist.name} className="mt-2 rounded-xl bg-white/80 px-3 py-2"><div className="text-[10px] font-semibold">{playlist.name}</div><div className="mt-1 text-[9px] text-[#9a8d84]">{playlist.tracks.length} 首</div>
+                        {playlist.tracks.map(track => <button key={track.id} onClick={() => void playTrack(track)} className="w-full flex items-center gap-2 py-2 text-left"><div className="w-9 h-9 rounded-lg overflow-hidden bg-[#f5efeb] shrink-0">{track.cover && <img src={track.cover} alt="" className="w-full h-full object-cover" />}</div><div className="min-w-0 flex-1"><div className="text-[11px] truncate">{track.name}</div><div className="text-[9px] text-[#a2968e] truncate">{track.artist}</div></div><Play className="w-3 h-3 text-[#ad8a8c]" /></button>)}
+                      </div>
+                    ) : <div className="py-5 text-center text-[10px] text-[#aa9e95]">TA 的歌单还没有歌曲</div>}
+                  </div>
+                )}
+              </section>
+            )) : <div className="rounded-[22px] bg-[#f8f6f3] p-7 text-center"><UsersRound className="w-5 h-5 text-[#c5b0aa] mx-auto" /><div className="mt-3 text-[12px] text-[#756760]">还没有导入角色</div><div className="mt-1 text-[10px] text-[#a69a91]">导入角色卡后，TA 才会出现在这里</div></div>}
+          </div>
+        )}
+
+        {tab === 'history' && (
+          <div className="pt-4 space-y-4">
+            <div className="flex items-end justify-between"><div><div className="font-serif text-[20px]">听歌记录</div><div className="mt-1 text-[10px] text-[#a0958d]">仅记录你实际在音乐 App 里选择的歌曲</div></div><span className="text-[10px] text-[#a0958d]">{listeningHistory.length} 首</span></div>
+            {listeningHistory.length ? <div className="rounded-[20px] bg-[#f8f6f3] px-3">{listeningHistory.map(track => (
+              <div key={track.id} className="flex items-center gap-3 py-2.5 border-b last:border-0 border-[#eae4de]">
+                <button onClick={() => void playTrack(track)} className="w-11 h-11 rounded-xl overflow-hidden bg-white shrink-0 grid place-items-center">{track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" /> : <Music2 className="w-4 h-4 text-[#b5a49b]" />}</button>
+                <button onClick={() => void playTrack(track)} className="min-w-0 flex-1 text-left"><div className="text-[12px] font-semibold truncate">{track.name}</div><div className="text-[10px] text-[#9a8d84] mt-0.5 truncate">{track.artist}</div></button>
+                <button onClick={() => toggleLiked(track)} className={likedTracks.some(item => item.id === track.id) ? 'text-[#c4989a]' : 'text-[#b8aaa1]'} aria-label="喜欢"><Heart className={'w-3.5 h-3.5 ' + (likedTracks.some(item => item.id === track.id) ? 'fill-current' : '')} /></button>
+              </div>
+            ))}</div> : <div className="rounded-[22px] bg-[#f8f6f3] py-12 text-center"><Music2 className="w-5 h-5 text-[#c5b0aa] mx-auto" /><div className="mt-3 text-[12px] text-[#756760]">还没有听歌记录</div><div className="mt-1 text-[10px] text-[#a69a91]">开始播放歌曲后，记录会自动出现在这里</div></div>}
+          </div>
+        )}
+
+        {tab === 'appearance' && (
+          <div className="pt-4 space-y-4">
+            <section className="rounded-[24px] border border-[#eee5df] bg-[#fbf8f5] p-4">
+              <div className="font-serif text-[19px]">外观与音乐 API</div>
+              <div className="mt-1 text-[10px] leading-relaxed text-[#95877f]">设置只作用于音乐 App，不会改变手机其他页面。</div>
+              <div className="mt-4 text-[11px] font-semibold">强调色</div>
+              <div className="flex gap-2 mt-2">{['#c4989a','#9dbcae','#d4b58b','#9caec8'].map(color => <button key={color} onClick={() => { document.documentElement.style.setProperty('--music-accent', color); showToast('强调色已应用'); }} className="w-8 h-8 rounded-full border border-white shadow-sm" style={{ background: color }} aria-label={'选择颜色 ' + color} />)}</div>
+            </section>
+            <section className="rounded-[24px] border border-[#eee5df] bg-white p-4 space-y-3">
+              <div className="flex items-center justify-between"><div className="font-serif text-[17px]">网易云 Music API</div><Music2 className="w-4 h-4 text-[#c4989a]" /></div>
+              <div className="text-[10px] leading-relaxed text-[#95877f]">填写 API 根地址。搜索、歌曲详情和播放地址由这个服务提供；搜索成功不代表一定有可播放音源。</div>
+              <input value={apiBaseUrl} onChange={e => { setApiBaseUrl(e.target.value); setApiTestStatus(''); }} placeholder="https://你的音乐 API 域名" className="w-full p-3 rounded-xl bg-[#f8f6f3] text-[11px] font-mono outline-none border border-[#eee6e0]" />
+              {apiTestStatus && <div className={'text-[10px] leading-relaxed rounded-xl p-3 ' + (apiTestStatus.startsWith('搜索接口正常') ? 'bg-[#edf7ef] text-[#386b47]' : apiTestStatus.startsWith('正在') ? 'bg-[#f7f7f8] text-[#777]' : 'bg-[#fff2f0] text-[#a14f48]')}>{apiTestStatus}</div>}
+              <button disabled={apiTesting} onClick={() => void testAndSaveMusicApi()} className="w-full py-3 rounded-full bg-[#2d2724] text-white text-[11px] disabled:opacity-50">{apiTesting ? '正在测试…' : '测试连接并保存'}</button>
+              <button onClick={() => { saveMusicApiSettings({ baseUrl: apiBaseUrl.trim() }); showToast('音乐 API 地址已保存'); }} className="w-full py-3 rounded-full border border-[#e8ded8] bg-white text-[#64564e] text-[11px]">仅保存地址</button>
+            </section>
           </div>
         )}
       </div>
 
-
       {showInviteCharacter && (
-        <div onClick={() => setShowInviteCharacter(false)} className="absolute inset-0 z-50 bg-black/25 flex items-end">
-          <div onClick={e => e.stopPropagation()} className="w-full bg-white rounded-t-[20px] p-4 pb-6 space-y-3">
-            <div className="flex items-center justify-between"><div className="font-semibold text-sm">选择一起听的人</div><button onClick={() => setShowInviteCharacter(false)}><X className="w-4 h-4 text-[#999]" /></button></div>
+        <div onClick={() => setShowInviteCharacter(false)} className="absolute inset-0 z-50 bg-[#2d2724]/30 flex items-end">
+          <div onClick={e => e.stopPropagation()} className="w-full bg-white rounded-t-[28px] p-4 pb-7 space-y-3 shadow-xl">
+            <div className="flex items-center justify-between"><div className="font-serif text-[15px]">选择一起听的人</div><button onClick={() => setShowInviteCharacter(false)}><X className="w-4 h-4 text-[#999]" /></button></div>
             <div className="space-y-1.5 max-h-[45vh] overflow-y-auto">
               {characters.map(character => (
-                <button key={character.id} onClick={() => void startDirectListening(character)} className="w-full flex items-center gap-2.5 p-2.5 rounded-xl bg-[#faf9f7] border border-black/5 text-left">
-                  <div className="w-9 h-9 rounded-full overflow-hidden bg-[#eee9df] grid place-items-center">
-                    {character.avatar ? <img src={character.avatar} alt="" className="w-full h-full object-cover" /> : <UserRound className="w-4 h-4 text-[#aaa]" />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-semibold truncate">{character.name}</div>
-                    <div className="text-[8px] text-[#999] truncate">{character.variantLabel || character.characterVersion || '默认版本'}</div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-[#aaa]" />
+                <button key={character.id} onClick={() => { setShowInviteCharacter(false); void startDirectListening(character); }} className="w-full flex items-center gap-3 p-2.5 rounded-2xl bg-[#faf7f4] border border-[#f0e8e2] text-left">
+                  <div className="w-10 h-10 rounded-2xl overflow-hidden bg-white grid place-items-center">{character.avatar ? <img src={character.avatar} alt="" className="w-full h-full object-cover" /> : <UserRound className="w-4 h-4 text-[#b6a39a]" />}</div>
+                  <div className="min-w-0 flex-1"><div className="text-[11px] font-semibold truncate">{character.name}</div><div className="text-[9px] text-[#9c8f86] truncate">{character.variantLabel || character.characterVersion || '角色卡'}</div></div>
+                  <ChevronRight className="w-4 h-4 text-[#b5a49b]" />
                 </button>
               ))}
             </div>
@@ -618,21 +582,54 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
         </div>
       )}
 
-      {showApiSettings && (
-        <div onClick={() => setShowApiSettings(false)} className="absolute inset-0 z-50 bg-black/25 flex items-end">
-          <div onClick={e => e.stopPropagation()} className="w-full bg-white rounded-t-[20px] p-4 pb-6 space-y-3">
-            <div className="flex items-center justify-between"><div className="font-semibold text-sm">网易云 Music API</div><button onClick={() => setShowApiSettings(false)}><X className="w-4 h-4 text-[#999]" /></button></div>
-            <div className="text-[8px] text-[#8b8782] leading-relaxed">填写网易云 API 的根地址（不是某个具体接口路径）。会使用 /cloudsearch 和 /song/url 等接口。GitHub Pages 不能直接运行后端代理；如果接口跨域被拦截，需要 API 服务端允许 CORS。</div>
-            <input value={apiBaseUrl} onChange={e => { setApiBaseUrl(e.target.value); setApiTestStatus(''); }} placeholder="https://你的音乐API域名" className="w-full p-2.5 rounded-xl bg-[#f7f7f8] text-[10px] font-mono outline-none" />
-            {apiTestStatus && <div className={'text-[9px] leading-relaxed rounded-xl p-2.5 ' + (apiTestStatus.startsWith('连接成功') ? 'bg-[#edf7ef] text-[#386b47]' : apiTestStatus.startsWith('正在') ? 'bg-[#f7f7f8] text-[#777]' : 'bg-[#fff2f0] text-[#a14f48]')}>{apiTestStatus}</div>}
-            <button disabled={apiTesting} onClick={() => void testAndSaveMusicApi()} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-xs disabled:opacity-50">{apiTesting ? '正在测试…' : '测试连接并保存'}</button>
-            <button onClick={() => { saveMusicApiSettings({ baseUrl: apiBaseUrl.trim() }); setShowApiSettings(false); showToast('音乐 API 地址已保存'); }} className="w-full py-2.5 rounded-xl bg-white border border-black/10 text-[#514b45] text-xs">仅保存地址</button>
-          </div>
-        </div>
-      )}
-
-      <audio className="hidden" />
-      {toast && <div className="absolute left-1/2 -translate-x-1/2 bottom-5 z-60 px-3 py-2 rounded-full bg-[#292724] text-white text-[9px] shadow-lg">{toast}</div>}
+      <audio
+        ref={audioRef}
+        preload="metadata"
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => setIsPlaying(false)}
+        onError={() => {
+          const audio = audioRef.current;
+          if (!audio || !currentTrack || currentTrack.source !== 'netease') {
+            setIsPlaying(false);
+            return;
+          }
+          const currentUrl = currentTrack.playUrl || '';
+          let fallbackUrl = '';
+          try {
+            if (currentUrl.includes('/song/url/v1/302')) {
+              const parsed = new URL(currentUrl);
+              if (parsed.searchParams.get('level') === 'standard') {
+                parsed.searchParams.set('level', 'exhigh');
+                fallbackUrl = parsed.toString();
+              }
+            } else {
+              const parsed = new URL('/song/url/v1/302', readMusicApiSettings().baseUrl);
+              parsed.searchParams.set('id', currentTrack.id);
+              parsed.searchParams.set('level', 'standard');
+              fallbackUrl = parsed.toString();
+            }
+          } catch {
+            fallbackUrl = '';
+          }
+          if (fallbackUrl && fallbackUrl !== currentUrl) {
+            const fallbackTrack = { ...currentTrack, playUrl: fallbackUrl };
+            setCurrentTrack(fallbackTrack);
+            saveMusicCurrent(fallbackTrack);
+            audio.src = fallbackUrl;
+            audio.load();
+            void audio.play().then(() => setIsPlaying(true)).catch(() => {
+              setIsPlaying(false);
+              showToast('已经尝试备用音质，但 API 没有提供可播放音源。请换一首歌曲测试。');
+            });
+            return;
+          }
+          setIsPlaying(false);
+          showToast('API 没有提供可播放音源，请换一首歌曲测试。');
+        }}
+        className="hidden"
+      />
+      {toast && <div className="absolute left-1/2 -translate-x-1/2 bottom-5 z-[60] px-4 py-2.5 rounded-full bg-[#2d2724] text-white text-[10px] shadow-lg">{toast}</div>}
     </div>
   );
 }
