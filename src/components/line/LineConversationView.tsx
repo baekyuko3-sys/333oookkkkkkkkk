@@ -52,6 +52,20 @@ function splitLineChatText(text: string): string[] {
   if (lines.length > 1 && lines.every((line) => Array.from(line).length <= 80)) return lines;
   return [normalized];
 }
+function cleanGroupGeneratedText(text: string): string {
+  let value = String(text || '').replace(/\r\n/g, '\n');
+  // Group replies must never render private reasoning or transport-format tags as chat bubbles.
+  value = value.replace(/<cot\b[^>]*>[\s\S]*?<\/cot\s*>/gi, '');
+  value = value.replace(/<thinking\b[^>]*>[\s\S]*?<\/thinking\s*>/gi, '');
+  value = value.replace(/<analysis\b[^>]*>[\s\S]*?<\/analysis\s*>/gi, '');
+  // Keep the visible content inside message wrappers, removing only the wrapper tags.
+  value = value.replace(/<\/?message\b[^>]*>/gi, '');
+  value = value.replace(/<\/?(?:cot|thinking|analysis|final|response|output)\b[^>]*>/gi, '');
+  value = value.replace(/<\/?(?:assistant|user|system)\b[^>]*>/gi, '');
+  value = value.replace(/^\s*(?:\[PASS\]|<\/?(?:cot|message|thinking|analysis)>)+\s*$/gim, '');
+  return value.trim();
+}
+
 function splitGeneratedLineMessages(text: string): string[] {
   const normalized = text.replace(/\r\n/g, '\n').trim();
   if (!normalized) return [];
@@ -1744,7 +1758,7 @@ export function LineConversationView({
             });
           },
         });
-        const groupReplyText = String(result?.text || streamedText || '').trim();
+        const groupReplyText = cleanGroupGeneratedText(String(result?.text || streamedText || ''));
         if (!groupReplyText) throw new Error(`${character.name} 没有返回任何内容，请检查 API、模型或网络连接。`);
         const groupReplyParts = splitGeneratedLineMessages(groupReplyText);
         setMessages(prev => {
@@ -2575,7 +2589,7 @@ export function LineConversationView({
             debugConversationId: conversationStorageId,
             onDelta: delta => { streamed += delta; },
           });
-          const rawText = String(result?.text || streamed || '').trim();
+          const rawText = cleanGroupGeneratedText(String(result?.text || streamed || ''));
           if (!rawText || /^\[PASS\]$/i.test(rawText)) continue;
           const parts = splitGeneratedLineMessages(rawText).filter(Boolean);
           const added = parts.map((part, partIndex) => ({
