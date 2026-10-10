@@ -29,10 +29,16 @@ export function NpcScreenView({ onNavigate }: { onNavigate: (screen: ScreenType)
   const [source, setSource] = useState<'project' | 'worldbook' | 'character'>('character');
   const [boundCharacterId, setBoundCharacterId] = useState('');
   const [prompt, setPrompt] = useState('');
+  const [genderChoice, setGenderChoice] = useState('随机');
+  const [identityCategory, setIdentityCategory] = useState<'family' | 'friend' | 'coworker' | 'other'>('friend');
+  const [relationshipDetail, setRelationshipDetail] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'family' | 'friend' | 'coworker' | 'other'>('all');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = npcs.find(item => item.id === selectedId) || null;
+  const relatedNpcs = npcs.filter(item => (item.boundCharacterId || item.sourceCharacterId) === boundCharacterId);
+  const visibleNpcs = relatedNpcs.filter(item => categoryFilter === 'all' || (item.relationshipCategory || 'other') === categoryFilter);
   const project = getProjectManifest();
   const boundCharacter = characters.find(character => character.id === boundCharacterId) || null;
   const activeCount = useMemo(() => npcs.filter(item => item.active).length, [npcs]);
@@ -53,6 +59,8 @@ export function NpcScreenView({ onNavigate }: { onNavigate: (screen: ScreenType)
           '这个 NPC 必须绑定到指定角色，是该角色所在世界中真实存在的关联人物。',
           '你收到的是这个手机项目的跨 App 世界上下文，包括角色卡、记忆、世界书、项目以及其他本机内容。不要声称看到了 API 密钥。',
           'NPC 需要有自己的生活、职业、性格、欲望和缺点，并与绑定角色建立自然、可持续的关系。',
+          '严格遵守用户指定的性别和关系类别。关系类别必须从 family、friend、coworker、other 中选一个，写入 relationshipCategory。',
+          '人物必须依据绑定角色档案中的已知事实生成；若档案提及具体亲友或同事，优先补全而不是与既有设定冲突。',
           '不要复制绑定角色，不要抢夺用户主角位置。',
           '严格输出 JSON，不要 Markdown。',
         ].join('\n'),
@@ -60,7 +68,7 @@ export function NpcScreenView({ onNavigate }: { onNavigate: (screen: ScreenType)
           '【必须绑定角色】' + boundCharacter.name + '（' + boundCharacter.id + '）',
           '【本次生成重点】\n' + buildFocus(source, project, worldbooks, boundCharacter, prompt.trim()),
           '【跨 App 手机世界上下文】\n' + contextText,
-          '【JSON 字段】' + JSON.stringify({ name:'NPC姓名', gender:'性别', age:'年龄段', identity:'身份/职业', appearance:'外貌', personality:'性格', background:'完整背景', relationship:'与绑定角色的关系', tags:['标签'], memory:'NPC自己的重要记忆', canCommentMoments:true }),
+          '【JSON 字段】' + JSON.stringify({ name:'NPC姓名', gender:'性别', age:'年龄段', identity:'身份/职业', appearance:'外貌', personality:'性格', background:'完整背景', relationship:'与绑定角色的关系', relationshipCategory:'family|friend|coworker|other', tags:['标签'], memory:'NPC自己的重要记忆', canCommentMoments:true }),
           '只生成一个 NPC。',
         ].join('\n\n'),
         temperature: 0.9,
@@ -77,7 +85,8 @@ export function NpcScreenView({ onNavigate }: { onNavigate: (screen: ScreenType)
         personality: typeof parsed?.personality === 'string' ? parsed.personality : '',
         background: typeof parsed?.background === 'string' ? parsed.background : '',
         relationship: typeof parsed?.relationship === 'string' ? parsed.relationship : '',
-        settingSource: 'character',
+        settingSource: source,
+        relationshipCategory: ['family','friend','coworker','other'].includes(parsed?.relationshipCategory) ? parsed.relationshipCategory : identityCategory,
         boundCharacterId: boundCharacter.id,
         boundCharacterName: boundCharacter.name,
         sourceCharacterId: boundCharacter.id,
@@ -92,6 +101,7 @@ export function NpcScreenView({ onNavigate }: { onNavigate: (screen: ScreenType)
       setNpcs(prev => [npc, ...prev]);
       setSelectedId(npc.id);
       setPrompt('');
+      setCategoryFilter(identityCategory);
       notify('NPC 已生成，并绑定到 ' + boundCharacter.name + ' ✦');
     } catch (error) {
       notify(error instanceof Error ? error.message : 'NPC 生成失败');
@@ -125,7 +135,19 @@ export function NpcScreenView({ onNavigate }: { onNavigate: (screen: ScreenType)
       <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
         <section className="p-3.5 rounded-[18px] bg-[#f7f4ee] border border-[#e8e2d9] space-y-2.5">
           <div className="flex items-center justify-between"><div className="flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-[#a27762]" /><span className="text-[10px] font-semibold">从绑定角色的世界里长出一个人</span></div><span className="text-[8px] text-[#8e606b]">必须绑定角色</span></div>
-          <div className="flex items-center gap-2 p-2.5 rounded-[11px] bg-white border border-[#e7e2dc]"><Link2 className="w-3.5 h-3.5 text-[#9a6c78] shrink-0" /><select value={boundCharacterId} onChange={e => setBoundCharacterId(e.target.value)} className="flex-1 bg-transparent outline-none text-[10px] text-[#444]"><option value="">先选择角色…</option>{characters.map(character => <option key={character.id} value={character.id}>{character.name}</option>)}</select></div>
+          <div className="text-[9px] text-[#8b817a]">先点选角色头像，下面就只显示与 TA 有关联的 NPC。</div>
+          <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
+            {characters.map(character => <button key={character.id} onClick={() => { setBoundCharacterId(character.id); setSelectedId(null); setCategoryFilter('all'); }} className={boundCharacterId === character.id ? 'shrink-0 w-[68px] flex flex-col items-center gap-1 p-1 rounded-[13px] bg-[#f8edef] border border-[#d8b7be]' : 'shrink-0 w-[68px] flex flex-col items-center gap-1 p-1 rounded-[13px] border border-transparent'}>
+              {character.avatar ? <img src={character.avatar} alt="" className="w-10 h-10 rounded-full object-cover border border-[#e4ddd7]" /> : <span className="w-10 h-10 rounded-full bg-[#efebe6] border border-[#e2ddd7] grid place-items-center"><UserRound className="w-4 h-4 text-[#9b958f]" /></span>}
+              <span className="w-full text-[9px] text-center truncate">{character.name}</span>
+            </button>)}
+          </div>
+          <div className="flex items-center gap-2 p-2.5 rounded-[11px] bg-white border border-[#e7e2dc]"><Link2 className="w-3.5 h-3.5 text-[#9a6c78] shrink-0" /><select value={boundCharacterId} onChange={e => {setBoundCharacterId(e.target.value);setSelectedId(null);setCategoryFilter('all');}} className="flex-1 bg-transparent outline-none text-[10px] text-[#444]"><option value="">先选择角色…</option>{characters.map(character => <option key={character.id} value={character.id}>{character.name}</option>)}</select></div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-[9px] text-[#777] space-y-1"><span className="block">NPC 性别</span><select value={genderChoice} onChange={e => setGenderChoice(e.target.value)} className="w-full p-2 rounded-[9px] border border-[#e7e2dc] bg-white text-[10px]"><option>随机</option><option>男</option><option>女</option><option>非二元</option></select></label>
+            <label className="text-[9px] text-[#777] space-y-1"><span className="block">关系分类</span><select value={identityCategory} onChange={e => setIdentityCategory(e.target.value as typeof identityCategory)} className="w-full p-2 rounded-[9px] border border-[#e7e2dc] bg-white text-[10px]"><option value="friend">朋友</option><option value="family">家人</option><option value="coworker">同事</option><option value="other">其他关系</option></select></label>
+          </div>
+          <input value={relationshipDetail} onChange={e => setRelationshipDetail(e.target.value)} placeholder="具体关系（选填，如：童年好友、表姐、经纪人）" className="w-full p-2.5 rounded-[10px] border border-[#e7e2dc] bg-white text-[10px] outline-none" />
           <div className="grid grid-cols-3 gap-1.5 text-[9px]">
             {([['character','角色 / 记忆'],['worldbook','世界书'],['project','项目设定']] as const).map(([id, label]) => <button key={id} onClick={() => setSource(id)} className={source === id ? 'py-2 rounded-[10px] border bg-[#eadfe0] border-[#d5b8bd] text-[#8e606b]' : 'py-2 rounded-[10px] border bg-white border-[#e9e5df] text-[#777]'}>{label}</button>)}
           </div>
@@ -133,7 +155,13 @@ export function NpcScreenView({ onNavigate }: { onNavigate: (screen: ScreenType)
           <div className="text-[8px] leading-relaxed text-[#918a84]">NPC 会默认读取本机项目里的非敏感跨 App 内容；角色卡、记忆、世界书、聊天、动态、线下剧情等都可作为背景。</div>
           <button onClick={createNpc} disabled={busy || characters.length === 0} className="w-full py-2.5 rounded-[11px] bg-[#292724] text-white text-[10px] flex items-center justify-center gap-1.5 disabled:opacity-50"><Sparkles className="w-3.5 h-3.5" />{busy ? '正在生成人物…' : characters.length === 0 ? '先导入一个角色' : 'AI 生成 NPC'}</button>
         </section>
-        {npcs.length === 0 ? <div className="py-16 text-center text-[#aaa] text-[10px]">还没有 NPC。<br />先绑定一个角色，让 NPC 从TA的世界里出现。</div> : npcs.map(npc => (
+        <section className="space-y-2">
+          <div className="flex items-center justify-between"><div className="text-[11px] font-semibold">{boundCharacter ? boundCharacter.name + ' 的关联人物' : '先选择一个角色'}</div><span className="text-[9px] text-[#999]">{relatedNpcs.length} 位</span></div>
+          <div className="grid grid-cols-5 gap-1">
+            {([['all','全部'],['family','家人'],['friend','朋友'],['coworker','同事'],['other','其他']] as const).map(([key,label]) => <button key={key} onClick={() => setCategoryFilter(key)} className={categoryFilter === key ? 'py-2 rounded-[9px] bg-[#eadfe0] border border-[#d5b8bd] text-[#8e606b] text-[9px]' : 'py-2 rounded-[9px] bg-white border border-[#e9e5df] text-[#777] text-[9px]'}>{label}</button>)}
+          </div>
+        </section>
+        {!boundCharacter ? <div className="py-10 text-center text-[#aaa] text-[10px]">点选上方角色头像，查看与 TA 相关的 NPC。</div> : visibleNpcs.length === 0 ? <div className="py-10 text-center text-[#aaa] text-[10px]">这个分类还没有 NPC。<br />可以为 {boundCharacter.name} 生成一位。</div> : visibleNpcs.map(npc => (
           <button key={npc.id} onClick={() => { setSelectedId(npc.id); setBoundCharacterId(npc.boundCharacterId || npc.sourceCharacterId || ''); }} className={selectedId === npc.id ? 'w-full text-left p-3.5 rounded-[17px] border border-[#d7b7be] bg-[#fcf6f7]' : 'w-full text-left p-3.5 rounded-[17px] border border-[#ece8e2] bg-white hover:bg-[#faf8f5]'}>
             <div className="flex items-start justify-between gap-3"><div className="flex gap-2.5 min-w-0"><div className="w-10 h-10 rounded-full bg-[#efebe6] border border-[#e2ddd7] grid place-items-center shrink-0"><UserRound className="w-4 h-4 text-[#9b958f]" /></div><div className="min-w-0"><div className="text-[12px] font-semibold text-[#302e2c] truncate">{npc.name}</div><div className="text-[9px] text-[#9a948e] truncate mt-0.5">{npc.identity}</div><div className="text-[9px] text-[#8c6a72] mt-1 truncate">关联：{npc.boundCharacterName || '未绑定'}</div></div></div><span className="text-[8px] px-1.5 py-0.5 rounded-full bg-[#faf1f3] border border-[#f0dfe3] text-[#9a6c78]">{npc.canCommentMoments ? '可评论' : '静默'}</span></div>
           </button>
