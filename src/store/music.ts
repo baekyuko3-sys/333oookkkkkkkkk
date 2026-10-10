@@ -236,31 +236,34 @@ function extractPlayableUrl(payload: any): string {
 export async function resolveTrackUrl(track: MusicTrack, settings = readMusicApiSettings()): Promise<MusicTrack> {
   if (track.playUrl) return track;
   const baseUrl = settings.baseUrl.replace(/\\/+$/, '');
-  const requestUrl = new URL(joinUrl(baseUrl, settings.urlPath), window.location.origin);
-  requestUrl.searchParams.set('id', track.id);
-  const firstPayload = await fetchJson(requestUrl.toString());
-  let playUrl = extractPlayableUrl(firstPayload);
 
-  // api-enhanced's legacy /song/url can return an empty URL for some tracks.
-  // Fall back to the documented quality-aware endpoint before declaring playback unavailable.
-  if (!playUrl && settings.provider === 'netease') {
-    for (const level of ['exhigh', 'standard']) {
-      const fallbackUrl = new URL(joinUrl(baseUrl, '/song/url/v1'), window.location.origin);
-      fallbackUrl.searchParams.set('id', track.id);
-      fallbackUrl.searchParams.set('level', level);
-      try {
-        const payload = await fetchJson(fallbackUrl.toString());
-        playUrl = extractPlayableUrl(payload);
-        if (playUrl) break;
-      } catch {
-        // Keep trying the next supported quality / endpoint.
-      }
+  // api-enhanced docs recommend /song/url/v1 with an explicit quality level.
+  // Vercel deployments also need realIP; keep requests to the documented JSON
+  // endpoint rather than /song/url/v1/302, which is a redirect endpoint.
+  const attempts = [
+    { level: 'exhigh', unblock: false },
+    { level: 'standard', unblock: false },
+    { level: 'exhigh', unblock: true },
+  ];
+
+  for (const attempt of attempts) {
+    const url = new URL(joinUrl(baseUrl, '/song/url/v1'), window.location.origin);
+    url.searchParams.set('id', track.id);
+    url.searchParams.set('level', attempt.level);
+    url.searchParams.set('realIP', '116.25.146.177');
+    if (attempt.unblock) url.searchParams.set('unblock', 'true');
+
+    try {
+      const payload = await fetchJson(url.toString());
+      const playUrl = extractPlayableUrl(payload);
+      if (playUrl) return { ...track, playUrl };
+    } catch {
+      // Try a lower quality or the documented optional unblock mode.
     }
   }
 
-  return { ...track, playUrl };
+  return { ...track, playUrl: '' };
 }
-
 export async function getMusicPlaylist(playlistId: string, settings = readMusicApiSettings()): Promise<MusicTrack[]> {
   const url = new URL(joinUrl(settings.baseUrl, settings.playlistPath), window.location.origin);
   url.searchParams.set('id', playlistId);
