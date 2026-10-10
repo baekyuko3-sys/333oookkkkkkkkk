@@ -4022,14 +4022,16 @@ export function LineConversationView({
                   aria-label={formatLineMessageExactDateTime(msg, chatTimezone, lineTimeDisplayLocale)}
                   className={`mt-0.5 flex min-h-[12px] items-center gap-1 px-1 text-[9px] leading-[1.2] text-[#a6a6aa] ${isMe ? 'justify-end' : 'justify-start'}`}
                 >
-                  {isMe && (() => {
+                  {isMe ? (() => {
                     const msgIndex = messages.findIndex((candidate) => String(candidate.id) === String(msg.id));
                     const hasRoleReply = msgIndex >= 0 && messages.slice(msgIndex + 1).some((candidate) =>
                       candidate.sender !== 'me' && candidate.type !== 'system-nudge'
                     );
                     const readLabel = hasRoleReply || msg.isRead ? '已读' : '未读';
-                    return <span className={msg.isRead ? "text-[#ae7e89] font-medium" : "text-[#b8b8bb] font-medium"}>{readLabel}</span>;
-                  })()}
+                    return <span className={msg.isRead || hasRoleReply ? "text-[#ae7e89] font-medium" : "text-[#b8b8bb] font-medium"}>{readLabel}</span>;
+                  })() : (
+                    <span className="text-[#ae7e89] font-medium">已读</span>
+                  )}
                   <span>{formatLineMessageClock(msg, chatTimezone, lineTimeDisplayLocale)}</span>
                 </div>
               )}
