@@ -4612,15 +4612,22 @@ export function LineConversationView({
                 <span>AI后台</span>
               </button>
 
-              {/* D20 判定骰子 */}
+              {/* 群聊专属：红包入口；单聊仍保留原来的 D20 骰子 */}
               <button
-                onClick={handleRollDice}
+                onClick={() => {
+                  if (isGroup) {
+                    setShowPlusSheet(false);
+                    showToast('群聊红包功能待接入');
+                  } else {
+                    handleRollDice();
+                  }
+                }}
                 className="flex flex-col items-center gap-1.5 cursor-pointer"
               >
-                <div className="w-12 h-12 rounded-[14px] bg-[#f7f7f8] flex items-center justify-center text-[#666] hover:bg-[#f0f0f2]">
-                  <Sparkles className="w-5 h-5" />
+                <div className={`w-12 h-12 rounded-[14px] flex items-center justify-center hover:opacity-80 ${isGroup ? 'bg-[#fff1f1]' : 'bg-[#f7f7f8] text-[#666] hover:bg-[#f0f0f2]'}`}>
+                  {isGroup ? <span className="text-[25px] leading-none" aria-label="红包">🧧</span> : <Sparkles className="w-5 h-5" />}
                 </div>
-                <span>D20骰子</span>
+                <span>{isGroup ? '红包' : 'D20骰子'}</span>
               </button>
 
               {/* 重新生成 (Reroll) */}
