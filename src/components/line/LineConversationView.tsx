@@ -67,11 +67,14 @@ function cleanGroupGeneratedText(text: string): string {
 }
 
 function splitGeneratedLineMessages(text: string): string[] {
-  const normalized = text.replace(/\r\n/g, '\n').trim();
+  const normalized = String(text || '').replace(/\r\n/g, '\n').trim();
   if (!normalized) return [];
-  const lines = normalized.split('\n').map((line) => line.trim()).filter(Boolean);
-  if (lines.length > 1 && lines.every((line) => Array.from(line).length <= 80)) return lines;
-  return [normalized];
+  // Split only explicit message blocks; short lines and natural line breaks stay together.
+  const explicitBlocks = [...normalized.matchAll(/<message\b[^>]*>([\s\S]*?)<\/message\s*>/gi)]
+    .map(match => cleanGroupGeneratedText(match[1]))
+    .filter(Boolean);
+  if (explicitBlocks.length) return explicitBlocks;
+  return [cleanGroupGeneratedText(normalized)].filter(Boolean);
 }
 
 function formatReplyReasonStatus(message: any): { icon: string; label: string; tone: 'wait' | 'muted' } | null {
@@ -1750,7 +1753,7 @@ export function LineConversationView({
           debugConversationId: conversationStorageId,
           onDelta: delta => {
             streamedText += delta;
-            const clean = streamedText.trim();
+            const clean = cleanGroupGeneratedText(streamedText);
             if (!clean) return;
             setMessages(prev => {
               if (prev.some(m => m.id === replyMsgId)) return prev.map(m => m.id === replyMsgId ? { ...m, text: clean, senderName: character.name, characterId: character.id } : m);
@@ -3561,6 +3564,10 @@ export function LineConversationView({
           const nextMessage = visibleMessages[messageIndex + 1];
           const sameAsPrevious = Boolean(previousMessage && previousMessage.sender === msg.sender && previousMessage.type !== 'system-nudge' && msg.type !== 'system-nudge');
           const sameAsNext = Boolean(nextMessage && nextMessage.sender === msg.sender && nextMessage.type !== 'system-nudge' && msg.type !== 'system-nudge');
+          const sameGroupSpeakerAsPreviousForSpacing = Boolean(isGroup && previousMessage && previousMessage.sender !== 'me' && msg.sender !== 'me' && String(previousMessage.characterId || previousMessage.metadata?.characterId || previousMessage.senderName || '') === String(msg.characterId || msg.metadata?.characterId || msg.senderName || ''));
+          const sameGroupSpeakerAsNextForSpacing = Boolean(isGroup && nextMessage && nextMessage.sender !== 'me' && msg.sender !== 'me' && String(nextMessage.characterId || nextMessage.metadata?.characterId || nextMessage.senderName || '') === String(msg.characterId || msg.metadata?.characterId || msg.senderName || ''));
+          const effectiveSameAsPrevious = isGroup && !isMe ? sameGroupSpeakerAsPreviousForSpacing : sameAsPrevious;
+          const effectiveSameAsNext = isGroup && !isMe ? sameGroupSpeakerAsNextForSpacing : sameAsNext;
           const currentDateRaw = msg.createdAt || msg.timestamp;
           const currentDate = currentDateRaw ? new Date(currentDateRaw) : null;
           const previousDateRaw = previousMessage?.createdAt || previousMessage?.timestamp;
@@ -3700,7 +3707,7 @@ export function LineConversationView({
               onPointerUp={(event) => handleMessagePointerUp(event, msg)}
               onPointerCancel={cancelMessageSwipe}
               style={{ touchAction: 'pan-y' }}
-              className={`relative flex items-end gap-2 group ${sameAsNext ? 'mb-0.5' : 'mb-2'}`}
+              className={`relative flex items-end gap-2 group ${effectiveSameAsNext ? 'mb-0.5' : 'mb-2'}`}
             >
               {swipingMessageId === msg.id && Math.abs(swipeOffset) > 8 && (
                 <div
@@ -3788,7 +3795,7 @@ export function LineConversationView({
 
               {/* Bubble content container */}
               <div
-                className={`max-w-[78%] relative touch-pan-y select-none ${isMe ? 'items-end' : 'items-start'}`}
+                className={`${isGroup && !isMe ? 'flex-1 min-w-0 flex flex-col items-start' : 'max-w-[78%] relative touch-pan-y select-none ' + (isMe ? 'items-end' : 'items-start')}`}
               >
                 {/* Preset flow · keep the existing compact disclosure UI */}
                 {!isMe && hasThinking && (
@@ -4146,7 +4153,7 @@ export function LineConversationView({
                           <div className="truncate opacity-80">{msg.quote.text || '多媒体消息'}</div>
                         </div>
                       )}
-                      {splitLineChatText(String(msg.text || '')).map((part, partIndex) => (
+                      {(isGroup ? [String(msg.text || '').trim()] : splitLineChatText(String(msg.text || ''))).filter(Boolean).map((part, partIndex) => (
                         <div
                           key={`${msg.id}-bubble-${partIndex}`}
                           onContextMenu={(e) => {
