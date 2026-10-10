@@ -3567,6 +3567,7 @@ export function LineConversationView({
           if (!msg || msg.deletedAt || msg.isDeleted) return null;
           const previousMessage = visibleMessages[messageIndex - 1];
           const nextMessage = visibleMessages[messageIndex + 1];
+          const isMe = msg.sender === 'me';
           const sameAsPrevious = Boolean(previousMessage && previousMessage.sender === msg.sender && previousMessage.type !== 'system-nudge' && msg.type !== 'system-nudge');
           const sameAsNext = Boolean(nextMessage && nextMessage.sender === msg.sender && nextMessage.type !== 'system-nudge' && msg.type !== 'system-nudge');
           const sameGroupSpeakerAsPreviousForSpacing = Boolean(isGroup && previousMessage && previousMessage.sender !== 'me' && msg.sender !== 'me' && String(previousMessage.characterId || previousMessage.metadata?.characterId || previousMessage.senderName || '') === String(msg.characterId || msg.metadata?.characterId || msg.senderName || ''));
@@ -3634,7 +3635,6 @@ export function LineConversationView({
             );
           }
 
-          const isMe = msg.sender === 'me';
           // Resolve group sender by stable character ID first. Name matching is only a
           // legacy fallback when the message has no identity ID; never let a name
           // collision override an explicit ID and show another NPC's avatar.
