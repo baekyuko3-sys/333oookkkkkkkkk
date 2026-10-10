@@ -160,7 +160,13 @@ function formatLineMessageDayLabel(value: Date, timezone: string, displayLocale:
 function stripGroupSpeakerPrefix(text: string, characterName: string): string {
   const value = String(text || '').trim();
   if (!value) return '';
-  const escapedName = characterName.replace(/[.*+?^${}()|[\]\\]/g, '\\function currentUserNameFallback(): string {');
+  const escapedName = characterName.replace(/[.*+?^\${}()|[\]\\]/g, '\\$&');
+  const namedPrefix = new RegExp('^\\s*(?:\\[' + escapedName + '\\]|' + escapedName + ')\\s*[:：]\\s*', 'i');
+  if (namedPrefix.test(value)) return value.replace(namedPrefix, '').trim();
+  return value.replace(/^\s*[a-z]\s*:\s*[a-z0-9_-]{1,24}\s*:\s*/i, '').trim();
+}
+
+function currentUserNameFallback(): string {');
   const namedPrefix = new RegExp('^\\s*(?:\\[' + escapedName + '\\]|' + escapedName + ')\\s*[:：]\\s*', 'i');
   if (namedPrefix.test(value)) return value.replace(namedPrefix, '').trim();
   return value.replace(/^\\s*[a-z]\\s*:\\s*[a-z0-9_-]{1,24}\\s*:\\s*/i, '').trim();
