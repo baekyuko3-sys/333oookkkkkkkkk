@@ -66,10 +66,15 @@ function cleanGroupGeneratedText(text: string): string {
   return value.trim();
 }
 
-function splitGeneratedLineMessages(text: string): string[] {
+function splitGeneratedLineMessages(text: string, groupMode = false): string[] {
   const normalized = String(text || '').replace(/\r\n/g, '\n').trim();
   if (!normalized) return [];
-  // Split only explicit message blocks; short lines and natural line breaks stay together.
+  if (!groupMode) {
+    const lines = normalized.split('\n').map(line => line.trim()).filter(Boolean);
+    if (lines.length > 1 && lines.every(line => Array.from(line).length <= 80)) return lines;
+    return [normalized];
+  }
+  // Group messages split only explicit message blocks; short lines and natural line breaks stay together.
   const explicitBlocks = [...normalized.matchAll(/<message\b[^>]*>([\s\S]*?)<\/message\s*>/gi)]
     .map(match => cleanGroupGeneratedText(match[1]))
     .filter(Boolean);
@@ -1763,7 +1768,7 @@ export function LineConversationView({
         });
         const groupReplyText = cleanGroupGeneratedText(String(result?.text || streamedText || ''));
         if (!groupReplyText) throw new Error(`${character.name} 没有返回任何内容，请检查 API、模型或网络连接。`);
-        const groupReplyParts = splitGeneratedLineMessages(groupReplyText);
+        const groupReplyParts = splitGeneratedLineMessages(groupReplyText, true);
         setMessages(prev => {
           const targetIndex = prev.findIndex(m => m.id === replyMsgId);
           const withoutStreaming = prev.filter(m => m.id !== replyMsgId);
@@ -2594,7 +2599,7 @@ export function LineConversationView({
           });
           const rawText = cleanGroupGeneratedText(String(result?.text || streamed || ''));
           if (!rawText || /^\[PASS\]$/i.test(rawText)) continue;
-          const parts = splitGeneratedLineMessages(rawText).filter(Boolean);
+          const parts = splitGeneratedLineMessages(rawText, true).filter(Boolean);
           const added = parts.map((part, partIndex) => ({
             id: partIndex === 0 ? replyId : String(replyId) + '-' + partIndex,
             turnId: String(replyId),
