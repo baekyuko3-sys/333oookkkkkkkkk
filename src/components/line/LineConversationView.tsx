@@ -3186,8 +3186,8 @@ export function LineConversationView({
                   <div className={`w-[38px] h-[38px] rounded-full bg-[#f1f1f2] border border-[#ededee] flex items-center justify-center overflow-hidden shrink-0 group-hover:scale-105 group-hover:ring-2 group-hover:ring-[#d4aab5]/50 transition-all ${
                     nudgeAvatar ? 'scale-110 ring-2 ring-[#d4aab5]' : ''
                   }`}>
-                    {importedCharacter?.avatar ? (
-                      <img src={importedCharacter.avatar} alt={characterProfile.nickname} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    {(isGroup ? activeGroup?.avatar : importedCharacter?.avatar) ? (
+                      <img src={(isGroup ? activeGroup?.avatar : importedCharacter?.avatar) || ''} alt={isGroup ? contactName : characterProfile.nickname} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
                       <svg className="w-6 h-6 text-[#999]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                       <circle cx="12" cy="8" r="4" />
