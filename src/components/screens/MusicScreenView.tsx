@@ -53,6 +53,9 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
   const [identityPersonaDraft, setIdentityPersonaDraft] = useState('');
   const [currentTrack, setCurrentTrack] = useState<MusicTrack | null>(() => readMusicCurrent());
   const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackTime, setPlaybackTime] = useState(0);
+  const [playbackDuration, setPlaybackDuration] = useState(0);
+  const [musicAccent, setMusicAccent] = usePersistentState<string>('phone:music-accent-v1', '#c4989a');
   const [tab, setTab] = useState<MusicTab>('identity');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MusicTrack[]>([]);
@@ -130,6 +133,10 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
       window.removeEventListener('sane333:music-stranger-changed', onStrangerChanged);
     };
   }, []);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--music-accent', musicAccent);
+  }, [musicAccent]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -602,16 +609,49 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
           <div className="space-y-5 pt-4">
             <section className="relative overflow-hidden rounded-[28px] border border-[#eee6e0] p-4" style={{ background: 'linear-gradient(135deg,#fbf5f3 0%,#f8f7f4 54%,#f1f5f0 100%)' }}>
               <div className="flex items-start gap-3">
-                <div className="w-[86px] h-[86px] rounded-[22px] overflow-hidden bg-white/80 border border-white shrink-0 grid place-items-center shadow-sm">
+                <div className="relative w-[100px] h-[100px] rounded-[22px] overflow-hidden bg-white/80 border border-white shrink-0 grid place-items-center shadow-sm">
                   {currentTrack?.cover ? <img src={currentTrack.cover} alt={currentTrack.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <DiscIcon />}
+                  {currentTrack && <label title="上传这首歌的封面" className="absolute right-1 bottom-1 w-7 h-7 rounded-full bg-white/95 border border-[#eee3dd] shadow-sm grid place-items-center text-[#8f7775] cursor-pointer"><Pencil className="w-3 h-3" /><input type="file" accept="image/*" className="hidden" onChange={event => {
+                    const file = event.target.files?.[0];
+                    if (!file || !currentTrack) return;
+                    if (file.size > 5 * 1024 * 1024) { showToast('封面图片请控制在 5MB 以内'); event.target.value = ''; return; }
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const cover = String(reader.result || '');
+                      const nextTrack = { ...currentTrack, cover };
+                      setCurrentTrack(nextTrack);
+                      saveMusicCurrent(nextTrack);
+                      setIdentities(previous => previous.map(identity => ({
+                        ...identity,
+                        likedTracks: identity.likedTracks.map(track => track.id === nextTrack.id ? { ...track, cover } : track),
+                        history: identity.history.map(track => track.id === nextTrack.id ? { ...track, cover } : track),
+                      })));
+                      showToast('歌曲封面已保存');
+                    };
+                    reader.onerror = () => showToast('图片读取失败，请换一张试试');
+                    reader.readAsDataURL(file);
+                    event.target.value = '';
+                  }} /></label>}
                 </div>
                 <div className="min-w-0 flex-1 pt-1">
                   <div className="text-[9px] tracking-[1.6px] text-[#a38d87]">NOW PLAYING</div>
                   <div className="mt-2 font-serif font-semibold text-[17px] leading-snug break-words">{currentTrack?.name || '留一首歌给现在的心情'}</div>
                   <div className="mt-1 text-[11px] text-[#8b7c73] truncate">{currentTrack?.artist || '搜索你想听的歌，音乐会留在这里'}</div>
                   {currentTrack?.album && <div className="mt-1 text-[9px] text-[#aaa19b] truncate">{currentTrack.album}</div>}
+                  {currentTrack && <div className="mt-2 text-[9px] text-[#a69a91]">点击封面右下角，可以上传自己的专辑图</div>}
                 </div>
               </div>
+              {currentTrack && (
+                <div className="mt-4">
+                  <input aria-label="歌曲播放进度" type="range" min={0} max={Math.max(1, playbackDuration || 1)} value={Math.min(playbackTime, playbackDuration || playbackTime)} onChange={event => {
+                    const audio = audioRef.current;
+                    const nextTime = Number(event.target.value);
+                    setPlaybackTime(nextTime);
+                    if (audio && Number.isFinite(audio.duration)) audio.currentTime = nextTime;
+                  }} className="w-full h-1.5 accent-[#c4989a] cursor-pointer" />
+                  <div className="flex justify-between text-[9px] text-[#9b8d85] tabular-nums"><span>{formatMusicTime(playbackTime)}</span><span>{formatMusicTime(playbackDuration)}</span></div>
+                </div>
+              )}
               <div className="mt-4 flex items-center gap-2">
                 <button onClick={() => setTab('search')} className="flex-1 flex items-center justify-center gap-2 rounded-full bg-[#2d2724] text-white py-3 text-[11px] font-semibold"><Search className="w-3.5 h-3.5" />找一首歌</button>
                 <button onClick={() => void startStrangerListening()} className="flex-1 flex items-center justify-center gap-2 rounded-full bg-white/80 border border-[#eadfda] py-3 text-[11px] text-[#695b54]"><Shuffle className="w-3.5 h-3.5" />随机一起听</button>
@@ -625,25 +665,23 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
               )}
             </section>
 
-            {tab === 'player' && (
-              <section>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="font-serif text-[17px]">喜欢的歌</div>
-                  <button onClick={() => setTab('search')} className="text-[10px] text-[#a07f80] flex items-center gap-1">找更多 <ChevronRight className="w-3 h-3" /></button>
+            <section>
+              <div className="flex items-center justify-between mb-2">
+                <div className="font-serif text-[17px]">喜欢的歌</div>
+                <button onClick={() => setTab('identity')} className="text-[10px] text-[#a07f80] flex items-center gap-1">查看全部 <ChevronRight className="w-3 h-3" /></button>
+              </div>
+              {likedTracks.length ? (
+                <div className="rounded-[20px] bg-[#f8f6f3] px-3">
+                  {likedTracks.slice(0, 8).map(track => (
+                    <div key={track.id} className="flex items-center gap-3 py-2.5 border-b last:border-0 border-[#eae4de]">
+                      <button onClick={() => void playTrack(track)} className="w-11 h-11 rounded-xl overflow-hidden bg-white shrink-0 grid place-items-center">{track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" /> : <Music2 className="w-4 h-4 text-[#b5a49b]" />}</button>
+                      <button onClick={() => void playTrack(track)} className="min-w-0 flex-1 text-left"><div className="text-[12px] font-semibold truncate">{track.name}</div><div className="text-[10px] text-[#9a8d84] truncate mt-0.5">{track.artist}</div></button>
+                      <button onClick={() => toggleLiked(track)} aria-label="取消喜欢" className="text-[#c4989a]"><Heart className="w-3.5 h-3.5 fill-current" /></button>
+                    </div>
+                  ))}
                 </div>
-                {likedTracks.length ? (
-                  <div className="rounded-[20px] bg-[#f8f6f3] px-3">
-                    {likedTracks.slice(0, 8).map(track => (
-                      <div key={track.id} className="flex items-center gap-3 py-2.5 border-b last:border-0 border-[#eae4de]">
-                        <button onClick={() => void playTrack(track)} className="w-11 h-11 rounded-xl overflow-hidden bg-white shrink-0 grid place-items-center">{track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" /> : <Music2 className="w-4 h-4 text-[#b5a49b]" />}</button>
-                        <button onClick={() => void playTrack(track)} className="min-w-0 flex-1 text-left"><div className="text-[12px] font-semibold truncate">{track.name}</div><div className="text-[10px] text-[#9a8d84] truncate mt-0.5">{track.artist}</div></button>
-                        <button onClick={() => toggleLiked(track)} aria-label="取消喜欢" className="text-[#c4989a]"><Heart className="w-3.5 h-3.5 fill-current" /></button>
-                      </div>
-                    ))}
-                  </div>
-                ) : <div className="rounded-[20px] bg-[#f8f6f3] py-8 px-4 text-center"><div className="mx-auto w-10 h-10 rounded-2xl bg-white grid place-items-center text-[#c4989a]"><Heart className="w-4 h-4" /></div><div className="mt-3 text-[12px] text-[#5d514b]">这里会收集你真正喜欢的歌</div><div className="mt-1 text-[10px] text-[#a1968d]">搜索歌曲后，点击爱心即可加入</div></div>}
-              </section>
-            )}
+              ) : <div className="rounded-[20px] bg-[#f8f6f3] py-8 px-4 text-center"><div className="mx-auto w-10 h-10 rounded-2xl bg-white grid place-items-center text-[#c4989a]"><Heart className="w-4 h-4" /></div><div className="mt-3 text-[12px] text-[#5d514b]">这里会收集你真正喜欢的歌</div><div className="mt-1 text-[10px] text-[#a1968d]">搜索歌曲后，点击爱心即可加入</div></div>}
+            </section>
 
             {characters.length > 0 && (
               <section>
@@ -834,6 +872,9 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
       <audio
         ref={audioRef}
         preload="metadata"
+        onTimeUpdate={event => setPlaybackTime(event.currentTarget.currentTime || 0)}
+        onLoadedMetadata={event => setPlaybackDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
+        onDurationChange={event => setPlaybackDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onEnded={() => setIsPlaying(false)}
@@ -881,6 +922,12 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
       {toast && <div className="absolute left-1/2 -translate-x-1/2 bottom-5 z-[60] px-4 py-2.5 rounded-full bg-[#2d2724] text-white text-[10px] shadow-lg">{toast}</div>}
     </div>
   );
+}
+
+function formatMusicTime(value: number) {
+  if (!Number.isFinite(value) || value < 0) return '0:00';
+  const seconds = Math.floor(value);
+  return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
 }
 
 function DiscIcon() {
