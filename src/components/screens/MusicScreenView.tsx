@@ -88,11 +88,37 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
   const playTrack = async (track: MusicTrack, autoplay = true) => {
     try {
       const resolved = await resolveTrackUrl(track);
-      if (!resolved.playUrl) throw new Error('这首歌当前没有可用的播放地址，可能无版权或接口没有返回音频。');
+      if (!resolved.playUrl) {
+        throw new Error('接口没有返回可播放地址。这首歌可能暂不可用，请换一首测试。');
+      }
+
       setCurrentTrack(resolved);
       saveMusicCurrent(resolved);
       setLiked(false);
-      if (autoplay) setIsPlaying(true);
+
+      // Start playback directly after resolving the URL. Relying only on the
+      // currentTrack effect can miss autoplay because isPlaying may still be false
+      // in that effect's render closure.
+      const audio = audioRef.current;
+      if (audio) {
+        audio.pause();
+        audio.src = resolved.playUrl;
+        audio.load();
+        if (autoplay) {
+          try {
+            await audio.play();
+            setIsPlaying(true);
+          } catch {
+            setIsPlaying(false);
+            throw new Error('已取得歌曲地址，但浏览器播放失败。请换一首歌测试；若都无法播放，需要检查接口返回的音源地址。');
+          }
+        } else {
+          setIsPlaying(false);
+        }
+      } else if (autoplay) {
+        setIsPlaying(true);
+      }
+
       if (strangerSession && strangerSession.status !== 'ended') {
         setStrangerSession(prev => prev ? { ...prev, track: resolved, updatedAt: new Date().toISOString() } : prev);
       }
