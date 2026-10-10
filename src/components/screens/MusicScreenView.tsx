@@ -421,6 +421,29 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
                 onPause={() => setIsPlaying(false)}
                 onEnded={() => setIsPlaying(false)}
                 onLoadedMetadata={onLoadedMetadata}
+                referrerPolicy="no-referrer"
+                onError={() => {
+                  const audio = audioRef.current;
+                  if (!audio || !currentTrack || currentTrack.source !== 'netease') {
+                    setIsPlaying(false);
+                    return;
+                  }
+                  const fallbackUrl = 'https://music.163.com/song/media/outer/url?id=' + encodeURIComponent(currentTrack.id) + '.mp3';
+                  if (!audio.src.includes('/song/media/outer/url')) {
+                    const fallbackTrack = { ...currentTrack, playUrl: fallbackUrl };
+                    setCurrentTrack(fallbackTrack);
+                    saveMusicCurrent(fallbackTrack);
+                    audio.src = fallbackUrl;
+                    audio.load();
+                    void audio.play().then(() => setIsPlaying(true)).catch(() => {
+                      setIsPlaying(false);
+                      showToast('这首歌的音源不可用，请换一首歌试试。');
+                    });
+                  } else {
+                    setIsPlaying(false);
+                    showToast('这首歌的音源不可用，请换一首歌试试。');
+                  }
+                }}
                 className="w-full mt-3 h-8"
                 controls
               />
