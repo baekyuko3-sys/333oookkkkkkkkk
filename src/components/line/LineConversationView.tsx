@@ -364,6 +364,7 @@ export function LineConversationView({
   const [showGroupContinueChoices, setShowGroupContinueChoices] = useState(false);
   const [showGroupSpeakerPicker, setShowGroupSpeakerPicker] = useState(false);
   const [selectedGroupSpeakerId, setSelectedGroupSpeakerId] = useState('');
+  const [groupContinueSpeakerMode, setGroupContinueSpeakerMode] = useState<'specified' | 'simulate'>('specified');
   const [showAiDebugSheet, setShowAiDebugSheet] = useState(false);
   const [showPersonaPicker, setShowPersonaPicker] = useState(false);
   const [aiDebugLog, setAiDebugLog] = useState<AiDebugEntry[]>(() => readAiDebugLog());
@@ -2507,7 +2508,7 @@ export function LineConversationView({
   };
 
   // 酒馆“继续 (Continue)”生成：真正调用当前角色 AI，不再插入固定假回复。
-  const handleContinueGenerating = async (selectedGroupCharacterId?: string) => {
+  const handleContinueGenerating = async (selectedGroupCharacterId?: string, simulateAsSelected = false) => {
     if (!isGroup && !importedCharacter) {
       showToast('还没有可继续生成的角色');
       return;
@@ -2546,6 +2547,9 @@ export function LineConversationView({
             authorNote: [
               lineConversationRules,
               '这是群聊 Continue，不是单人私聊。当前发言角色：' + character.name,
+              simulateAsSelected && selectedGroupCharacterId === character.id
+                ? '【模拟指定成员发言】本轮你就是「' + character.name + '」本人。请完全以该角色第一人称身份，根据角色卡、性格、关系、知识边界和群聊上下文发言。输出必须只属于该角色，不要提及你在模拟、不要扮演其他角色，也不要替用户发言。'
+                : '',
               '群聊预设：' + activeGroupPreset.name,
               activeGroupPreset.systemPrompt,
               (groupNoticeText || activeGroup?.announcement) ? '群公告：' + (groupNoticeText || activeGroup?.announcement) : '',
@@ -4663,8 +4667,11 @@ export function LineConversationView({
                 {isGroup && showGroupContinueChoices && !showGroupSpeakerPicker && (
                   <div className="rounded-[14px] border border-[#ededee] bg-[#fcfcfc] p-3 space-y-2">
                     <div className="text-xs font-semibold text-[#333]">继续群聊</div>
-                    <button onClick={() => { setShowGroupSpeakerPicker(true); setSelectedGroupSpeakerId(''); }} className="w-full flex items-center justify-between rounded-[10px] bg-white border border-[#eee] px-3 py-3 text-left text-xs text-[#444]">
+                    <button onClick={() => { setGroupContinueSpeakerMode('specified'); setShowGroupSpeakerPicker(true); setSelectedGroupSpeakerId(''); }} className="w-full flex items-center justify-between rounded-[10px] bg-white border border-[#eee] px-3 py-3 text-left text-xs text-[#444]">
                       <span><strong className="block text-[#333]">指定成员发言</strong><span className="text-[10px] text-[#999]">选择一个 NPC，由 AI 按其人设接话</span></span><ChevronRight className="w-4 h-4 text-[#aaa]" />
+                    </button>
+                    <button onClick={() => { setGroupContinueSpeakerMode('simulate'); setShowGroupSpeakerPicker(true); setSelectedGroupSpeakerId(''); }} className="w-full flex items-center justify-between rounded-[10px] bg-white border border-[#eee] px-3 py-3 text-left text-xs text-[#444]">
+                      <span><strong className="block text-[#333]">模拟谁的发言</strong><span className="text-[10px] text-[#999]">选择群内任意角色；本轮由你选定的角色身份发言</span></span><ChevronRight className="w-4 h-4 text-[#aaa]" />
                     </button>
                     <button onClick={() => { setShowPlusSheet(false); setPlusSheetPage(0); setShowGroupContinueChoices(false); handleContinueGenerating(); }} className="w-full flex items-center justify-between rounded-[10px] bg-white border border-[#eee] px-3 py-3 text-left text-xs text-[#444]">
                       <span><strong className="block text-[#333]">继续发言</strong><span className="text-[10px] text-[#999]">让群成员自行判断谁适合接话，不要求轮流发言</span></span><ChevronRight className="w-4 h-4 text-[#aaa]" />
@@ -4674,7 +4681,7 @@ export function LineConversationView({
 
                 {isGroup && showGroupSpeakerPicker && (
                   <div className="rounded-[14px] border border-[#ededee] bg-[#fcfcfc] p-3 space-y-2">
-                    <div className="flex items-center justify-between"><div className="text-xs font-semibold text-[#333]">指定成员发言</div><button onClick={() => setShowGroupSpeakerPicker(false)} className="text-[10px] text-[#ae7e89]">返回</button></div>
+                    <div className="flex items-center justify-between"><div className="text-xs font-semibold text-[#333]">{groupContinueSpeakerMode === 'simulate' ? '模拟谁的发言' : '指定成员发言'}</div><button onClick={() => setShowGroupSpeakerPicker(false)} className="text-[10px] text-[#ae7e89]">返回</button></div>
                     <div className="max-h-36 overflow-y-auto space-y-1.5">
                       {groupAiMembers.filter(({ member }) => !member.muted && member.online !== false).map(({ member, character }) => (
                         <button key={character!.id} onClick={() => setSelectedGroupSpeakerId(character!.id)} className={`w-full flex items-center gap-2 rounded-[10px] border px-3 py-2 text-left text-xs ${selectedGroupSpeakerId === character!.id ? 'border-[#d4aab5] bg-[#faf1f3] text-[#ae7e89]' : 'border-[#eee] bg-white text-[#444]'}`}>
@@ -4684,7 +4691,7 @@ export function LineConversationView({
                         </button>
                       ))}
                     </div>
-                    <button disabled={!selectedGroupSpeakerId || isTyping} onClick={() => { const id = selectedGroupSpeakerId; setShowPlusSheet(false); setPlusSheetPage(0); setShowGroupContinueChoices(false); setShowGroupSpeakerPicker(false); handleContinueGenerating(id); }} className="w-full py-2.5 rounded-[10px] bg-[#ae7e89] disabled:opacity-40 text-white text-xs font-semibold">让所选成员发言</button>
+                    <button disabled={!selectedGroupSpeakerId || isTyping} onClick={() => { const id = selectedGroupSpeakerId; setShowPlusSheet(false); setPlusSheetPage(0); setShowGroupContinueChoices(false); setShowGroupSpeakerPicker(false); handleContinueGenerating(id, groupContinueSpeakerMode === 'simulate'); }} className="w-full py-2.5 rounded-[10px] bg-[#ae7e89] disabled:opacity-40 text-white text-xs font-semibold">{groupContinueSpeakerMode === 'simulate' ? '以该角色身份发言' : '让所选成员发言'}</button>
                   </div>
                 )}
                 {isGroup && <button onClick={() => setPlusSheetPage(1)} className="w-full py-2.5 rounded-[12px] bg-[#faf1f3] text-[#ae7e89] text-xs font-medium cursor-pointer">更多功能 · 群聊游戏　›</button>}
