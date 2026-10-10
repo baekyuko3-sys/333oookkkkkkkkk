@@ -95,6 +95,9 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
   const [worldBooks, setWorldBooks] = usePersistentState<WorldBook[]>('phone:worldbooks', []);
   const [groups, setGroups] = usePersistentState<Array<{ id: string; name: string }>>('phone:character-groups', []);
   const [selectedGroupId, setSelectedGroupId] = useState('all');
+  const [showGroupMovePicker, setShowGroupMovePicker] = useState(false);
+  const [groupMoveTargetId, setGroupMoveTargetId] = useState('');
+  const [groupMoveSelectedIds, setGroupMoveSelectedIds] = useState<string[]>([]);
   const [selectedId, setSelectedId] = usePersistentState<string | null>(
     'phone:active-character',
     null,
@@ -581,12 +584,48 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                 {groups.map(group => (
                   <div key={group.id} className="shrink-0 flex items-center rounded-full border border-[rgba(40,36,31,.12)] bg-white/55 overflow-hidden">
                     <button onClick={() => setSelectedGroupId(group.id)} className={`px-3 py-1.5 text-[9px] ${selectedGroupId === group.id ? 'bg-[#292724] text-white' : 'text-[#655f59]'}`}>{group.name} · {characters.filter(c => c.groupId === group.id).length}</button>
+                    <button onClick={() => { setSelectedGroupId(group.id); setGroupMoveTargetId(group.id); setShowGroupMovePicker(true); }} className="px-1.5 py-1.5 text-[8px] text-[#6f7d69]" title="一键选择角色移入" aria-label={`选择角色移入${group.name}`}>＋</button>
                     <button onClick={() => renameGroup(group.id)} className="px-1.5 py-1.5 text-[8px] text-[#8b7560]" title="重命名">✎</button>
                     <button onClick={() => deleteGroup(group.id)} className="px-1.5 py-1.5 text-[8px] text-[#9b625b]" title="删除分组">×</button>
                   </div>
                 ))}
               </div>
             </div>
+
+            {showGroupMovePicker && (() => {
+              const targetGroup = groups.find(group => group.id === groupMoveTargetId);
+              const candidates = characters.filter(character => character.groupId !== groupMoveTargetId);
+              return (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/35 p-4" onClick={() => setShowGroupMovePicker(false)}>
+                  <div className="w-full max-w-[340px] max-h-[78vh] overflow-hidden rounded-2xl bg-[#fbfaf7] border border-[#e8e0d5] shadow-xl flex flex-col" onClick={event => event.stopPropagation()}>
+                    <div className="p-4 border-b border-[#eee7dd]">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-[8px] tracking-[1.5px] font-mono text-[#92877a]">ADD CHARACTERS</div>
+                          <div className="mt-1 text-[15px] font-serif font-bold text-[#292724]">选择角色移入「{targetGroup?.name || '分组'}」</div>
+                        </div>
+                        <button type="button" onClick={() => setShowGroupMovePicker(false)} className="w-7 h-7 rounded-full bg-white border border-[#e8e0d5] text-[#756d63]">×</button>
+                      </div>
+                      <div className="mt-3 text-[9px] text-[#8e867d]">勾选角色后一次移入，不会删除或修改角色设定。</div>
+                    </div>
+                    <div className="p-3 overflow-y-auto min-h-0 flex-1 space-y-1.5">
+                      {candidates.length === 0 ? <div className="py-8 text-center text-[11px] text-[#999187]">没有可移入的角色了</div> : candidates.map(character => {
+                        const checked = groupMoveSelectedIds.includes(character.id);
+                        return <label key={character.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-[#eee7dd] cursor-pointer">
+                          <input type="checkbox" checked={checked} onChange={event => setGroupMoveSelectedIds(prev => event.target.checked ? [...prev, character.id] : prev.filter(id => id !== character.id))} className="accent-[#7e8d76] w-4 h-4 shrink-0" />
+                          <div className="w-9 h-9 rounded-lg bg-[#eee9e1] overflow-hidden shrink-0">{character.avatar ? <img src={character.avatar} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full grid place-items-center text-[#8d857a] text-xs">{character.name?.slice(0,1) || '?'}</div>}</div>
+                          <div className="min-w-0 flex-1"><div className="text-[11px] text-[#37332e] truncate">{character.name}</div><div className="text-[8px] text-[#a19a90]">{character.groupId ? `当前：${groups.find(group => group.id === character.groupId)?.name || '其他分组'}` : '当前：未分组'}</div></div>
+                        </label>;
+                      })}
+                    </div>
+                    <div className="p-3 border-t border-[#eee7dd] flex items-center justify-between gap-2">
+                      <button type="button" onClick={() => setGroupMoveSelectedIds(candidates.map(character => character.id))} className="px-3 py-2 rounded-xl bg-white border border-[#e8e0d5] text-[9px] text-[#746b60]">全选</button>
+                      <div className="flex items-center gap-2"><span className="text-[9px] text-[#938b80]">已选 {groupMoveSelectedIds.length}</span><button type="button" onClick={() => { const selectedIds = new Set(groupMoveSelectedIds); setCharacters(prev => prev.map(character => selectedIds.has(character.id) ? { ...character, groupId: groupMoveTargetId } : character)); showNotice(`已将 ${groupMoveSelectedIds.length} 个角色移入「${targetGroup?.name || '分组'}」`); setGroupMoveSelectedIds([]); setShowGroupMovePicker(false); }} disabled={groupMoveSelectedIds.length===0} className="px-4 py-2 rounded-xl bg-[#292724] text-white text-[10px] disabled:opacity-40">确认移入</button></div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="space-y-4">
               {characterSections.map(section => (
