@@ -41,6 +41,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
   const [activeIdentityId, setActiveIdentityId] = usePersistentState<string>('phone:music-active-identity-v1', '');
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [identitySubtab, setIdentitySubtab] = useState<'liked' | 'together'>('liked');
+  const [showIdentityPeople, setShowIdentityPeople] = useState(false);
   const [identityEditor, setIdentityEditor] = useState(false);
   const [identityEditing, setIdentityEditing] = useState(false);
   const [identityNameDraft, setIdentityNameDraft] = useState('');
@@ -540,6 +541,35 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
               <button onClick={() => setTab('player')} className="rounded-2xl bg-[#2d2724] text-white py-3 text-[11px] font-semibold">进入我的音乐</button>
               <button onClick={() => setTab('history')} className="rounded-2xl bg-[#f7f3f0] text-[#5f5149] py-3 text-[11px]">听歌记录</button>
             </div>
+            {activeIdentity.togetherRecords.length > 0 && (
+              <section>
+                <button onClick={() => setShowIdentityPeople(value => !value)} className="w-full flex items-center gap-2 text-left text-[12px] text-[#75675f]">
+                  <Heart className="w-3.5 h-3.5 text-[#c4989a]" />
+                  <span className="flex-1 truncate">和 {Array.from(new Set(activeIdentity.togetherRecords.map(record => record.characterName))).slice(0,2).join('、')}{new Set(activeIdentity.togetherRecords.map(record => record.characterId)).size > 2 ? ' 等 ' + new Set(activeIdentity.togetherRecords.map(record => record.characterId)).size + ' 位' : ''} 一起听过</span>
+                  <ChevronRight className={'w-3.5 h-3.5 transition-transform ' + (showIdentityPeople ? 'rotate-90' : '-rotate-90')} />
+                </button>
+                {showIdentityPeople && (
+                  <div className="mt-2 rounded-2xl bg-[#f8f6f3] px-3">
+                    {Array.from(new Set(activeIdentity.togetherRecords.map(record => record.characterId))).map(characterId => {
+                      const records = activeIdentity.togetherRecords.filter(record => record.characterId === characterId);
+                      const character = characters.find(item => item.id === characterId);
+                      return (
+                        <button key={characterId} onClick={() => {
+                          if (!character) { showToast('这个角色已不在导入列表中'); return; }
+                          setSelectedCharacterId(characterId);
+                          setTab('characters');
+                        }} className="w-full flex items-center gap-3 py-2.5 border-b last:border-0 border-[#eae4de] text-left">
+                          <span className="w-9 h-9 rounded-xl overflow-hidden bg-white grid place-items-center">{character?.avatar ? <img src={character.avatar} alt="" className="w-full h-full object-cover" /> : <UserRound className="w-4 h-4 text-[#b6a39a]" />}</span>
+                          <span className="flex-1 min-w-0"><span className="block text-[11px] font-semibold truncate">{records[0].characterName}</span><span className="block text-[9px] text-[#9a8d84] truncate">{Array.from(new Set(records.map(record => record.variantLabel))).join(' · ')}</span></span>
+                          <span className="text-[10px] text-[#9a8d84]">{records.length} 次</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
+
             <div className="flex gap-5 border-b border-[#eee8e3]">
               <button onClick={() => setIdentitySubtab('liked')} className={'py-2.5 text-[12px] border-b-2 ' + (identitySubtab === 'liked' ? 'border-[#c4989a] text-[#2d2724] font-semibold' : 'border-transparent text-[#9a8d84]')}>喜欢 {likedTracks.length}</button>
               <button onClick={() => setIdentitySubtab('together')} className={'py-2.5 text-[12px] border-b-2 ' + (identitySubtab === 'together' ? 'border-[#c4989a] text-[#2d2724] font-semibold' : 'border-transparent text-[#9a8d84]')}>一起听 {activeIdentity.togetherRecords.length}</button>
