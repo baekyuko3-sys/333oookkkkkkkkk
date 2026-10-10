@@ -386,7 +386,7 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
     const characterId = selected.id;
     const characterName = selected.name;
     const embeddedWorldBookIds = new Set(
-      (selected.worldBookIds || []).filter(id => worldBooks.some(book => book.id === id)),
+      worldBooks.filter(book => book.sourceCharacterId === characterId).map(book => book.id),
     );
 
     // Character-owned runtime data.
@@ -908,7 +908,7 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                   <button
                     onClick={() => downloadText(`${selected.name}.json`, exportCharacterJson({
                     ...selected,
-                    embeddedWorldBook: worldBooks.find(book => (selected.worldBookIds || []).includes(book.id)),
+                    embeddedWorldBook: worldBooks.find(book => book.sourceCharacterId === selected.id) || worldBooks.find(book => (selected.worldBookIds || []).includes(book.id)),
                   }))}
                     className="py-2.5 rounded-xl bg-[#292724] text-white text-xs font-serif flex items-center justify-center gap-1.5"
                   >
@@ -918,7 +918,7 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                   <button
                     onClick={() => downloadText(`${selected.name}.card.json`, exportCharacterCardV2({
                     ...selected,
-                    embeddedWorldBook: worldBooks.find(book => (selected.worldBookIds || []).includes(book.id)),
+                    embeddedWorldBook: worldBooks.find(book => book.sourceCharacterId === selected.id) || worldBooks.find(book => (selected.worldBookIds || []).includes(book.id)),
                   }))}
                     className="py-2.5 rounded-xl bg-white border border-[rgba(40,36,31,.15)] text-[#5f5952] text-xs font-serif flex items-center justify-center gap-1.5"
                   >
@@ -1079,7 +1079,7 @@ export function CharacterProfileView({ onNavigate }: CharacterProfileViewProps) 
                     <div className="text-[11px] font-serif font-bold text-[#302d29]">关联世界书</div>
                     <div className="mt-0.5 text-[9px] text-[#8b847d]">
                       {(() => {
-                        const count = (selected.worldBookIds || []).filter(id => worldBooks.some(book => book.id === id)).length;
+                        const count = worldBooks.filter(book => book.sourceCharacterId === selected.id).length;
                         return count ? `这张角色卡带入了 ${count} 本世界书` : '这张角色卡没有检测到内置世界书';
                       })()}
                     </div>
