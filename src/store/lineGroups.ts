@@ -6,6 +6,8 @@ export interface LineGroupMember {
   characterId?: string | null;
   role: 'owner' | 'admin' | 'member';
   nickname?: string;
+  title?: string;
+  avatar?: string;
   muted?: boolean;
   online?: boolean;
   mood?: string;
@@ -32,6 +34,10 @@ const STORAGE_KEY = 'line:groups';
 
 export function getLineGroups(): LineGroup[] {
   return readPersistentState<LineGroup[]>(STORAGE_KEY, []);
+}
+
+export function getLineGroupById(id: string): LineGroup | null {
+  return getLineGroups().find(group => group.id === id) || null;
 }
 
 export function getLineGroupByName(name: string): LineGroup | null {
