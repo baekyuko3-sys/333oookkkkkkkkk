@@ -235,7 +235,7 @@ function extractPlayableUrl(payload: any): string {
 
 export async function resolveTrackUrl(track: MusicTrack, settings = readMusicApiSettings()): Promise<MusicTrack> {
   if (track.playUrl) return track;
-  const baseUrl = settings.baseUrl.replace(/\\/+$/, '');
+  const baseUrl = settings.baseUrl.replace(/\/+$/, '');
 
   // Try the legacy endpoint first. api-enhanced has a reported issue where
   // /song/url/v1 can return unusable results even when /song/url works.
