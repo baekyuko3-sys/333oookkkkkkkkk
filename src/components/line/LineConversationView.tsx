@@ -3456,7 +3456,7 @@ export function LineConversationView({
             {isGroup ? (
               <div className="relative flex items-center gap-1 shrink-0">
                 <button onClick={() => setShowGroupHeaderActions(v => !v)} className="w-8 h-8 rounded-full hover:bg-[#faf1f3] flex items-center justify-center text-[#555] active:scale-95" title="更多功能" aria-label="更多功能">
-                  <span className="text-xl leading-none tracking-[1px]">···</span>
+                  <SlidersHorizontal className="w-4 h-4 stroke-[1.7]" />
                 </button>
                 <button onClick={() => setShowPersonaManager(true)} className="w-8 h-8 rounded-full hover:bg-neutral-50 flex items-center justify-center text-[#666]" title={`当前我的人设：${activePersona.name}`}>
                   <UserCheck className="w-4 h-4 text-[#ae7e89]" />
