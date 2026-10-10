@@ -29,7 +29,8 @@ interface MusicScreenViewProps {
 }
 
 type MusicTab = 'identity' | 'player' | 'search' | 'characters' | 'history' | 'appearance';
-type MusicIdentity = { id: string; name: string; note: string; avatar?: string; likedTracks: MusicTrack[]; history: MusicTrack[] };
+type MusicTogetherRecord = { characterId: string; characterName: string; variantLabel: string; trackId: string; trackName: string; playedAt: string; mode: 'direct' | 'stranger' };
+type MusicIdentity = { id: string; name: string; note: string; avatar?: string; likedTracks: MusicTrack[]; history: MusicTrack[]; togetherRecords: MusicTogetherRecord[] };
 
 export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -70,13 +71,29 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
     setIdentities(previous => previous.map(identity => identity.id === identityId ? update(identity) : identity));
   };
 
+  const recordTogetherSession = (session: MusicStrangerSession) => {
+    updateActiveIdentity(identity => {
+      const record: MusicTogetherRecord = {
+        characterId: session.characterId,
+        characterName: session.characterName,
+        variantLabel: session.variantLabel,
+        trackId: session.track.id,
+        trackName: session.track.name,
+        playedAt: session.createdAt,
+        mode: session.mode === 'direct' ? 'direct' : 'stranger',
+      };
+      return { ...identity, togetherRecords: [record, ...identity.togetherRecords].slice(0, 200) };
+    });
+  };
+
+
   useEffect(() => {
     if (!identities.length && (legacyLikedTracks.length || legacyListeningHistory.length)) {
-      const first: MusicIdentity = { id: 'music-id-default', name: '我的音乐 ID', note: '给此刻的心情留一首歌', likedTracks: legacyLikedTracks, history: legacyListeningHistory };
+      const first: MusicIdentity = { id: 'music-id-default', name: '我的音乐 ID', note: '给此刻的心情留一首歌', likedTracks: legacyLikedTracks, history: legacyListeningHistory, togetherRecords: [] };
       setIdentities([first]);
       setActiveIdentityId(first.id);
     } else if (!identities.length) {
-      const first: MusicIdentity = { id: 'music-id-default', name: '我的音乐 ID', note: '给此刻的心情留一首歌', likedTracks: [], history: [] };
+      const first: MusicIdentity = { id: 'music-id-default', name: '我的音乐 ID', note: '给此刻的心情留一首歌', likedTracks: [], history: [], togetherRecords: [] };
       setIdentities([first]);
       setActiveIdentityId(first.id);
     } else if (!identities.some(item => item.id === activeIdentityId)) setActiveIdentityId(identities[0].id);
@@ -243,6 +260,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+    recordTogetherSession(session);
     setStrangerSession(session);
     saveStrangerSession(session);
     publishMusicInviteToLine(session);
@@ -317,6 +335,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+    recordTogetherSession(session);
     setStrangerSession(session);
     saveStrangerSession(session);
     publishMusicInviteToLine(session);
@@ -420,6 +439,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
       note: identityNoteDraft.trim() || '给此刻的心情留一首歌',
       likedTracks: [],
       history: [],
+      togetherRecords: [],
     };
     setIdentities(previous => [...previous, identity]);
     setActiveIdentityId(identity.id);
@@ -513,8 +533,8 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
             </section>
             <div className="grid grid-cols-3 gap-2">
               <button onClick={() => setIdentitySubtab('liked')} className="rounded-2xl bg-[#f7f3f0] p-3 text-left"><div className="text-[18px] font-semibold">{likedTracks.length}</div><div className="mt-1 text-[10px] text-[#94867d]">喜欢</div></button>
-              <button onClick={() => { setIdentitySubtab('together'); setTab('history'); }} className="rounded-2xl bg-[#f7f0f1] p-3 text-left"><div className="text-[18px] font-semibold">{listeningHistory.length}</div><div className="mt-1 text-[10px] text-[#94867d]">一起听记录</div></button>
-              <button onClick={() => setTab('characters')} className="rounded-2xl bg-[#f4f4ef] p-3 text-left"><div className="text-[18px] font-semibold">{characters.length}</div><div className="mt-1 text-[10px] text-[#94867d]">角色</div></button>
+              <button onClick={() => { setIdentitySubtab('together'); setTab('history'); }} className="rounded-2xl bg-[#f7f0f1] p-3 text-left"><div className="text-[18px] font-semibold">{activeIdentity.togetherRecords.length}</div><div className="mt-1 text-[10px] text-[#94867d]">一起听</div></button>
+              <button onClick={() => setTab('characters')} className="rounded-2xl bg-[#f4f4ef] p-3 text-left"><div className="text-[18px] font-semibold">{new Set(activeIdentity.togetherRecords.map(record => record.characterId)).size}</div><div className="mt-1 text-[10px] text-[#94867d]">朋友 / 角色</div></button>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <button onClick={() => setTab('player')} className="rounded-2xl bg-[#2d2724] text-white py-3 text-[11px] font-semibold">进入我的音乐</button>
@@ -522,7 +542,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
             </div>
             <div className="flex gap-5 border-b border-[#eee8e3]">
               <button onClick={() => setIdentitySubtab('liked')} className={'py-2.5 text-[12px] border-b-2 ' + (identitySubtab === 'liked' ? 'border-[#c4989a] text-[#2d2724] font-semibold' : 'border-transparent text-[#9a8d84]')}>喜欢 {likedTracks.length}</button>
-              <button onClick={() => setIdentitySubtab('together')} className={'py-2.5 text-[12px] border-b-2 ' + (identitySubtab === 'together' ? 'border-[#c4989a] text-[#2d2724] font-semibold' : 'border-transparent text-[#9a8d84]')}>一起听 {listeningHistory.length}</button>
+              <button onClick={() => setIdentitySubtab('together')} className={'py-2.5 text-[12px] border-b-2 ' + (identitySubtab === 'together' ? 'border-[#c4989a] text-[#2d2724] font-semibold' : 'border-transparent text-[#9a8d84]')}>一起听 {activeIdentity.togetherRecords.length}</button>
             </div>
             {identitySubtab === 'liked' ? (
               likedTracks.length ? <div>{likedTracks.slice(0,8).map(track => (
