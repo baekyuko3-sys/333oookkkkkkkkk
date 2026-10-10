@@ -524,7 +524,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
                       <div key={playlist.name} className="mt-2 rounded-xl bg-white/80 px-3 py-2"><div className="text-[10px] font-semibold">{playlist.name}</div><div className="mt-1 text-[9px] text-[#9a8d84]">{playlist.tracks.length} 首</div>
                         {playlist.tracks.map(track => <button key={track.id} onClick={() => void playTrack(track)} className="w-full flex items-center gap-2 py-2 text-left"><div className="w-9 h-9 rounded-lg overflow-hidden bg-[#f5efeb] shrink-0">{track.cover && <img src={track.cover} alt="" className="w-full h-full object-cover" />}</div><div className="min-w-0 flex-1"><div className="text-[11px] truncate">{track.name}</div><div className="text-[9px] text-[#a2968e] truncate">{track.artist}</div></div><Play className="w-3 h-3 text-[#ad8a8c]" /></button>)}
                       </div>
-                    ) : <div className="py-5 text-center text-[10px] text-[#aa9e95]">TA 的歌单还没有歌曲</div>}
+                    )) : <div className="py-5 text-center text-[10px] text-[#aa9e95]">TA 的歌单还没有歌曲</div>}
                   </div>
                 )}
               </section>
