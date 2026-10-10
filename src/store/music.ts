@@ -237,28 +237,30 @@ export async function resolveTrackUrl(track: MusicTrack, settings = readMusicApi
   if (track.playUrl) return track;
   const baseUrl = settings.baseUrl.replace(/\\/+$/, '');
 
-  // api-enhanced docs recommend /song/url/v1 with an explicit quality level.
-  // Vercel deployments also need realIP; keep requests to the documented JSON
-  // endpoint rather than /song/url/v1/302, which is a redirect endpoint.
-  const attempts = [
-    { level: 'exhigh', unblock: false },
-    { level: 'standard', unblock: false },
-    { level: 'exhigh', unblock: true },
+  // Try the legacy endpoint first. api-enhanced has a reported issue where
+  // /song/url/v1 can return unusable results even when /song/url works.
+  const requests: Array<{ path: string; level?: string; unblock?: boolean }> = [
+    { path: '/song/url' },
+    { path: '/song/url/v1', level: 'exhigh' },
+    { path: '/song/url/v1', level: 'standard' },
+    { path: '/song/url/v1', level: 'exhigh', unblock: true },
   ];
 
-  for (const attempt of attempts) {
-    const url = new URL(joinUrl(baseUrl, '/song/url/v1'), window.location.origin);
+  for (const request of requests) {
+    const url = new URL(joinUrl(baseUrl, request.path), window.location.origin);
     url.searchParams.set('id', track.id);
-    url.searchParams.set('level', attempt.level);
-    url.searchParams.set('realIP', '116.25.146.177');
-    if (attempt.unblock) url.searchParams.set('unblock', 'true');
+    if (request.level) url.searchParams.set('level', request.level);
+    if (request.unblock) url.searchParams.set('unblock', 'true');
 
     try {
       const payload = await fetchJson(url.toString());
       const playUrl = extractPlayableUrl(payload);
       if (playUrl) return { ...track, playUrl };
+      // A successful HTTP response with data[].url=null is not playable.
+      // Continue to the next documented endpoint/quality instead of treating
+      // top-level code: 200 as proof that the audio exists.
     } catch {
-      // Try a lower quality or the documented optional unblock mode.
+      // Try the next endpoint/quality.
     }
   }
 
