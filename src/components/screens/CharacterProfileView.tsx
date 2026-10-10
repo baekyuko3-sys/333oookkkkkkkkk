@@ -37,9 +37,8 @@ function readImageFileAsDataUrl(file: File): Promise<string> {
 
 async function compressCharacterAvatar(avatar: string): Promise<string> {
   if (!avatar || !avatar.startsWith('data:image/')) return avatar;
-  // PNG character cards can carry very large embedded avatars. Storing that raw
-  // base64 in localStorage can silently exceed the browser quota, which makes the
-  // whole character list disappear after leaving this screen.
+  // Character-card PNGs can contain multi-megabyte portraits. Try progressively
+  // smaller WebP renditions so the avatar uses only a small fraction of localStorage.
   try {
     const image = new Image();
     image.decoding = 'async';
@@ -49,21 +48,32 @@ async function compressCharacterAvatar(avatar: string): Promise<string> {
       image.onerror = () => reject(new Error('角色头像读取失败'));
     });
 
-    const maxSize = 512;
-    const scale = Math.min(1, maxSize / Math.max(image.naturalWidth || 1, image.naturalHeight || 1));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round((image.naturalWidth || maxSize) * scale));
-    canvas.height = Math.max(1, Math.round((image.naturalHeight || maxSize) * scale));
-    const context = canvas.getContext('2d');
-    if (!context) return avatar;
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const compressed = canvas.toDataURL('image/webp', 0.78);
-    // Never fall back to the original multi-megabyte base64 image: that can
-    // exceed localStorage quota and make the entire character list fail to persist.
-    return compressed.length <= 350_000 ? compressed : '';
+    const contextCanvas = document.createElement('canvas');
+    const context = contextCanvas.getContext('2d');
+    if (!context) return '';
+    const sourceWidth = image.naturalWidth || 1;
+    const sourceHeight = image.naturalHeight || 1;
+    const targetBytes = 42_000;
+    for (const maxSize of [384, 320, 256, 192, 128, 96]) {
+      const scale = Math.min(1, maxSize / Math.max(sourceWidth, sourceHeight));
+      contextCanvas.width = Math.max(1, Math.round(sourceWidth * scale));
+      contextCanvas.height = Math.max(1, Math.round(sourceHeight * scale));
+      context.clearRect(0, 0, contextCanvas.width, contextCanvas.height);
+      context.drawImage(image, 0, 0, contextCanvas.width, contextCanvas.height);
+      for (const quality of [0.68, 0.52, 0.38, 0.26]) {
+        const compressed = contextCanvas.toDataURL('image/webp', quality);
+        // Some browsers may not support WebP canvas encoding and return PNG instead.
+        if (compressed.startsWith('data:image/webp') && compressed.length <= targetBytes) {
+          return compressed;
+        }
+        if (compressed.startsWith('data:image/webp') && quality === 0.26 && maxSize === 96) {
+          return compressed.length <= 65_000 ? compressed : '';
+        }
+      }
+    }
+    return '';
   } catch {
-    // Keep the character card importable even if its embedded image is malformed
-    // or the browser cannot decode it; a missing avatar is safer than losing the card.
+    // Import the character without a portrait if the embedded image cannot be decoded.
     return '';
   }
 }
