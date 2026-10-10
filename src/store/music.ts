@@ -59,6 +59,7 @@ const MUSIC_SETTINGS_KEY = 'phone:music-api-settings';
 const MUSIC_CURRENT_KEY = 'phone:music-current';
 const MUSIC_CHARACTER_PLAYLISTS_KEY = 'phone:music-character-playlists';
 const MUSIC_STRANGER_KEY = 'phone:music-stranger-session';
+const MUSIC_LOGIN_SESSION_KEY = 'phone:music-login-session';
 
 function mergeSettings(raw: unknown): MusicApiSettings {
   const saved = raw && typeof raw === 'object' ? raw as Partial<MusicApiSettings> : {};
@@ -93,6 +94,69 @@ export function saveMusicApiSettings(patch: Partial<MusicApiSettings>): MusicApi
   const next = { ...readMusicApiSettings(), ...patch };
   if (typeof window !== 'undefined') window.localStorage.setItem(MUSIC_SETTINGS_KEY, JSON.stringify(next));
   return next;
+}
+
+export interface MusicLoginSession {
+  cookie: string;
+  nickname?: string;
+  userId?: string;
+}
+
+export function readMusicLoginSession(): MusicLoginSession | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const value = JSON.parse(window.sessionStorage.getItem(MUSIC_LOGIN_SESSION_KEY) || 'null');
+    return value && typeof value.cookie === 'string' && value.cookie ? value as MusicLoginSession : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveMusicLoginSession(session: MusicLoginSession | null): void {
+  if (typeof window === 'undefined') return;
+  if (session?.cookie) window.sessionStorage.setItem(MUSIC_LOGIN_SESSION_KEY, JSON.stringify(session));
+  else window.sessionStorage.removeItem(MUSIC_LOGIN_SESSION_KEY);
+}
+
+export async function createMusicQrLogin(baseUrl = readMusicApiSettings().baseUrl): Promise<{ key: string; image: string }> {
+  const root = baseUrl.trim().replace(/\\/+$/, '');
+  const keyResponse = await fetch(joinUrl(root, '/login/qr/key') + '?timestamp=' + Date.now());
+  if (!keyResponse.ok) throw new Error('二维码 key 请求失败：HTTP ' + keyResponse.status);
+  const keyPayload = await keyResponse.json();
+  const key = String(keyPayload?.data?.unikey || keyPayload?.unikey || '');
+  if (!key) throw new Error(String(keyPayload?.message || 'API 没有返回二维码 key'));
+  const qrUrl = new URL(joinUrl(root, '/login/qr/create'));
+  qrUrl.searchParams.set('key', key);
+  qrUrl.searchParams.set('qrimg', 'true');
+  qrUrl.searchParams.set('timestamp', String(Date.now()));
+  const qrResponse = await fetch(qrUrl.toString());
+  if (!qrResponse.ok) throw new Error('二维码图片请求失败：HTTP ' + qrResponse.status);
+  const qrPayload = await qrResponse.json();
+  const rawImage = String(qrPayload?.data?.qrimg || qrPayload?.qrimg || '');
+  const image = rawImage.startsWith('data:image/') ? rawImage : rawImage ? 'data:image/png;base64,' + rawImage : '';
+  if (!image) throw new Error('API 没有返回二维码图片，请检查部署版本。');
+  return { key, image };
+}
+
+export async function checkMusicQrLogin(key: string, baseUrl = readMusicApiSettings().baseUrl): Promise<{ code: number; message: string; session?: MusicLoginSession }> {
+  const root = baseUrl.trim().replace(/\\/+$/, '');
+  const url = new URL(joinUrl(root, '/login/qr/check'));
+  url.searchParams.set('key', key);
+  url.searchParams.set('timestamp', String(Date.now()));
+  const response = await fetch(url.toString());
+  if (!response.ok) throw new Error('扫码状态请求失败：HTTP ' + response.status);
+  const payload = await response.json();
+  const code = Number(payload?.code ?? payload?.data?.code ?? 0);
+  const message = String(payload?.message || payload?.msg || payload?.data?.message || '');
+  const rawCookie = payload?.cookie || payload?.data?.cookie;
+  const cookie = Array.isArray(rawCookie) ? rawCookie.join('; ') : String(rawCookie || '').trim();
+  if (code === 803 && cookie) {
+    const profile = payload?.profile || payload?.data?.profile || {};
+    const session = { cookie, nickname: String(profile.nickname || ''), userId: String(profile.userId || profile.user_id || '') };
+    saveMusicLoginSession(session);
+    return { code, message: message || '登录成功', session };
+  }
+  return { code, message: message || (code === 801 ? '等待扫码' : code === 802 ? '已扫码，请在手机上确认' : code === 800 ? '二维码已过期' : '等待扫码') };
 }
 
 export function readMusicCurrent(): MusicTrack | null {
