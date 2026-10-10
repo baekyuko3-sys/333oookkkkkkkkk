@@ -230,7 +230,7 @@ function extractPlayableUrl(payload: any): string {
     payload?.data?.items?.[0]?.playUrl,
     payload?.data?.[0]?.downloadUrl,
   ];
-  return String(candidates.find(value => typeof value === 'string' && /^https?:\\/\\//i.test(value)) || '');
+  return String(candidates.find(value => typeof value === 'string' && value.startsWith('http')) || '');
 }
 
 export async function resolveTrackUrl(track: MusicTrack, settings = readMusicApiSettings()): Promise<MusicTrack> {
