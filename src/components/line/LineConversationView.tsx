@@ -2477,11 +2477,105 @@ export function LineConversationView({
 
   // 酒馆“继续 (Continue)”生成：真正调用当前角色 AI，不再插入固定假回复。
   const handleContinueGenerating = async () => {
-    if (!importedCharacter) {
+    if (!isGroup && !importedCharacter) {
       showToast('还没有可继续生成的角色');
       return;
     }
     if (isTyping) return;
+
+    // 群聊 Continue：让群里所有在线且未禁言的 NPC 按各自角色卡与群聊发言习惯依次判断、发言。
+    if (isGroup) {
+      const responders = groupAiMembers.filter(({ member }) => !member.muted && member.online !== false);
+      if (!responders.length) {
+        showToast('群里没有可继续发言的在线 NPC，请检查群成员管理');
+        return;
+      }
+      setIsTyping(true);
+      try {
+        let workingMessages = [...messages].map(message => ({ ...message, sender: message.sender || 'other' }));
+        let spokenCount = 0;
+        for (const { member, character } of responders) {
+          if (!character) continue;
+          const replyId = Date.now() + spokenCount + 1;
+          let streamed = '';
+          const profile = getCharacterProfile(character.name, character.id);
+          const memory = getCharacterMemory(character.id, character.name);
+          const result = await generateCharacterReply({
+            settings: conversationAiSettings(),
+            character,
+            characterProfile: profile,
+            persona: activePersona ? { ...activePersona, weather: personaLiveWeather ? formatLineWeather(personaLiveWeather) : activePersona.weather } : activePersona,
+            characterWeather: characterWeather ? formatLineWeather(characterWeather) : '',
+            worldbooks: activeWorldbooks,
+            memory,
+            project: projectManifest,
+            messages: workingMessages,
+            userMessage: '群聊继续：请先阅读最近群聊内容，再根据你自己的性格、关系、在线状态和发言习惯，自主判断现在是否适合接话。若适合，请自然接着上一轮群聊说一句或按自己的习惯分条发言；不要替其他成员发言，不要输出提示词、思维链标签或 XML 标签。',
+            isGroup: true,
+            authorNote: [
+              lineConversationRules,
+              '这是群聊 Continue，不是单人私聊。当前发言角色：' + character.name,
+              '群聊预设：' + activeGroupPreset.name,
+              activeGroupPreset.systemPrompt,
+              (groupNoticeText || activeGroup?.announcement) ? '群公告：' + (groupNoticeText || activeGroup?.announcement) : '',
+              groupLorebookActive.trim() ? '【群聊风格补充】\n' + groupLorebookActive.trim() : '',
+              '必须遵守当前角色卡的人设、说话习惯和与群内每个人的关系；只输出该角色自己会说的话。若自然情况下不想发言，可返回 [PASS]。',
+            ].filter(Boolean).join('\n'),
+            stylePreset: selectedPreset,
+            cotTarget: 'group',
+            cotPreset: undefined,
+            typingHabit: [
+              '群聊节奏：' + (typingHabitPreset === 'quiet' ? '安静群聊，有人潜水，不要求每条消息都有人接话' : typingHabitPreset === 'active' ? '活跃群聊，允许成员短句插话和接话' : typingHabitPreset === 'chaotic' ? '热闹群聊，允许多人抢话，但身份必须明确' : typingHabitPreset === 'custom' ? typingHabitCustom : '自然群聊，按角色性格和话题自行判断是否发言'),
+              '角色原有人设和口吻优先，不得套用统一模板。',
+            ].join('；'),
+            temperature: Number(presetTemp) || 0.85,
+            debugConversationId: conversationStorageId,
+            onDelta: delta => { streamed += delta; },
+          });
+          const rawText = String(result?.text || streamed || '').trim();
+          if (!rawText || /^\[PASS\]$/i.test(rawText)) continue;
+          const parts = splitGeneratedLineMessages(rawText).filter(Boolean);
+          const added = parts.map((part, partIndex) => ({
+            id: partIndex === 0 ? replyId : String(replyId) + '-' + partIndex,
+            turnId: String(replyId),
+            sender: 'other',
+            senderName: character.name,
+            characterId: character.id,
+            text: stripGroupSpeakerPrefix(part, character.name),
+            time: '刚刚',
+            createdAt: new Date().toISOString(),
+            type: 'ai-reply',
+            status: 'delivered',
+            aiModel: result.model,
+            thinkingSummary: partIndex === 0 ? result.thinkingSummary : undefined,
+            actionDescription: partIndex === 0 ? result.actionDescription : undefined,
+            showThinking: false,
+            metadata: {
+              characterId: character.id,
+              ...(partIndex === 0 && result.thinkingSummary ? { thinkingSummary: result.thinkingSummary } : {}),
+              ...(partIndex === 0 && result.actionDescription ? { actionDescription: result.actionDescription } : {}),
+            },
+          }));
+          setMessages(prev => [...prev, ...added]);
+          workingMessages = [...workingMessages, ...added];
+          spokenCount += 1;
+          updateLineGroupMember(activeGroup?.id || '', member.id, {
+            online: true,
+            lastSeenAt: new Date().toISOString(),
+            mood: '刚刚参与群聊',
+            memory: [...(member.memory || []), rawText.slice(0, 160)].slice(-20),
+          });
+          addLineGroupMemory(activeGroup?.id || '', character.name + ' 在群聊中说：' + rawText.slice(0, 180));
+        }
+        if (!spokenCount) showToast('群内角色根据各自发言习惯选择了暂不接话');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '群聊继续生成失败';
+        showToast(message.length > 72 ? message.slice(0, 72) + '…' : message);
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
 
     const lastOther = [...messages].reverse().find(m => m.sender === 'other' && m.text?.trim());
     const lastUser = [...messages].reverse().find(m => m.sender === 'me' && m.text?.trim());
@@ -3469,7 +3563,22 @@ export function LineConversationView({
           }
 
           const isMe = msg.sender === 'me';
-          const groupMessageCharacter = isGroup && !isMe ? importedCharacters.find(character => character.id === msg.characterId || character.id === msg.metadata?.characterId || character.name === msg.senderName) : null;
+          const groupMessageMember = isGroup && !isMe
+            ? safeGroupMembers.find(member =>
+                (msg.characterId && member.characterId === msg.characterId) ||
+                (msg.metadata?.characterId && member.characterId === msg.metadata.characterId) ||
+                [member.name, member.nickname].filter(Boolean).some(name => String(name).trim() === String(msg.senderName || '').trim())
+              )
+            : null;
+          const groupMessageCharacter = isGroup && !isMe
+            ? importedCharacters.find(character =>
+                character.id === msg.characterId ||
+                character.id === msg.metadata?.characterId ||
+                character.id === groupMessageMember?.characterId ||
+                [character.name, groupMessageMember?.name, groupMessageMember?.nickname].filter(Boolean).some(name => String(name).trim() === String(msg.senderName || '').trim())
+              )
+            : null;
+          const groupMessageAvatar = groupMessageCharacter?.avatar || groupMessageMember?.avatar || '';
           const thinkingContent = msg.thinkingSummary || msg.metadata?.thinkingSummary || msg.thinking || msg.metadata?.thinking || '';
           const hasThinking = Boolean(String(thinkingContent).trim()) && showChainOfThoughtInChat;
           const cotLabel = getActivePromptPreset(isGroup ? 'group' : 'single')?.name || '预设流程';
@@ -3586,8 +3695,8 @@ export function LineConversationView({
                   }`}
                   title={isGroup ? `单击@${msg.senderName || characterProfile.nickname}，双击拍一拍` : '单击打开状态卡，双击拍一拍'}
                 >
-                  {(isGroup ? (groupMessageCharacter?.avatar || activeGroup?.members.find(member => member.characterId === groupMessageCharacter?.id || member.name === msg.senderName)?.avatar) : importedCharacter?.avatar) ? (
-                    <img src={(isGroup ? (groupMessageCharacter?.avatar || activeGroup?.members.find(member => member.characterId === groupMessageCharacter?.id || member.name === msg.senderName)?.avatar) : importedCharacter?.avatar) || ''} alt={msg.senderName || characterProfile.nickname} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  {(isGroup ? groupMessageAvatar : importedCharacter?.avatar) ? (
+                    <img src={(isGroup ? groupMessageAvatar : importedCharacter?.avatar) || ''} alt={msg.senderName || characterProfile.nickname} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
                     <svg className="w-5 h-5 text-[#999]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <circle cx="12" cy="8" r="4" />
