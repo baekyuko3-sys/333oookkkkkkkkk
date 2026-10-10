@@ -1662,7 +1662,21 @@ export function LineConversationView({
       const mentioned = groupAiMembers.filter(({ member }) => userText.includes('@' + member.name) || userText.includes('@' + (member.nickname || '')));
       const availableMembers = groupAiMembers.filter(({ member }) => !member.muted && member.online !== false);
       const pool = (mentioned.length ? mentioned : availableMembers).filter(({ member }) => !member.muted);
-      const responders = pool.slice(0, mentioned.length && activeGroupPreset.mentionPriority ? Math.min(pool.length, 1) : Math.min(pool.length, activeGroupPreset.maxResponders));
+      const responderLimit = mentioned.length && activeGroupPreset.mentionPriority
+        ? Math.min(pool.length, 1)
+        : Math.min(pool.length, Math.max(1, Number(activeGroupPreset.maxResponders) || 1));
+      // Group chat only: don't always select the first roster entries. Rotate the
+      // starting point to the member after the most recent NPC speaker, while
+      // preserving explicit @ priority and the preset's responder limit.
+      const lastGroupSpeaker = [...messages].reverse().find(message => message.sender !== 'me' && message.sender !== 'system-nudge');
+      const lastGroupSpeakerId = String(lastGroupSpeaker?.characterId || lastGroupSpeaker?.metadata?.characterId || '').trim();
+      const lastGroupSpeakerIndex = !mentioned.length && lastGroupSpeakerId
+        ? pool.findIndex(({ character }) => String(character?.id || '').trim() === lastGroupSpeakerId)
+        : -1;
+      const rotatedPool = lastGroupSpeakerIndex >= 0
+        ? [...pool.slice(lastGroupSpeakerIndex + 1), ...pool.slice(0, lastGroupSpeakerIndex + 1)]
+        : pool;
+      const responders = (mentioned.length && activeGroupPreset.mentionPriority ? pool : rotatedPool).slice(0, responderLimit);
       let workingMessages = [...messages, newMsg].map(message => ({ ...message, sender: message.sender || 'other' }));
       for (let index = 0; index < responders.length; index += 1) {
         const { character } = responders[index];
