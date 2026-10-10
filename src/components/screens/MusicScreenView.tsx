@@ -409,6 +409,40 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
     showToast(exists ? '已从喜欢的歌移除' : '已加入喜欢的歌');
   };
 
+
+  const createIdentity = () => {
+    const name = identityNameDraft.trim();
+    if (!name) { showToast('请先填写音乐 ID 名称'); return; }
+    const identity: MusicIdentity = {
+      id: 'music-id-' + Date.now().toString(36),
+      name,
+      note: identityNoteDraft.trim() || '给此刻的心情留一首歌',
+      likedTracks: [],
+      history: [],
+    };
+    setIdentities(previous => [...previous, identity]);
+    setActiveIdentityId(identity.id);
+    setIdentityEditor(false);
+    setTab('identity');
+    setIdentitySubtab('liked');
+    showToast('已创建并切换到 ' + name);
+  };
+
+  const saveIdentity = () => {
+    if (!activeIdentity) return;
+    const name = identityNameDraft.trim();
+    if (!name) { showToast('音乐 ID 名称不能为空'); return; }
+    updateActiveIdentity(identity => ({ ...identity, name, note: identityNoteDraft.trim() || '给此刻的心情留一首歌' }));
+    setIdentityEditor(false);
+    showToast('音乐 ID 已保存');
+  };
+
+  const openIdentityEditor = () => {
+    setIdentityNameDraft(activeIdentity?.name || '');
+    setIdentityNoteDraft(activeIdentity?.note || '');
+    setIdentityEditor(true);
+  };
+
   const isCurrentLiked = Boolean(currentTrack && likedTracks.some(item => item.id === currentTrack.id));
 
   return (
@@ -424,8 +458,24 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
         <button onClick={() => setTab('appearance')} aria-label="外观与音乐 API" className="w-10 h-10 rounded-full grid place-items-center text-[#8e827b] hover:bg-[#f7f4f1]"><Settings2 className="w-4 h-4" /></button>
       </header>
 
-      <div className="relative z-10 px-4 pb-2">
-        <div className="flex gap-1 overflow-x-auto no-scrollbar border-b border-[#eee8e3]">
+      <div className="relative z-10 flex flex-1 min-h-0 px-2 pb-2 gap-2">
+        <aside className={'shrink-0 flex flex-col items-center border-r border-[#eee8e3] transition-all duration-200 ' + (railCollapsed ? 'w-8' : 'w-[68px]')}>
+          <button onClick={() => setRailCollapsed(value => !value)} aria-label={railCollapsed ? '展开音乐 ID 栏' : '收起音乐 ID 栏'} className="w-7 h-8 grid place-items-center text-[#a59a92]">{railCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}</button>
+          <div className={'flex-1 min-h-0 w-full overflow-y-auto no-scrollbar flex flex-col items-center gap-4 pt-2 ' + (railCollapsed ? 'opacity-0 pointer-events-none' : '')}>
+            {identities.map(identity => (
+              <button key={identity.id} onClick={() => { setActiveIdentityId(identity.id); setTab('identity'); }} className={'relative w-[58px] shrink-0 flex flex-col items-center gap-1.5 text-[10px] ' + (identity.id === activeIdentity?.id ? 'text-[#332b27] font-semibold' : 'text-[#9a8d84]')}>
+                <span className={'w-10 h-10 rounded-[15px] overflow-hidden grid place-items-center border ' + (identity.id === activeIdentity?.id ? 'border-[#c4989a] ring-2 ring-[#f4e7e7]' : 'border-[#eee5df] bg-[#f7f2ee]')} style={{ background: identity.avatar ? 'transparent' : 'linear-gradient(145deg,#e8c6c3,#e9eee6)' }}>
+                  {identity.avatar ? <img src={identity.avatar} alt="" className="w-full h-full object-cover" /> : <span className="text-[15px]">{identity.name.slice(0,1)}</span>}
+                </span>
+                <span className="max-w-full truncate">{identity.name}</span>
+                {identity.id === activeIdentity?.id && <span className="absolute -left-[5px] top-2 w-[3px] h-6 rounded-full bg-[#c4989a]" />}
+              </button>
+            ))}
+            {!railCollapsed && <button onClick={() => { setIdentityNameDraft(''); setIdentityNoteDraft(''); setIdentityEditor(true); }} className="w-[58px] shrink-0 flex flex-col items-center gap-1.5 text-[10px] text-[#9a8d84]"><span className="w-10 h-10 rounded-[15px] border border-dashed border-[#b9aaa1] grid place-items-center"><Plus className="w-4 h-4" /></span>新 ID</button>}
+          </div>
+        </aside>
+        <main className="flex-1 min-w-0 min-h-0 flex flex-col">
+        <div className="relative z-10 px-2 pb-2">
           {([
             ['player', '我的音乐'],
             ['characters', '一起听'],
@@ -439,7 +489,53 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
         </div>
       </div>
 
-      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto no-scrollbar px-4 pb-8">
+      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto no-scrollbar px-2 pb-8">
+
+        {tab === 'identity' && activeIdentity && (
+          <div className="pt-5 space-y-5">
+            <section className="flex items-end gap-3">
+              <button onClick={openIdentityEditor} className="relative shrink-0 w-[82px] h-[82px] rounded-[28px] overflow-hidden bg-[#f5ebe7] border border-[#eee4de] grid place-items-center text-[29px] text-[#987e78]">
+                {activeIdentity.avatar ? <img src={activeIdentity.avatar} alt="" className="w-full h-full object-cover" /> : activeIdentity.name.slice(0,1)}
+                <span className="absolute right-1 bottom-1 w-6 h-6 rounded-lg bg-[#2d2724] text-white grid place-items-center"><Pencil className="w-3 h-3" /></span>
+              </button>
+              <div className="min-w-0 flex-1 pb-1">
+                <div className="text-[10px] tracking-[1.5px] text-[#a59a92]">音乐 ID</div>
+                <button onClick={openIdentityEditor} className="max-w-full flex items-center gap-1 text-left mt-1"><span className="font-semibold text-[23px] leading-tight truncate">{activeIdentity.name}</span><Pencil className="w-3.5 h-3.5 text-[#a59a92] shrink-0" /></button>
+                <div className="mt-2 text-[11px] leading-relaxed text-[#95877f]">{activeIdentity.note}</div>
+              </div>
+            </section>
+            <div className="grid grid-cols-3 gap-2">
+              <button onClick={() => setIdentitySubtab('liked')} className="rounded-2xl bg-[#f7f3f0] p-3 text-left"><div className="text-[18px] font-semibold">{likedTracks.length}</div><div className="mt-1 text-[10px] text-[#94867d]">喜欢</div></button>
+              <button onClick={() => { setIdentitySubtab('together'); setTab('history'); }} className="rounded-2xl bg-[#f7f0f1] p-3 text-left"><div className="text-[18px] font-semibold">{listeningHistory.length}</div><div className="mt-1 text-[10px] text-[#94867d]">一起听记录</div></button>
+              <button onClick={() => setTab('characters')} className="rounded-2xl bg-[#f4f4ef] p-3 text-left"><div className="text-[18px] font-semibold">{characters.length}</div><div className="mt-1 text-[10px] text-[#94867d]">角色</div></button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => setTab('player')} className="rounded-2xl bg-[#2d2724] text-white py-3 text-[11px] font-semibold">进入我的音乐</button>
+              <button onClick={() => setTab('history')} className="rounded-2xl bg-[#f7f3f0] text-[#5f5149] py-3 text-[11px]">听歌记录</button>
+            </div>
+            <div className="flex gap-5 border-b border-[#eee8e3]">
+              <button onClick={() => setIdentitySubtab('liked')} className={'py-2.5 text-[12px] border-b-2 ' + (identitySubtab === 'liked' ? 'border-[#c4989a] text-[#2d2724] font-semibold' : 'border-transparent text-[#9a8d84]')}>喜欢 {likedTracks.length}</button>
+              <button onClick={() => setIdentitySubtab('together')} className={'py-2.5 text-[12px] border-b-2 ' + (identitySubtab === 'together' ? 'border-[#c4989a] text-[#2d2724] font-semibold' : 'border-transparent text-[#9a8d84]')}>一起听 {listeningHistory.length}</button>
+            </div>
+            {identitySubtab === 'liked' ? (
+              likedTracks.length ? <div>{likedTracks.slice(0,8).map(track => (
+                <div key={track.id} className="flex items-center gap-3 py-2.5 border-b border-[#eee8e3]">
+                  <button onClick={() => void playTrack(track)} className="w-11 h-11 rounded-xl overflow-hidden bg-[#f7f3f0] shrink-0 grid place-items-center">{track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" /> : <Music2 className="w-4 h-4 text-[#b5a49b]" />}</button>
+                  <button onClick={() => void playTrack(track)} className="min-w-0 flex-1 text-left"><div className="text-[12px] font-semibold truncate">{track.name}</div><div className="text-[10px] text-[#9a8d84] truncate mt-0.5">{track.artist}</div></button>
+                  <button onClick={() => toggleLiked(track)} className="text-[#c4989a]"><Heart className="w-3.5 h-3.5 fill-current" /></button>
+                </div>
+              ))}</div> : <div className="py-9 text-center"><Music2 className="w-5 h-5 text-[#c5b0aa] mx-auto" /><div className="mt-3 text-[12px] text-[#756760]">还没有喜欢的歌</div><div className="mt-1 text-[10px] text-[#a69a91]">搜索歌曲后，点亮爱心即可加入</div></div>
+            ) : (
+              listeningHistory.length ? <div>{listeningHistory.slice(0,8).map(track => (
+                <div key={track.id} className="flex items-center gap-3 py-2.5 border-b border-[#eee8e3]">
+                  <button onClick={() => void playTrack(track)} className="w-11 h-11 rounded-xl overflow-hidden bg-[#f7f3f0] shrink-0 grid place-items-center">{track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" /> : <Music2 className="w-4 h-4 text-[#b5a49b]" />}</button>
+                  <button onClick={() => void playTrack(track)} className="min-w-0 flex-1 text-left"><div className="text-[12px] font-semibold truncate">{track.name}</div><div className="text-[10px] text-[#9a8d84] truncate mt-0.5">{track.artist}</div></button>
+                </div>
+              ))}</div> : <div className="py-9 text-center"><UsersRound className="w-5 h-5 text-[#c5b0aa] mx-auto" /><div className="mt-3 text-[12px] text-[#756760]">还没有一起听记录</div><div className="mt-1 text-[10px] text-[#a69a91]">开始听歌后，记录会显示在这里</div></div>
+            )}
+          </div>
+        )}
+
         {tab === 'player' && (
           <div className="space-y-5 pt-4">
             <section className="relative overflow-hidden rounded-[28px] border border-[#eee6e0] p-4" style={{ background: 'linear-gradient(135deg,#fbf5f3 0%,#f8f7f4 54%,#f1f5f0 100%)' }}>
@@ -592,6 +688,20 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
           </div>
         )}
       </div>
+        </main>
+      </div>
+
+      {identityEditor && (
+        <div onClick={() => setIdentityEditor(false)} className="absolute inset-0 z-[70] bg-[#2d2724]/30 flex items-end">
+          <div onClick={event => event.stopPropagation()} className="w-full bg-white rounded-t-[28px] p-5 pb-8 space-y-3 shadow-xl">
+            <div className="flex items-center justify-between"><div className="font-serif text-[17px]">{identities.some(identity => identity.id === activeIdentityId) && identityNameDraft === activeIdentity?.name ? '编辑音乐 ID' : '新建音乐 ID'}</div><button onClick={() => setIdentityEditor(false)}><X className="w-4 h-4 text-[#999]" /></button></div>
+            <div className="text-[11px] leading-relaxed text-[#95877f]">每个音乐 ID 都有独立的喜欢列表和听歌记录，切换身份不会混在一起。</div>
+            <label className="block text-[11px] text-[#75675f]">ID 名称<input value={identityNameDraft} onChange={event => setIdentityNameDraft(event.target.value)} maxLength={20} placeholder="给这个音乐身份起个名字" className="mt-1 w-full p-3 rounded-xl bg-[#f8f6f3] text-[12px] outline-none" /></label>
+            <label className="block text-[11px] text-[#75675f]">个人简介<input value={identityNoteDraft} onChange={event => setIdentityNoteDraft(event.target.value)} maxLength={80} placeholder="例如：通勤路上才有空听歌" className="mt-1 w-full p-3 rounded-xl bg-[#f8f6f3] text-[12px] outline-none" /></label>
+            <button onClick={() => identities.some(identity => identity.id === activeIdentityId) && identityNameDraft === activeIdentity?.name ? saveIdentity() : createIdentity()} className="w-full py-3 rounded-full bg-[#2d2724] text-white text-[11px] font-semibold">{identities.some(identity => identity.id === activeIdentityId) && identityNameDraft === activeIdentity?.name ? '保存身份' : '创建并切换'}</button>
+          </div>
+        </div>
+      )}
 
       {showInviteCharacter && (
         <div onClick={() => setShowInviteCharacter(false)} className="absolute inset-0 z-50 bg-[#2d2724]/30 flex items-end">
