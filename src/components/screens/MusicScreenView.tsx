@@ -43,6 +43,8 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
   const [toast, setToast] = useState('');
   const [showApiSettings, setShowApiSettings] = useState(false);
   const [apiBaseUrl, setApiBaseUrl] = useState(() => readMusicApiSettings().baseUrl);
+  const [apiTesting, setApiTesting] = useState(false);
+  const [apiTestStatus, setApiTestStatus] = useState('');
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(() => characters[0]?.id || null);
   const [characterPlaylists, setCharacterPlaylists] = useState<CharacterPlaylist[]>(() => getCharacterPlaylists());
   const [strangerSession, setStrangerSession] = useState<MusicStrangerSession | null>(() => readStrangerSession());
@@ -110,6 +112,35 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
       showToast(error instanceof Error ? error.message : '音乐搜索失败');
     } finally {
       setSearching(false);
+    }
+  };
+
+  const testAndSaveMusicApi = async () => {
+    const baseUrl = apiBaseUrl.trim();
+    if (!baseUrl) {
+      setApiTestStatus('请先填写 API 地址。');
+      return;
+    }
+    if (apiTesting) return;
+    setApiTesting(true);
+    setApiTestStatus('正在测试网易云搜索接口……');
+    const settings = saveMusicApiSettings({ baseUrl });
+    try {
+      const tracks = await searchMusic('周杰伦', settings);
+      if (!tracks.length) {
+        setApiTestStatus('接口有响应，但没有解析到歌曲列表。请确认地址是 API 根地址，并检查接口格式。');
+      } else {
+        setApiTestStatus('连接成功！已找到 ' + tracks.length + ' 首测试歌曲，API 地址已保存。');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setApiTestStatus(
+        /failed to fetch|networkerror|load failed/i.test(message)
+          ? '连接失败：浏览器无法访问此接口。请检查地址、HTTPS 和跨域 CORS 设置。'
+          : '连接失败：' + message
+      );
+    } finally {
+      setApiTesting(false);
     }
   };
 
@@ -516,9 +547,11 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
         <div onClick={() => setShowApiSettings(false)} className="absolute inset-0 z-50 bg-black/25 flex items-end">
           <div onClick={e => e.stopPropagation()} className="w-full bg-white rounded-t-[20px] p-4 pb-6 space-y-3">
             <div className="flex items-center justify-between"><div className="font-semibold text-sm">网易云 Music API</div><button onClick={() => setShowApiSettings(false)}><X className="w-4 h-4 text-[#999]" /></button></div>
-            <div className="text-[8px] text-[#8b8782] leading-relaxed">建议填写你自己部署的 API 代理地址，例如 /api/music/v1。不要把 API 代理绑死在前端。</div>
-            <input value={apiBaseUrl} onChange={e => setApiBaseUrl(e.target.value)} placeholder="/api/music/v1" className="w-full p-2.5 rounded-xl bg-[#f7f7f8] text-[10px] font-mono outline-none" />
-            <button onClick={() => { saveMusicApiSettings({ baseUrl: apiBaseUrl.trim() }); setShowApiSettings(false); showToast('音乐 API 地址已保存'); }} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-xs">保存 API</button>
+            <div className="text-[8px] text-[#8b8782] leading-relaxed">填写网易云 API 的根地址（不是某个具体接口路径）。会使用 /cloudsearch 和 /song/url 等接口。GitHub Pages 不能直接运行后端代理；如果接口跨域被拦截，需要 API 服务端允许 CORS。</div>
+            <input value={apiBaseUrl} onChange={e => { setApiBaseUrl(e.target.value); setApiTestStatus(''); }} placeholder="https://你的音乐API域名" className="w-full p-2.5 rounded-xl bg-[#f7f7f8] text-[10px] font-mono outline-none" />
+            {apiTestStatus && <div className={'text-[9px] leading-relaxed rounded-xl p-2.5 ' + (apiTestStatus.startsWith('连接成功') ? 'bg-[#edf7ef] text-[#386b47]' : apiTestStatus.startsWith('正在') ? 'bg-[#f7f7f8] text-[#777]' : 'bg-[#fff2f0] text-[#a14f48]')}>{apiTestStatus}</div>}
+            <button disabled={apiTesting} onClick={() => void testAndSaveMusicApi()} className="w-full py-2.5 rounded-xl bg-[#292724] text-white text-xs disabled:opacity-50">{apiTesting ? '正在测试…' : '测试连接并保存'}</button>
+            <button onClick={() => { saveMusicApiSettings({ baseUrl: apiBaseUrl.trim() }); setShowApiSettings(false); showToast('音乐 API 地址已保存'); }} className="w-full py-2.5 rounded-xl bg-white border border-black/10 text-[#514b45] text-xs">仅保存地址</button>
           </div>
         </div>
       )}
