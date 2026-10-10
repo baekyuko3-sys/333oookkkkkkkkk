@@ -3265,12 +3265,12 @@ export function LineConversationView({
                 ‹
               </button>
 
-              {/* 顶部大头像：只进入角色完整个人主页。状态栏/拍一拍只属于消息气泡里的小头像。 */}
+              {/* 单聊顶部头像进入角色主页；群聊顶部头像只打开群成员列表，不绑定任何单一角色主页。 */}
               <div className="flex items-center gap-2.5 min-w-0 group">
                 <button
-                  onClick={() => setShowCharacterProfile(true)}
+                  onClick={() => isGroup ? setShowGroupMembers(true) : setShowCharacterProfile(true)}
                   className="relative cursor-pointer"
-                  title="打开角色个人主页"
+                  title={isGroup ? "查看群成员" : "打开角色个人主页"}
                 >
                 <div className="relative">
                   <div className={`w-[38px] h-[38px] rounded-full bg-[#f1f1f2] border border-[#ededee] flex items-center justify-center overflow-hidden shrink-0 group-hover:scale-105 group-hover:ring-2 group-hover:ring-[#d4aab5]/50 transition-all ${
@@ -3292,14 +3292,15 @@ export function LineConversationView({
                 <div
                   onClick={(e) => {
                     e.stopPropagation();
-                    setShowCharacterProfile(true);
+                    if (isGroup) setShowGroupMembers(true);
+                    else setShowCharacterProfile(true);
                   }}
                   className="min-w-0"
-                  title="点击查看角色个人主页"
+                  title={isGroup ? "查看群成员" : "点击查看角色个人主页"}
                 >
                   <div className="flex items-center gap-1.5">
                     <span className="font-semibold text-[14px] text-[#27272a] leading-tight truncate group-hover:text-[#ae7e89] transition-colors">
-                      {characterProfile.nickname}
+                      {isGroup ? (activeGroup?.name || contactName) : characterProfile.nickname}
                     </span>
                     {onSwitchPersona && (
                       <button type="button" onClick={(e) => { e.stopPropagation(); setShowPersonaPicker(true); }} className="shrink-0 px-1.5 py-0.5 rounded-full border border-[#ece9e9] bg-[#fafafa] text-[8px] text-[#8d777d]" title="切换聊天中的我">我 · 切换</button>
@@ -3329,9 +3330,11 @@ export function LineConversationView({
                   </div>
                   <div className="text-[10px] text-[#aaa] mt-0.5 flex items-center gap-1">
                     <span className={contactOnline ? 'text-[#78927e]' : 'text-[#aaa]'}>
-                      {contactOnline
-                        ? tx('在线 · 点击查看主页', 'オンライン · プロフィール')
-                        : tx('离线 · 点击查看主页', 'オフライン · プロフィール')}
+                      {isGroup
+                        ? '群聊 · 点击查看群成员'
+                        : contactOnline
+                          ? tx('在线 · 点击查看主页', 'オンライン · プロフィール')
+                          : tx('离线 · 点击查看主页', 'オフライン · プロフィール')}
                     </span>
                   </div>
 
