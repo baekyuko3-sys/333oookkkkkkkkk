@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowLeft, Play, Pause, SkipBack, SkipForward, Heart, Search, Settings2, UserRoundArrowLeft,
+  ArrowLeft, Play, Pause, SkipBack, SkipForward, Heart, Search, Settings2,
   UsersRound, Shuffle, Music2, UserRound, ChevronRight, Volume2, X, Plus, Pencil, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { ScreenType } from '../../types';
@@ -499,7 +499,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
       <div className="relative z-10 flex flex-1 min-h-0 px-2 pb-2 gap-2">
         <aside className={'shrink-0 flex flex-col items-center border-r border-[#eee8e3] transition-all duration-200 ' + (railCollapsed ? 'w-7' : 'w-[60px]')}>
           <button onClick={() => setRailCollapsed(value => !value)} aria-label={railCollapsed ? '展开音乐 ID 栏' : '收起音乐 ID 栏'} className="w-6 h-7 grid place-items-center text-[#a59a92]">
-              <UserRoundArrowLeft className="w-3.5 h-3.5" strokeWidth={1.6} />
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="10" cy="8" r="5"/><path d="M2 21a8 8 0 0 1 16 0"/><path d={railCollapsed ? "M22 12h-7m0 0 3-3m-3 3 3 3" : "M2 12h7m0 0-3-3m3 3-3 3"}/></svg>
             </button>
           <div className={'flex-1 min-h-0 w-full overflow-y-auto no-scrollbar flex flex-col items-center gap-4 pt-2 ' + (railCollapsed ? 'opacity-0 pointer-events-none' : '')}>
             {identities.map(identity => (
