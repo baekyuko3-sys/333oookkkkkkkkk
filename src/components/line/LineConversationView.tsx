@@ -70,6 +70,8 @@ function splitGeneratedLineMessages(text: string, groupMode = false): string[] {
   const normalized = String(text || '').replace(/\r\n/g, '\n').trim();
   if (!normalized) return [];
   if (!groupMode) {
+    // Keep the original and its translation together as one chat message.
+    if (normalized.includes('[[ZH_TRANSLATION]]')) return [normalized];
     const lines = normalized.split('\n').map(line => line.trim()).filter(Boolean);
     if (lines.length > 1 && lines.every(line => Array.from(line).length <= 80)) return lines;
     return [normalized];
