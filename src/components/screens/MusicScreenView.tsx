@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft, Play, Pause, SkipBack, SkipForward, Heart, Search, Settings2,
-  UsersRound, Shuffle, Music2, UserRound, ChevronRight, Volume2, X,
+  UsersRound, Shuffle, Music2, UserRound, ChevronRight, Volume2, X, Plus, Pencil, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { ScreenType } from '../../types';
 import type { ImportedCharacter } from '../../data/characterImport';
@@ -28,16 +28,24 @@ interface MusicScreenViewProps {
   onNavigate: (screen: ScreenType) => void;
 }
 
-type MusicTab = 'player' | 'search' | 'characters' | 'history' | 'appearance';
+type MusicTab = 'identity' | 'player' | 'search' | 'characters' | 'history' | 'appearance';
+type MusicIdentity = { id: string; name: string; note: string; avatar?: string; likedTracks: MusicTrack[]; history: MusicTrack[] };
 
 export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [characters] = usePersistentState<ImportedCharacter[]>('phone:characters', []);
-  const [likedTracks, setLikedTracks] = usePersistentState<MusicTrack[]>('phone:music-liked-tracks', []);
-  const [listeningHistory, setListeningHistory] = usePersistentState<MusicTrack[]>('phone:music-history', []);
+  const [legacyLikedTracks] = usePersistentState<MusicTrack[]>('phone:music-liked-tracks', []);
+  const [legacyListeningHistory] = usePersistentState<MusicTrack[]>('phone:music-history', []);
+  const [identities, setIdentities] = usePersistentState<MusicIdentity[]>('phone:music-identities-v1', []);
+  const [activeIdentityId, setActiveIdentityId] = usePersistentState<string>('phone:music-active-identity-v1', '');
+  const [railCollapsed, setRailCollapsed] = useState(false);
+  const [identitySubtab, setIdentitySubtab] = useState<'liked' | 'together'>('liked');
+  const [identityEditor, setIdentityEditor] = useState(false);
+  const [identityNameDraft, setIdentityNameDraft] = useState('');
+  const [identityNoteDraft, setIdentityNoteDraft] = useState('');
   const [currentTrack, setCurrentTrack] = useState<MusicTrack | null>(() => readMusicCurrent());
   const [isPlaying, setIsPlaying] = useState(false);
-  const [tab, setTab] = useState<MusicTab>('player');
+  const [tab, setTab] = useState<MusicTab>('identity');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MusicTrack[]>([]);
   const [searching, setSearching] = useState(false);
@@ -52,6 +60,26 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
   const [strangerLoading, setStrangerLoading] = useState(false);
   const [strangerReaction, setStrangerReaction] = useState('');
   const [showInviteCharacter, setShowInviteCharacter] = useState(false);
+
+  const activeIdentity = identities.find(item => item.id === activeIdentityId) || identities[0] || null;
+  const likedTracks = activeIdentity?.likedTracks || [];
+  const listeningHistory = activeIdentity?.history || [];
+  const updateActiveIdentity = (update: (identity: MusicIdentity) => MusicIdentity, identityId = activeIdentity?.id) => {
+    if (!identityId) return;
+    setIdentities(previous => previous.map(identity => identity.id === identityId ? update(identity) : identity));
+  };
+
+  useEffect(() => {
+    if (!identities.length && (legacyLikedTracks.length || legacyListeningHistory.length)) {
+      const first: MusicIdentity = { id: 'music-id-default', name: '我的音乐 ID', note: '给此刻的心情留一首歌', likedTracks: legacyLikedTracks, history: legacyListeningHistory };
+      setIdentities([first]);
+      setActiveIdentityId(first.id);
+    } else if (!identities.length) {
+      const first: MusicIdentity = { id: 'music-id-default', name: '我的音乐 ID', note: '给此刻的心情留一首歌', likedTracks: [], history: [] };
+      setIdentities([first]);
+      setActiveIdentityId(first.id);
+    } else if (!identities.some(item => item.id === activeIdentityId)) setActiveIdentityId(identities[0].id);
+  }, [identities, activeIdentityId, legacyLikedTracks, legacyListeningHistory, setIdentities, setActiveIdentityId]);
 
   const selectedCharacter = useMemo(
     () => characters.find(character => character.id === selectedCharacterId) || null,
@@ -100,7 +128,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
 
       setCurrentTrack(resolved);
       saveMusicCurrent(resolved);
-      setListeningHistory(previous => [resolved, ...previous.filter(item => item.id !== resolved.id)].slice(0, 100));
+      updateActiveIdentity(identity => ({ ...identity, history: [resolved, ...identity.history.filter(item => item.id !== resolved.id)].slice(0, 100) }));
 
       // Start playback directly after resolving the URL. Relying only on the
       // currentTrack effect can miss autoplay because isPlaying may still be false
@@ -377,7 +405,7 @@ export function MusicScreenView({ onNavigate }: MusicScreenViewProps) {
 
   const toggleLiked = (track: MusicTrack) => {
     const exists = likedTracks.some(item => item.id === track.id);
-    setLikedTracks(previous => exists ? previous.filter(item => item.id !== track.id) : [track, ...previous].slice(0, 200));
+    updateActiveIdentity(identity => ({ ...identity, likedTracks: exists ? identity.likedTracks.filter(item => item.id !== track.id) : [track, ...identity.likedTracks].slice(0, 200) }));
     showToast(exists ? '已从喜欢的歌移除' : '已加入喜欢的歌');
   };
 
