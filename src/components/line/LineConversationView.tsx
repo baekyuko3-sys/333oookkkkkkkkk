@@ -1062,6 +1062,7 @@ export function LineConversationView({
   const [groupLorebookActive, setGroupLorebookActive] = usePersistentState<string>(`line:group-style-notes:${conversationStorageId}`, '');
   // 群聊世界书独立选择：仅将用户勾选的条目注入群聊上下文。
   const [selectedGroupWorldBookEntries, setSelectedGroupWorldBookEntries] = usePersistentState<Record<string, string[]>>(`line:group-selected-worldbook-entries:${conversationStorageId}`, {});
+  const [expandedGroupWorldBookId, setExpandedGroupWorldBookId] = useState<string | null>(null);
   // 独立的空白群聊记忆设定入口，不预填任何内容。
   const [groupMemorySettings, setGroupMemorySettings] = usePersistentState<string>(`line:group-memory-settings:${conversationStorageId}`, '');
   const groupWorldbooks = worldbooks
@@ -6017,37 +6018,49 @@ export function LineConversationView({
                           const availableEntries = (book.entries || []).filter(entry => entry.enabled !== false);
                           const allSelected = availableEntries.length > 0 && availableEntries.every(entry => selectedIds.includes(entry.id));
                           return (
-                            <div key={book.id} className="rounded-[10px] border border-[#eee] p-2">
-                              <div className="flex items-center justify-between gap-2 mb-1">
-                                <div className="text-[10px] font-medium text-[#444] truncate">{book.name}</div>
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedGroupWorldBookEntries(prev => ({
-                                    ...prev,
-                                    [book.id]: allSelected ? [] : availableEntries.map(entry => entry.id),
-                                  }))}
-                                  className="text-[9px] text-[#ae7e89] shrink-0"
-                                >{allSelected ? '取消全选' : '全选条目'}</button>
-                              </div>
-                              {availableEntries.length === 0 ? (
-                                <div className="text-[9px] text-[#aaa] py-1">这本世界书没有已启用条目</div>
-                              ) : availableEntries.map(entry => {
-                                const checked = selectedIds.includes(entry.id);
-                                return (
-                                  <label key={entry.id} className="flex items-start gap-2 p-1.5 rounded-lg hover:bg-[#faf7f8] cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={checked}
-                                      onChange={() => setSelectedGroupWorldBookEntries(prev => ({
+                            <div key={book.id} className="rounded-[10px] border border-[#eee] bg-white overflow-hidden">
+                              <button
+                                type="button"
+                                onClick={() => setExpandedGroupWorldBookId(current => current === book.id ? null : book.id)}
+                                className="w-full flex items-center gap-2 p-2.5 text-left hover:bg-[#fcf8f9]"
+                              >
+                                {expandedGroupWorldBookId === book.id ? <ChevronDown className="w-3.5 h-3.5 text-[#ae7e89] shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-[#999] shrink-0" />}
+                                <span className="text-[10px] font-medium text-[#444] flex-1 truncate">{book.name}</span>
+                                <span className="text-[9px] text-[#999] shrink-0">{selectedIds.length}/{availableEntries.length} 条已选</span>
+                              </button>
+                              {expandedGroupWorldBookId === book.id && (
+                                <div className="border-t border-[#f2f2f3] px-2.5 py-2">
+                                  <div className="flex justify-end mb-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedGroupWorldBookEntries(prev => ({
                                         ...prev,
-                                        [book.id]: checked ? selectedIds.filter(id => id !== entry.id) : [...selectedIds, entry.id],
+                                        [book.id]: allSelected ? [] : availableEntries.map(entry => entry.id),
                                       }))}
-                                      className="mt-0.5 accent-[#ae7e89]"
-                                    />
-                                    <span className="text-[9px] text-[#555] leading-relaxed">{entry.name}</span>
-                                  </label>
-                                );
-                              })}
+                                      className="text-[9px] text-[#ae7e89] shrink-0"
+                                    >{allSelected ? '取消全选' : '全选条目'}</button>
+                                  </div>
+                                  {availableEntries.length === 0 ? (
+                                    <div className="text-[9px] text-[#aaa] py-1">这本世界书没有已启用条目</div>
+                                  ) : availableEntries.map(entry => {
+                                    const checked = selectedIds.includes(entry.id);
+                                    return (
+                                      <label key={entry.id} className="flex items-start gap-2 p-1.5 rounded-lg hover:bg-[#faf7f8] cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={checked}
+                                          onChange={() => setSelectedGroupWorldBookEntries(prev => ({
+                                            ...prev,
+                                            [book.id]: checked ? selectedIds.filter(id => id !== entry.id) : [...selectedIds, entry.id],
+                                          }))}
+                                          className="mt-0.5 accent-[#ae7e89]"
+                                        />
+                                        <span className="text-[9px] text-[#555] leading-relaxed">{entry.name}</span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              )}
                             </div>
                           );
                         })}
