@@ -267,6 +267,13 @@ export async function resolveTrackUrl(track: MusicTrack, settings = readMusicApi
     }
   }
 
+  if (settings.provider === 'netease') {
+    const url = new URL(joinUrl(baseUrl, '/song/url/v1/302'), window.location.origin);
+    url.searchParams.set('id', track.id);
+    url.searchParams.set('level', 'standard');
+    return { ...track, playUrl: url.toString() };
+  }
+
   return { ...track, playUrl: '' };
 }
 export async function getMusicPlaylist(playlistId: string, settings = readMusicApiSettings()): Promise<MusicTrack[]> {
