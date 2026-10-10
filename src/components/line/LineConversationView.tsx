@@ -3629,6 +3629,16 @@ export function LineConversationView({
                   </div>
                 )}
 
+                {!msg.isRecalled && (currentDateIsValid || msg.time) && (
+                  <div
+                    title={formatLineMessageExactDateTime(msg, chatTimezone, lineTimeDisplayLocale)}
+                    aria-label={formatLineMessageExactDateTime(msg, chatTimezone, lineTimeDisplayLocale)}
+                    className={`mb-1 px-1 text-[9px] leading-none text-[#a6a6aa] ${isMe ? 'text-right' : 'text-left'}`}
+                  >
+                    {formatLineMessageClock(msg, chatTimezone, lineTimeDisplayLocale)}
+                  </div>
+                )}
+
                 {/* 1.5 引用回复：让聊天真正保留上下文 */}
                 {msg.quote && !msg.isRecalled && (
                   <div
